@@ -23,16 +23,22 @@ def get_obj_stats(obj, owner=None):
         str: A nice info string to display about the object.
 
     """
+    carried = ""
+    if owner:
+        objmap = dict(owner.equipment.all())
+        carried = objmap.get(obj)
+        carried = f", Worn: [{carried.value}]" if carried else ""
+
     return _OBJ_STATS.format(
         key=obj.key,
         value=10,
-        carried="[Not carried]",
+        carried=carried,
         desc=obj.db.desc,
         size=1,
         quality=3,
         uses="infinite",
         use_slot_name="backpack",
-        attack_type_name="strenght",
+        attack_type_name="strength",
         defense_type_name="armor",
         damage_roll="1d6",
     )
