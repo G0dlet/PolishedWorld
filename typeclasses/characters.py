@@ -24,3 +24,17 @@ class Character(ObjectParent, DefaultCharacter):
     """
 
     pass
+
+
+class CharacterBase(Character):
+    def at_object_creation(self):
+        super().at_object_creation()
+        self.db.strength = 10
+        self.db.dexterity = 10
+        self.db.constitution = 10
+        self.db.intelligence = 10
+        self.db.wisdom = 10
+        self.db.charisma = 10
+        self.db.hp = 10
+        self.db.level = 1
+        self.db.xp = 0
