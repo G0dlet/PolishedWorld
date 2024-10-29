@@ -185,3 +185,55 @@ class Command(BaseCommand):
 #                 self.character = self.caller.get_puppet(self.session)
 #             else:
 #                 self.character = None
+
+
+class CmdStats(Command):
+    """
+    Visa dina karaktarsegenskaper.
+
+    Anvandning:
+      stats
+    """
+    key = "stats"
+    locks = "cmd:all()"
+
+    def func(self):
+        char = self.caller
+        stats_str = "Your stats:\n"
+        for stat in char.stats.all():
+            stats_str += f"{stat.name}: {stat.value}\n"
+
+        traits_str = "\nYour traits:\n"
+        for trait in char.traits.all():
+            traits_str += f"{trait.name}: {trait.value}/{trait.max}\n"
+
+        skills_str = "\nYour skills:\n"
+        for skill in char.skills.all():
+            skills_str += f"{skill.name}: {skill.value} ({skill.desc()})\n"
+
+        self.caller.msg(stats_str + traits_str + skills_str)
+
+
+class CmdImproveSkill(Command):
+    """
+    Forbattra en fardighet manuellt (for testning)
+
+    Anvandning:
+      improve <skill> <amount>
+    """
+    key = "improve"
+    locks = "cmd:all()"
+
+    def func(self):
+        if not self.args or len(self.args.split()) != 2:
+            self.caller.msg("Usage: improve <skill> <amount>")
+            return
+
+        skill, amount = self.args.split()
+        try:
+            amount = int(amount)
+        except ValueError:
+            self.caller.msg("Amount must be a number.")
+            return
+
+        self.caller.improve_skill(skill, amount)

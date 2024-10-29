@@ -101,3 +101,18 @@ class Script(DefaultScript):
     """
 
     pass
+
+
+class TraitsUpdateScript(Script):
+    """Script that handles periodic updates of character traits."""
+
+    def at_script_creation(self):
+        self.key = "traits_update_system"
+        self.desc = "Handles periodic updates of character traits"
+        self.interval = 60 * 5  # Run every 5 minutes
+        self.persistent = True
+
+    def at_repeat(self):
+        """Called every interval."""
+        if self.obj:
+            self.obj.update_survival_needs(self.interval)
