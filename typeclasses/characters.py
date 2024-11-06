@@ -29,7 +29,6 @@ class Character(ObjectParent, DefaultCharacter):
 class CharacterBase(Character):
     def at_object_creation(self):
         super().at_object_creation()
-<<<<<<< HEAD
 
         # Grundlaggande attribute
         self.setup_stats()
@@ -165,14 +164,3 @@ class CharacterBase(Character):
             if current_charisma < self.stats.charisma.max:
                 self.stats.charisma.base += 1
                 self.msg("Your charisma has improved from talking!")
-=======
-        self.db.strength = 10
-        self.db.dexterity = 10
-        self.db.constitution = 10
-        self.db.intelligence = 10
-        self.db.wisdom = 10
-        self.db.charisma = 10
-        self.db.hp = 10
-        self.db.level = 1
-        self.db.xp = 0
->>>>>>> parent of b116f62 (Work in prograss)

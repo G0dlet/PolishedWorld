@@ -185,7 +185,6 @@ class Command(BaseCommand):
 #                 self.character = self.caller.get_puppet(self.session)
 #             else:
 #                 self.character = None
-<<<<<<< HEAD
 
 
 class CmdStats(Command):
@@ -294,5 +293,3 @@ class CmdImproveSkill(Command):
             return
 
         self.caller.improve_skill(skill, amount)
-=======
->>>>>>> parent of b116f62 (Work in prograss)
