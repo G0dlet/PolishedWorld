@@ -185,3 +185,114 @@ class Command(BaseCommand):
 #                 self.character = self.caller.get_puppet(self.session)
 #             else:
 #                 self.character = None
+<<<<<<< HEAD
+
+
+class CmdStats(Command):
+    """
+    Visa dina karaktärsegenskaper.
+
+    Användning:
+      stats
+    """
+    key = "stats"
+    locks = "cmd:all()"
+
+    def func(self):
+        char = self.caller
+        output = []
+
+        # Stats section
+        output.append("|w=== Stats ===|n")
+        stats = char.stats.trait_data
+        for stat_name in ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]:
+            if stat_name in stats:
+                value = int(stats[stat_name].get("base", 0) + stats[stat_name].get("mod", 0))
+                output.append(f"|y{stat_name.capitalize()}:|n {value}")
+
+        # Traits section
+        output.append("\n|w=== Traits ===|n")
+        traits = char.traits.trait_data
+        for trait_name in ["hunger", "thirst", "fatigue", "health"]:
+            if trait_name in traits:
+                current = round(float(traits[trait_name].get("current", traits[trait_name].get("base", 0))), 1)
+                maximum = traits[trait_name].get("max", 100)
+                
+                # Skapa en progress bar
+                bar_length = 20
+                filled = int((current / maximum) * bar_length)
+                bar = "=" * filled + "-" * (bar_length - filled)
+                
+                # Välj färg baserat på värde
+                if current/maximum >= 0.7:
+                    color = "|r"  # Röd för höga värden (dåligt för hunger/thirst/fatigue)
+                elif current/maximum >= 0.3:
+                    color = "|y"  # Gul för medium värden
+                else:
+                    color = "|g"  # Grön för låga värden
+                
+                # Specialfall för health där färgerna är omvända
+                if trait_name == "health":
+                    if current/maximum >= 0.7:
+                        color = "|g"  # Grön för hög hälsa
+                    elif current/maximum >= 0.3:
+                        color = "|y"  # Gul för medium hälsa
+                    else:
+                        color = "|r"  # Röd för låg hälsa
+                
+                output.append(f"|y{trait_name.capitalize()}:|n [{color}{bar}|n] {current}/{maximum}")
+
+        # Skills section
+        output.append("\n|w=== Skills ===|n")
+        skills = char.skills.trait_data
+        for skill_name in ["hunting", "crafting", "fishing", "mining", "woodcutting"]:
+            if skill_name in skills:
+                value = round(float(skills[skill_name].get("base", 0) + skills[skill_name].get("mod", 0)), 1)
+                
+                # Bestäm skill level text och färg
+                if value >= 80:
+                    level_text = "|gExpert|n"
+                elif value >= 60:
+                    level_text = "|gProficient|n"
+                elif value >= 40:
+                    level_text = "|yCompetent|n"
+                elif value >= 20:
+                    level_text = "|yNovice|n"
+                else:
+                    level_text = "|wBeginner|n"
+                
+                output.append(f"|y{skill_name.capitalize()}:|n {value} ({level_text})")
+
+        # Lägg till en separator längst upp och längst ner
+        separator = "-" * 60
+        output.insert(0, separator)
+        output.append(separator)
+
+        # Skicka all output till spelaren
+        self.caller.msg("\n".join(output))
+
+class CmdImproveSkill(Command):
+    """
+    Forbattra en fardighet manuellt (for testning)
+
+    Anvandning:
+      improve <skill> <amount>
+    """
+    key = "improve"
+    locks = "cmd:all()"
+
+    def func(self):
+        if not self.args or len(self.args.split()) != 2:
+            self.caller.msg("Usage: improve <skill> <amount>")
+            return
+
+        skill, amount = self.args.split()
+        try:
+            amount = int(amount)
+        except ValueError:
+            self.caller.msg("Amount must be a number.")
+            return
+
+        self.caller.improve_skill(skill, amount)
+=======
+>>>>>>> parent of b116f62 (Work in prograss)
