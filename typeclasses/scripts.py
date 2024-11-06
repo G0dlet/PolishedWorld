@@ -101,3 +101,23 @@ class Script(DefaultScript):
     """
 
     pass
+
+
+class TraitsUpdateScript(Script):
+    """Script that handles periodic updates of character traits."""
+
+    def at_script_creation(self):
+        """Called when script is first created."""
+        self.key = "traits_update_system"
+        self.desc = "Handles periodic updates of character traits"
+        self.interval = 300  # 60*5, Run every 5 minutes, skriv som ett tal
+        self.persistent = True
+        self.start_delay = False  # Starta direkt
+
+    def at_repeat(self):
+        """Called every interval."""
+        if self.obj:
+            try:
+                self.obj.update_all_traits(self.interval)
+            except Exception as e:
+                self.obj.msg(f"Error in trait update system: {e}")
