@@ -1,9 +1,0 @@
-{
-  "pythonPath": "/home/adam/muddev/evenv/bin/python",
-  "venvPath": "/home/adam/muddev",
-  "venv": "evenv",
-  "extraPaths": [
-    "/home/adam/muddev/evennia",
-    "/sökväg/till/andra/externa/bibliotek"
-  ]
-}

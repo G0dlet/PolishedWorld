@@ -101,6 +101,7 @@ class Script(DefaultScript):
     """
 
     pass
+<<<<<<< HEAD
 
 
 class TraitsUpdateScript(Script):
@@ -121,3 +122,5 @@ class TraitsUpdateScript(Script):
                 self.obj.update_all_traits(self.interval)
             except Exception as e:
                 self.obj.msg(f"Error in trait update system: {e}")
+=======
+>>>>>>> parent of b116f62 (Work in prograss)
