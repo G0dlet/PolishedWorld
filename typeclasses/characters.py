@@ -106,35 +106,55 @@ class CharacterBase(ClothedCharacter):
             80: "expert",
             95: "master"
         }
-        getattr(self.skills, skill_key).decs = skill_descs
+        getattr(self.skills, skill_key).descs = skill_descs
 
     def calculate_skill_modifier(self, skill_name):
         if skill_name in ["hunting", "fishing"]:
             return (self.stats.dexterity.value - 10) // 2
         elif skill_name in ["crafting", "mining"]:
-            return (self.stats.strenght.value - 10) // 2
+            return (self.stats.strength.value - 10) // 2
         elif skill_name in ["woodcutting"]:
-            return (self.stats.constitution.value - 1) // 2
+            return (self.stats.constitution.value - 10) // 2
         return 0
 
     def update_survival_needs(self, time_passed):
         trait_rates = {
-            "hunger": 1,    # hunger points per hour
-            "thirst": 1.5,  # thirst points per hour
-            "fatigue": 0.5  # fatigue points per hour
+            "hunger": 1.0,    # hunger points per hour
+            "thirst": 1.5,    # thirst points per hour
+            "fatigue": 0.5    # fatigue points per hour
         }
 
-        time_in_hours = time_passed / 3600  # convert seconds to hours
+        # self.msg(f"update_survival_needs: time_passed = {time_passed} seconds")
+        time_in_hours = float(time_passed) / 3600.0
+        # self.msg(f"update_survival_needs: time_in_hours = {time_in_hours}")
 
-        for tratit, rate in trait_rates.items():
-            if hasattr(self.traits, trait):
-                current_value = getattr(self.trraits, trait).current
-                new_value = current_value + (rate * time_in_hours)
-                getattr(self.traits, trait).current = min(new_value, getattr(self.traits, trasit).max)
-
-                if getattr(self.traits, trait).percent() >= 80:
-                    self.msg(f"You are felling very {trait}!")
-
+        for trait_name, rate in trait_rates.items():
+            try:
+                trait_data = self.traits.trait_data.get(trait_name, {})
+                if not trait_data:
+                    continue
+                
+                old_value = trait_data.get("current", trait_data.get("base", 0))
+                max_value = trait_data.get("max", 100)
+                change = rate * time_in_hours
+                new_value = min(old_value + change, max_value)
+            
+                # Debug information
+                # self.msg(f"Updating {trait_name}:")
+                # self.msg(f"- Rate: {rate}/hour")
+                # self.msg(f"- Old value: {old_value}")
+                # self.msg(f"- Change: +{change}")
+                # self.msg(f"- New value: {new_value}")
+            
+                # Uppdatera värdet direkt i trait_data
+                self.traits.trait_data[trait_name]["current"] = new_value
+            
+                if (new_value / max_value) >= 0.8:
+                    self.msg(f"You are feeling very {trait_name}!")
+                
+            except Exception as e:
+                self.msg(f"Error updating {trait_name}: {str(e)}")
+    
     def update_all_traits(self, time_passed):
         self.update_survival_needs(time_passed)
 
