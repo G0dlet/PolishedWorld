@@ -16,6 +16,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 from evennia import default_cmds
 from .command import CmdStats, CmdImproveSkill
+from .plant_commands import PlantCmdSet
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -36,6 +37,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         #
         self.add(CmdStats())
         self.add(CmdImproveSkill())
+        self.add(PlantCmdSet)
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
