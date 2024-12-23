@@ -88,3 +88,18 @@ See the `spawn` command and `evennia.prototypes.spawner.spawn` for more info.
 # "key": "goblin archwizard",
 # "prototype_parent" : ("GOBLIN_WIZARD", "ARCHWIZARD_MIXIN")
 # }
+
+
+SEED_PROTOTYPES = {
+    "ROSE_SEED": {
+        "typeclass": "typeclasses.plants.Seed",
+        "key": "rose seed",
+        "desc": "A small rose seed",
+        "attrs": [("plant_type", "rose")]
+    },
+    "TREE_SEED": {
+        "typeclass": "typeclasses.plants.Seed",
+        "key": "tree seed",
+        "desc": "A large tree seed.",
+        "attrs": [("plant_type", "tree")] }
+}

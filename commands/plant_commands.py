@@ -1,7 +1,10 @@
-from evennia import Command, CmdSet
+from world.prototypes import SEED_PROTOTYPES
+from evennia import Command, CmdSet, spawn
 from evennia import create_object
 from evennia.utils import search
-from typeclasses.plants import Plant  # Importera dina växtklasser
+from evennia.utils.utils import inherits_from
+from typeclasses.plants import Plant, Seed  # Importera dina växtklasser
+from typeclasses.compost import Compost
 
 class CmdPlant(Command):
     """
@@ -23,17 +26,38 @@ class CmdPlant(Command):
         caller = self.caller
         
         if not self.args:
-            caller.msg("Vad vill du plantera?")
+            caller.msg("What do you whant to plant?")
             return
             
-        plant_type = self.args.strip().lower()
-        
-        if plant_type in ["tall", "ek", "björk"]:
-            new_plant = create_object(Tree, key=plant_type, location=caller.location)
-            caller.msg(f"Du planterar en {plant_type}.")
-        else:
-            new_plant = create_object(Plant, key=plant_type, location=caller.location)
-            caller.msg(f"Du planterar en {plant_type}.")
+        seed = caller.search(self.args, location=caller)
+        if not seed:
+            return
+
+        if not inherits_from(seed, "typeclasses.plants.Seed"):
+            caller.msg("You can only plant seeds.")
+            return
+
+        plant_type = seed.db.plant_type
+        if not plant_type:
+            caller.msg("This seed appears to be dead.")
+            return
+
+        # Create the plant
+        new_plant = create_object(
+            Plant,
+            key=plant_type,
+            location=caller.location
+        )
+
+        # Remove the seed
+        seed.delete()
+
+        caller.msg(f"You plant the {plant_type} seed.")
+        caller.location.msg_contents(
+            f"$You() $conj(plant) a {plant_type} seed.",
+            from_obj=caller,
+            exclude=caller
+        )
 
 class CmdHarvest(Command):
     """
@@ -149,6 +173,31 @@ class CmdCollectCompost(Command):
         else:
             self.caller.msg("Komposten innehåller ingen näring.")
 
+class CmdCreateSeed(Command):
+    """
+    Create a seed for testing.
+    
+    Usage:
+      createseed <seedtype>
+    """
+
+    key = "createseed"
+    locks = "cmd:perm(Builder)"
+
+    def func(self):
+        if not self.args:
+            self.caller.msg("Usage: createseed <seedtype>")
+            return
+
+        seedtype = self.args.strip().upper() + "_SEED"
+        if seedtype not in SEED_PROTOTYPES:
+            self.caller.msg(f"Invalid seed type. Valid types are: {', '.join(SEED_PROTOTYPES.keys())}")
+            return
+
+        seed = spawn(SEED_PROTOTYPES[seedtype], location=self.caller)[0]
+        self.caller.msg(f"Created {seed.key}.")
+
+
 class PlantCmdSet(CmdSet):
     """
     Samlar alla växt-relaterade kommandon.
@@ -159,3 +208,4 @@ class PlantCmdSet(CmdSet):
         self.add(CmdHarvest())
         self.add(CmdChop())
         self.add(CmdCollectCompost())
+        self.add(CmdCreateSeed())
