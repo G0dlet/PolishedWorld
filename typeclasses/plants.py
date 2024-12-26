@@ -198,12 +198,62 @@ class Plant(Object):
 
 
 class Seed(Object):
-    """A seed that can be planted to grow into a plant."""
+    """A seed that can be planted to grow into a plant, and might grow on its own."""
 
     def at_object_creation(self):
         """Set up the basic seed properties."""
         super().at_object_creation()
         self.db.plant_type = None  # Type of plant this will grow into
+
+        # Schemalägg potentiell självplantering
+        growth_check_time = randint(300, 900)  # 5-15 minuter
+        utils.delay(growth_check_time, self.check_natural_growth)
+
+    def check_natural_growth(self):
+        """
+        Kontrollera om fröet ska gro av sig själv.
+        """
+        # Debug: Start av kontroll
+        self.location.msg_contents(f"|yDEBUG: Checking if {self.key} should grow naturally.|n")
+    
+        if not self.location:
+            return
+        
+        # Kontrollera om platsen är ett rum genom att se om den har en location
+        # Rum har ingen location (är på "topp-nivå")
+        if self.location.location is not None:
+            self.location.msg_contents(f"|rDEBUG: {self.key} not on ground (in room).|n")
+            return
+            
+        # 10% chans att gro
+        growth_roll = random()
+        self.location.msg_contents(f"|yDEBUG: Growth roll for {self.key}: {growth_roll} (needs < 0.1 to grow)|n")
+    
+        if random() < 0.1:
+            # Skapa växten
+            try:
+                new_plant = create_object(
+                    Plant,
+                    key=self.db.plant_type,
+                    location=self.location
+                )
+                
+                self.location.msg_contents(
+                    f"A {self.db.plant_type} sprouts from a seed on the ground."
+                )
+                # Debug: Framgångsrik groning
+                self.location.msg_contents(f"|gDEBUG: {self.key} successfully sprouted into a plant.|n")
+                # Ta bort fröet
+                self.delete()
+            except Exception as e:
+                self.location.msg_contents(f"Error growing plant: {e}")
+        else:
+            # Om fröet inte grodde, schemalägg en ny kontroll
+            growth_check_time = randint(300, 900)  # 5-15 minuter
+            self.location.msg_contents(
+                f"|yDEBUG: {self.key} did not sprout. Next check in {growth_check_time} seconds.|n"
+            )
+            utils.delay(growth_check_time, self.check_natural_growth)
 
     def return_appearance(self, looker, **kwargs):
         """Show what type of plant this seed will grow."""
