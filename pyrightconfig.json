@@ -1,0 +1,10 @@
+{
+  "pythonPath": "/home/adam/muddev/evenv/bin/python",
+  "venvPath": "/home/adam/muddev",
+  "venv": "evenv",
+  "extraPaths": [
+    "/home/adam/muddev/PolishedWorld",
+    "/home/adam/muddev/evennia",
+    "/home/adam/muddev/evenv/lib/python3.x/site-packages"
+  ]
+}
