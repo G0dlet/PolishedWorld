@@ -1,6 +1,6 @@
-from evennia import DefaultObject
+from .objects import Object
 
-class Compost(DefaultObject):
+class Compost(Object):
     """
     Ett kompostobjekt som skapas när en växt dör.
     """
