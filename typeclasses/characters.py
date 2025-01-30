@@ -34,12 +34,12 @@ class CharacterBase(ClothedCharacter):
     """Base Characterclass for PolishedWorld."""
 
     @lazy_property
-    def traits(self):
-        return TraitHandler(self)
-
-    @lazy_property
     def stats(self):
         return TraitHandler(self, db_attribute_key="stats")
+
+    @lazy_property
+    def traits(self):
+        return TraitHandler(self, db_attribute_key="traits")
 
     @lazy_property
     def skills(self):
