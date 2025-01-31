@@ -15,6 +15,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 """
 
 from evennia import default_cmds
+from evennia.contrib.game_systems.clothing import ClothedCharacterCmdSet
 from .command import CmdStats, CmdImproveSkill
 from .plant_commands import PlantCmdSet
 
@@ -38,6 +39,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdStats())
         self.add(CmdImproveSkill())
         self.add(PlantCmdSet)
+        self.add(ClothedCharacterCmdSet)
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
