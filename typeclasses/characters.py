@@ -1,3 +1,4 @@
+# typeclasses/characters.py
 """
 Characters
 
@@ -13,6 +14,7 @@ character system with stats, survival needs, and skills.
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 from evennia.contrib.rpg.traits import TraitHandler
+from django.conf import settings
 
 from .objects import ObjectParent
 
@@ -24,6 +26,11 @@ class Character(ObjectParent, DefaultCharacter):
     1. Stats (static traits): Core attributes like strength, dexterity
     2. Traits (gauge traits): Survival needs with auto-decay (hunger, thirst, fatigue)
     3. Skills (counter traits): Learnable abilities that progress over time
+    
+    The survival traits decay based on game time, using the custom gametime
+    system. With TIME_FACTOR = 4:
+    - 1 real hour = 4 game hours
+    - Traits decay per game hour as configured
     
     Example usage:
         # Access stats
@@ -92,18 +99,21 @@ class Character(ObjectParent, DefaultCharacter):
         # All start at 100 (full) and decay toward 0
         # Note: In Evennia's desc() implementation, the dict key represents the
         # upper bound (inclusive) for that description, not the lower bound.
+        # 
+        # IMPORTANT: The rate is per SECOND in the trait system, but we'll
+        # use a TickerHandler to update per game hour instead
         self.traits.add("hunger", "Hunger", trait_type="gauge", 
-                       base=100, mod=0, min=0, rate=-2.0,
+                       base=100, mod=0, min=0, rate=-2.0,  # Will be applied per game hour
                        descs={19: "starving", 39: "very hungry", 59: "hungry", 
                              79: "peckish", 99: "satisfied", 100: "full"})
         
         self.traits.add("thirst", "Thirst", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=-3.0,
+                       base=100, mod=0, min=0, rate=-3.0,  # Will be applied per game hour
                        descs={19: "dehydrated", 39: "parched", 59: "thirsty",
                              79: "slightly thirsty", 99: "refreshed", 100: "hydrated"})
         
         self.traits.add("fatigue", "Fatigue", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=-1.0,
+                       base=100, mod=0, min=0, rate=-1.0,  # Will be applied per game hour
                        descs={19: "exhausted", 39: "very tired", 59: "tired",
                              79: "slightly tired", 99: "rested", 100: "energized"})
         
@@ -257,3 +267,39 @@ class Character(ObjectParent, DefaultCharacter):
                 summary_parts.append(f"{skill_name.title()}: {value} ({desc})")
     
         return "\n".join(summary_parts)
+    
+    def get_time_info(self):
+        """
+        Get current game time information relevant to the character.
+        
+        Returns:
+            dict: Dictionary with time-related information
+        """
+        from world.gametime_utils import (
+            get_current_season, get_time_of_day, 
+            format_game_date, get_seasonal_modifier
+        )
+        
+        return {
+            "date": format_game_date(),
+            "time_of_day": get_time_of_day(),
+            "season": get_current_season(),
+            "seasonal_modifiers": get_seasonal_modifier(),
+        }
+    
+    def apply_seasonal_fatigue_modifier(self):
+        """
+        Apply seasonal modifiers to fatigue rate.
+        This will be called by the TickerHandler.
+        
+        Note: This is preparation for the TickerHandler step.
+        """
+        from world.gametime_utils import get_seasonal_modifier
+        
+        modifiers = get_seasonal_modifier()
+        fatigue_mod = modifiers.get("fatigue_rate", 1.0)
+        
+        # Store the modifier for use by TickerHandler
+        self.db.seasonal_fatigue_modifier = fatigue_mod
+        
+        return fatigue_mod

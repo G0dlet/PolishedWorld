@@ -15,7 +15,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 """
 
 from evennia import default_cmds
-
+from commands.time_commands import CmdTime, CmdUptime
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -34,6 +34,9 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
+        # Add time-related commands
+        self.add(CmdTime())
+        self.add(CmdUptime())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

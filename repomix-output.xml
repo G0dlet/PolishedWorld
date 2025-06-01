@@ -1,0 +1,3303 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+commands/
+  command.py
+  default_cmdsets.py
+  README.md
+server/
+  conf/
+    __init__.py
+    at_initial_setup.py
+    at_search.py
+    at_server_startstop.py
+    cmdparser.py
+    connection_screens.py
+    inlinefuncs.py
+    inputfuncs.py
+    lockfuncs.py
+    mssp.py
+    portal_services_plugins.py
+    server_services_plugins.py
+    serversession.py
+    settings.py
+    web_plugins.py
+  logs/
+    README.md
+  __init__.py
+  README.md
+typeclasses/
+  accounts.py
+  channels.py
+  characters.py
+  exits.py
+  objects.py
+  README.md
+  rooms.py
+  scripts.py
+web/
+  admin/
+    README.md
+    urls.py
+  static/
+    rest_framework/
+      css/
+        README.md
+      images/
+        README.md
+    webclient/
+      css/
+        README.md
+      js/
+        README.md
+    website/
+      css/
+        README.md
+      images/
+        README.md
+    README.md
+  templates/
+    rest_framework/
+      README.md
+    webclient/
+      README.md
+    website/
+      flatpages/
+        README.md
+      registration/
+        README.md
+      README.md
+    README.md
+  webclient/
+    README.md
+    urls.py
+  website/
+    README.md
+    urls.py
+  README.md
+  urls.py
+world/
+  tests/
+    __init__.py
+    test_characters.py
+  batch_cmds.ev
+  help_entries.py
+  prototypes.py
+  README.md
+.gitattributes
+.gitignore
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="commands/command.py">
+"""
+Commands
+
+Commands describe the input the account can do to the game.
+
+"""
+
+from evennia.commands.command import Command as BaseCommand
+
+# from evennia import default_cmds
+
+
+class Command(BaseCommand):
+    """
+    Base command (you may see this if a child command had no help text defined)
+
+    Note that the class's `__doc__` string is used by Evennia to create the
+    automatic help entry for the command, so make sure to document consistently
+    here. Without setting one, the parent's docstring will show (like now).
+
+    """
+
+    # Each Command class implements the following methods, called in this order
+    # (only func() is actually required):
+    #
+    #     - at_pre_cmd(): If this returns anything truthy, execution is aborted.
+    #     - parse(): Should perform any extra parsing needed on self.args
+    #         and store the result on self.
+    #     - func(): Performs the actual work.
+    #     - at_post_cmd(): Extra actions, often things done after
+    #         every command, like prompts.
+    #
+    pass
+
+
+# -------------------------------------------------------------
+#
+# The default commands inherit from
+#
+#   evennia.commands.default.muxcommand.MuxCommand.
+#
+# If you want to make sweeping changes to default commands you can
+# uncomment this copy of the MuxCommand parent and add
+#
+#   COMMAND_DEFAULT_CLASS = "commands.command.MuxCommand"
+#
+# to your settings file. Be warned that the default commands expect
+# the functionality implemented in the parse() method, so be
+# careful with what you change.
+#
+# -------------------------------------------------------------
+
+# from evennia.utils import utils
+#
+#
+# class MuxCommand(Command):
+#     """
+#     This sets up the basis for a MUX command. The idea
+#     is that most other Mux-related commands should just
+#     inherit from this and don't have to implement much
+#     parsing of their own unless they do something particularly
+#     advanced.
+#
+#     Note that the class's __doc__ string (this text) is
+#     used by Evennia to create the automatic help entry for
+#     the command, so make sure to document consistently here.
+#     """
+#     def has_perm(self, srcobj):
+#         """
+#         This is called by the cmdhandler to determine
+#         if srcobj is allowed to execute this command.
+#         We just show it here for completeness - we
+#         are satisfied using the default check in Command.
+#         """
+#         return super().has_perm(srcobj)
+#
+#     def at_pre_cmd(self):
+#         """
+#         This hook is called before self.parse() on all commands
+#         """
+#         pass
+#
+#     def at_post_cmd(self):
+#         """
+#         This hook is called after the command has finished executing
+#         (after self.func()).
+#         """
+#         pass
+#
+#     def parse(self):
+#         """
+#         This method is called by the cmdhandler once the command name
+#         has been identified. It creates a new set of member variables
+#         that can be later accessed from self.func() (see below)
+#
+#         The following variables are available for our use when entering this
+#         method (from the command definition, and assigned on the fly by the
+#         cmdhandler):
+#            self.key - the name of this command ('look')
+#            self.aliases - the aliases of this cmd ('l')
+#            self.permissions - permission string for this command
+#            self.help_category - overall category of command
+#
+#            self.caller - the object calling this command
+#            self.cmdstring - the actual command name used to call this
+#                             (this allows you to know which alias was used,
+#                              for example)
+#            self.args - the raw input; everything following self.cmdstring.
+#            self.cmdset - the cmdset from which this command was picked. Not
+#                          often used (useful for commands like 'help' or to
+#                          list all available commands etc)
+#            self.obj - the object on which this command was defined. It is often
+#                          the same as self.caller.
+#
+#         A MUX command has the following possible syntax:
+#
+#           name[ with several words][/switch[/switch..]] arg1[,arg2,...] [[=|,] arg[,..]]
+#
+#         The 'name[ with several words]' part is already dealt with by the
+#         cmdhandler at this point, and stored in self.cmdname (we don't use
+#         it here). The rest of the command is stored in self.args, which can
+#         start with the switch indicator /.
+#
+#         This parser breaks self.args into its constituents and stores them in the
+#         following variables:
+#           self.switches = [list of /switches (without the /)]
+#           self.raw = This is the raw argument input, including switches
+#           self.args = This is re-defined to be everything *except* the switches
+#           self.lhs = Everything to the left of = (lhs:'left-hand side'). If
+#                      no = is found, this is identical to self.args.
+#           self.rhs: Everything to the right of = (rhs:'right-hand side').
+#                     If no '=' is found, this is None.
+#           self.lhslist - [self.lhs split into a list by comma]
+#           self.rhslist - [list of self.rhs split into a list by comma]
+#           self.arglist = [list of space-separated args (stripped, including '=' if it exists)]
+#
+#           All args and list members are stripped of excess whitespace around the
+#           strings, but case is preserved.
+#         """
+#         raw = self.args
+#         args = raw.strip()
+#
+#         # split out switches
+#         switches = []
+#         if args and len(args) > 1 and args[0] == "/":
+#             # we have a switch, or a set of switches. These end with a space.
+#             switches = args[1:].split(None, 1)
+#             if len(switches) > 1:
+#                 switches, args = switches
+#                 switches = switches.split('/')
+#             else:
+#                 args = ""
+#                 switches = switches[0].split('/')
+#         arglist = [arg.strip() for arg in args.split()]
+#
+#         # check for arg1, arg2, ... = argA, argB, ... constructs
+#         lhs, rhs = args, None
+#         lhslist, rhslist = [arg.strip() for arg in args.split(',')], []
+#         if args and '=' in args:
+#             lhs, rhs = [arg.strip() for arg in args.split('=', 1)]
+#             lhslist = [arg.strip() for arg in lhs.split(',')]
+#             rhslist = [arg.strip() for arg in rhs.split(',')]
+#
+#         # save to object properties:
+#         self.raw = raw
+#         self.switches = switches
+#         self.args = args.strip()
+#         self.arglist = arglist
+#         self.lhs = lhs
+#         self.lhslist = lhslist
+#         self.rhs = rhs
+#         self.rhslist = rhslist
+#
+#         # if the class has the account_caller property set on itself, we make
+#         # sure that self.caller is always the account if possible. We also create
+#         # a special property "character" for the puppeted object, if any. This
+#         # is convenient for commands defined on the Account only.
+#         if hasattr(self, "account_caller") and self.account_caller:
+#             if utils.inherits_from(self.caller, "evennia.objects.objects.DefaultObject"):
+#                 # caller is an Object/Character
+#                 self.character = self.caller
+#                 self.caller = self.caller.account
+#             elif utils.inherits_from(self.caller, "evennia.accounts.accounts.DefaultAccount"):
+#                 # caller was already an Account
+#                 self.character = self.caller.get_puppet(self.session)
+#             else:
+#                 self.character = None
+</file>
+
+<file path="commands/default_cmdsets.py">
+"""
+Command sets
+
+All commands in the game must be grouped in a cmdset.  A given command
+can be part of any number of cmdsets and cmdsets can be added/removed
+and merged onto entities at runtime.
+
+To create new commands to populate the cmdset, see
+`commands/command.py`.
+
+This module wraps the default command sets of Evennia; overloads them
+to add/remove commands from the default lineup. You can create your
+own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
+
+"""
+
+from evennia import default_cmds
+
+
+class CharacterCmdSet(default_cmds.CharacterCmdSet):
+    """
+    The `CharacterCmdSet` contains general in-game commands like `look`,
+    `get`, etc available on in-game Character objects. It is merged with
+    the `AccountCmdSet` when an Account puppets a Character.
+    """
+
+    key = "DefaultCharacter"
+
+    def at_cmdset_creation(self):
+        """
+        Populates the cmdset
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+
+
+class AccountCmdSet(default_cmds.AccountCmdSet):
+    """
+    This is the cmdset available to the Account at all times. It is
+    combined with the `CharacterCmdSet` when the Account puppets a
+    Character. It holds game-account-specific commands, channel
+    commands, etc.
+    """
+
+    key = "DefaultAccount"
+
+    def at_cmdset_creation(self):
+        """
+        Populates the cmdset
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+
+
+class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
+    """
+    Command set available to the Session before being logged in.  This
+    holds commands like creating a new account, logging in, etc.
+    """
+
+    key = "DefaultUnloggedin"
+
+    def at_cmdset_creation(self):
+        """
+        Populates the cmdset
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+
+
+class SessionCmdSet(default_cmds.SessionCmdSet):
+    """
+    This cmdset is made available on Session level once logged in. It
+    is empty by default.
+    """
+
+    key = "DefaultSession"
+
+    def at_cmdset_creation(self):
+        """
+        This is the only method defined in a cmdset, called during
+        its creation. It should populate the set with command instances.
+
+        As and example we just add the empty base `Command` object.
+        It prints some info.
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+</file>
+
+<file path="commands/README.md">
+# commands/
+
+This folder holds modules for implementing one's own commands and
+command sets. All the modules' classes are essentially empty and just
+imports the default implementations from Evennia; so adding anything
+to them will start overloading the defaults. 
+
+You can change the organisation of this directory as you see fit, just
+remember that if you change any of the default command set classes'
+locations, you need to add the appropriate paths to
+`server/conf/settings.py` so that Evennia knows where to find them.
+Also remember that if you create new sub directories you must put
+(optionally empty) `__init__.py` files in there so that Python can
+find your modules.
+</file>
+
+<file path="server/conf/__init__.py">
+# -*- coding: utf-8 -*-
+</file>
+
+<file path="server/conf/at_initial_setup.py">
+"""
+At_initial_setup module template
+
+Custom at_initial_setup method. This allows you to hook special
+modifications to the initial server startup process. Note that this
+will only be run once - when the server starts up for the very first
+time! It is called last in the startup process and can thus be used to
+overload things that happened before it.
+
+The module must contain a global function at_initial_setup().  This
+will be called without arguments. Note that tracebacks in this module
+will be QUIETLY ignored, so make sure to check it well to make sure it
+does what you expect it to.
+
+"""
+
+
+def at_initial_setup():
+    pass
+</file>
+
+<file path="server/conf/at_search.py">
+"""
+Search and multimatch handling
+
+This module allows for overloading two functions used by Evennia's
+search functionality:
+
+    at_search_result:
+        This is called whenever a result is returned from an object
+        search (a common operation in commands).  It should (together
+        with at_multimatch_input below) define some way to present and
+        differentiate between multiple matches (by default these are
+        presented as 1-ball, 2-ball etc)
+    at_multimatch_input:
+        This is called with a search term and should be able to
+        identify if the user wants to separate a multimatch-result
+        (such as that from a previous search). By default, this
+        function understands input on the form 1-ball, 2-ball etc as
+        indicating that the 1st or 2nd match for "ball" should be
+        used.
+
+This module is not called by default, to use it, add the following
+line to your settings file:
+
+    SEARCH_AT_RESULT = "server.conf.at_search.at_search_result"
+
+"""
+
+
+def at_search_result(matches, caller, query="", quiet=False, **kwargs):
+    """
+    This is a generic hook for handling all processing of a search
+    result, including error reporting.
+
+    Args:
+        matches (list): This is a list of 0, 1 or more typeclass instances,
+            the matched result of the search. If 0, a nomatch error should
+            be echoed, and if >1, multimatch errors should be given. Only
+            if a single match should the result pass through.
+        caller (Object): The object performing the search and/or which should
+        receive error messages.
+    query (str, optional): The search query used to produce `matches`.
+        quiet (bool, optional): If `True`, no messages will be echoed to caller
+            on errors.
+
+    Keyword Args:
+        nofound_string (str): Replacement string to echo on a notfound error.
+        multimatch_string (str): Replacement string to echo on a multimatch error.
+
+    Returns:
+        processed_result (Object or None): This is always a single result
+            or `None`. If `None`, any error reporting/handling should
+            already have happened.
+
+    """
+</file>
+
+<file path="server/conf/at_server_startstop.py">
+"""
+Server startstop hooks
+
+This module contains functions called by Evennia at various
+points during its startup, reload and shutdown sequence. It
+allows for customizing the server operation as desired.
+
+This module must contain at least these global functions:
+
+at_server_init()
+at_server_start()
+at_server_stop()
+at_server_reload_start()
+at_server_reload_stop()
+at_server_cold_start()
+at_server_cold_stop()
+
+"""
+
+
+def at_server_init():
+    """
+    This is called first as the server is starting up, regardless of how.
+    """
+    pass
+
+
+def at_server_start():
+    """
+    This is called every time the server starts up, regardless of
+    how it was shut down.
+    """
+    pass
+
+
+def at_server_stop():
+    """
+    This is called just before the server is shut down, regardless
+    of it is for a reload, reset or shutdown.
+    """
+    pass
+
+
+def at_server_reload_start():
+    """
+    This is called only when server starts back up after a reload.
+    """
+    pass
+
+
+def at_server_reload_stop():
+    """
+    This is called only time the server stops before a reload.
+    """
+    pass
+
+
+def at_server_cold_start():
+    """
+    This is called only when the server starts "cold", i.e. after a
+    shutdown or a reset.
+    """
+    pass
+
+
+def at_server_cold_stop():
+    """
+    This is called only when the server goes down due to a shutdown or
+    reset.
+    """
+    pass
+</file>
+
+<file path="server/conf/cmdparser.py">
+"""
+Changing the default command parser
+
+The cmdparser is responsible for parsing the raw text inserted by the
+user, identifying which command/commands match and return one or more
+matching command objects. It is called by Evennia's cmdhandler and
+must accept input and return results on the same form. The default
+handler is very generic so you usually don't need to overload this
+unless you have very exotic parsing needs; advanced parsing is best
+done at the Command.parse level.
+
+The default cmdparser understands the following command combinations
+(where [] marks optional parts.)
+
+[cmdname[ cmdname2 cmdname3 ...] [the rest]
+
+A command may consist of any number of space-separated words of any
+length, and contain any character. It may also be empty.
+
+The parser makes use of the cmdset to find command candidates. The
+parser return a list of matches. Each match is a tuple with its first
+three elements being the parsed cmdname (lower case), the remaining
+arguments, and the matched cmdobject from the cmdset.
+
+
+This module is not accessed by default. To tell Evennia to use it
+instead of the default command parser, add the following line to
+your settings file:
+
+    COMMAND_PARSER = "server.conf.cmdparser.cmdparser"
+
+"""
+
+
+def cmdparser(raw_string, cmdset, caller, match_index=None):
+    """
+    This function is called by the cmdhandler once it has
+    gathered and merged all valid cmdsets valid for this particular parsing.
+
+    raw_string - the unparsed text entered by the caller.
+    cmdset - the merged, currently valid cmdset
+    caller - the caller triggering this parsing
+    match_index - an optional integer index to pick a given match in a
+                  list of same-named command matches.
+
+    Returns:
+     list of tuples: [(cmdname, args, cmdobj, cmdlen, mratio), ...]
+            where cmdname is the matching command name and args is
+            everything not included in the cmdname. Cmdobj is the actual
+            command instance taken from the cmdset, cmdlen is the length
+            of the command name and the mratio is some quality value to
+            (possibly) separate multiple matches.
+
+    """
+    # Your implementation here
+</file>
+
+<file path="server/conf/connection_screens.py">
+# -*- coding: utf-8 -*-
+"""
+Connection screen
+
+This is the text to show the user when they first connect to the game (before
+they log in).
+
+To change the login screen in this module, do one of the following:
+
+- Define a function `connection_screen()`, taking no arguments. This will be
+  called first and must return the full string to act as the connection screen.
+  This can be used to produce more dynamic screens.
+- Alternatively, define a string variable in the outermost scope of this module
+  with the connection string that should be displayed. If more than one such
+  variable is given, Evennia will pick one of them at random.
+
+The commands available to the user when the connection screen is shown
+are defined in evennia.default_cmds.UnloggedinCmdSet. The parsing and display
+of the screen is done by the unlogged-in "look" command.
+
+"""
+
+from django.conf import settings
+
+from evennia import utils
+
+CONNECTION_SCREEN = """
+|b==============================================================|n
+ Welcome to |g{}|n, version {}!
+
+ If you have an existing account, connect to it by typing:
+      |wconnect <username> <password>|n
+ If you need to create an account, type (without the <>'s):
+      |wcreate <username> <password>|n
+
+ If you have spaces in your username, enclose it in quotes.
+ Enter |whelp|n for more info. |wlook|n will re-show this screen.
+|b==============================================================|n""".format(
+    settings.SERVERNAME, utils.get_evennia_version("short")
+)
+</file>
+
+<file path="server/conf/inlinefuncs.py">
+"""
+Outgoing callables to apply with the FuncParser on outgoing messages.
+
+The functions in this module will become available as $funcname(args, kwargs)
+in all outgoing strings if you add
+
+    FUNCPARSER_PARSE_OUTGOING_MESSAGES_ENABLED = True
+
+to your settings file. The default inlinefuncs are found at the bottom of
+`evennia.utils.funcparser`.
+
+In text, usage is straightforward:
+
+$funcname(arg1, arg2, ..., key=val, key2=val2, ...)
+
+Example 1 (using the "pad" inlinefunc):
+    say This is $pad("a center-padded text", 50,c,-) of width 50.
+    ->
+    John says, "This is -------------- a center-padded text--------------- of width 50."
+
+Example 2 (using nested "pad" and "time" inlinefuncs):
+    say The time is $pad($time(), 30)right now.
+    ->
+    John says, "The time is         Oct 25, 11:09         right now."
+
+To add more inline functions, add them to this module, using
+the following call signature:
+
+    def funcname(*args, **kwargs)
+        ...
+
+"""
+
+# def capitalize(*args, **kwargs):
+#    "Silly capitalize example. Used as  $capitalize
+#    if not args:
+#        return ''
+#    session = kwargs.get("session")
+#    return args[0].capitalize()
+</file>
+
+<file path="server/conf/inputfuncs.py">
+"""
+Input functions
+
+Input functions are always called from the client (they handle server
+input, hence the name).
+
+This module is loaded by being included in the
+`settings.INPUT_FUNC_MODULES` tuple.
+
+All *global functions* included in this module are considered
+input-handler functions and can be called by the client to handle
+input.
+
+An input function must have the following call signature:
+
+    cmdname(session, *args, **kwargs)
+
+Where session will be the active session and *args, **kwargs are extra
+incoming arguments and keyword properties.
+
+A special command is the "default" command, which is will be called
+when no other cmdname matches. It also receives the non-found cmdname
+as argument.
+
+    default(session, cmdname, *args, **kwargs)
+
+"""
+
+# def oob_echo(session, *args, **kwargs):
+#     """
+#     Example echo function. Echoes args, kwargs sent to it.
+#
+#     Args:
+#         session (Session): The Session to receive the echo.
+#         args (list of str): Echo text.
+#         kwargs (dict of str, optional): Keyed echo text
+#
+#     """
+#     session.msg(oob=("echo", args, kwargs))
+#
+#
+# def default(session, cmdname, *args, **kwargs):
+#     """
+#     Handles commands without a matching inputhandler func.
+#
+#     Args:
+#         session (Session): The active Session.
+#         cmdname (str): The (unmatched) command name
+#         args, kwargs (any): Arguments to function.
+#
+#     """
+#     pass
+</file>
+
+<file path="server/conf/lockfuncs.py">
+"""
+
+Lockfuncs
+
+Lock functions are functions available when defining lock strings,
+which in turn limits access to various game systems.
+
+All functions defined globally in this module are assumed to be
+available for use in lockstrings to determine access. See the
+Evennia documentation for more info on locks.
+
+A lock function is always called with two arguments, accessing_obj and
+accessed_obj, followed by any number of arguments. All possible
+arguments should be handled with *args, **kwargs. The lock function
+should handle all eventual tracebacks by logging the error and
+returning False.
+
+Lock functions in this module extend (and will overload same-named)
+lock functions from evennia.locks.lockfuncs.
+
+"""
+
+# def myfalse(accessing_obj, accessed_obj, *args, **kwargs):
+#    """
+#    called in lockstring with myfalse().
+#    A simple logger that always returns false. Prints to stdout
+#    for simplicity, should use utils.logger for real operation.
+#    """
+#    print "%s tried to access %s. Access denied." % (accessing_obj, accessed_obj)
+#    return False
+</file>
+
+<file path="server/conf/mssp.py">
+"""
+
+MSSP (Mud Server Status Protocol) meta information
+
+Modify this file to specify what MUD listing sites will report about your game.
+All fields are static. The number of currently active players and your game's
+current uptime will be added automatically by Evennia.
+
+You don't have to fill in everything (and most fields are not shown/used by all
+crawlers anyway); leave the default if so needed. You need to reload the server
+before the updated information is made available to crawlers (reloading does
+not affect uptime).
+
+After changing the values in this file, you must register your game with the
+MUD website list you want to track you. The listing crawler will then regularly
+connect to your server to get the latest info. No further configuration is
+needed on the Evennia side.
+
+"""
+
+MSSPTable = {
+    # Required fields
+    "NAME": "Mygame",  # usually the same as SERVERNAME
+    # Generic
+    "CRAWL DELAY": "-1",  # limit how often crawler may update the listing. -1 for no limit
+    "HOSTNAME": "",  # telnet hostname
+    "PORT": ["4000"],  # telnet port - most important port should be *last* in list!
+    "CODEBASE": "Evennia",
+    "CONTACT": "",  # email for contacting the mud
+    "CREATED": "",  # year MUD was created
+    "ICON": "",  # url to icon 32x32 or larger; <32kb.
+    "IP": "",  # current or new IP address
+    "LANGUAGE": "",  # name of language used, e.g. English
+    "LOCATION": "",  # full English name of server country
+    "MINIMUM AGE": "0",  # set to 0 if not applicable
+    "WEBSITE": "",  # http:// address to your game website
+    # Categorisation
+    "FAMILY": "Evennia",
+    "GENRE": "None",  # Adult, Fantasy, Historical, Horror, Modern, None, or Science Fiction
+    # Gameplay: Adventure, Educational, Hack and Slash, None,
+    # Player versus Player, Player versus Environment,
+    # Roleplaying, Simulation, Social or Strategy
+    "GAMEPLAY": "",
+    "STATUS": "Open Beta",  # Allowed: Alpha, Closed Beta, Open Beta, Live
+    "GAMESYSTEM": "Custom",  # D&D, d20 System, World of Darkness, etc. Use Custom if homebrew
+    # Subgenre: LASG, Medieval Fantasy, World War II, Frankenstein,
+    # Cyberpunk, Dragonlance, etc. Or None if not applicable.
+    "SUBGENRE": "None",
+    # World
+    "AREAS": "0",
+    "HELPFILES": "0",
+    "MOBILES": "0",
+    "OBJECTS": "0",
+    "ROOMS": "0",  # use 0 if room-less
+    "CLASSES": "0",  # use 0 if class-less
+    "LEVELS": "0",  # use 0 if level-less
+    "RACES": "0",  # use 0 if race-less
+    "SKILLS": "0",  # use 0 if skill-less
+    # Protocols set to 1 or 0; should usually not be changed)
+    "ANSI": "1",
+    "GMCP": "1",
+    "MSDP": "1",
+    "MXP": "1",
+    "SSL": "1",
+    "UTF-8": "1",
+    "MCCP": "1",
+    "XTERM 256 COLORS": "1",
+    "XTERM TRUE COLORS": "0",
+    "ATCP": "0",
+    "MCP": "0",
+    "MSP": "0",
+    "VT100": "0",
+    "PUEBLO": "0",
+    "ZMP": "0",
+    # Commercial set to 1 or 0)
+    "PAY TO PLAY": "0",
+    "PAY FOR PERKS": "0",
+    # Hiring  set to 1 or 0)
+    "HIRING BUILDERS": "0",
+    "HIRING CODERS": "0",
+    # Extended variables
+    # World
+    "DBSIZE": "0",
+    "EXITS": "0",
+    "EXTRA DESCRIPTIONS": "0",
+    "MUDPROGS": "0",
+    "MUDTRIGS": "0",
+    "RESETS": "0",
+    # Game  (set to 1 or 0, or one of the given alternatives)
+    "ADULT MATERIAL": "0",
+    "MULTICLASSING": "0",
+    "NEWBIE FRIENDLY": "0",
+    "PLAYER CITIES": "0",
+    "PLAYER CLANS": "0",
+    "PLAYER CRAFTING": "0",
+    "PLAYER GUILDS": "0",
+    "EQUIPMENT SYSTEM": "None",  # "None", "Level", "Skill", "Both"
+    "MULTIPLAYING": "None",  # "None", "Restricted", "Full"
+    "PLAYERKILLING": "None",  # "None", "Restricted", "Full"
+    "QUEST SYSTEM": "None",  # "None", "Immortal Run", "Automated", "Integrated"
+    "ROLEPLAYING": "None",  # "None", "Accepted", "Encouraged", "Enforced"
+    "TRAINING SYSTEM": "None",  # "None", "Level", "Skill", "Both"
+    # World originality: "All Stock", "Mostly Stock", "Mostly Original", "All Original"
+    "WORLD ORIGINALITY": "All Original",
+}
+</file>
+
+<file path="server/conf/portal_services_plugins.py">
+"""
+Start plugin services
+
+This plugin module can define user-created services for the Portal to
+start.
+
+This module must handle all imports and setups required to start
+twisted services (see examples in evennia.server.portal.portal). It
+must also contain a function start_plugin_services(application).
+Evennia will call this function with the main Portal application (so
+your services can be added to it). The function should not return
+anything. Plugin services are started last in the Portal startup
+process.
+
+"""
+
+
+def start_plugin_services(portal):
+    """
+    This hook is called by Evennia, last in the Portal startup process.
+
+    portal - a reference to the main portal application.
+    """
+    pass
+</file>
+
+<file path="server/conf/server_services_plugins.py">
+"""
+
+Server plugin services
+
+This plugin module can define user-created services for the Server to
+start.
+
+This module must handle all imports and setups required to start a
+twisted service (see examples in evennia.server.server). It must also
+contain a function start_plugin_services(application). Evennia will
+call this function with the main Server application (so your services
+can be added to it). The function should not return anything. Plugin
+services are started last in the Server startup process.
+
+"""
+
+
+def start_plugin_services(server):
+    """
+    This hook is called by Evennia, last in the Server startup process.
+
+    server - a reference to the main server application.
+    """
+    pass
+</file>
+
+<file path="server/conf/serversession.py">
+"""
+ServerSession
+
+The serversession is the Server-side in-memory representation of a
+user connecting to the game.  Evennia manages one Session per
+connection to the game. So a user logged into the game with multiple
+clients (if Evennia is configured to allow that) will have multiple
+sessions tied to one Account object. All communication between Evennia
+and the real-world user goes through the Session(s) associated with that user.
+
+It should be noted that modifying the Session object is not usually
+necessary except for the most custom and exotic designs - and even
+then it might be enough to just add custom session-level commands to
+the SessionCmdSet instead.
+
+This module is not normally called. To tell Evennia to use the class
+in this module instead of the default one, add the following to your
+settings file:
+
+    SERVER_SESSION_CLASS = "server.conf.serversession.ServerSession"
+
+"""
+
+from evennia.server.serversession import ServerSession as BaseServerSession
+
+
+class ServerSession(BaseServerSession):
+    """
+    This class represents a player's session and is a template for
+    individual protocols to communicate with Evennia.
+
+    Each account gets one or more sessions assigned to them whenever they connect
+    to the game server. All communication between game and account goes
+    through their session(s).
+    """
+
+    pass
+</file>
+
+<file path="server/conf/settings.py">
+r"""
+Evennia settings file.
+
+The available options are found in the default settings file found
+here:
+
+https://www.evennia.com/docs/latest/Setup/Settings-Default.html
+
+Remember:
+
+Don't copy more from the default file than you actually intend to
+change; this will make sure that you don't overload upstream updates
+unnecessarily.
+
+When changing a setting requiring a file system path (like
+path/to/actual/file.py), use GAME_DIR and EVENNIA_DIR to reference
+your game folder and the Evennia library folders respectively. Python
+paths (path.to.module) should be given relative to the game's root
+folder (typeclasses.foo) whereas paths within the Evennia library
+needs to be given explicitly (evennia.foo).
+
+If you want to share your game dir, including its settings, you can
+put secret game- or server-specific settings in secret_settings.py.
+
+"""
+
+# Use the defaults from Evennia unless explicitly overridden
+from evennia.settings_default import *
+
+######################################################################
+# Evennia base server config
+######################################################################
+
+# This is the name of your game. Make it catchy!
+SERVERNAME = "PolishedWorld"
+
+
+######################################################################
+# Settings given in secret_settings.py override those in this file.
+######################################################################
+try:
+    from server.conf.secret_settings import *
+except ImportError:
+    print("secret_settings.py file not found or failed to import.")
+</file>
+
+<file path="server/conf/web_plugins.py">
+"""
+Web plugin hooks.
+"""
+
+
+def at_webserver_root_creation(web_root):
+    """
+    This is called as the web server has finished building its default
+    path tree. At this point, the media/ and static/ URIs have already
+    been added to the web root.
+
+    Args:
+        web_root (twisted.web.resource.Resource): The root
+            resource of the URI tree. Use .putChild() to
+            add new subdomains to the tree.
+
+    Returns:
+        web_root (twisted.web.resource.Resource): The potentially
+            modified root structure.
+
+    Example:
+        from twisted.web import static
+        my_page = static.File("web/mypage/")
+        my_page.indexNames = ["index.html"]
+        web_root.putChild("mypage", my_page)
+
+    """
+    return web_root
+
+
+def at_webproxy_root_creation(web_root):
+    """
+    This function can modify the portal proxy service.
+    Args:
+        web_root (evennia.server.webserver.Website): The Evennia
+            Website application. Use .putChild() to add new
+            subdomains that are Portal-accessible over TCP;
+            primarily for new protocol development, but suitable
+            for other shenanigans.
+    """
+    return web_root
+</file>
+
+<file path="server/logs/README.md">
+This directory contains Evennia's log files. The existence of this README.md file is also necessary
+to correctly include the log directory in git (since log files are ignored by git and you can't
+commit an empty directory).
+
+`server.log` - log file from the game Server.
+`portal.log` - log file from Portal proxy (internet facing)
+
+Usually these logs are viewed together with `evennia -l`. They are also rotated every week so as not
+to be too big. Older log names will have a name appended by `_month_date`.
+
+`lockwarnings.log` - warnings from the lock system.
+`http_requests.log` - this will generally be empty unless turning on debugging inside the server.
+
+`channel_<channelname>.log` - these are channel logs for the in-game channels They are also used
+by the `/history` flag in-game to get the latest message history.
+</file>
+
+<file path="server/__init__.py">
+# -*- coding: utf-8 -*-
+</file>
+
+<file path="server/README.md">
+# server/ 
+
+This directory holds files used by and configuring the Evennia server 
+itself.
+
+Out of all the subdirectories in the game directory, Evennia does
+expect this directory to exist, so you should normally not delete,
+rename or change its folder structure.
+
+When running you will find four new files appear in this directory: 
+
+ - `server.pid` and `portal.pid`: These hold the process IDs of the
+   Portal and Server, so that they can be managed by the launcher. If
+   Evennia is shut down uncleanly (e.g. by a crash or via a kill
+   signal), these files might erroneously remain behind. If so Evennia
+   will tell you they are "stale" and they can be deleted manually.
+ - `server.restart` and `portal.restart`: These hold flags to tell the
+   server processes if it should die or start again. You never need to
+   modify those files.
+ - `evennia.db3`: This will only appear if you are using the default
+   SQLite3 database; it a binary file that holds the entire game
+   database; deleting this file will effectively reset the game for
+   you and you can start fresh with `evennia migrate` (useful during
+   development).  
+
+## server/conf/
+
+This subdirectory holds the configuration modules for the server. With
+them you can change how Evennia operates and also plug in your own
+functionality to replace the default. You usually need to restart the
+server to apply changes done here. The most important file is the file
+`settings.py` which is the main configuration file of Evennia. 
+
+## server/logs/
+
+This subdirectory holds various log files created by the running
+Evennia server. It is also the default location for storing any custom
+log files you might want to output using Evennia's logging mechanisms.
+</file>
+
+<file path="typeclasses/accounts.py">
+"""
+Account
+
+The Account represents the game "account" and each login has only one
+Account object. An Account is what chats on default channels but has no
+other in-game-world existence. Rather the Account puppets Objects (such
+as Characters) in order to actually participate in the game world.
+
+
+Guest
+
+Guest accounts are simple low-level accounts that are created/deleted
+on the fly and allows users to test the game without the commitment
+of a full registration. Guest accounts are deactivated by default; to
+activate them, add the following line to your settings file:
+
+    GUEST_ENABLED = True
+
+You will also need to modify the connection screen to reflect the
+possibility to connect with a guest account. The setting file accepts
+several more options for customizing the Guest account system.
+
+"""
+
+from evennia.accounts.accounts import DefaultAccount, DefaultGuest
+
+
+class Account(DefaultAccount):
+    """
+    An Account is the actual OOC player entity. It doesn't exist in the game,
+    but puppets characters.
+
+    This is the base Typeclass for all Accounts. Accounts represent
+    the person playing the game and tracks account info, password
+    etc. They are OOC entities without presence in-game. An Account
+    can connect to a Character Object in order to "enter" the
+    game.
+
+    Account Typeclass API:
+
+    * Available properties (only available on initiated typeclass objects)
+
+     - key (string) - name of account
+     - name (string)- wrapper for user.username
+     - aliases (list of strings) - aliases to the object. Will be saved to
+            database as AliasDB entries but returned as strings.
+     - dbref (int, read-only) - unique #id-number. Also "id" can be used.
+     - date_created (string) - time stamp of object creation
+     - permissions (list of strings) - list of permission strings
+     - user (User, read-only) - django User authorization object
+     - obj (Object) - game object controlled by account. 'character' can also
+                     be used.
+     - is_superuser (bool, read-only) - if the connected user is a superuser
+
+    * Handlers
+
+     - locks - lock-handler: use locks.add() to add new lock strings
+     - db - attribute-handler: store/retrieve database attributes on this
+                              self.db.myattr=val, val=self.db.myattr
+     - ndb - non-persistent attribute handler: same as db but does not
+                                  create a database entry when storing data
+     - scripts - script-handler. Add new scripts to object with scripts.add()
+     - cmdset - cmdset-handler. Use cmdset.add() to add new cmdsets to object
+     - nicks - nick-handler. New nicks with nicks.add().
+     - sessions - session-handler. Use session.get() to see all sessions connected, if any
+     - options - option-handler. Defaults are taken from settings.OPTIONS_ACCOUNT_DEFAULT
+     - characters - handler for listing the account's playable characters
+
+    * Helper methods (check autodocs for full updated listing)
+
+     - msg(text=None, from_obj=None, session=None, options=None, **kwargs)
+     - execute_cmd(raw_string)
+     - search(searchdata, return_puppet=False, search_object=False, typeclass=None,
+                      nofound_string=None, multimatch_string=None, use_nicks=True,
+                      quiet=False, **kwargs)
+     - is_typeclass(typeclass, exact=False)
+     - swap_typeclass(new_typeclass, clean_attributes=False, no_default=True)
+     - access(accessing_obj, access_type='read', default=False, no_superuser_bypass=False, **kwargs)
+     - check_permstring(permstring)
+     - get_cmdsets(caller, current, **kwargs)
+     - get_cmdset_providers()
+     - uses_screenreader(session=None)
+     - get_display_name(looker, **kwargs)
+     - get_extra_display_name_info(looker, **kwargs)
+     - disconnect_session_from_account()
+     - puppet_object(session, obj)
+     - unpuppet_object(session)
+     - unpuppet_all()
+     - get_puppet(session)
+     - get_all_puppets()
+     - is_banned(**kwargs)
+     - get_username_validators(validator_config=settings.AUTH_USERNAME_VALIDATORS)
+     - authenticate(username, password, ip="", **kwargs)
+     - normalize_username(username)
+     - validate_username(username)
+     - validate_password(password, account=None)
+     - set_password(password, **kwargs)
+     - get_character_slots()
+     - get_available_character_slots()
+     - create_character(*args, **kwargs)
+     - create(*args, **kwargs)
+     - delete(*args, **kwargs)
+     - channel_msg(message, channel, senders=None, **kwargs)
+     - idle_time()
+     - connection_time()
+
+    * Hook methods
+
+     basetype_setup()
+     at_account_creation()
+
+     > note that the following hooks are also found on Objects and are
+       usually handled on the character level:
+
+     - at_init()
+     - at_first_save()
+     - at_access()
+     - at_cmdset_get(**kwargs)
+     - at_password_change(**kwargs)
+     - at_first_login()
+     - at_pre_login()
+     - at_post_login(session=None)
+     - at_failed_login(session, **kwargs)
+     - at_disconnect(reason=None, **kwargs)
+     - at_post_disconnect(**kwargs)
+     - at_message_receive()
+     - at_message_send()
+     - at_server_reload()
+     - at_server_shutdown()
+     - at_look(target=None, session=None, **kwargs)
+     - at_post_create_character(character, **kwargs)
+     - at_post_add_character(char)
+     - at_post_remove_character(char)
+     - at_pre_channel_msg(message, channel, senders=None, **kwargs)
+     - at_post_chnnel_msg(message, channel, senders=None, **kwargs)
+
+    """
+
+    pass
+
+
+class Guest(DefaultGuest):
+    """
+    This class is used for guest logins. Unlike Accounts, Guests and their
+    characters are deleted after disconnection.
+    """
+
+    pass
+</file>
+
+<file path="typeclasses/channels.py">
+"""
+Channel
+
+The channel class represents the out-of-character chat-room usable by
+Accounts in-game. It is mostly overloaded to change its appearance, but
+channels can be used to implement many different forms of message
+distribution systems.
+
+Note that sending data to channels are handled via the CMD_CHANNEL
+syscommand (see evennia.syscmds). The sending should normally not need
+to be modified.
+
+"""
+
+from evennia.comms.comms import DefaultChannel
+
+
+class Channel(DefaultChannel):
+    r"""
+    This is the base class for all Channel Comms. Inherit from this to
+    create different types of communication channels.
+
+    Class-level variables:
+    - `send_to_online_only` (bool, default True) - if set, will only try to
+      send to subscribers that are actually active. This is a useful optimization.
+    - `log_file` (str, default `"channel_{channelname}.log"`). This is the
+      log file to which the channel history will be saved. The `{channelname}` tag
+      will be replaced by the key of the Channel. If an Attribute 'log_file'
+      is set, this will be used instead. If this is None and no Attribute is found,
+      no history will be saved.
+    - `channel_prefix_string` (str, default `"[{channelname} ]"`) - this is used
+      as a simple template to get the channel prefix with `.channel_prefix()`. It is used
+      in front of every channel message; use `{channelmessage}` token to insert the
+      name of the current channel. Set to `None` if you want no prefix (or want to
+      handle it in a hook during message generation instead.
+    - `channel_msg_nick_pattern`(str, default `"{alias}\s*?|{alias}\s+?(?P<arg1>.+?)") -
+      this is what used when a channel subscriber gets a channel nick assigned to this
+      channel. The nickhandler uses the pattern to pick out this channel's name from user
+      input. The `{alias}` token will get both the channel's key and any set/custom aliases
+      per subscriber. You need to allow for an `<arg1>` regex group to catch any message
+      that should be send to the  channel. You usually don't need to change this pattern
+      unless you are changing channel command-style entirely.
+    - `channel_msg_nick_replacement` (str, default `"channel {channelname} = $1"` - this
+      is used by the nickhandler to generate a replacement string once the nickhandler (using
+      the `channel_msg_nick_pattern`) identifies that the channel should be addressed
+      to send a message to it. The `<arg1>` regex pattern match from `channel_msg_nick_pattern`
+      will end up at the `$1` position in the replacement. Together, this allows you do e.g.
+      'public Hello' and have that become a mapping to `channel public = Hello`. By default,
+      the account-level `channel` command is used. If you were to rename that command you must
+      tweak the output to something like `yourchannelcommandname {channelname} = $1`.
+
+    * Properties:
+        mutelist
+        banlist
+        wholist
+
+    * Working methods:
+        get_log_filename()
+        set_log_filename(filename)
+        has_connection(account) - check if the given account listens to this channel
+        connect(account) - connect account to this channel
+        disconnect(account) - disconnect account from channel
+        access(access_obj, access_type='listen', default=False) - check the
+                    access on this channel (default access_type is listen)
+        create(key, creator=None, *args, **kwargs)
+        delete() - delete this channel
+        message_transform(msg, emit=False, prefix=True,
+                          sender_strings=None, external=False) - called by
+                          the comm system and triggers the hooks below
+        msg(msgobj, header=None, senders=None, sender_strings=None,
+            persistent=None, online=False, emit=False, external=False) - main
+                send method, builds and sends a new message to channel.
+        tempmsg(msg, header=None, senders=None) - wrapper for sending non-persistent
+                messages.
+        distribute_message(msg, online=False) - send a message to all
+                connected accounts on channel, optionally sending only
+                to accounts that are currently online (optimized for very large sends)
+        mute(subscriber, **kwargs)
+        unmute(subscriber, **kwargs)
+        ban(target, **kwargs)
+        unban(target, **kwargs)
+        add_user_channel_alias(user, alias, **kwargs)
+        remove_user_channel_alias(user, alias, **kwargs)
+
+
+    Useful hooks:
+        at_channel_creation() - called once, when the channel is created
+        basetype_setup()
+        at_init()
+        at_first_save()
+        channel_prefix() - how the channel should be
+                  prefixed when returning to user. Returns a string
+        format_senders(senders) - should return how to display multiple
+                senders to a channel
+        pose_transform(msg, sender_string) - should detect if the
+                sender is posing, and if so, modify the string
+        format_external(msg, senders, emit=False) - format messages sent
+                from outside the game, like from IRC
+        format_message(msg, emit=False) - format the message body before
+                displaying it to the user. 'emit' generally means that the
+                message should not be displayed with the sender's name.
+        channel_prefix()
+
+        pre_join_channel(joiner) - if returning False, abort join
+        post_join_channel(joiner) - called right after successful join
+        pre_leave_channel(leaver) - if returning False, abort leave
+        post_leave_channel(leaver) - called right after successful leave
+        at_pre_msg(message, **kwargs)
+        at_post_msg(message, **kwargs)
+        web_get_admin_url()
+        web_get_create_url()
+        web_get_detail_url()
+        web_get_update_url()
+        web_get_delete_url()
+
+    """
+
+    pass
+</file>
+
+<file path="typeclasses/exits.py">
+"""
+Exits
+
+Exits are connectors between Rooms. An exit always has a destination property
+set and has a single command defined on itself with the same name as its key,
+for allowing Characters to traverse the exit to its destination.
+
+"""
+
+from evennia.objects.objects import DefaultExit
+
+from .objects import ObjectParent
+
+
+class Exit(ObjectParent, DefaultExit):
+    """
+    Exits are connectors between rooms. Exits are normal Objects except
+    they defines the `destination` property and overrides some hooks
+    and methods to represent the exits.
+
+    See mygame/typeclasses/objects.py for a list of
+    properties and methods available on all Objects child classes like this.
+
+    """
+
+    pass
+</file>
+
+<file path="typeclasses/objects.py">
+"""
+Object
+
+The Object is the class for general items in the game world.
+
+Use the ObjectParent class to implement common features for *all* entities
+with a location in the game world (like Characters, Rooms, Exits).
+
+"""
+
+from evennia.objects.objects import DefaultObject
+
+
+class ObjectParent:
+    """
+    This is a mixin that can be used to override *all* entities inheriting at
+    some distance from DefaultObject (Objects, Exits, Characters and Rooms).
+
+    Just add any method that exists on `DefaultObject` to this class. If one
+    of the derived classes has itself defined that same hook already, that will
+    take precedence.
+
+    """
+
+
+class Object(ObjectParent, DefaultObject):
+    """
+    This is the root Object typeclass, representing all entities that
+    have an actual presence in-game. DefaultObjects generally have a
+    location. They can also be manipulated and looked at. Game
+    entities you define should inherit from DefaultObject at some distance.
+
+    It is recommended to create children of this class using the
+    `evennia.create_object()` function rather than to initialize the class
+    directly - this will both set things up and efficiently save the object
+    without `obj.save()` having to be called explicitly.
+
+    Note: Check the autodocs for complete class members, this may not always
+    be up-to date.
+
+    * Base properties defined/available on all Objects
+
+     key (string) - name of object
+     name (string)- same as key
+     dbref (int, read-only) - unique #id-number. Also "id" can be used.
+     date_created (string) - time stamp of object creation
+
+     account (Account) - controlling account (if any, only set together with
+                       sessid below)
+     sessid (int, read-only) - session id (if any, only set together with
+                       account above). Use `sessions` handler to get the
+                       Sessions directly.
+     location (Object) - current location. Is None if this is a room
+     home (Object) - safety start-location
+     has_account (bool, read-only)- will only return *connected* accounts
+     contents (list, read only) - returns all objects inside this object
+     exits (list of Objects, read-only) - returns all exits from this
+                       object, if any
+     destination (Object) - only set if this object is an exit.
+     is_superuser (bool, read-only) - True/False if this user is a superuser
+     is_connected (bool, read-only) - True if this object is associated with
+                            an Account with any connected sessions.
+     has_account (bool, read-only) - True is this object has an associated account.
+     is_superuser (bool, read-only): True if this object has an account and that
+                        account is a superuser.
+
+    * Handlers available
+
+     aliases - alias-handler: use aliases.add/remove/get() to use.
+     permissions - permission-handler: use permissions.add/remove() to
+                   add/remove new perms.
+     locks - lock-handler: use locks.add() to add new lock strings
+     scripts - script-handler. Add new scripts to object with scripts.add()
+     cmdset - cmdset-handler. Use cmdset.add() to add new cmdsets to object
+     nicks - nick-handler. New nicks with nicks.add().
+     sessions - sessions-handler. Get Sessions connected to this
+                object with sessions.get()
+     attributes - attribute-handler. Use attributes.add/remove/get.
+     db - attribute-handler: Shortcut for attribute-handler. Store/retrieve
+            database attributes using self.db.myattr=val, val=self.db.myattr
+     ndb - non-persistent attribute handler: same as db but does not create
+            a database entry when storing data
+
+    * Helper methods (see src.objects.objects.py for full headers)
+
+     get_search_query_replacement(searchdata, **kwargs)
+     get_search_direct_match(searchdata, **kwargs)
+     get_search_candidates(searchdata, **kwargs)
+     get_search_result(searchdata, attribute_name=None, typeclass=None,
+                       candidates=None, exact=False, use_dbref=None, tags=None, **kwargs)
+     get_stacked_result(results, **kwargs)
+     handle_search_results(searchdata, results, **kwargs)
+     search(searchdata, global_search=False, use_nicks=True, typeclass=None,
+            location=None, attribute_name=None, quiet=False, exact=False,
+            candidates=None, use_locks=True, nofound_string=None,
+            multimatch_string=None, use_dbref=None, tags=None, stacked=0)
+     search_account(searchdata, quiet=False)
+     execute_cmd(raw_string, session=None, **kwargs))
+     msg(text=None, from_obj=None, session=None, options=None, **kwargs)
+     for_contents(func, exclude=None, **kwargs)
+     msg_contents(message, exclude=None, from_obj=None, mapping=None,
+                  raise_funcparse_errors=False, **kwargs)
+     move_to(destination, quiet=False, emit_to_obj=None, use_destination=True)
+     clear_contents()
+     create(key, account, caller, method, **kwargs)
+     copy(new_key=None)
+     at_object_post_copy(new_obj, **kwargs)
+     delete()
+     is_typeclass(typeclass, exact=False)
+     swap_typeclass(new_typeclass, clean_attributes=False, no_default=True)
+     access(accessing_obj, access_type='read', default=False,
+            no_superuser_bypass=False, **kwargs)
+     filter_visible(obj_list, looker, **kwargs)
+     get_default_lockstring()
+     get_cmdsets(caller, current, **kwargs)
+     check_permstring(permstring)
+     get_cmdset_providers()
+     get_display_name(looker=None, **kwargs)
+     get_extra_display_name_info(looker=None, **kwargs)
+     get_numbered_name(count, looker, **kwargs)
+     get_display_header(looker, **kwargs)
+     get_display_desc(looker, **kwargs)
+     get_display_exits(looker, **kwargs)
+     get_display_characters(looker, **kwargs)
+     get_display_things(looker, **kwargs)
+     get_display_footer(looker, **kwargs)
+     format_appearance(appearance, looker, **kwargs)
+     return_apperance(looker, **kwargs)
+
+    * Hooks (these are class methods, so args should start with self):
+
+     basetype_setup()     - only called once, used for behind-the-scenes
+                            setup. Normally not modified.
+     basetype_posthook_setup() - customization in basetype, after the object
+                            has been created; Normally not modified.
+
+     at_object_creation() - only called once, when object is first created.
+                            Object customizations go here.
+     at_object_delete() - called just before deleting an object. If returning
+                            False, deletion is aborted. Note that all objects
+                            inside a deleted object are automatically moved
+                            to their <home>, they don't need to be removed here.
+
+     at_init()            - called whenever typeclass is cached from memory,
+                            at least once every server restart/reload
+     at_first_save()
+     at_cmdset_get(**kwargs) - this is called just before the command handler
+                            requests a cmdset from this object. The kwargs are
+                            not normally used unless the cmdset is created
+                            dynamically (see e.g. Exits).
+     at_pre_puppet(account)- (account-controlled objects only) called just
+                            before puppeting
+     at_post_puppet()     - (account-controlled objects only) called just
+                            after completing connection account<->object
+     at_pre_unpuppet()    - (account-controlled objects only) called just
+                            before un-puppeting
+     at_post_unpuppet(account) - (account-controlled objects only) called just
+                            after disconnecting account<->object link
+     at_server_reload()   - called before server is reloaded
+     at_server_shutdown() - called just before server is fully shut down
+
+     at_access(result, accessing_obj, access_type) - called with the result
+                            of a lock access check on this object. Return value
+                            does not affect check result.
+
+     at_pre_move(destination)             - called just before moving object
+                        to the destination. If returns False, move is cancelled.
+     announce_move_from(destination)         - called in old location, just
+                        before move, if obj.move_to() has quiet=False
+     announce_move_to(source_location)       - called in new location, just
+                        after move, if obj.move_to() has quiet=False
+     at_post_move(source_location)          - always called after a move has
+                        been successfully performed.
+     at_pre_object_leave(leaving_object, destination, **kwargs)
+     at_object_leave(obj, target_location, move_type="move", **kwargs)
+     at_object_leave(obj, target_location)   - called when an object leaves
+                        this object in any fashion
+     at_pre_object_receive(obj, source_location)
+     at_object_receive(obj, source_location, move_type="move", **kwargs) - called when this object receives
+                        another object
+     at_post_move(source_location, move_type="move", **kwargs)
+
+     at_traverse(traversing_object, target_location, **kwargs) - (exit-objects only)
+                              handles all moving across the exit, including
+                              calling the other exit hooks. Use super() to retain
+                              the default functionality.
+     at_post_traverse(traversing_object, source_location) - (exit-objects only)
+                              called just after a traversal has happened.
+     at_failed_traverse(traversing_object)      - (exit-objects only) called if
+                       traversal fails and property err_traverse is not defined.
+
+     at_msg_receive(self, msg, from_obj=None, **kwargs) - called when a message
+                             (via self.msg()) is sent to this obj.
+                             If returns false, aborts send.
+     at_msg_send(self, msg, to_obj=None, **kwargs) - called when this objects
+                             sends a message to someone via self.msg().
+
+     return_appearance(looker) - describes this object. Used by "look"
+                                 command by default
+     at_desc(looker=None)      - called by 'look' whenever the
+                                 appearance is requested.
+     at_pre_get(getter, **kwargs)
+     at_get(getter)            - called after object has been picked up.
+                                 Does not stop pickup.
+     at_pre_give(giver, getter, **kwargs)
+     at_give(giver, getter, **kwargs)
+     at_pre_drop(dropper, **kwargs)
+     at_drop(dropper, **kwargs)          - called when this object has been dropped.
+     at_pre_say(speaker, message, **kwargs)
+     at_say(message, msg_self=None, msg_location=None, receivers=None, msg_receivers=None, **kwargs)
+
+     at_look(target, **kwargs)
+     at_desc(looker=None)
+
+    """
+
+    pass
+</file>
+
+<file path="typeclasses/README.md">
+# typeclasses/
+
+This directory holds the modules for overloading all the typeclasses
+representing the game entities and many systems of the game. Other
+server functionality not covered here is usually modified by the
+modules in `server/conf/`.
+
+Each module holds empty classes that just imports Evennia's defaults.
+Any modifications done to these classes will overload the defaults.
+
+You can change the structure of this directory (even rename the
+directory itself) as you please, but if you do you must add the
+appropriate new paths to your settings.py file so Evennia knows where
+to look. Also remember that for Python to find your modules, it
+requires you to add an empty `__init__.py` file in any new sub
+directories you create.
+</file>
+
+<file path="typeclasses/rooms.py">
+"""
+Room
+
+Rooms are simple containers that has no location of their own.
+
+"""
+
+from evennia.objects.objects import DefaultRoom
+
+from .objects import ObjectParent
+
+
+class Room(ObjectParent, DefaultRoom):
+    """
+    Rooms are like any Object, except their location is None
+    (which is default). They also use basetype_setup() to
+    add locks so they cannot be puppeted or picked up.
+    (to change that, use at_object_creation instead)
+
+    See mygame/typeclasses/objects.py for a list of
+    properties and methods available on all Objects.
+    """
+
+    pass
+</file>
+
+<file path="typeclasses/scripts.py">
+"""
+Scripts
+
+Scripts are powerful jacks-of-all-trades. They have no in-game
+existence and can be used to represent persistent game systems in some
+circumstances. Scripts can also have a time component that allows them
+to "fire" regularly or a limited number of times.
+
+There is generally no "tree" of Scripts inheriting from each other.
+Rather, each script tends to inherit from the base Script class and
+just overloads its hooks to have it perform its function.
+
+"""
+
+from evennia.scripts.scripts import DefaultScript
+
+
+class Script(DefaultScript):
+    """
+    This is the base TypeClass for all Scripts. Scripts describe
+    all entities/systems without a physical existence in the game world
+    that require database storage (like an economic system or
+    combat tracker). They
+    can also have a timer/ticker component.
+
+    A script type is customized by redefining some or all of its hook
+    methods and variables.
+
+    * available properties (check docs for full listing, this could be
+      outdated).
+
+     key (string) - name of object
+     name (string)- same as key
+     aliases (list of strings) - aliases to the object. Will be saved
+              to database as AliasDB entries but returned as strings.
+     dbref (int, read-only) - unique #id-number. Also "id" can be used.
+     date_created (string) - time stamp of object creation
+     permissions (list of strings) - list of permission strings
+
+     desc (string)      - optional description of script, shown in listings
+     obj (Object)       - optional object that this script is connected to
+                          and acts on (set automatically by obj.scripts.add())
+     interval (int)     - how often script should run, in seconds. <0 turns
+                          off ticker
+     start_delay (bool) - if the script should start repeating right away or
+                          wait self.interval seconds
+     repeats (int)      - how many times the script should repeat before
+                          stopping. 0 means infinite repeats
+     persistent (bool)  - if script should survive a server shutdown or not
+     is_active (bool)   - if script is currently running
+
+    * Handlers
+
+     locks - lock-handler: use locks.add() to add new lock strings
+     db - attribute-handler: store/retrieve database attributes on this
+                        self.db.myattr=val, val=self.db.myattr
+     ndb - non-persistent attribute handler: same as db but does not
+                        create a database entry when storing data
+
+    * Helper methods
+
+     create(key, **kwargs)
+     start() - start script (this usually happens automatically at creation
+               and obj.script.add() etc)
+     stop()  - stop script, and delete it
+     pause() - put the script on hold, until unpause() is called. If script
+               is persistent, the pause state will survive a shutdown.
+     unpause() - restart a previously paused script. The script will continue
+                 from the paused timer (but at_start() will be called).
+     time_until_next_repeat() - if a timed script (interval>0), returns time
+                 until next tick
+
+    * Hook methods (should also include self as the first argument):
+
+     at_script_creation() - called only once, when an object of this
+                            class is first created.
+     is_valid() - is called to check if the script is valid to be running
+                  at the current time. If is_valid() returns False, the running
+                  script is stopped and removed from the game. You can use this
+                  to check state changes (i.e. an script tracking some combat
+                  stats at regular intervals is only valid to run while there is
+                  actual combat going on).
+      at_start() - Called every time the script is started, which for persistent
+                  scripts is at least once every server start. Note that this is
+                  unaffected by self.delay_start, which only delays the first
+                  call to at_repeat().
+      at_repeat() - Called every self.interval seconds. It will be called
+                  immediately upon launch unless self.delay_start is True, which
+                  will delay the first call of this method by self.interval
+                  seconds. If self.interval==0, this method will never
+                  be called.
+      at_pause()
+      at_stop() - Called as the script object is stopped and is about to be
+                  removed from the game, e.g. because is_valid() returned False.
+      at_script_delete()
+      at_server_reload() - Called when server reloads. Can be used to
+                  save temporary variables you want should survive a reload.
+      at_server_shutdown() - called at a full server shutdown.
+      at_server_start()
+
+    """
+
+    pass
+</file>
+
+<file path="web/admin/README.md">
+# Admin views
+
+Evennia makes several customizations to the Django web admin, but you can make
+further changes here. Customizing the admin is a big topic and
+you are best off reading more about it in the [Django admin site documentation](https://docs.djangoproject.com/en/4.1/ref/contrib/admin/).
+</file>
+
+<file path="web/admin/urls.py">
+"""
+This reroutes from an URL to a python view-function/class.
+
+The main web/urls.py includes these routes for all urls starting with `admin/`
+(the `admin/` part should not be included again here).
+
+"""
+
+from django.urls import path
+
+from evennia.web.admin.urls import urlpatterns as evennia_admin_urlpatterns
+
+# add patterns here
+urlpatterns = [
+    # path("url-pattern", imported_python_view),
+    # path("url-pattern", imported_python_view),
+]
+
+# read by Django
+urlpatterns = urlpatterns + evennia_admin_urlpatterns
+</file>
+
+<file path="web/static/rest_framework/css/README.md">
+# Evennia API static files
+
+Overrides for API files.
+</file>
+
+<file path="web/static/rest_framework/images/README.md">
+# Static files for API 
+
+Override images here.
+</file>
+
+<file path="web/static/webclient/css/README.md">
+You can replace the CSS files for Evennia's webclient here.
+
+You can find the original files in `evennia/web/static/webclient/css/`
+</file>
+
+<file path="web/static/webclient/js/README.md">
+You can replace the javascript files for Evennia's webclient page here.
+
+You can find the original files in `evennia/web/static/webclient/js/`
+</file>
+
+<file path="web/static/website/css/README.md">
+You can replace the CSS files for Evennia's homepage here.
+
+You can find the original files in `evennia/web/static/website/css/`
+</file>
+
+<file path="web/static/website/images/README.md">
+You can replace the image files for Evennia's home page here.
+
+You can find the original files in `evennia/web/static/website/images/`
+</file>
+
+<file path="web/static/README.md">
+## Static files
+
+This is the place to put static resources you want to serve from the 
+Evennia server. This is usually CSS and Javascript files but you _could_ also
+serve other media like images, videos and music files from here.
+
+> If you serve a lot of large files (especially videos) you will see a lot
+> better performance doing so from a separate dedicated media host.
+
+You can also override default Evennia files from here. The original files are
+found in `evennia/web/static/`. Copy the original file into the same
+corresponding location/sublocation in this folder (such as website CSS files
+into `mygame/static/website/css/`) and modify it, then reload the server.
+
+Note that all static resources will be collected from all over Evennia into
+`mygame/server/.static` for serving by the webserver. That folder should not be
+modified manually.
+</file>
+
+<file path="web/templates/rest_framework/README.md">
+# Templates for the Evennia API
+
+Override templates here.
+</file>
+
+<file path="web/templates/webclient/README.md">
+Replace Evennia's webclient django template with your own here.
+
+You can find the original files in `evennia/web/templates/webclient/`. Just copy
+the original here and modify - after a reload the new template will be used.
+</file>
+
+<file path="web/templates/website/flatpages/README.md">
+Flatpages require a default.html template, which can be overwritten by placing it in this folder.
+
+You can find the original files in `evennia/web/website/templates/website/flatpages/`
+</file>
+
+<file path="web/templates/website/registration/README.md">
+The templates involving login/logout can be overwritten here.
+
+You can find the original files in `evennia/web/website/templates/website/registration/`
+</file>
+
+<file path="web/templates/website/README.md">
+You can replace the django templates (html files) for the website
+here. 
+
+You can find the original files under `evennia/web/templates/website/`. Just 
+copy a template here and modify to have it override the default.
+</file>
+
+<file path="web/templates/README.md">
+# HTML templates
+
+Templates are HTML files that (usually) have special `{{ ... }}` template
+markers in them to allow Evennia/Django to insert dynamic content in a web
+page. An example is listing how many users are currently online in the game.
+
+Templates are referenced by _views_ - Python functions or callable classes that
+prepare the data needed by the template and 'renders' them into a finished 
+HTML page to return to the user.
+
+You can replace Evennia's default templates by overriding them in this folder.
+The originals are in `evennia/web/templates/` - just copy the template into the
+corresponding location here (so the website's `index.html` should be copied to
+`website/index.html` where it can be modified). Reload the server to see your changes.
+</file>
+
+<file path="web/webclient/README.md">
+# Webclient Views
+
+The webclient is mainly controlled by Javascript directly in the browser, so
+you usually customize it via `mygame/web/static/webclient/js/` - files instead.
+
+There is very little you can change from here, unless you want to implement
+your very own client from scratch.
+
+## On views
+
+A 'view' is python code (a function or callable class) responsible for
+producing a HTML page for a user to view in response for going to a given URL
+in their browser. In Evennia lingo, it's similar in function to a Command, with
+the input/args being the URL/request and the output being a new web-page.
+
+The urls.py file contains regular expressions that are run against the provided
+URL - when a match is found, the execution is passed to a view which is then
+responsible (usually) for producing the web page by filling in a _template_ - a
+HTML document that can have special tags in it that are replaced for dynamic
+content. It then returns the finished HTML page for the user to view.
+
+See the [Django docs on Views](https://docs.djangoproject.com/en/4.1/topics/http/views/) for
+more information.
+</file>
+
+<file path="web/webclient/urls.py">
+"""
+This reroutes from an URL to a python view-function/class.
+
+The main web/urls.py includes these routes for all urls starting with `webclient/`
+(the `webclient/` part should not be included again here).
+
+"""
+
+from django.urls import path
+
+from evennia.web.webclient.urls import urlpatterns as evennia_webclient_urlpatterns
+
+# add patterns here
+urlpatterns = [
+    # path("url-pattern", imported_python_view),
+    # path("url-pattern", imported_python_view),
+]
+
+# read by Django
+urlpatterns = urlpatterns + evennia_webclient_urlpatterns
+</file>
+
+<file path="web/website/README.md">
+# Website views and other code
+
+A 'view' is python code (a function or callable class) responsible for
+producing a HTML page for a user to view in response for going to a given URL
+in their browser. In Evennia lingo, it's similar in function to a Command, with
+the input/args being the URL/request and the output being a new web-page.
+
+The urls.py file contains regular expressions that are run against the provided
+URL - when a match is found, the execution is passed to a view which is then
+responsible (usually) for producing the web page by filling in a _template_ - a
+HTML document that can have special tags in it that are replaced for dynamic
+content. It then returns the finished HTML page for the user to view.
+
+See the [Django docs on Views](https://docs.djangoproject.com/en/4.1/topics/http/views/) for
+more information.
+
+## Overriding a view
+
+1. Copy the original code you want to change from `evennia/web/website/views/` into
+`mygame/web/website/views/` and edit it as you like.
+2. Look at `evennia/web/website/urls.py` and find the regex pointing to the view. Add this regex
+to your own `mygam/website/urls.pye` but change it to import and point to your
+changed version instead.
+3. Reload the server and the page now uses your version of the view.
+</file>
+
+<file path="web/website/urls.py">
+"""
+This reroutes from an URL to a python view-function/class.
+
+The main web/urls.py includes these routes for all urls (the root of the url)
+so it can reroute to all website pages.
+
+"""
+
+from django.urls import path
+
+from evennia.web.website.urls import urlpatterns as evennia_website_urlpatterns
+
+# add patterns here
+urlpatterns = [
+    # path("url-pattern", imported_python_view),
+    # path("url-pattern", imported_python_view),
+]
+
+# read by Django
+urlpatterns = urlpatterns + evennia_website_urlpatterns
+</file>
+
+<file path="web/README.md">
+# Web 
+
+This folder contains overriding of web assets - the website and webclient
+coming with the game.
+
+This is the process for serving a new web site (see also the Django docs for
+more details):
+
+1. A user enters an url in their browser (or clicks a button). This leads to
+   the browser sending a _HTTP request_ to the server, with a specific type
+   (GET,POST etc) and url-path (like for `https://localhost:4001/`, the part of
+   the url we need to consider is `/`).
+2. Evennia (through Django) will make use of the regular expressions registered
+   in the `urls.py` file.  This acts as a rerouter to _views_, which are
+   regular Python functions able to process the incoming request (think of
+   these as similar to the right Evennia Command being selected to handle your
+   input - views are like Commands in this sense). In the case of `/` we
+   reroute to a view handling the main index-page of the website.  The view is
+   either a function or a callable class (Evennia tends to have them as
+   functions).
+3. The view-function will prepare all the data needed by the web page. For the default 
+   index page, this means gather the game statistics so you can see how many
+   are currently connected to the game etc. 
+4. The view will next fetch a _template_. A template is a HTML-document with special
+   'placeholder' tags (written as `{{...}}` or `{% ... %}` usually). These
+   placeholders allow the view to inject dynamic content into the HTML and make
+   the page customized to the current situation. For the index page, it means
+   injecting the current player-count in the right places of the html page. This
+   is called 'rendering' the template. The result is a complete HTML page.
+5. (The view can also pull in a _form_ to customize user-input in a similar way.)
+6. The finished HTML page is packed in a _HTTP response_ and is returned to the
+   web browser, which can now display the page! 
+
+## A note on the webclient
+
+The web browser can also execute code directly without talking to the Server.
+This code must be written/loaded into the web page and is written using the
+Javascript programming language (there is no way around this, it is what web
+browsers understand). Executing Javascript is something the web browser does,
+it operates independently from Evennia. Small snippets of javascript can be
+used on a page to have buttons react, make small animations etc that doesn't
+require the server.
+
+In the case of the Webclient, Evennia will load the Webclient page as above,
+but the page then contains Javascript code responsible for actually displaying
+the client GUI, allows you to resize windows etc. 
+
+After it starts, the webclient 'calls home' and spins up a websocket link to
+the Evennia Portal - this is how all data is then exchanged. So after the
+initial loading of the webclient page, the above sequence doesn't happen again
+until close the tab and come back or you reload it manually in your browser.
+</file>
+
+<file path="web/urls.py">
+"""
+This is the starting point when a user enters a url in their web browser.
+
+The urls is matched (by regex) and mapped to a 'view' - a Python function or
+callable class that in turn (usually) makes use of a 'template' (a html file
+with slots that can be replaced by dynamic content) in order to render a HTML
+page to show the user.
+
+This file includes the urls in website, webclient and admin. To override you
+should modify urls.py in those sub directories.
+
+Search the Django documentation for "URL dispatcher" for more help.
+
+"""
+
+from django.urls import include, path
+
+# default evennia patterns
+from evennia.web.urls import urlpatterns as evennia_default_urlpatterns
+
+# add patterns
+urlpatterns = [
+    # website
+    path("", include("web.website.urls")),
+    # webclient
+    path("webclient/", include("web.webclient.urls")),
+    # web admin
+    path("admin/", include("web.admin.urls")),
+    # add any extra urls here:
+    # path("mypath/", include("path.to.my.urls.file")),
+]
+
+# 'urlpatterns' must be named such for Django to find it.
+urlpatterns = urlpatterns + evennia_default_urlpatterns
+</file>
+
+<file path="world/tests/__init__.py">
+"""
+Test package for the Fantasy Steampunk MUD.
+
+This package contains all unit tests for game systems.
+"""
+</file>
+
+<file path="world/tests/test_characters.py">
+"""
+Tests for Character typeclass and trait systems.
+"""
+from evennia.utils.test_resources import EvenniaTest
+from evennia.utils import create
+from typeclasses.characters import Character
+
+
+class TestCharacterTraits(EvenniaTest):
+    """Test character trait categories and functionality."""
+    
+    def setUp(self):
+        """Set up test character."""
+        super().setUp()
+        # Create a test character with traits using Evennia's create_object
+        self.test_char = create.create_object(
+            Character, 
+            key="TestChar", 
+            location=self.room1
+        )
+    
+    def test_trait_categories_exist(self):
+        """Test that all three trait categories are initialized."""
+        # Access the properties to ensure they're created
+        stats = self.test_char.stats
+        traits = self.test_char.traits
+        skills = self.test_char.skills
+        
+        self.assertIsNotNone(stats)
+        self.assertIsNotNone(traits)
+        self.assertIsNotNone(skills)
+        
+        # Verify they are TraitHandlers
+        self.assertEqual(type(stats).__name__, 'TraitHandler')
+        self.assertEqual(type(traits).__name__, 'TraitHandler')
+        self.assertEqual(type(skills).__name__, 'TraitHandler')
+    
+    def test_stat_values(self):
+        """Test stat traits have correct default values."""
+        # All stats should start at 10
+        self.assertEqual(self.test_char.stats.strength.value, 10)
+        self.assertEqual(self.test_char.stats.dexterity.value, 10)
+        self.assertEqual(self.test_char.stats.constitution.value, 10)
+        self.assertEqual(self.test_char.stats.intelligence.value, 10)
+        self.assertEqual(self.test_char.stats.wisdom.value, 10)
+        self.assertEqual(self.test_char.stats.charisma.value, 10)
+        
+        # Test stat modification
+        self.test_char.stats.strength.base = 15
+        self.assertEqual(self.test_char.stats.strength.value, 15)
+        
+        # Test modifier
+        self.test_char.stats.strength.mod = 2
+        self.assertEqual(self.test_char.stats.strength.value, 17)
+    
+    def test_survival_trait_initialization(self):
+        """Test survival traits start at correct values."""
+        # All survival traits should start at 100 (full)
+        self.assertEqual(self.test_char.traits.hunger.value, 100)
+        self.assertEqual(self.test_char.traits.thirst.value, 100)
+        self.assertEqual(self.test_char.traits.fatigue.value, 100)
+        self.assertEqual(self.test_char.traits.health.value, 100)
+        
+        # Test descriptions
+        self.assertEqual(self.test_char.traits.hunger.desc(), "full")
+        self.assertEqual(self.test_char.traits.thirst.desc(), "hydrated")
+        self.assertEqual(self.test_char.traits.fatigue.desc(), "energized")
+        self.assertEqual(self.test_char.traits.health.desc(), "healthy")
+    
+    def test_survival_trait_decay_rates(self):
+        """Test that survival traits have correct decay rates set."""
+        # Check decay rates (per second, will be converted to per hour in gametime)
+        self.assertEqual(self.test_char.traits.hunger.rate, -2.0)
+        self.assertEqual(self.test_char.traits.thirst.rate, -3.0)
+        self.assertEqual(self.test_char.traits.fatigue.rate, -1.0)
+        self.assertEqual(self.test_char.traits.health.rate, 0)  # Health doesn't auto-decay
+    
+    def test_survival_trait_modification(self):
+        """Test modifying survival traits."""
+        # Test direct modification
+        self.test_char.traits.hunger.current = 50
+        self.assertEqual(self.test_char.traits.hunger.value, 50)
+        self.assertEqual(self.test_char.traits.hunger.desc(), "hungry")
+        
+        # Test boundaries
+        self.test_char.traits.hunger.current = -10
+        self.assertEqual(self.test_char.traits.hunger.value, 0)  # Should clamp to min
+        
+        self.test_char.traits.hunger.current = 150
+        self.assertEqual(self.test_char.traits.hunger.value, 100)  # Should clamp to max
+    
+    def test_skill_progression(self):
+        """Test skill advancement."""
+        # Skills should start at 0
+        self.assertEqual(self.test_char.skills.crafting.value, 0)
+        self.assertEqual(self.test_char.skills.crafting.desc(), "untrained")
+        
+        # Test skill increase
+        self.test_char.skills.crafting.current = 15
+        self.assertEqual(self.test_char.skills.crafting.value, 15)
+        self.assertEqual(self.test_char.skills.crafting.desc(), "novice")
+        
+        # Test skill boundaries
+        self.test_char.skills.crafting.current = 150
+        self.assertEqual(self.test_char.skills.crafting.value, 100)  # Should clamp to max
+    
+    def test_convenience_methods(self):
+        """Test the convenience methods for accessing traits."""
+        # Test get_stat
+        self.assertEqual(self.test_char.get_stat("strength"), 10)
+        self.assertIsNone(self.test_char.get_stat("invalid_stat"))
+        
+        # Test get_trait_status
+        value, desc = self.test_char.get_trait_status("hunger")
+        self.assertEqual(value, 100)
+        self.assertEqual(desc, "full")
+        
+        # Test get_skill_level
+        value, desc = self.test_char.get_skill_level("crafting")
+        self.assertEqual(value, 0)
+        self.assertEqual(desc, "untrained")
+        
+        # Test modify_trait
+        self.assertTrue(self.test_char.modify_trait("hunger", -20))
+        self.assertEqual(self.test_char.traits.hunger.value, 80)
+        self.assertFalse(self.test_char.modify_trait("invalid_trait", 10))
+        
+        # Test improve_skill
+        self.assertTrue(self.test_char.improve_skill("crafting", 5))
+        self.assertEqual(self.test_char.skills.crafting.value, 5)
+        self.assertFalse(self.test_char.improve_skill("invalid_skill"))
+
+
+class TestCharacterSurvival(EvenniaTest):
+    """Test survival mechanics specific functionality."""
+    
+    def setUp(self):
+        """Set up test character."""
+        super().setUp()
+        self.char = create.create_object(
+            Character,
+            key="SurvivalChar",
+            location=self.room1
+        )
+    
+    def test_hunger_boundaries(self):
+        """Test hunger can't go below 0 or above 100."""
+        # Test lower boundary
+        self.char.traits.hunger.current = -50
+        self.assertEqual(self.char.traits.hunger.value, 0)
+        self.assertEqual(self.char.traits.hunger.desc(), "starving")
+        
+        # Test upper boundary
+        self.char.traits.hunger.current = 200
+        self.assertEqual(self.char.traits.hunger.value, 100)
+        self.assertEqual(self.char.traits.hunger.desc(), "full")
+    
+    def test_thirst_progression(self):
+        """Test thirst descriptions at different levels."""
+        thirst_levels = [
+            (0, "dehydrated"),
+            (15, "dehydrated"),  # Updated based on new bounds
+            (30, "parched"),
+            (50, "thirsty"),
+            (75, "slightly thirsty"),
+            (95, "refreshed")
+        ]
+        
+        for value, expected_desc in thirst_levels:
+            self.char.traits.thirst.current = value
+            self.assertEqual(self.char.traits.thirst.desc(), expected_desc)
+    
+    def test_survival_summary(self):
+        """Test survival summary generation."""
+        # Set some test values
+        self.char.traits.hunger.current = 75
+        self.char.traits.thirst.current = 50
+        self.char.traits.fatigue.current = 25
+        self.char.traits.health.current = 90
+        
+        summary = self.char.get_survival_summary()
+        
+        # Check that all traits are in summary
+        self.assertIn("Hunger: 75% (peckish)", summary)
+        self.assertIn("Thirst: 50% (thirsty)", summary)
+        self.assertIn("Fatigue: 25% (very tired)", summary)
+        self.assertIn("Health: 90% (bruised)", summary)
+    
+    def test_skill_summary(self):
+        """Test skill summary generation."""
+        # Set some test values
+        self.char.skills.crafting.current = 35
+        self.char.skills.hunting.current = 15
+        self.char.skills.engineering.current = 75
+        
+        summary = self.char.get_skill_summary()
+        
+        # Check that skills show correct values and descriptions
+        self.assertIn("Crafting: 35 (apprentice)", summary)
+        self.assertIn("Hunting: 15 (novice)", summary)
+        self.assertIn("Engineering: 75 (expert)", summary)
+        self.assertIn("Foraging: 0 (untrained)", summary)
+
+
+class TestCharacterStatModifiers(EvenniaTest):
+    """Test stat modifier functionality."""
+    
+    def setUp(self):
+        """Set up test character."""
+        super().setUp()
+        self.char = create.create_object(
+            Character,
+            key="ModChar",
+            location=self.room1
+        )
+    
+    def test_stat_modifiers(self):
+        """Test that stat modifiers work correctly."""
+        # Base value
+        self.assertEqual(self.char.stats.strength.value, 10)
+        
+        # Add modifier
+        self.char.stats.strength.mod = 3
+        self.assertEqual(self.char.stats.strength.value, 13)
+        
+        # Change base
+        self.char.stats.strength.base = 12
+        self.assertEqual(self.char.stats.strength.value, 15)  # 12 + 3
+        
+        # Test multiplier
+        self.char.stats.strength.mult = 1.5
+        # The result will be a float, so we compare with the exact value
+        self.assertEqual(self.char.stats.strength.value, 22.5)  # (12 + 3) * 1.5
+    
+    def test_gauge_reset(self):
+        """Test resetting gauge traits to full."""
+        # Deplete some traits
+        self.char.traits.hunger.current = 25
+        self.char.traits.thirst.current = 10
+        
+        # Reset them
+        self.char.traits.hunger.reset()
+        self.char.traits.thirst.reset()
+        
+        # Should be back to full
+        self.assertEqual(self.char.traits.hunger.value, 100)
+        self.assertEqual(self.char.traits.thirst.value, 100)
+    
+    def test_skill_reset(self):
+        """Test resetting skills back to base."""
+        # Increase skill
+        self.char.skills.crafting.current = 50
+        
+        # Reset
+        self.char.skills.crafting.reset()
+        
+        # Should be back to base (0)
+        self.assertEqual(self.char.skills.crafting.value, 0)
+
+
+class TestCharacterEdgeCases(EvenniaTest):
+    """Test edge cases and error handling."""
+    
+    def setUp(self):
+        """Set up test character."""
+        super().setUp()
+        self.char = create.create_object(
+            Character,
+            key="EdgeCaseChar",
+            location=self.room1
+        )
+    
+    def test_modify_trait_edge_cases(self):
+        """Test edge cases for modify_trait method."""
+        # Test modifying with extreme values
+        self.assertTrue(self.char.modify_trait("hunger", 1000))
+        self.assertEqual(self.char.traits.hunger.value, 100)  # Should cap at max
+    
+        self.assertTrue(self.char.modify_trait("hunger", -2000))
+        self.assertEqual(self.char.traits.hunger.value, 0)  # Should cap at min
+    
+        # Test modifying with float values
+        # Note: Gauge traits with integer base will round the result
+        self.char.traits.hunger.current = 50
+        self.assertTrue(self.char.modify_trait("hunger", 5.5))
+        # Since base is an integer, the value gets rounded
+        self.assertEqual(self.char.traits.hunger.value, 55)  # 55.5 rounds to 55
+    
+        # Test modifying non-existent trait
+        self.assertFalse(self.char.modify_trait("nonexistent", 10))
+    
+    def test_improve_skill_edge_cases(self):
+        """Test edge cases for improve_skill method."""
+        # Test improving beyond max
+        self.char.skills.crafting.current = 95
+        self.assertTrue(self.char.improve_skill("crafting", 20))
+        self.assertEqual(self.char.skills.crafting.value, 100)  # Should cap at max
+        
+        # Test improving with negative value (skill decrease)
+        self.char.skills.hunting.current = 50
+        self.assertTrue(self.char.improve_skill("hunting", -10))
+        self.assertEqual(self.char.skills.hunting.value, 40)
+        
+        # Test improving below min
+        self.char.skills.foraging.current = 5
+        self.assertTrue(self.char.improve_skill("foraging", -10))
+        self.assertEqual(self.char.skills.foraging.value, 0)  # Should cap at min
+    
+    def test_convenience_methods_with_empty_traits(self):
+        """Test convenience methods on character without traits."""
+        # Create a character and manually remove traits
+        empty_char = create.create_object(
+            Character,
+            key="EmptyChar",
+            location=self.room1
+        )
+        # Don't remove the handlers, just test with non-existent trait names
+        
+        # Test all convenience methods with non-existent traits
+        self.assertIsNone(empty_char.get_stat("nonexistent"))
+        self.assertEqual(empty_char.get_trait_status("nonexistent"), (None, None))
+        self.assertEqual(empty_char.get_skill_level("nonexistent"), (None, None))
+        self.assertFalse(empty_char.modify_trait("nonexistent", 10))
+        self.assertFalse(empty_char.improve_skill("nonexistent", 5))
+    
+    def test_summary_methods_formatting(self):
+        """Test summary methods with various trait values."""
+        # Set all traits to different values
+        self.char.traits.hunger.current = 0
+        self.char.traits.thirst.current = 33
+        self.char.traits.fatigue.current = 66
+        self.char.traits.health.current = 100
+        
+        summary = self.char.get_survival_summary()
+        lines = summary.split('\n')
+        self.assertEqual(len(lines), 4)  # Should have 4 lines
+        
+        # Check each line format
+        self.assertTrue(all(': ' in line and '% (' in line and ')' in line for line in lines))
+        
+        # Set skills to various levels
+        self.char.skills.crafting.current = 0
+        self.char.skills.hunting.current = 25
+        self.char.skills.foraging.current = 50
+        self.char.skills.engineering.current = 75
+        self.char.skills.survival.current = 90
+        self.char.skills.trading.current = 100
+        
+        skill_summary = self.char.get_skill_summary()
+        skill_lines = skill_summary.split('\n')
+        self.assertEqual(len(skill_lines), 6)  # Should have 6 lines
+        
+        # Verify all skill levels are represented
+        self.assertIn("untrained", skill_summary)
+        self.assertIn("novice", skill_summary)
+        self.assertIn("journeyman", skill_summary)
+        self.assertIn("expert", skill_summary)
+        self.assertIn("master", skill_summary)
+
+
+class TestTraitModifiersAndMultipliers(EvenniaTest):
+    """Test advanced trait modifications with mods and multipliers."""
+    
+    def setUp(self):
+        """Set up test character."""
+        super().setUp()
+        self.char = create.create_object(
+            Character,
+            key="ModTestChar",
+            location=self.room1
+        )
+    
+    def test_skill_with_modifiers(self):
+        """Test skills with mod and mult values."""
+        # Test base + mod
+        self.char.skills.crafting.base = 20
+        self.char.skills.crafting.mod = 10
+        self.assertEqual(self.char.skills.crafting.value, 30)  # 20 + 10
+        
+        # Test with current different from base
+        self.char.skills.crafting.current = 40
+        self.assertEqual(self.char.skills.crafting.value, 50)  # 40 + 10
+        
+        # Test with multiplier
+        self.char.skills.crafting.mult = 1.5
+        self.assertEqual(self.char.skills.crafting.value, 75)  # (40 + 10) * 1.5
+        
+        # Test that desc() still works correctly with modifiers
+        self.assertEqual(self.char.skills.crafting.desc(), "expert")  # 75 is in 70-89 range
+    
+    def test_survival_trait_modifiers(self):
+        """Test survival traits with modifiers don't break gauge behavior."""
+        # Gauges use mod differently - it affects max, not current
+        self.char.traits.hunger.base = 100
+        self.char.traits.hunger.mod = 20
+        
+        # Max should be base + mod
+        self.assertEqual(self.char.traits.hunger.max, 120)
+        
+        # Current should start at max
+        self.char.traits.hunger.reset()
+        self.assertEqual(self.char.traits.hunger.value, 120)
+        
+        # Test with multiplier
+        self.char.traits.hunger.mult = 0.5
+        self.assertEqual(self.char.traits.hunger.max, 60)  # (100 + 20) * 0.5
+    
+    def test_stat_modifier_combinations(self):
+        """Test various combinations of base, mod, and mult."""
+        # Test negative modifier
+        self.char.stats.strength.base = 15
+        self.char.stats.strength.mod = -3
+        self.assertEqual(self.char.stats.strength.value, 12)
+    
+        # Test fractional multiplier with negative mod
+        self.char.stats.strength.mult = 0.8
+        # Use assertAlmostEqual for floating point comparison to avoid precision issues
+        self.assertAlmostEqual(self.char.stats.strength.value, 9.6, places=1)
+    
+        # Test zero multiplier (edge case)
+        self.char.stats.strength.mult = 0
+        self.assertEqual(self.char.stats.strength.value, 0)
+    
+        # Reset and test large multiplier
+        self.char.stats.strength.mult = 3.0
+        self.char.stats.strength.mod = 5
+        self.assertEqual(self.char.stats.strength.value, 60)  # (15 + 5) * 3
+
+
+class TestAutoDecaySimulation(EvenniaTest):
+    """Test auto-decay behavior (without actual time passing)."""
+    
+    def setUp(self):
+        """Set up test character."""
+        super().setUp()
+        self.char = create.create_object(
+            Character,
+            key="DecayTestChar",
+            location=self.room1
+        )
+    
+    def test_decay_rates_are_set(self):
+        """Verify decay rates are properly configured."""
+        # Check all decay rates
+        self.assertEqual(self.char.traits.hunger.rate, -2.0)
+        self.assertEqual(self.char.traits.thirst.rate, -3.0)
+        self.assertEqual(self.char.traits.fatigue.rate, -1.0)
+        self.assertEqual(self.char.traits.health.rate, 0)
+        
+        # Verify rates are negative (decay) except health
+        self.assertLess(self.char.traits.hunger.rate, 0)
+        self.assertLess(self.char.traits.thirst.rate, 0)
+        self.assertLess(self.char.traits.fatigue.rate, 0)
+        self.assertEqual(self.char.traits.health.rate, 0)
+    
+    def test_manual_decay_simulation(self):
+        """Simulate decay by manually adjusting values."""
+        # Start with known values
+        self.char.traits.hunger.current = 100
+        self.char.traits.thirst.current = 100
+        self.char.traits.fatigue.current = 100
+        
+        # Simulate 1 hour of decay manually
+        self.char.traits.hunger.current += self.char.traits.hunger.rate
+        self.char.traits.thirst.current += self.char.traits.thirst.rate
+        self.char.traits.fatigue.current += self.char.traits.fatigue.rate
+        
+        # Check values decreased correctly
+        self.assertEqual(self.char.traits.hunger.value, 98)  # 100 - 2
+        self.assertEqual(self.char.traits.thirst.value, 97)  # 100 - 3
+        self.assertEqual(self.char.traits.fatigue.value, 99)  # 100 - 1
+        
+        # Simulate many hours until hitting bottom
+        self.char.traits.hunger.current = 5
+        self.char.traits.hunger.current += self.char.traits.hunger.rate * 3  # 3 hours
+        self.assertEqual(self.char.traits.hunger.value, 0)  # Should stop at 0
+    
+    def test_trait_descriptions_during_decay(self):
+        """Test that descriptions update correctly as traits decay."""
+        # Test hunger descriptions at each threshold
+        hunger_thresholds = [
+            (100, "full"),
+            (95, "satisfied"),
+            (75, "peckish"),
+            (55, "hungry"),
+            (35, "very hungry"),
+            (15, "starving"),
+            (0, "starving")
+        ]
+        
+        for value, expected_desc in hunger_thresholds:
+            self.char.traits.hunger.current = value
+            self.assertEqual(
+                self.char.traits.hunger.desc(), 
+                expected_desc,
+                f"At hunger {value}, expected '{expected_desc}' but got '{self.char.traits.hunger.desc()}'"
+            )
+
+
+class TestCharacterCreationVariations(EvenniaTest):
+    """Test creating characters in different ways."""
+    
+    def test_multiple_character_creation(self):
+        """Test that multiple characters have independent traits."""
+        char1 = create.create_object(Character, key="Char1", location=self.room1)
+        char2 = create.create_object(Character, key="Char2", location=self.room1)
+        
+        # Modify char1's traits
+        char1.stats.strength.base = 15
+        char1.traits.hunger.current = 50
+        char1.skills.crafting.current = 30
+        
+        # Verify char2's traits are unaffected
+        self.assertEqual(char2.stats.strength.value, 10)
+        self.assertEqual(char2.traits.hunger.value, 100)
+        self.assertEqual(char2.skills.crafting.value, 0)
+        
+        # Verify modifications stuck to char1
+        self.assertEqual(char1.stats.strength.value, 15)
+        self.assertEqual(char1.traits.hunger.value, 50)
+        self.assertEqual(char1.skills.crafting.value, 30)
+    
+    def test_character_persistence_simulation(self):
+        """Test that trait values would persist (without actual save/load)."""
+        char = create.create_object(Character, key="PersistChar", location=self.room1)
+        
+        # Modify various traits
+        char.stats.intelligence.mod = 3
+        char.traits.thirst.current = 75
+        char.skills.engineering.current = 45
+        
+        # Get the underlying data (this is what would be saved)
+        stats_data = char.attributes.get("stats", category="traits")
+        traits_data = char.attributes.get("traits", category="traits")
+        skills_data = char.attributes.get("skills", category="traits")
+        
+        # Verify data structures exist
+        self.assertIsNotNone(stats_data)
+        self.assertIsNotNone(traits_data)
+        self.assertIsNotNone(skills_data)
+        
+        # Verify our modifications are in the data
+        self.assertEqual(stats_data.get("intelligence", {}).get("mod"), 3)
+        self.assertEqual(traits_data.get("thirst", {}).get("current"), 75)
+        self.assertEqual(skills_data.get("engineering", {}).get("current"), 45)
+</file>
+
+<file path="world/batch_cmds.ev">
+#
+# A batch-command file is a way to build a game world
+# in a programmatic way, by placing a sequence of
+# build commands after one another. This allows for
+# using a real text editor to edit e.g. descriptions
+# rather than entering text on the command line.
+#
+# A batch-command file is loaded with @batchprocess in-game:
+#
+#   @batchprocess[/interactive] tutorial_examples.batch_cmds
+#
+# A # as the first symbol on a line begins a comment and
+# marks the end of a previous command definition. This is important,
+# - every command must be separated by at least one line of comment.
+#
+# All supplied commands are given as normal, on their own line
+# and accept arguments in any format up until the first next
+# comment line begins. Extra whitespace is removed; an empty
+# line in a command definition translates into a newline.
+#
+# See `evennia/contrib/tutorial_examples/batch_cmds.ev` for
+# an example of a batch-command code. See also the batch-code
+# system for loading python-code this way.
+#
+</file>
+
+<file path="world/help_entries.py">
+"""
+File-based help entries. These complements command-based help and help entries
+added in the database using the `sethelp` command in-game.
+
+Control where Evennia reads these entries with `settings.FILE_HELP_ENTRY_MODULES`,
+which is a list of python-paths to modules to read.
+
+A module like this should hold a global `HELP_ENTRY_DICTS` list, containing
+dicts that each represent a help entry. If no `HELP_ENTRY_DICTS` variable is
+given, all top-level variables that are dicts in the module are read as help
+entries.
+
+Each dict is on the form
+::
+
+    {'key': <str>,
+     'text': <str>}``     # the actual help text. Can contain # subtopic sections
+     'category': <str>,   # optional, otherwise settings.DEFAULT_HELP_CATEGORY
+     'aliases': <list>,   # optional
+     'locks': <str>       # optional, 'view' controls seeing in help index, 'read'
+                          #           if the entry can be read. If 'view' is unset,
+                          #           'read' is used for the index. If unset, everyone
+                          #           can read/view the entry.
+
+"""
+
+HELP_ENTRY_DICTS = [
+    {
+        "key": "evennia",
+        "aliases": ["ev"],
+        "category": "General",
+        "locks": "read:perm(Developer)",
+        "text": """
+            Evennia is a MU-game server and framework written in Python. You can read more
+            on https://www.evennia.com.
+
+            # subtopics
+
+            ## Installation
+
+            You'll find installation instructions on https://www.evennia.com.
+
+            ## Community
+
+            There are many ways to get help and communicate with other devs!
+
+            ### Discussions
+
+            The Discussions forum is found at https://github.com/evennia/evennia/discussions.
+
+            ### Discord
+
+            There is also a discord channel for chatting - connect using the
+            following link: https://discord.gg/AJJpcRUhtF
+
+        """,
+    },
+]
+</file>
+
+<file path="world/prototypes.py">
+"""
+Prototypes
+
+A prototype is a simple way to create individualized instances of a
+given typeclass. It is dictionary with specific key names.
+
+For example, you might have a Sword typeclass that implements everything a
+Sword would need to do. The only difference between different individual Swords
+would be their key, description and some Attributes. The Prototype system
+allows to create a range of such Swords with only minor variations. Prototypes
+can also inherit and combine together to form entire hierarchies (such as
+giving all Sabres and all Broadswords some common properties). Note that bigger
+variations, such as custom commands or functionality belong in a hierarchy of
+typeclasses instead.
+
+A prototype can either be a dictionary placed into a global variable in a
+python module (a 'module-prototype') or stored in the database as a dict on a
+special Script (a db-prototype). The former can be created just by adding dicts
+to modules Evennia looks at for prototypes, the latter is easiest created
+in-game via the `olc` command/menu.
+
+Prototypes are read and used to create new objects with the `spawn` command
+or directly via `evennia.spawn` or the full path `evennia.prototypes.spawner.spawn`.
+
+A prototype dictionary have the following keywords:
+
+Possible keywords are:
+- `prototype_key` - the name of the prototype. This is required for db-prototypes,
+  for module-prototypes, the global variable name of the dict is used instead
+- `prototype_parent` - string pointing to parent prototype if any. Prototype inherits
+  in a similar way as classes, with children overriding values in their parents.
+- `key` - string, the main object identifier.
+- `typeclass` - string, if not set, will use `settings.BASE_OBJECT_TYPECLASS`.
+- `location` - this should be a valid object or #dbref.
+- `home` - valid object or #dbref.
+- `destination` - only valid for exits (object or #dbref).
+- `permissions` - string or list of permission strings.
+- `locks` - a lock-string to use for the spawned object.
+- `aliases` - string or list of strings.
+- `attrs` - Attributes, expressed as a list of tuples on the form `(attrname, value)`,
+  `(attrname, value, category)`, or `(attrname, value, category, locks)`. If using one
+   of the shorter forms, defaults are used for the rest.
+- `tags` - Tags, as a list of tuples `(tag,)`, `(tag, category)` or `(tag, category, data)`.
+-  Any other keywords are interpreted as Attributes with no category or lock.
+   These will internally be added to `attrs` (equivalent to `(attrname, value)`.
+
+See the `spawn` command and `evennia.prototypes.spawner.spawn` for more info.
+
+"""
+
+## example of module-based prototypes using
+## the variable name as `prototype_key` and
+## simple Attributes
+
+# from random import randint
+#
+# GOBLIN = {
+# "key": "goblin grunt",
+# "health": lambda: randint(20,30),
+# "resists": ["cold", "poison"],
+# "attacks": ["fists"],
+# "weaknesses": ["fire", "light"],
+# "tags": = [("greenskin", "monster"), ("humanoid", "monster")]
+# }
+#
+# GOBLIN_WIZARD = {
+# "prototype_parent": "GOBLIN",
+# "key": "goblin wizard",
+# "spells": ["fire ball", "lighting bolt"]
+# }
+#
+# GOBLIN_ARCHER = {
+# "prototype_parent": "GOBLIN",
+# "key": "goblin archer",
+# "attacks": ["short bow"]
+# }
+#
+# This is an example of a prototype without a prototype
+# (nor key) of its own, so it should normally only be
+# used as a mix-in, as in the example of the goblin
+# archwizard below.
+# ARCHWIZARD_MIXIN = {
+# "attacks": ["archwizard staff"],
+# "spells": ["greater fire ball", "greater lighting"]
+# }
+#
+# GOBLIN_ARCHWIZARD = {
+# "key": "goblin archwizard",
+# "prototype_parent" : ("GOBLIN_WIZARD", "ARCHWIZARD_MIXIN")
+# }
+</file>
+
+<file path="world/README.md">
+# world/
+
+This folder is meant as a miscellaneous folder for all that other stuff
+related to the game. Code which are not commands or typeclasses go
+here, like custom economy systems, combat code, batch-files etc. 
+
+You can restructure and even rename this folder as best fits your
+sense of organisation. Just remember that if you add new sub
+directories, you must add (optionally empty) `__init__.py` files in
+them for Python to be able to find the modules within.
+</file>
+
+<file path=".gitattributes">
+# Auto detect text files and perform LF normalization
+* text=auto
+</file>
+
+<file path=".gitignore">
+*.py[cod]
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+__pycache__
+
+# Other
+*.swp
+*.log
+*.log.*
+*.pid
+*.restart
+*.db3
+
+# Installation-specific.
+# For group efforts, comment out some or all of these.
+server/conf/secret_settings.py
+server/logs/*.log.*
+server/.static/*
+server/.media/*
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# PyCharm config
+.idea
+
+# VSCode config
+.vscode
+</file>
+
+<file path="README.md">
+# Welcome to Evennia!
+
+This is your game directory, set up to let you start with
+your new game right away. An overview of this directory is found here:
+https://github.com/evennia/evennia/wiki/Directory-Overview#the-game-directory
+
+You can delete this readme file when you've read it and you can
+re-arrange things in this game-directory to suit your own sense of
+organisation (the only exception is the directory structure of the
+`server/` directory, which Evennia expects). If you change the structure
+you must however also edit/add to your settings file to tell Evennia
+where to look for things.
+
+Your game's main configuration file is found in
+`server/conf/settings.py` (but you don't need to change it to get
+started). If you just created this directory (which means you'll already
+have a `virtualenv` running if you followed the default instructions),
+`cd` to this directory then initialize a new database using
+
+    evennia migrate
+
+To start the server, stand in this directory and run
+
+    evennia start
+
+This will start the server, logging output to the console. Make
+sure to create a superuser when asked. By default you can now connect
+to your new game using a MUD client on `localhost`, port `4000`.  You can
+also log into the web client by pointing a browser to
+`http://localhost:4001`.
+
+# Getting started
+
+From here on you might want to look at one of the beginner tutorials:
+http://github.com/evennia/evennia/wiki/Tutorials.
+
+Evennia's documentation is here:
+https://github.com/evennia/evennia/wiki.
+
+Enjoy!
+</file>
+
+<file path="typeclasses/characters.py">
+"""
+Characters
+
+Characters are (by default) Objects setup to be puppeted by Accounts.
+They are what you "see" in game. The Character class in this module
+is setup to be the "default" character type created by the default
+creation commands.
+
+This implementation uses the Traits contrib to provide a rich
+character system with stats, survival needs, and skills.
+"""
+
+from evennia.objects.objects import DefaultCharacter
+from evennia.utils import lazy_property
+from evennia.contrib.rpg.traits import TraitHandler
+
+from .objects import ObjectParent
+
+
+class Character(ObjectParent, DefaultCharacter):
+    """
+    The Character class implements a three-category trait system:
+    
+    1. Stats (static traits): Core attributes like strength, dexterity
+    2. Traits (gauge traits): Survival needs with auto-decay (hunger, thirst, fatigue)
+    3. Skills (counter traits): Learnable abilities that progress over time
+    
+    Example usage:
+        # Access stats
+        character.stats.strength.value  # Returns current strength
+        
+        # Check survival needs
+        if character.traits.hunger.value < 20:
+            character.msg("You are very hungry!")
+            
+        # Improve skills
+        character.skills.crafting.current += 5
+        
+    The survival traits use auto-decay rates:
+        - Hunger: -2 per game hour
+        - Thirst: -3 per game hour  
+        - Fatigue: -1 per game hour
+    """
+
+    # Define the three trait category handlers
+    @lazy_property
+    def stats(self):
+        """
+        Handler for character statistics (strength, dexterity, etc).
+        These are static traits that don't change automatically.
+        """
+        return TraitHandler(self, db_attribute_key="stats", db_attribute_category="traits")
+    
+    @lazy_property
+    def traits(self):
+        """
+        Handler for survival traits (hunger, thirst, fatigue, health).
+        These are gauge traits that can auto-decay over time.
+        """
+        return TraitHandler(self, db_attribute_key="traits", db_attribute_category="traits")
+    
+    @lazy_property
+    def skills(self):
+        """
+        Handler for learnable skills (crafting, hunting, etc).
+        These are counter traits that track progression.
+        """
+        return TraitHandler(self, db_attribute_key="skills", db_attribute_category="traits")
+
+    def at_object_creation(self):
+        """
+        Called once when the character is first created.
+        Sets up all the initial traits with their default values.
+        """
+        super().at_object_creation()
+        
+        # Initialize Stats (static traits for base attributes)
+        self.stats.add("strength", "Strength", trait_type="static", 
+                      base=10, mod=0, mult=1.0)
+        self.stats.add("dexterity", "Dexterity", trait_type="static", 
+                      base=10, mod=0, mult=1.0)
+        self.stats.add("constitution", "Constitution", trait_type="static", 
+                      base=10, mod=0, mult=1.0)
+        self.stats.add("intelligence", "Intelligence", trait_type="static", 
+                      base=10, mod=0, mult=1.0)
+        self.stats.add("wisdom", "Wisdom", trait_type="static", 
+                      base=10, mod=0, mult=1.0)
+        self.stats.add("charisma", "Charisma", trait_type="static", 
+                      base=10, mod=0, mult=1.0)
+        
+        # Initialize Traits (gauge traits for survival needs)
+        # All start at 100 (full) and decay toward 0
+        # Note: In Evennia's desc() implementation, the dict key represents the
+        # upper bound (inclusive) for that description, not the lower bound.
+        self.traits.add("hunger", "Hunger", trait_type="gauge", 
+                       base=100, mod=0, min=0, rate=-2.0,
+                       descs={19: "starving", 39: "very hungry", 59: "hungry", 
+                             79: "peckish", 99: "satisfied", 100: "full"})
+        
+        self.traits.add("thirst", "Thirst", trait_type="gauge",
+                       base=100, mod=0, min=0, rate=-3.0,
+                       descs={19: "dehydrated", 39: "parched", 59: "thirsty",
+                             79: "slightly thirsty", 99: "refreshed", 100: "hydrated"})
+        
+        self.traits.add("fatigue", "Fatigue", trait_type="gauge",
+                       base=100, mod=0, min=0, rate=-1.0,
+                       descs={19: "exhausted", 39: "very tired", 59: "tired",
+                             79: "slightly tired", 99: "rested", 100: "energized"})
+        
+        self.traits.add("health", "Health", trait_type="gauge",
+                       base=100, mod=0, min=0, rate=0,  # No auto-decay
+                       descs={19: "dead", 39: "critically wounded", 59: "badly hurt",
+                             79: "wounded", 99: "bruised", 100: "healthy"})
+        
+        # Initialize Skills (counter traits for progression)
+        # All start at 0 and can progress to 100
+        # The dict key is the upper bound for each skill level description
+        skill_descs = {
+            9: "untrained",    # 0-9
+            29: "novice",      # 10-29
+            49: "apprentice",  # 30-49
+            69: "journeyman",  # 50-69
+            89: "expert",      # 70-89
+            100: "master"      # 90-100
+        }
+        
+        self.skills.add("crafting", "Crafting", trait_type="counter",
+                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+        
+        self.skills.add("hunting", "Hunting", trait_type="counter",
+                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+        
+        self.skills.add("foraging", "Foraging", trait_type="counter",
+                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+        
+        self.skills.add("engineering", "Engineering", trait_type="counter",
+                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+        
+        self.skills.add("survival", "Survival", trait_type="counter",
+                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+        
+        self.skills.add("trading", "Trading", trait_type="counter",
+                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+    
+    # Convenience methods for common operations
+    
+    def get_stat(self, stat_name):
+        """
+        Get a stat value by name.
+        
+        Args:
+            stat_name (str): Name of the stat (e.g., 'strength')
+            
+        Returns:
+            int: The stat's current value, or None if not found
+        """
+        stat = self.stats.get(stat_name)
+        return stat.value if stat else None
+    
+    def get_trait_status(self, trait_name):
+        """
+        Get both the value and description of a survival trait.
+        
+        Args:
+            trait_name (str): Name of the trait (e.g., 'hunger')
+            
+        Returns:
+            tuple: (value, description) or (None, None) if not found
+        """
+        trait = self.traits.get(trait_name)
+        if trait:
+            return (trait.value, trait.desc())
+        return (None, None)
+    
+    def get_skill_level(self, skill_name):
+        """
+        Get both the value and proficiency description of a skill.
+        
+        Args:
+            skill_name (str): Name of the skill (e.g., 'crafting')
+            
+        Returns:
+            tuple: (value, description) or (None, None) if not found
+        """
+        skill = self.skills.get(skill_name)
+        if skill:
+            return (skill.value, skill.desc())
+        return (None, None)
+    
+    def modify_trait(self, trait_name, amount):
+        """
+        Modify a survival trait by a given amount.
+        
+        Args:
+            trait_name (str): Name of the trait to modify
+            amount (int/float): Amount to add (positive) or subtract (negative)
+            
+        Returns:
+            bool: True if successful, False if trait not found
+        """
+        trait = self.traits.get(trait_name)
+        if trait:
+            trait.current += amount
+            return True
+        return False
+    
+    def improve_skill(self, skill_name, amount=1):
+        """
+        Improve a skill by a given amount.
+        
+        Args:
+            skill_name (str): Name of the skill to improve
+            amount (int): Amount to increase skill by (default 1)
+            
+        Returns:
+            bool: True if successful, False if skill not found
+        """
+        skill = self.skills.get(skill_name)
+        if skill:
+            skill.current += amount
+            return True
+        return False
+    
+    def get_survival_summary(self):
+        """
+        Get a formatted summary of all survival traits.
+    
+        Returns:
+            str: Formatted string showing all survival trait statuses
+        """
+        summary_parts = []
+        for trait_name in ["hunger", "thirst", "fatigue", "health"]:
+            trait = self.traits.get(trait_name)
+            if trait:
+                # Get the raw percentage value without formatting
+                percent_value = int(trait.percent(formatting=None))
+                desc = trait.desc()
+                summary_parts.append(f"{trait_name.title()}: {percent_value}% ({desc})")
+    
+        return "\n".join(summary_parts)
+
+    def get_skill_summary(self):
+        """
+        Get a formatted summary of all skills.
+    
+        Returns:
+            str: Formatted string showing all skill levels
+        """
+        summary_parts = []
+        for skill_name in ["crafting", "hunting", "foraging", 
+                          "engineering", "survival", "trading"]:
+            skill = self.skills.get(skill_name)
+            if skill:
+                # Convert to int for cleaner display
+                value = int(skill.value)
+                desc = skill.desc()
+                summary_parts.append(f"{skill_name.title()}: {value} ({desc})")
+    
+        return "\n".join(summary_parts)
+</file>
+
+</files>
