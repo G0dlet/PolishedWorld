@@ -16,6 +16,10 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 from evennia import default_cmds
 from commands.time_commands import CmdTime, CmdUptime
+from commands.search_commands import CmdSearch, CmdLight
+from commands.resource_commands import CmdGather, CmdForage
+from evennia.contrib.grid.extended_room import ExtendedRoomCmdSet
+
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -37,6 +41,17 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # Add time-related commands
         self.add(CmdTime())
         self.add(CmdUptime())
+
+        # Add Extended Room commands (includes enhanced look)
+        self.add(ExtendedRoomCmdSet)
+        
+        # Add search and light commands
+        self.add(CmdSearch())
+        self.add(CmdLight())
+        
+        # Add resource gathering commands
+        self.add(CmdGather())
+        self.add(CmdForage())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

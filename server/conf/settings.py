@@ -113,6 +113,60 @@ TRAIT_DECAY_RATES = {
 }
 
 ######################################################################
+# Extended Room Configuration
+######################################################################
+
+# Default typeclass for new rooms
+BASE_ROOM_TYPECLASS = "typeclasses.rooms.Room"
+
+# Weather change frequency (in real seconds)
+WEATHER_CHANGE_INTERVAL = 900  # 15 minutes = 1 game hour
+
+# Resource regeneration interval (in real seconds)
+RESOURCE_REGEN_INTERVAL = 3600  # 1 hour real time
+
+# Valid weather states
+WEATHER_STATES = ["clear", "cloudy", "rain", "storm", "fog", "snow", "wind"]
+
+# Weather probability by season
+SEASONAL_WEATHER = {
+    "winter": {
+        "clear": 0.2,
+        "cloudy": 0.3,
+        "snow": 0.3,
+        "fog": 0.1,
+        "storm": 0.1
+    },
+    "spring": {
+        "clear": 0.4,
+        "cloudy": 0.3,
+        "rain": 0.2,
+        "fog": 0.05,
+        "storm": 0.05
+    },
+    "summer": {
+        "clear": 0.6,
+        "cloudy": 0.2,
+        "rain": 0.1,
+        "storm": 0.1
+    },
+    "autumn": {
+        "clear": 0.3,
+        "cloudy": 0.3,
+        "rain": 0.2,
+        "fog": 0.15,
+        "storm": 0.05
+    }
+}
+
+# Visibility modifiers for special conditions
+VISIBILITY_MODIFIERS = {
+    "torch": 3,      # Minimum visibility with torch
+    "lantern": 4,    # Minimum visibility with lantern
+    "magic_light": 5 # Minimum visibility with magical light
+}
+
+######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
 try:

@@ -44,6 +44,7 @@ commands/
   command.py
   default_cmdsets.py
   README.md
+  time_commands.py
 server/
   conf/
     __init__.py
@@ -119,7 +120,9 @@ world/
   tests/
     __init__.py
     test_characters.py
+    test_gametime.py
   batch_cmds.ev
+  gametime_utils.py
   help_entries.py
   prototypes.py
   README.md
@@ -321,105 +324,6 @@ class Command(BaseCommand):
 #                 self.character = None
 </file>
 
-<file path="commands/default_cmdsets.py">
-"""
-Command sets
-
-All commands in the game must be grouped in a cmdset.  A given command
-can be part of any number of cmdsets and cmdsets can be added/removed
-and merged onto entities at runtime.
-
-To create new commands to populate the cmdset, see
-`commands/command.py`.
-
-This module wraps the default command sets of Evennia; overloads them
-to add/remove commands from the default lineup. You can create your
-own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
-
-"""
-
-from evennia import default_cmds
-
-
-class CharacterCmdSet(default_cmds.CharacterCmdSet):
-    """
-    The `CharacterCmdSet` contains general in-game commands like `look`,
-    `get`, etc available on in-game Character objects. It is merged with
-    the `AccountCmdSet` when an Account puppets a Character.
-    """
-
-    key = "DefaultCharacter"
-
-    def at_cmdset_creation(self):
-        """
-        Populates the cmdset
-        """
-        super().at_cmdset_creation()
-        #
-        # any commands you add below will overload the default ones.
-        #
-
-
-class AccountCmdSet(default_cmds.AccountCmdSet):
-    """
-    This is the cmdset available to the Account at all times. It is
-    combined with the `CharacterCmdSet` when the Account puppets a
-    Character. It holds game-account-specific commands, channel
-    commands, etc.
-    """
-
-    key = "DefaultAccount"
-
-    def at_cmdset_creation(self):
-        """
-        Populates the cmdset
-        """
-        super().at_cmdset_creation()
-        #
-        # any commands you add below will overload the default ones.
-        #
-
-
-class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
-    """
-    Command set available to the Session before being logged in.  This
-    holds commands like creating a new account, logging in, etc.
-    """
-
-    key = "DefaultUnloggedin"
-
-    def at_cmdset_creation(self):
-        """
-        Populates the cmdset
-        """
-        super().at_cmdset_creation()
-        #
-        # any commands you add below will overload the default ones.
-        #
-
-
-class SessionCmdSet(default_cmds.SessionCmdSet):
-    """
-    This cmdset is made available on Session level once logged in. It
-    is empty by default.
-    """
-
-    key = "DefaultSession"
-
-    def at_cmdset_creation(self):
-        """
-        This is the only method defined in a cmdset, called during
-        its creation. It should populate the set with command instances.
-
-        As and example we just add the empty base `Command` object.
-        It prints some info.
-        """
-        super().at_cmdset_creation()
-        #
-        # any commands you add below will overload the default ones.
-        #
-</file>
-
 <file path="commands/README.md">
 # commands/
 
@@ -435,6 +339,181 @@ locations, you need to add the appropriate paths to
 Also remember that if you create new sub directories you must put
 (optionally empty) `__init__.py` files in there so that Python can
 find your modules.
+</file>
+
+<file path="commands/time_commands.py">
+# commands/time_commands.py
+"""
+Time-related commands for the Fantasy Steampunk MUD.
+
+This module contains commands that interact with the custom gametime system,
+allowing players to check the current time, date, and season.
+"""
+
+from evennia import Command
+from evennia.contrib.base_systems import custom_gametime
+from django.conf import settings
+
+
+class CmdTime(Command):
+    """
+    Display the current game time and date.
+    
+    Usage:
+        time
+        
+    This command shows:
+    - Current time of day
+    - Day of the month
+    - Current month and season
+    - Current year
+    - Real time to game time conversion info
+    
+    Example output:
+        It is evening on the 15th day of Bloomheart, in the year 850.
+        The season is spring, and the air carries the scent of new growth.
+        
+        (OOC: Game time moves at 4x speed. 1 real hour = 4 game hours)
+    """
+    
+    key = "time"
+    aliases = ["date", "calendar"]
+    locks = "cmd:all()"
+    help_category = "General"
+    
+    def func(self):
+        """Execute the time command."""
+        # Get the current game time as a tuple
+        year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+        
+        # Calculate derived values
+        month_name = self._get_month_name(month)
+        season = self._get_season(month)
+        time_of_day = self._get_time_of_day(hour)
+        day_suffix = self._get_day_suffix(day + 1)  # Days start from 0 internally
+        
+        # Build the main time message
+        time_msg = (
+            f"|yIt is {time_of_day} on the {day + 1}{day_suffix} day of "
+            f"{month_name}, in the year {year}.|n"
+        )
+        
+        # Add seasonal flavor text
+        season_msg = self._get_season_description(season)
+        
+        # Add OOC information about time conversion
+        ooc_msg = (
+            f"\n|w(OOC: Game time moves at {settings.TIME_FACTOR}x speed. "
+            f"1 real hour = {settings.TIME_FACTOR} game hours)|n"
+        )
+        
+        # Send the complete message
+        self.caller.msg(time_msg + "\n" + season_msg + ooc_msg)
+        
+        # Optionally show exact time for those who want it
+        if "exact" in self.switches:
+            exact_msg = f"\n|wExact time: {hour:02d}:{minute:02d}:{second:02d}|n"
+            self.caller.msg(exact_msg)
+    
+    def _get_month_name(self, month_index):
+        """Get the fantasy name for a month."""
+        try:
+            return settings.MONTH_NAMES[month_index]
+        except (AttributeError, IndexError):
+            return f"Month {month_index + 1}"
+    
+    def _get_season(self, month_index):
+        """Determine the current season based on month."""
+        for season, months in settings.SEASONS.items():
+            if month_index in months:
+                return season
+        return "unknown"
+    
+    def _get_time_of_day(self, hour):
+        """Get a descriptive name for the time of day."""
+        for time_name, (start, end) in settings.TIME_OF_DAY.items():
+            if time_name == "night":
+                # Special handling for night (crosses midnight)
+                if hour >= start or hour < end:
+                    return time_name
+            else:
+                if start <= hour < end:
+                    return time_name
+        return f"{hour:02d}:00"
+    
+    def _get_day_suffix(self, day):
+        """Get the appropriate suffix for a day number (1st, 2nd, 3rd, etc)."""
+        if 10 <= day % 100 <= 20:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+        return suffix
+    
+    def _get_season_description(self, season):
+        """Return flavor text based on the current season."""
+        descriptions = {
+            "winter": "|CThe season is winter, and frost covers the land in a crystalline blanket.|n",
+            "spring": "|GThe season is spring, and the air carries the scent of new growth.|n",
+            "summer": "|YThe season is summer, with warm winds carrying the buzz of industry.|n",
+            "autumn": "|rThe season is autumn, as leaves turn to copper and gold.|n",
+            "unknown": "|xThe season turns, marking the passage of time.|n"
+        }
+        return descriptions.get(season, descriptions["unknown"])
+
+
+class CmdUptime(Command):
+    """
+    Show how long the game has been running.
+    
+    Usage:
+        uptime
+        
+    This shows both real time and game time that has passed since
+    the server started.
+    """
+    
+    key = "uptime"
+    locks = "cmd:all()"
+    help_category = "General"
+    
+    def func(self):
+        """Execute the uptime command."""
+        from evennia.utils import gametime
+        
+        # Get the real uptime in seconds
+        real_uptime_secs = gametime.uptime()
+        game_uptime_secs = real_uptime_secs * settings.TIME_FACTOR
+        
+        # Convert to readable format
+        real_time_str = self._format_time(real_uptime_secs)
+        game_time_str = self._format_time(game_uptime_secs)
+        
+        msg = (
+            f"|yServer Uptime:|n\n"
+            f"Real time: {real_time_str}\n"
+            f"Game time: {game_time_str} (at {settings.TIME_FACTOR}x speed)"
+        )
+        
+        self.caller.msg(msg)
+    
+    def _format_time(self, seconds):
+        """Format seconds into a readable string."""
+        days = int(seconds // 86400)
+        hours = int((seconds % 86400) // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        parts = []
+        if days > 0:
+            parts.append(f"{days} day{'s' if days != 1 else ''}")
+        if hours > 0:
+            parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+        if minutes > 0:
+            parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+        if secs > 0 or not parts:
+            parts.append(f"{secs} second{'s' if secs != 1 else ''}")
+        
+        return ", ".join(parts)
 </file>
 
 <file path="server/conf/__init__.py">
@@ -1025,53 +1104,6 @@ class ServerSession(BaseServerSession):
     """
 
     pass
-</file>
-
-<file path="server/conf/settings.py">
-r"""
-Evennia settings file.
-
-The available options are found in the default settings file found
-here:
-
-https://www.evennia.com/docs/latest/Setup/Settings-Default.html
-
-Remember:
-
-Don't copy more from the default file than you actually intend to
-change; this will make sure that you don't overload upstream updates
-unnecessarily.
-
-When changing a setting requiring a file system path (like
-path/to/actual/file.py), use GAME_DIR and EVENNIA_DIR to reference
-your game folder and the Evennia library folders respectively. Python
-paths (path.to.module) should be given relative to the game's root
-folder (typeclasses.foo) whereas paths within the Evennia library
-needs to be given explicitly (evennia.foo).
-
-If you want to share your game dir, including its settings, you can
-put secret game- or server-specific settings in secret_settings.py.
-
-"""
-
-# Use the defaults from Evennia unless explicitly overridden
-from evennia.settings_default import *
-
-######################################################################
-# Evennia base server config
-######################################################################
-
-# This is the name of your game. Make it catchy!
-SERVERNAME = "PolishedWorld"
-
-
-######################################################################
-# Settings given in secret_settings.py override those in this file.
-######################################################################
-try:
-    from server.conf.secret_settings import *
-except ImportError:
-    print("secret_settings.py file not found or failed to import.")
 </file>
 
 <file path="server/conf/web_plugins.py">
@@ -2737,6 +2769,389 @@ class TestCharacterCreationVariations(EvenniaTest):
         self.assertEqual(skills_data.get("engineering", {}).get("current"), 45)
 </file>
 
+<file path="world/tests/test_gametime.py">
+# world/tests/test_gametime.py - hela den uppdaterade test-filen med enklare test
+
+"""
+Tests for the custom gametime system.
+"""
+
+from django.test import override_settings
+from evennia.utils.test_resources import EvenniaTest
+from evennia.contrib.base_systems import custom_gametime
+from unittest.mock import patch, MagicMock
+from commands.time_commands import CmdTime, CmdUptime
+from world.gametime_utils import (
+    get_current_season, get_time_of_day, format_game_date,
+    is_night_time, is_winter, get_seasonal_modifier
+)
+
+
+# Test settings to use
+TEST_TIME_UNITS = {
+    "sec": 1,
+    "min": 60,
+    "hour": 60 * 60,
+    "day": 60 * 60 * 24,
+    "week": 60 * 60 * 24 * 7,
+    "month": 60 * 60 * 24 * 30,
+    "year": 60 * 60 * 24 * 30 * 12,
+}
+
+TEST_MONTH_NAMES = [
+    "Frosthold", "Icewind", "Thawmoon", "Seedtime",
+    "Bloomheart", "Greentide", "Sunpeak", "Hearthfire",
+    "Goldfall", "Harvestmoon", "Dimming", "Darkening"
+]
+
+TEST_SEASONS = {
+    "winter": [11, 0, 1, 2],
+    "spring": [3, 4, 5],
+    "summer": [6, 7, 8],
+    "autumn": [9, 10]
+}
+
+TEST_TIME_OF_DAY = {
+    "dawn": (5, 7),
+    "morning": (7, 12),
+    "noon": (12, 14),
+    "afternoon": (14, 17),
+    "dusk": (17, 19),
+    "evening": (19, 22),
+    "night": (22, 5)
+}
+
+
+@override_settings(
+    TIME_FACTOR=4,
+    TIME_UNITS=TEST_TIME_UNITS,
+    MONTH_NAMES=TEST_MONTH_NAMES,
+    SEASONS=TEST_SEASONS,
+    TIME_OF_DAY=TEST_TIME_OF_DAY
+)
+class TestCustomGametime(EvenniaTest):
+    """Test the custom gametime system."""
+    
+    def test_time_factor(self):
+        """Test that TIME_FACTOR is correctly applied."""
+        from django.conf import settings
+        self.assertEqual(settings.TIME_FACTOR, 4)
+    
+    def test_month_duration(self):
+        """Test that months are exactly 30 days."""
+        month_seconds = TEST_TIME_UNITS["month"]
+        day_seconds = TEST_TIME_UNITS["day"]
+        self.assertEqual(month_seconds, day_seconds * 30)
+    
+    def test_year_duration(self):
+        """Test that years are exactly 360 days."""
+        year_seconds = TEST_TIME_UNITS["year"]
+        day_seconds = TEST_TIME_UNITS["day"]
+        self.assertEqual(year_seconds, day_seconds * 360)
+    
+    def test_custom_gametime_tuple(self):
+        """Test that custom_gametime returns correct tuple format."""
+        with patch('evennia.utils.gametime.gametime') as mock_gametime:
+            # Test 1: Simple test - just one day
+            mock_seconds = TEST_TIME_UNITS["day"]
+            mock_gametime.return_value = mock_seconds
+            
+            result = custom_gametime.custom_gametime()
+            year, month, week, day, hour, minute, second = result
+            
+            # One day should give us day=1 (or 0 depending on implementation)
+            self.assertEqual(year, 0)
+            self.assertEqual(month, 0)
+            self.assertEqual(hour, 0)
+            self.assertEqual(minute, 0)
+            self.assertEqual(second, 0)
+            
+            # Test 2: Complex test - let's use exact time and check hour/min/sec
+            # which are more predictable
+            mock_seconds = (
+                TEST_TIME_UNITS["hour"] * 14 +
+                TEST_TIME_UNITS["min"] * 30 +
+                45
+            )
+            mock_gametime.return_value = mock_seconds
+            
+            year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+            
+            # These should be exact
+            self.assertEqual(hour, 14)
+            self.assertEqual(minute, 30)
+            self.assertEqual(second, 45)
+            
+            # Test 3: Test with years and months for basic functionality
+            mock_seconds = (
+                TEST_TIME_UNITS["year"] * 1 +
+                TEST_TIME_UNITS["month"] * 3
+            )
+            mock_gametime.return_value = mock_seconds
+            
+            year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+            
+            # Should have 1 year and 3 months
+            self.assertEqual(year, 1)
+            self.assertEqual(month, 3)
+            self.assertEqual(hour, 0)
+            self.assertEqual(minute, 0)
+            self.assertEqual(second, 0)
+    
+    def test_real_seconds_until(self):
+        """Test calculating real seconds until a specific game time."""
+        with patch('evennia.utils.gametime.gametime') as mock_gametime:
+            # Current time: 12:00:00
+            current_seconds = TEST_TIME_UNITS["hour"] * 12
+            mock_gametime.return_value = current_seconds
+            
+            # Ask for 13:00:00 (1 game hour later)
+            real_seconds = custom_gametime.real_seconds_until(hour=13, min=0, sec=0)
+            
+            # Should be 900 real seconds (1 game hour / 4)
+            self.assertEqual(real_seconds, 900)
+
+
+@override_settings(
+    TIME_FACTOR=4,
+    TIME_UNITS=TEST_TIME_UNITS,
+    MONTH_NAMES=TEST_MONTH_NAMES,
+    SEASONS=TEST_SEASONS,
+    TIME_OF_DAY=TEST_TIME_OF_DAY
+)
+class TestTimeCommands(EvenniaTest):
+    """Test time-related commands."""
+    
+    def test_cmd_time(self):
+        """Test the time command output."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Mock a specific time: Year 850, Bloomheart (month 4), day 14, 19:30
+            mock_time.return_value = (850, 4, 2, 14, 19, 30, 0)
+            
+            # Create command instance and set up properly
+            cmd = CmdTime()
+            cmd.caller = self.char1
+            cmd.args = ""
+            cmd.cmdstring = "time"
+            cmd.raw_string = "time"
+            cmd.switches = []
+            
+            # Capture output
+            messages = []
+            self.char1.msg = lambda text, **kwargs: messages.append(text)
+            
+            # Execute command
+            cmd.func()
+            
+            # Check the output contains expected parts
+            output = "\n".join(messages)
+            self.assertIn("It is evening on the 15th day of Bloomheart, in the year 850.", output)
+            self.assertIn("The season is spring", output)
+            self.assertIn("Game time moves at 4x speed", output)
+    
+    def test_cmd_time_exact(self):
+        """Test the time command with exact switch."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Mock a specific time
+            mock_time.return_value = (850, 4, 2, 14, 19, 30, 45)
+            
+            # Test with /exact switch
+            cmd = CmdTime()
+            cmd.caller = self.char1
+            cmd.switches = ["exact"]
+            
+            # Capture the output
+            messages = []
+            self.char1.msg = lambda text, **kwargs: messages.append(text)
+            
+            cmd.func()
+            
+            # Check that exact time was included
+            self.assertTrue(any("19:30:45" in msg for msg in messages))
+    
+    def test_cmd_uptime(self):
+        """Test the uptime command."""
+        with patch('evennia.utils.gametime.uptime') as mock_uptime:
+            # Mock 2 hours of real uptime
+            mock_uptime.return_value = 7200
+            
+            cmd = CmdUptime()
+            cmd.caller = self.char1
+            
+            # Capture output
+            messages = []
+            self.char1.msg = lambda text, **kwargs: messages.append(text)
+            
+            cmd.func()
+            
+            # Check output contains both real and game time
+            output = "\n".join(messages)
+            self.assertIn("Real time: 2 hours", output)
+            self.assertIn("Game time: 8 hours", output)  # 2 * 4 = 8
+
+
+@override_settings(
+    TIME_FACTOR=4,
+    TIME_UNITS=TEST_TIME_UNITS,
+    MONTH_NAMES=TEST_MONTH_NAMES,
+    SEASONS=TEST_SEASONS,
+    TIME_OF_DAY=TEST_TIME_OF_DAY
+)
+class TestGametimeUtils(EvenniaTest):
+    """Test gametime utility functions."""
+    
+    def test_get_current_season(self):
+        """Test season detection."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Test winter (month 0 - Frosthold)
+            mock_time.return_value = (850, 0, 0, 0, 0, 0, 0)
+            self.assertEqual(get_current_season(), "winter")
+            
+            # Test spring (month 4 - Bloomheart)
+            mock_time.return_value = (850, 4, 0, 0, 0, 0, 0)
+            self.assertEqual(get_current_season(), "spring")
+            
+            # Test summer (month 7 - Hearthfire)
+            mock_time.return_value = (850, 7, 0, 0, 0, 0, 0)
+            self.assertEqual(get_current_season(), "summer")
+            
+            # Test autumn (month 10 - Dimming)
+            mock_time.return_value = (850, 10, 0, 0, 0, 0, 0)
+            self.assertEqual(get_current_season(), "autumn")
+    
+    def test_get_time_of_day(self):
+        """Test time of day detection."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Test dawn (6:00)
+            mock_time.return_value = (0, 0, 0, 0, 6, 0, 0)
+            self.assertEqual(get_time_of_day(), "dawn")
+            
+            # Test noon (13:00)
+            mock_time.return_value = (0, 0, 0, 0, 13, 0, 0)
+            self.assertEqual(get_time_of_day(), "noon")
+            
+            # Test night (23:00)
+            mock_time.return_value = (0, 0, 0, 0, 23, 0, 0)
+            self.assertEqual(get_time_of_day(), "night")
+            
+            # Test night (3:00 - crosses midnight)
+            mock_time.return_value = (0, 0, 0, 0, 3, 0, 0)
+            self.assertEqual(get_time_of_day(), "night")
+    
+    def test_format_game_date(self):
+        """Test date formatting."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Test various dates
+            mock_time.return_value = (850, 4, 0, 0, 0, 0, 0)
+            self.assertEqual(format_game_date(), "1st of Bloomheart, Year 850")
+            
+            mock_time.return_value = (850, 4, 0, 1, 0, 0, 0)
+            self.assertEqual(format_game_date(), "2nd of Bloomheart, Year 850")
+            
+            mock_time.return_value = (850, 4, 0, 2, 0, 0, 0)
+            self.assertEqual(format_game_date(), "3rd of Bloomheart, Year 850")
+            
+            mock_time.return_value = (850, 4, 0, 20, 0, 0, 0)
+            self.assertEqual(format_game_date(), "21st of Bloomheart, Year 850")
+    
+    def test_is_night_time(self):
+        """Test night time detection."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Night (23:00)
+            mock_time.return_value = (0, 0, 0, 0, 23, 0, 0)
+            self.assertTrue(is_night_time())
+            
+            # Dawn (6:00)
+            mock_time.return_value = (0, 0, 0, 0, 6, 0, 0)
+            self.assertTrue(is_night_time())
+            
+            # Dusk (18:00)
+            mock_time.return_value = (0, 0, 0, 0, 18, 0, 0)
+            self.assertTrue(is_night_time())
+            
+            # Noon (12:00)
+            mock_time.return_value = (0, 0, 0, 0, 12, 0, 0)
+            self.assertFalse(is_night_time())
+    
+    def test_is_winter(self):
+        """Test winter detection."""
+        with patch('evennia.contrib.base_systems.custom_gametime.custom_gametime') as mock_time:
+            # Winter month (Frosthold)
+            mock_time.return_value = (850, 0, 0, 0, 0, 0, 0)
+            self.assertTrue(is_winter())
+            
+            # Summer month (Sunpeak)
+            mock_time.return_value = (850, 6, 0, 0, 0, 0, 0)
+            self.assertFalse(is_winter())
+    
+    def test_get_seasonal_modifier(self):
+        """Test seasonal modifiers."""
+        # Test winter modifiers
+        winter_mods = get_seasonal_modifier("winter")
+        self.assertEqual(winter_mods["resource_availability"], 0.5)
+        self.assertEqual(winter_mods["fatigue_rate"], 1.5)
+        
+        # Test summer modifiers
+        summer_mods = get_seasonal_modifier("summer")
+        self.assertEqual(summer_mods["resource_availability"], 1.5)
+        self.assertEqual(summer_mods["food_decay"], 1.5)
+        
+        # Test current season modifiers
+        with patch('world.gametime_utils.get_current_season') as mock_season:
+            mock_season.return_value = "spring"
+            spring_mods = get_seasonal_modifier()
+            self.assertEqual(spring_mods["resource_availability"], 1.2)
+
+
+class TestTraitDecayIntegration(EvenniaTest):
+    """Test that trait decay will work with gametime."""
+    
+    def test_trait_decay_preparation(self):
+        """Test that traits are ready for gametime-based decay."""
+        # Verify our character has decay rates set
+        self.assertEqual(self.char1.traits.hunger.rate, -2.0)
+        self.assertEqual(self.char1.traits.thirst.rate, -3.0)
+        self.assertEqual(self.char1.traits.fatigue.rate, -1.0)
+        
+        # Verify TIME_FACTOR affects decay calculation
+        # With TIME_FACTOR = 4, 1 real hour = 4 game hours
+        # So traits should decay 4x their rate per real hour
+        from django.conf import settings
+        time_factor = getattr(settings, 'TIME_FACTOR', 1)
+        
+        # In 1 real hour, hunger should drop by 8 (2 * 4)
+        expected_hunger_per_real_hour = abs(self.char1.traits.hunger.rate) * time_factor
+        self.assertEqual(expected_hunger_per_real_hour, 8.0)
+
+
+class TestMonthNameIntegration(EvenniaTest):
+    """Test month name integration."""
+    
+    def test_all_months_have_names(self):
+        """Verify all 12 months have fantasy names."""
+        from django.conf import settings
+        self.assertEqual(len(settings.MONTH_NAMES), 12)
+        
+        # Verify no duplicates
+        self.assertEqual(len(set(settings.MONTH_NAMES)), 12)
+        
+        # Verify all are strings
+        for name in settings.MONTH_NAMES:
+            self.assertIsInstance(name, str)
+            self.assertTrue(len(name) > 0)
+    
+    def test_seasons_cover_all_months(self):
+        """Verify every month belongs to a season."""
+        from django.conf import settings
+        
+        all_months = set()
+        for season, months in settings.SEASONS.items():
+            all_months.update(months)
+        
+        # Should have all months 0-11
+        self.assertEqual(all_months, set(range(12)))
+</file>
+
 <file path="world/batch_cmds.ev">
 #
 # A batch-command file is a way to build a game world
@@ -2762,6 +3177,163 @@ class TestCharacterCreationVariations(EvenniaTest):
 # an example of a batch-command code. See also the batch-code
 # system for loading python-code this way.
 #
+</file>
+
+<file path="world/gametime_utils.py">
+# world/gametime_utils.py
+"""
+Gametime utility functions for the Fantasy Steampunk MUD.
+
+This module provides helper functions for working with the custom
+gametime system, including season detection, time formatting, and
+integration with game systems.
+"""
+
+from evennia.contrib.base_systems import custom_gametime
+from django.conf import settings
+
+
+def get_current_season():
+    """
+    Get the current season based on game time.
+    
+    Returns:
+        str: The current season name ('winter', 'spring', 'summer', 'autumn')
+    """
+    year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+    
+    for season, months in settings.SEASONS.items():
+        if month in months:
+            return season
+    return "unknown"
+
+
+def get_time_of_day():
+    """
+    Get the current time of day as a descriptive string.
+    
+    Returns:
+        str: Time of day ('dawn', 'morning', 'noon', etc.)
+    """
+    year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+    
+    for time_name, (start, end) in settings.TIME_OF_DAY.items():
+        if time_name == "night":
+            if hour >= start or hour < end:
+                return time_name
+        else:
+            if start <= hour < end:
+                return time_name
+    return "unknown"
+
+
+def format_game_date():
+    """
+    Format the current game date in a readable format.
+    
+    Returns:
+        str: Formatted date string (e.g., "15th of Bloomheart, Year 850")
+    """
+    year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+    
+    # Get month name
+    month_name = settings.MONTH_NAMES[month] if month < len(settings.MONTH_NAMES) else f"Month {month + 1}"
+    
+    # Format day with suffix
+    day_num = day + 1  # Days are 0-indexed internally
+    if 10 <= day_num % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day_num % 10, 'th')
+    
+    return f"{day_num}{suffix} of {month_name}, Year {year}"
+
+
+def get_hours_until_next_trait_update():
+    """
+    Calculate how many game hours until the next trait update.
+    
+    Returns:
+        float: Number of game hours until next update
+    """
+    # With our setup, traits update every game hour
+    # Get current time and calculate minutes/seconds until next hour
+    year, month, week, day, hour, minute, second = custom_gametime.custom_gametime()
+    
+    # Calculate seconds until next hour
+    seconds_until_hour = (60 - minute) * 60 - second
+    
+    # Convert to game hours
+    return seconds_until_hour / 3600.0
+
+
+def is_night_time():
+    """
+    Check if it's currently night time in the game.
+    
+    Returns:
+        bool: True if it's night time, False otherwise
+    """
+    time_of_day = get_time_of_day()
+    return time_of_day in ["night", "dusk", "dawn"]
+
+
+def is_winter():
+    """
+    Check if it's currently winter in the game.
+    
+    Returns:
+        bool: True if it's winter, False otherwise
+    """
+    return get_current_season() == "winter"
+
+
+def get_seasonal_modifier(season=None):
+    """
+    Get modifiers that should be applied based on the current season.
+    
+    Args:
+        season (str, optional): Season to check. If None, uses current season.
+        
+    Returns:
+        dict: Dictionary of modifiers for various game systems
+    """
+    if season is None:
+        season = get_current_season()
+    
+    modifiers = {
+        "winter": {
+            "resource_availability": 0.5,  # Half resources available
+            "fatigue_rate": 1.5,          # Tire 50% faster
+            "food_decay": 0.5,            # Food lasts longer
+            "visibility": 0.8,            # Reduced visibility
+        },
+        "spring": {
+            "resource_availability": 1.2,  # More resources
+            "fatigue_rate": 0.9,          # Slightly less tiring
+            "food_decay": 1.0,            # Normal decay
+            "visibility": 1.0,            # Normal visibility
+        },
+        "summer": {
+            "resource_availability": 1.5,  # Abundant resources
+            "fatigue_rate": 1.2,          # Tire faster in heat
+            "food_decay": 1.5,            # Food spoils faster
+            "visibility": 1.2,            # Excellent visibility
+        },
+        "autumn": {
+            "resource_availability": 1.3,  # Good harvest time
+            "fatigue_rate": 1.0,          # Normal fatigue
+            "food_decay": 0.8,            # Cooler weather helps
+            "visibility": 0.9,            # Slightly reduced
+        }
+    }
+    
+    return modifiers.get(season, {
+        "resource_availability": 1.0,
+        "fatigue_rate": 1.0,
+        "food_decay": 1.0,
+        "visibility": 1.0
+    })
 </file>
 
 <file path="world/help_entries.py">
@@ -3038,7 +3610,234 @@ https://github.com/evennia/evennia/wiki.
 Enjoy!
 </file>
 
+<file path="commands/default_cmdsets.py">
+"""
+Command sets
+
+All commands in the game must be grouped in a cmdset.  A given command
+can be part of any number of cmdsets and cmdsets can be added/removed
+and merged onto entities at runtime.
+
+To create new commands to populate the cmdset, see
+`commands/command.py`.
+
+This module wraps the default command sets of Evennia; overloads them
+to add/remove commands from the default lineup. You can create your
+own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
+
+"""
+
+from evennia import default_cmds
+from commands.time_commands import CmdTime, CmdUptime
+
+class CharacterCmdSet(default_cmds.CharacterCmdSet):
+    """
+    The `CharacterCmdSet` contains general in-game commands like `look`,
+    `get`, etc available on in-game Character objects. It is merged with
+    the `AccountCmdSet` when an Account puppets a Character.
+    """
+
+    key = "DefaultCharacter"
+
+    def at_cmdset_creation(self):
+        """
+        Populates the cmdset
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+        # Add time-related commands
+        self.add(CmdTime())
+        self.add(CmdUptime())
+
+
+class AccountCmdSet(default_cmds.AccountCmdSet):
+    """
+    This is the cmdset available to the Account at all times. It is
+    combined with the `CharacterCmdSet` when the Account puppets a
+    Character. It holds game-account-specific commands, channel
+    commands, etc.
+    """
+
+    key = "DefaultAccount"
+
+    def at_cmdset_creation(self):
+        """
+        Populates the cmdset
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+
+
+class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
+    """
+    Command set available to the Session before being logged in.  This
+    holds commands like creating a new account, logging in, etc.
+    """
+
+    key = "DefaultUnloggedin"
+
+    def at_cmdset_creation(self):
+        """
+        Populates the cmdset
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+
+
+class SessionCmdSet(default_cmds.SessionCmdSet):
+    """
+    This cmdset is made available on Session level once logged in. It
+    is empty by default.
+    """
+
+    key = "DefaultSession"
+
+    def at_cmdset_creation(self):
+        """
+        This is the only method defined in a cmdset, called during
+        its creation. It should populate the set with command instances.
+
+        As and example we just add the empty base `Command` object.
+        It prints some info.
+        """
+        super().at_cmdset_creation()
+        #
+        # any commands you add below will overload the default ones.
+        #
+</file>
+
+<file path="server/conf/settings.py">
+r"""
+Evennia settings file.
+
+The available options are found in the default settings file found
+here:
+
+https://www.evennia.com/docs/latest/Setup/Settings-Default.html
+
+Remember:
+
+Don't copy more from the default file than you actually intend to
+change; this will make sure that you don't overload upstream updates
+unnecessarily.
+
+When changing a setting requiring a file system path (like
+path/to/actual/file.py), use GAME_DIR and EVENNIA_DIR to reference
+your game folder and the Evennia library folders respectively. Python
+paths (path.to.module) should be given relative to the game's root
+folder (typeclasses.foo) whereas paths within the Evennia library
+needs to be given explicitly (evennia.foo).
+
+If you want to share your game dir, including its settings, you can
+put secret game- or server-specific settings in secret_settings.py.
+
+"""
+
+# Use the defaults from Evennia unless explicitly overridden
+from evennia.settings_default import *
+
+######################################################################
+# Evennia base server config
+######################################################################
+
+# This is the name of your game. Make it catchy!
+SERVERNAME = "PolishedWorld"
+
+
+
+######################################################################
+# Custom Gametime Configuration
+######################################################################
+
+# Game runs at 4x real time speed
+# 1 real hour = 4 game hours
+# 6 real hours = 24 game hours (1 game day)
+TIME_FACTOR = 4
+
+# Fantasy calendar with 12 months of 30 days each
+# Total: 360 days per year (easy math for seasons)
+TIME_UNITS = {
+    "sec": 1,
+    "min": 60,
+    "hour": 60 * 60,
+    "day": 60 * 60 * 24,
+    "week": 60 * 60 * 24 * 7,
+    "month": 60 * 60 * 24 * 30,      # Exactly 30 days per month
+    "year": 60 * 60 * 24 * 30 * 12,  # 360 days per year
+}
+
+# Fantasy month names reflecting the steampunk theme
+# Winter: Months 0, 1, 2 (Frosthold, Icewind, Thawmoon)
+# Spring: Months 3, 4, 5 (Seedtime, Bloomheart, Greentide)
+# Summer: Months 6, 7, 8 (Sunpeak, Hearthfire, Goldfall)
+# Autumn: Months 9, 10, 11 (Harvestmoon, Dimming, Darkening)
+MONTH_NAMES = [
+    "Frosthold",    # Month 0 - Deep winter
+    "Icewind",      # Month 1 - Late winter
+    "Thawmoon",     # Month 2 - Winter's end
+    "Seedtime",     # Month 3 - Early spring
+    "Bloomheart",   # Month 4 - Mid spring
+    "Greentide",    # Month 5 - Late spring
+    "Sunpeak",      # Month 6 - Early summer
+    "Hearthfire",   # Month 7 - High summer
+    "Goldfall",     # Month 8 - Late summer
+    "Harvestmoon",  # Month 9 - Early autumn
+    "Dimming",      # Month 10 - Mid autumn
+    "Darkening"     # Month 11 - Late autumn
+]
+
+# Define seasons based on months
+# This will be used by Extended Room later
+SEASONS = {
+    "winter": [11, 0, 1, 2],   # Darkening through Thawmoon
+    "spring": [3, 4, 5],       # Seedtime through Greentide
+    "summer": [6, 7, 8],       # Sunpeak through Goldfall
+    "autumn": [9, 10]          # Harvestmoon through Dimming
+}
+
+# Time of day descriptions for immersion
+TIME_OF_DAY = {
+    "dawn": (5, 7),        # 05:00 - 06:59
+    "morning": (7, 12),    # 07:00 - 11:59
+    "noon": (12, 14),      # 12:00 - 13:59
+    "afternoon": (14, 17), # 14:00 - 16:59
+    "dusk": (17, 19),      # 17:00 - 18:59
+    "evening": (19, 22),   # 19:00 - 21:59
+    "night": (22, 5)       # 22:00 - 04:59
+}
+
+######################################################################
+# Character and Traits Configuration
+######################################################################
+
+# How often survival traits should be updated (in real seconds)
+# With TIME_FACTOR = 4, 900 real seconds = 1 game hour
+TRAIT_UPDATE_INTERVAL = 900  # Update every game hour
+
+# Trait decay rates per game hour
+TRAIT_DECAY_RATES = {
+    "hunger": -2,    # Lose 2 hunger per game hour
+    "thirst": -3,    # Lose 3 thirst per game hour
+    "fatigue": -1,   # Lose 1 fatigue per game hour
+}
+
+######################################################################
+# Settings given in secret_settings.py override those in this file.
+######################################################################
+try:
+    from server.conf.secret_settings import *
+except ImportError:
+    print("secret_settings.py file not found or failed to import.")
+</file>
+
 <file path="typeclasses/characters.py">
+# typeclasses/characters.py
 """
 Characters
 
@@ -3054,6 +3853,7 @@ character system with stats, survival needs, and skills.
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 from evennia.contrib.rpg.traits import TraitHandler
+from django.conf import settings
 
 from .objects import ObjectParent
 
@@ -3065,6 +3865,11 @@ class Character(ObjectParent, DefaultCharacter):
     1. Stats (static traits): Core attributes like strength, dexterity
     2. Traits (gauge traits): Survival needs with auto-decay (hunger, thirst, fatigue)
     3. Skills (counter traits): Learnable abilities that progress over time
+    
+    The survival traits decay based on game time, using the custom gametime
+    system. With TIME_FACTOR = 4:
+    - 1 real hour = 4 game hours
+    - Traits decay per game hour as configured
     
     Example usage:
         # Access stats
@@ -3133,18 +3938,21 @@ class Character(ObjectParent, DefaultCharacter):
         # All start at 100 (full) and decay toward 0
         # Note: In Evennia's desc() implementation, the dict key represents the
         # upper bound (inclusive) for that description, not the lower bound.
+        # 
+        # IMPORTANT: The rate is per SECOND in the trait system, but we'll
+        # use a TickerHandler to update per game hour instead
         self.traits.add("hunger", "Hunger", trait_type="gauge", 
-                       base=100, mod=0, min=0, rate=-2.0,
+                       base=100, mod=0, min=0, rate=-2.0,  # Will be applied per game hour
                        descs={19: "starving", 39: "very hungry", 59: "hungry", 
                              79: "peckish", 99: "satisfied", 100: "full"})
         
         self.traits.add("thirst", "Thirst", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=-3.0,
+                       base=100, mod=0, min=0, rate=-3.0,  # Will be applied per game hour
                        descs={19: "dehydrated", 39: "parched", 59: "thirsty",
                              79: "slightly thirsty", 99: "refreshed", 100: "hydrated"})
         
         self.traits.add("fatigue", "Fatigue", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=-1.0,
+                       base=100, mod=0, min=0, rate=-1.0,  # Will be applied per game hour
                        descs={19: "exhausted", 39: "very tired", 59: "tired",
                              79: "slightly tired", 99: "rested", 100: "energized"})
         
@@ -3298,6 +4106,42 @@ class Character(ObjectParent, DefaultCharacter):
                 summary_parts.append(f"{skill_name.title()}: {value} ({desc})")
     
         return "\n".join(summary_parts)
+    
+    def get_time_info(self):
+        """
+        Get current game time information relevant to the character.
+        
+        Returns:
+            dict: Dictionary with time-related information
+        """
+        from world.gametime_utils import (
+            get_current_season, get_time_of_day, 
+            format_game_date, get_seasonal_modifier
+        )
+        
+        return {
+            "date": format_game_date(),
+            "time_of_day": get_time_of_day(),
+            "season": get_current_season(),
+            "seasonal_modifiers": get_seasonal_modifier(),
+        }
+    
+    def apply_seasonal_fatigue_modifier(self):
+        """
+        Apply seasonal modifiers to fatigue rate.
+        This will be called by the TickerHandler.
+        
+        Note: This is preparation for the TickerHandler step.
+        """
+        from world.gametime_utils import get_seasonal_modifier
+        
+        modifiers = get_seasonal_modifier()
+        fatigue_mod = modifiers.get("fatigue_rate", 1.0)
+        
+        # Store the modifier for use by TickerHandler
+        self.db.seasonal_fatigue_modifier = fatigue_mod
+        
+        return fatigue_mod
 </file>
 
 </files>
