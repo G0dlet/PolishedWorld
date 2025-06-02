@@ -3,7 +3,8 @@
 Resource gathering commands for the survival game.
 
 These commands allow players to gather resources from rooms,
-integrating with the Extended Room's resource system.
+integrating with the Extended Room's resource system and
+the Cooldown system for rate limiting.
 """
 
 from evennia import Command
@@ -37,6 +38,10 @@ class CmdGather(Command):
     - Water: Requires a container
     
     Your gathering skills will improve with practice.
+    
+    There is a cooldown period after gathering. Higher foraging
+    skill reduces this cooldown, allowing experienced gatherers
+    to work more efficiently.
     """
     
     key = "gather"
@@ -78,8 +83,8 @@ class CmdGather(Command):
         # Check cooldown
         if not caller.cooldowns.ready("gather"):
             time_left = caller.cooldowns.time_left("gather", use_int=True)
-            caller.msg(f"You are still tired from gathering. "
-                      f"Wait {time_left} more seconds.")
+            caller.msg(f"|yYou are still tired from gathering. "
+                      f"Wait {time_left} more seconds.|n")
             return
         
         # Attempt to gather
@@ -104,17 +109,27 @@ class CmdGather(Command):
         skill_type = resource.get("skill_required", "foraging")
         if skill_type and skill_gain > 0:
             if caller.improve_skill(skill_type, skill_gain):
-                caller.msg(f"Your {skill_type} skill improves!")
+                caller.msg(f"|gYour {skill_type} skill improves!|n")
         
-        # Set cooldown based on amount gathered
+        # Apply cooldown with skill-based reduction
         base_cooldown = 300  # 5 minutes base
-        actual_cooldown = base_cooldown * (1 + gathered / 5)
-        # Reduce cooldown with higher skill
-        if skill_type:
-            skill_level = caller.skills.get(skill_type).value
-            actual_cooldown *= (1 - skill_level / 200)  # Up to 50% reduction
         
-        caller.cooldowns.add("gather", int(actual_cooldown))
+        # Harder resources have longer cooldowns
+        if self.resource_type == "stone":
+            base_cooldown = 420  # 7 minutes for stone
+        elif self.resource_type == "water":
+            base_cooldown = 180  # 3 minutes for water
+            
+        # More gathered = longer cooldown
+        cooldown_multiplier = 1 + (gathered - 1) * 0.2  # +20% per extra item
+        adjusted_cooldown = int(base_cooldown * cooldown_multiplier)
+        
+        # Apply the cooldown with skill reduction
+        actual_cooldown = caller.apply_cooldown("gather", adjusted_cooldown, skill_type)
+        
+        # Inform about cooldown
+        if actual_cooldown < adjusted_cooldown:
+            caller.msg(f"|xYour {skill_type} expertise allows you to work more efficiently.|n")
     
     def list_resources(self):
         """List available resources in the room."""
@@ -247,9 +262,9 @@ class CmdGather(Command):
         
         # Message about gathering
         if amount == 1:
-            caller.msg(f"You gather {created_items[0].get_display_name(caller)}.")
+            caller.msg(f"|gYou gather {created_items[0].get_display_name(caller)}.|n")
         else:
-            caller.msg(f"You gather {amount} {prototype['key']}s.")
+            caller.msg(f"|gYou gather {amount} {prototype['key']}s.|n")
         
         location.msg_contents(
             f"{caller.name} gathers some {self.resource_type}.",
@@ -267,6 +282,9 @@ class CmdForage(Command):
     This is a shortcut that combines searching for plants
     and gathering them if found. It's useful for quick
     sustenance gathering.
+    
+    Foraging has a shorter cooldown than general gathering
+    but only works for food items.
     """
     
     key = "forage"
@@ -288,11 +306,11 @@ class CmdForage(Command):
             caller.msg("There's nothing to forage here.")
             return
         
-        # Check cooldown
-        if not caller.cooldowns.ready("gather"):
-            time_left = caller.cooldowns.time_left("gather", use_int=True)
-            caller.msg(f"You are still tired from gathering. "
-                      f"Wait {time_left} more seconds.")
+        # Check cooldown (foraging has its own shorter cooldown)
+        if not caller.cooldowns.ready("forage"):
+            time_left = caller.cooldowns.time_left("forage", use_int=True)
+            caller.msg(f"|yYou are still tired from foraging. "
+                      f"Wait {time_left} more seconds.|n")
             return
         
         # Quick search animation
@@ -322,15 +340,21 @@ class CmdForage(Command):
                 food.db.weight = 0.3
             
             if gathered == 1:
-                caller.msg("You find a handful of berries.")
+                caller.msg("|gYou find a handful of berries.|n")
             else:
-                caller.msg(f"You find {gathered} handfuls of berries.")
+                caller.msg(f"|gYou find {gathered} handfuls of berries.|n")
             
             # Skill improvement
             if skill_gain > 0 and caller.improve_skill("foraging", skill_gain):
-                caller.msg("Your foraging skill improves!")
+                caller.msg("|gYour foraging skill improves!|n")
             
-            # Set shorter cooldown for foraging
-            caller.cooldowns.add("gather", 180)  # 3 minutes
+            # Apply shorter cooldown for foraging
+            base_cooldown = 180  # 3 minutes base
+            actual_cooldown = caller.apply_cooldown("forage", base_cooldown, "foraging")
+            
+            if actual_cooldown < base_cooldown:
+                caller.msg("|xYour foraging expertise serves you well.|n")
         else:
             caller.msg("You don't find anything edible.")
+            # Still apply a short cooldown on failure
+            caller.cooldowns.add("forage", 60)  # 1 minute on failure

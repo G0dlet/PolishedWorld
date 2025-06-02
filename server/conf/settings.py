@@ -218,6 +218,30 @@ CLOTHING_TYPE_AUTOCOVER = {
 CLOTHING_TYPE_CANT_COVER_WITH = ["goggles", "belt", "accessory"]
 
 ######################################################################
+# Cooldown Configuration
+######################################################################
+
+# Default cooldown durations in seconds
+DEFAULT_COOLDOWNS = {
+    "gather": 300,          # 5 minutes base
+    "forage": 180,          # 3 minutes (shorter for quick food)
+    "craft_basic": 300,     # 5 minutes for simple items
+    "craft_advanced": 1800, # 30 minutes for complex items
+    "rest": 180,            # 3 minutes between rest sessions
+    "hunt": 1200,           # 20 minutes for hunting
+    "trade": 60,            # 1 minute between trades
+    "repair": 600,          # 10 minutes for repairs
+}
+
+# Skill-based cooldown reduction
+# At max skill (100), cooldowns are reduced by this percentage
+MAX_SKILL_COOLDOWN_REDUCTION = 0.5  # 50% reduction at max skill
+
+# Constitution bonus for physical actions
+# Each point of CON above 10 reduces cooldowns by this percentage
+CON_COOLDOWN_REDUCTION_PER_POINT = 0.01  # 1% per point
+
+######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
 try:

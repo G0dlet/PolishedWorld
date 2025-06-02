@@ -10,12 +10,13 @@ creation commands.
 This implementation uses the Traits contrib to provide a rich
 character system with stats, survival needs, and skills, combined
 with the Clothing contrib for layered equipment that provides
-survival benefits.
+survival benefits and the Cooldowns contrib for action rate limiting.
 """
 
 from evennia.utils import lazy_property
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.game_systems.clothing.clothing import ClothedCharacter as BaseClothedCharacter
+from evennia.contrib.game_systems.cooldowns import CooldownHandler
 from django.conf import settings
 
 from .objects import ObjectParent
@@ -24,7 +25,8 @@ from .objects import ObjectParent
 class Character(ObjectParent, BaseClothedCharacter):
     """
     The Character class implements a three-category trait system combined
-    with a clothing system that provides survival benefits.
+    with a clothing system that provides survival benefits and a cooldown
+    system for rate-limiting actions.
     
     Traits:
     1. Stats (static traits): Core attributes like strength, dexterity
@@ -37,6 +39,11 @@ class Character(ObjectParent, BaseClothedCharacter):
     - Provides stat bonuses when worn
     - Integrates with Extended Room weather states
     
+    Cooldowns:
+    - Rate limits gathering, crafting, and other actions
+    - Skill-based cooldown reduction for experienced characters
+    - Prevents action spamming and encourages strategic timing
+    
     Example usage:
         # Check if character has weather protection
         if character.has_weather_protection("rain"):
@@ -44,6 +51,10 @@ class Character(ObjectParent, BaseClothedCharacter):
             
         # Get total warmth from clothing
         warmth = character.get_total_warmth()
+        
+        # Check if action is on cooldown
+        if character.cooldowns.ready("gather"):
+            # Allow gathering
     """
 
     # Define the three trait category handlers
@@ -70,6 +81,14 @@ class Character(ObjectParent, BaseClothedCharacter):
         These are counter traits that track progression.
         """
         return TraitHandler(self, db_attribute_key="skills", db_attribute_category="traits")
+
+    @lazy_property
+    def cooldowns(self):
+        """
+        Handler for action cooldowns.
+        Tracks when various actions can be performed again.
+        """
+        return CooldownHandler(self, db_attribute="cooldowns")
 
     def at_object_creation(self):
         """
@@ -124,6 +143,78 @@ class Character(ObjectParent, BaseClothedCharacter):
             self.skills.add(skill_name, skill_name.title(), trait_type="counter",
                            base=0, mod=0, min=0, max=100, descs=skill_descs)
     
+    # Cooldown-related methods
+    
+    def get_cooldown_modifier(self, action_type, skill_name=None):
+        """
+        Calculate cooldown modifier based on relevant skill.
+        
+        Higher skills reduce cooldowns, encouraging specialization.
+        
+        Args:
+            action_type (str): Type of action ("gather", "craft", etc.)
+            skill_name (str, optional): Specific skill to check
+            
+        Returns:
+            float: Multiplier for cooldown duration (0.5 - 1.0)
+        """
+        if not skill_name:
+            # Default skill associations
+            skill_map = {
+                "gather": "foraging",
+                "craft": "crafting",
+                "hunt": "hunting",
+                "trade": "trading",
+                "repair": "engineering",
+                "rest": "survival"
+            }
+            skill_name = skill_map.get(action_type, "survival")
+        
+        skill = self.skills.get(skill_name)
+        if not skill:
+            return 1.0
+        
+        skill_level = skill.value
+        
+        # Linear reduction: 0 skill = 100% cooldown, 100 skill = 50% cooldown
+        # This means masters can perform actions twice as often
+        reduction = 0.5 + (0.5 * (100 - skill_level) / 100)
+        
+        return reduction
+    
+     # typeclasses/characters.py (uppdaterad apply_cooldown metod)
+
+    def apply_cooldown(self, cooldown_name, base_duration, skill_name=None):
+        """
+        Apply a cooldown with skill-based reduction.
+    
+        Args:
+            cooldown_name (str): Name of the cooldown
+            base_duration (int): Base duration in seconds
+            skill_name (str, optional): Skill that affects this cooldown
+        
+        Returns:
+            int: Actual cooldown duration applied
+        """
+        # Get skill-based reduction
+        modifier = self.get_cooldown_modifier(cooldown_name, skill_name)
+    
+        # Apply constitution bonus for physical actions
+        if cooldown_name in ["gather", "hunt", "craft"]:
+            con_value = self.stats.constitution.value
+            # Each point above 10 gives 1% reduction, max 20% at CON 30
+            if con_value > 10:
+                con_bonus = min((con_value - 10) * 0.01, 0.20)
+                modifier *= (1 - con_bonus)
+    
+        # Calculate final duration
+        actual_duration = int(base_duration * modifier)
+    
+        # Set the cooldown
+        self.cooldowns.add(cooldown_name, actual_duration)
+    
+        return actual_duration
+
     # Clothing-related methods for survival benefits
     
     def get_worn_clothes(self, exclude_covered=False):
