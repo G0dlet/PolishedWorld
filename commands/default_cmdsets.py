@@ -19,6 +19,8 @@ from commands.time_commands import CmdTime, CmdUptime
 from commands.search_commands import CmdSearch, CmdLight
 from commands.resource_commands import CmdGather, CmdForage
 from evennia.contrib.grid.extended_room import ExtendedRoomCmdSet
+from evennia.contrib.game_systems.clothing.clothing import ClothedCharacterCmdSet
+from commands.clothing_commands import CmdClothingStatus, CmdRepair
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -52,6 +54,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # Add resource gathering commands
         self.add(CmdGather())
         self.add(CmdForage())
+
+        # Add clothing commands
+        self.add(ClothedCharacterCmdSet)
+        self.add(CmdClothingStatus())
+        self.add(CmdRepair())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

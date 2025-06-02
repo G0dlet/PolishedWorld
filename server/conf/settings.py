@@ -167,6 +167,57 @@ VISIBILITY_MODIFIERS = {
 }
 
 ######################################################################
+# Clothing Configuration
+######################################################################
+
+# Clothing System Configuration
+CLOTHING_WEARSTYLE_MAXLENGTH = 50
+
+# Order of clothing types in descriptions
+CLOTHING_TYPE_ORDERED = [
+    "hat",
+    "goggles",
+    "cloak",
+    "outerwear",
+    "top",
+    "undershirt", 
+    "gloves",
+    "fullbody",
+    "bottom",
+    "underpants",
+    "socks",
+    "boots",
+    "belt",
+    "accessory"
+]
+
+# Maximum items that can be worn
+CLOTHING_OVERALL_LIMIT = 20
+
+# Type-specific limits
+CLOTHING_TYPE_LIMIT = {
+    "hat": 1,
+    "goggles": 1,
+    "gloves": 1,
+    "socks": 1,
+    "boots": 1,
+    "belt": 1
+}
+
+# Auto-covering rules
+CLOTHING_TYPE_AUTOCOVER = {
+    "top": ["undershirt"],
+    "bottom": ["underpants"],
+    "fullbody": ["undershirt", "underpants"],
+    "boots": ["socks"],
+    "outerwear": ["top"],
+    "cloak": ["outerwear", "top"]
+}
+
+# Types that can't cover others
+CLOTHING_TYPE_CANT_COVER_WITH = ["goggles", "belt", "accessory"]
+
+######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
 try:

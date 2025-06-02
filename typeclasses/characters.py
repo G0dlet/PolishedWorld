@@ -8,45 +8,42 @@ is setup to be the "default" character type created by the default
 creation commands.
 
 This implementation uses the Traits contrib to provide a rich
-character system with stats, survival needs, and skills.
+character system with stats, survival needs, and skills, combined
+with the Clothing contrib for layered equipment that provides
+survival benefits.
 """
 
-from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 from evennia.contrib.rpg.traits import TraitHandler
+from evennia.contrib.game_systems.clothing.clothing import ClothedCharacter as BaseClothedCharacter
 from django.conf import settings
 
 from .objects import ObjectParent
 
 
-class Character(ObjectParent, DefaultCharacter):
+class Character(ObjectParent, BaseClothedCharacter):
     """
-    The Character class implements a three-category trait system:
+    The Character class implements a three-category trait system combined
+    with a clothing system that provides survival benefits.
     
+    Traits:
     1. Stats (static traits): Core attributes like strength, dexterity
     2. Traits (gauge traits): Survival needs with auto-decay (hunger, thirst, fatigue)
     3. Skills (counter traits): Learnable abilities that progress over time
     
-    The survival traits decay based on game time, using the custom gametime
-    system. With TIME_FACTOR = 4:
-    - 1 real hour = 4 game hours
-    - Traits decay per game hour as configured
+    Clothing:
+    - Layered clothing system with weather protection
+    - Reduces trait decay in harsh conditions
+    - Provides stat bonuses when worn
+    - Integrates with Extended Room weather states
     
     Example usage:
-        # Access stats
-        character.stats.strength.value  # Returns current strength
-        
-        # Check survival needs
-        if character.traits.hunger.value < 20:
-            character.msg("You are very hungry!")
+        # Check if character has weather protection
+        if character.has_weather_protection("rain"):
+            # Reduce or eliminate rain penalties
             
-        # Improve skills
-        character.skills.crafting.current += 5
-        
-    The survival traits use auto-decay rates:
-        - Hunger: -2 per game hour
-        - Thirst: -3 per game hour  
-        - Fatigue: -1 per game hour
+        # Get total warmth from clothing
+        warmth = character.get_total_warmth()
     """
 
     # Define the three trait category handlers
@@ -96,118 +93,190 @@ class Character(ObjectParent, DefaultCharacter):
                       base=10, mod=0, mult=1.0)
         
         # Initialize Traits (gauge traits for survival needs)
-        # All start at 100 (full) and decay toward 0
-        # Note: In Evennia's desc() implementation, the dict key represents the
-        # upper bound (inclusive) for that description, not the lower bound.
-        # 
-        # IMPORTANT: The rate is per SECOND in the trait system, but we'll
-        # use a TickerHandler to update per game hour instead
         self.traits.add("hunger", "Hunger", trait_type="gauge", 
-                       base=100, mod=0, min=0, rate=-2.0,  # Will be applied per game hour
+                       base=100, mod=0, min=0, rate=-2.0,
                        descs={19: "starving", 39: "very hungry", 59: "hungry", 
                              79: "peckish", 99: "satisfied", 100: "full"})
         
         self.traits.add("thirst", "Thirst", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=-3.0,  # Will be applied per game hour
+                       base=100, mod=0, min=0, rate=-3.0,
                        descs={19: "dehydrated", 39: "parched", 59: "thirsty",
                              79: "slightly thirsty", 99: "refreshed", 100: "hydrated"})
         
         self.traits.add("fatigue", "Fatigue", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=-1.0,  # Will be applied per game hour
+                       base=100, mod=0, min=0, rate=-1.0,
                        descs={19: "exhausted", 39: "very tired", 59: "tired",
                              79: "slightly tired", 99: "rested", 100: "energized"})
         
         self.traits.add("health", "Health", trait_type="gauge",
-                       base=100, mod=0, min=0, rate=0,  # No auto-decay
+                       base=100, mod=0, min=0, rate=0,
                        descs={19: "dead", 39: "critically wounded", 59: "badly hurt",
                              79: "wounded", 99: "bruised", 100: "healthy"})
         
-        # Initialize Skills (counter traits for progression)
-        # All start at 0 and can progress to 100
-        # The dict key is the upper bound for each skill level description
+        # Initialize Skills
         skill_descs = {
-            9: "untrained",    # 0-9
-            29: "novice",      # 10-29
-            49: "apprentice",  # 30-49
-            69: "journeyman",  # 50-69
-            89: "expert",      # 70-89
-            100: "master"      # 90-100
+            9: "untrained", 29: "novice", 49: "apprentice",
+            69: "journeyman", 89: "expert", 100: "master"
         }
         
-        self.skills.add("crafting", "Crafting", trait_type="counter",
-                       base=0, mod=0, min=0, max=100, descs=skill_descs)
-        
-        self.skills.add("hunting", "Hunting", trait_type="counter",
-                       base=0, mod=0, min=0, max=100, descs=skill_descs)
-        
-        self.skills.add("foraging", "Foraging", trait_type="counter",
-                       base=0, mod=0, min=0, max=100, descs=skill_descs)
-        
-        self.skills.add("engineering", "Engineering", trait_type="counter",
-                       base=0, mod=0, min=0, max=100, descs=skill_descs)
-        
-        self.skills.add("survival", "Survival", trait_type="counter",
-                       base=0, mod=0, min=0, max=100, descs=skill_descs)
-        
-        self.skills.add("trading", "Trading", trait_type="counter",
-                       base=0, mod=0, min=0, max=100, descs=skill_descs)
+        for skill_name in ["crafting", "hunting", "foraging", 
+                          "engineering", "survival", "trading"]:
+            self.skills.add(skill_name, skill_name.title(), trait_type="counter",
+                           base=0, mod=0, min=0, max=100, descs=skill_descs)
     
-    # Convenience methods for common operations
+    # Clothing-related methods for survival benefits
     
-    def get_stat(self, stat_name):
+    def get_worn_clothes(self, exclude_covered=False):
         """
-        Get a stat value by name.
+        Get a list of clothes worn by this character.
+        
+        This wraps the module function for easier access.
         
         Args:
-            stat_name (str): Name of the stat (e.g., 'strength')
+            exclude_covered (bool): If True, exclude covered items
             
         Returns:
-            int: The stat's current value, or None if not found
+            list: Ordered list of worn clothing items
         """
+        from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
+        return get_worn_clothes(self, exclude_covered=exclude_covered)
+    
+    def has_weather_protection(self, weather_type):
+        """
+        Check if character has protection against specific weather.
+        
+        Args:
+            weather_type (str): Type of weather ('rain', 'snow', 'wind', etc.)
+            
+        Returns:
+            bool: True if character has adequate protection
+        """
+        worn_items = self.get_worn_clothes(exclude_covered=True)
+        
+        for item in worn_items:
+            # Check if item provides weather protection
+            protections = item.db.weather_protection or []
+            if weather_type in protections:
+                return True
+                
+        return False
+    
+    def get_total_warmth(self):
+        """
+        Calculate total warmth value from all worn clothing.
+        
+        Returns:
+            int: Total warmth value (0-100+)
+        """
+        total_warmth = 0
+        worn_items = self.get_worn_clothes(exclude_covered=True)
+        
+        for item in worn_items:
+            warmth = item.db.warmth_value or 0
+            total_warmth += warmth
+            
+        return total_warmth
+    
+    def get_clothing_stat_modifiers(self):
+        """
+        Get all stat modifiers from worn clothing.
+        
+        Returns:
+            dict: Dictionary of stat modifiers {stat_name: total_modifier}
+        """
+        modifiers = {}
+        worn_items = self.get_worn_clothes(exclude_covered=True)
+        
+        for item in worn_items:
+            item_mods = item.db.stat_modifiers or {}
+            for stat, value in item_mods.items():
+                if stat in modifiers:
+                    modifiers[stat] += value
+                else:
+                    modifiers[stat] = value
+                    
+        return modifiers
+    
+    def apply_clothing_modifiers(self):
+        """
+        Apply stat modifiers from clothing to character stats.
+        
+        This should be called whenever clothing changes.
+        """
+        # First, reset all stat mods to 0
+        for stat_name in ["strength", "dexterity", "constitution", 
+                         "intelligence", "wisdom", "charisma"]:
+            stat = self.stats.get(stat_name)
+            if stat:
+                stat.mod = 0
+        
+        # Then apply clothing modifiers
+        modifiers = self.get_clothing_stat_modifiers()
+        for stat_name, modifier in modifiers.items():
+            stat = self.stats.get(stat_name)
+            if stat:
+                stat.mod = modifier
+    
+    def get_environmental_protection(self):
+        """
+        Get a summary of all environmental protections.
+        
+        Returns:
+            dict: Protection levels for different conditions
+        """
+        protection = {
+            "cold": 0,      # Protection against cold/winter
+            "heat": 0,      # Protection against heat/summer
+            "rain": False,  # Binary - either protected or not
+            "wind": False,  # Binary - either protected or not
+            "general": 0    # General durability/protection
+        }
+        
+        worn_items = self.get_worn_clothes(exclude_covered=True)
+        
+        for item in worn_items:
+            # Warmth adds to cold protection
+            protection["cold"] += item.db.warmth_value or 0
+            
+            # Check weather protections
+            weather_prot = item.db.weather_protection or []
+            if "rain" in weather_prot:
+                protection["rain"] = True
+            if "wind" in weather_prot:
+                protection["wind"] = True
+                
+            # Heat protection (negative warmth values)
+            if item.db.warmth_value and item.db.warmth_value < 0:
+                protection["heat"] += abs(item.db.warmth_value)
+                
+            # General protection/armor
+            protection["general"] += item.db.protection_value or 0
+            
+        return protection
+    
+    # Convenience methods (keeping all the original ones)
+    
+    def get_stat(self, stat_name):
+        """Get a stat value by name."""
         stat = self.stats.get(stat_name)
         return stat.value if stat else None
     
     def get_trait_status(self, trait_name):
-        """
-        Get both the value and description of a survival trait.
-        
-        Args:
-            trait_name (str): Name of the trait (e.g., 'hunger')
-            
-        Returns:
-            tuple: (value, description) or (None, None) if not found
-        """
+        """Get both the value and description of a survival trait."""
         trait = self.traits.get(trait_name)
         if trait:
             return (trait.value, trait.desc())
         return (None, None)
     
     def get_skill_level(self, skill_name):
-        """
-        Get both the value and proficiency description of a skill.
-        
-        Args:
-            skill_name (str): Name of the skill (e.g., 'crafting')
-            
-        Returns:
-            tuple: (value, description) or (None, None) if not found
-        """
+        """Get both the value and proficiency description of a skill."""
         skill = self.skills.get(skill_name)
         if skill:
             return (skill.value, skill.desc())
         return (None, None)
     
     def modify_trait(self, trait_name, amount):
-        """
-        Modify a survival trait by a given amount.
-        
-        Args:
-            trait_name (str): Name of the trait to modify
-            amount (int/float): Amount to add (positive) or subtract (negative)
-            
-        Returns:
-            bool: True if successful, False if trait not found
-        """
+        """Modify a survival trait by a given amount."""
         trait = self.traits.get(trait_name)
         if trait:
             trait.current += amount
@@ -215,16 +284,7 @@ class Character(ObjectParent, DefaultCharacter):
         return False
     
     def improve_skill(self, skill_name, amount=1):
-        """
-        Improve a skill by a given amount.
-        
-        Args:
-            skill_name (str): Name of the skill to improve
-            amount (int): Amount to increase skill by (default 1)
-            
-        Returns:
-            bool: True if successful, False if skill not found
-        """
+        """Improve a skill by a given amount."""
         skill = self.skills.get(skill_name)
         if skill:
             skill.current += amount
@@ -232,17 +292,11 @@ class Character(ObjectParent, DefaultCharacter):
         return False
     
     def get_survival_summary(self):
-        """
-        Get a formatted summary of all survival traits.
-    
-        Returns:
-            str: Formatted string showing all survival trait statuses
-        """
+        """Get a formatted summary of all survival traits."""
         summary_parts = []
         for trait_name in ["hunger", "thirst", "fatigue", "health"]:
             trait = self.traits.get(trait_name)
             if trait:
-                # Get the raw percentage value without formatting
                 percent_value = int(trait.percent(formatting=None))
                 desc = trait.desc()
                 summary_parts.append(f"{trait_name.title()}: {percent_value}% ({desc})")
@@ -250,56 +304,14 @@ class Character(ObjectParent, DefaultCharacter):
         return "\n".join(summary_parts)
 
     def get_skill_summary(self):
-        """
-        Get a formatted summary of all skills.
-    
-        Returns:
-            str: Formatted string showing all skill levels
-        """
+        """Get a formatted summary of all skills."""
         summary_parts = []
         for skill_name in ["crafting", "hunting", "foraging", 
                           "engineering", "survival", "trading"]:
             skill = self.skills.get(skill_name)
             if skill:
-                # Convert to int for cleaner display
                 value = int(skill.value)
                 desc = skill.desc()
                 summary_parts.append(f"{skill_name.title()}: {value} ({desc})")
     
         return "\n".join(summary_parts)
-    
-    def get_time_info(self):
-        """
-        Get current game time information relevant to the character.
-        
-        Returns:
-            dict: Dictionary with time-related information
-        """
-        from world.gametime_utils import (
-            get_current_season, get_time_of_day, 
-            format_game_date, get_seasonal_modifier
-        )
-        
-        return {
-            "date": format_game_date(),
-            "time_of_day": get_time_of_day(),
-            "season": get_current_season(),
-            "seasonal_modifiers": get_seasonal_modifier(),
-        }
-    
-    def apply_seasonal_fatigue_modifier(self):
-        """
-        Apply seasonal modifiers to fatigue rate.
-        This will be called by the TickerHandler.
-        
-        Note: This is preparation for the TickerHandler step.
-        """
-        from world.gametime_utils import get_seasonal_modifier
-        
-        modifiers = get_seasonal_modifier()
-        fatigue_mod = modifiers.get("fatigue_rate", 1.0)
-        
-        # Store the modifier for use by TickerHandler
-        self.db.seasonal_fatigue_modifier = fatigue_mod
-        
-        return fatigue_mod
