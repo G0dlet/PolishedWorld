@@ -24,6 +24,8 @@ from evennia.contrib.grid.extended_room import ExtendedRoomCmdSet
 from evennia.contrib.game_systems.clothing.clothing import ClothedCharacterCmdSet
 from commands.clothing_commands import CmdClothingStatus, CmdRepair
 from commands.crafting_commands import CmdCraft, CmdRecipes
+from commands.trade_commands import CmdTrade, CmdGive, CmdTradeHistory, CmdMarket
+from commands.currency_commands import CmdMoney, CmdOfferCurrency
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -72,6 +74,13 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # Add crafting commands
         self.add(CmdCraft())
         self.add(CmdRecipes())
+
+        # Add trade and economy commands
+        self.add(CmdTrade())
+        self.add(CmdGive())
+        self.add(CmdTradeHistory())
+        self.add(CmdMarket())
+        self.add(CmdMoney())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

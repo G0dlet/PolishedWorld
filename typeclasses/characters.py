@@ -18,6 +18,7 @@ from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.game_systems.clothing.clothing import ClothedCharacter as BaseClothedCharacter
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
 from django.conf import settings
+import datetime
 
 from .objects import ObjectParent
 
@@ -44,6 +45,11 @@ class Character(ObjectParent, BaseClothedCharacter):
     - Skill-based cooldown reduction for experienced characters
     - Prevents action spamming and encourages strategic timing
     
+    Economy:
+    - Currency system with gold, silver, copper
+    - Trade logging for economic analysis
+    - Mentor system for helping new players
+    
     Example usage:
         # Check if character has weather protection
         if character.has_weather_protection("rain"):
@@ -55,6 +61,10 @@ class Character(ObjectParent, BaseClothedCharacter):
         # Check if action is on cooldown
         if character.cooldowns.ready("gather"):
             # Allow gathering
+            
+        # Check currency
+        if character.can_afford(gold=1, silver=5):
+            # Allow purchase
     """
 
     # Define the three trait category handlers
@@ -152,6 +162,24 @@ class Character(ObjectParent, BaseClothedCharacter):
             'total_failed': 0,
             'quality_counts': {}
         }
+        
+        # Mentor system
+        self.db.is_mentor = False
+        self.db.mentees = []
+        self.db.mentor = None
+        
+        # Trade tracking
+        self.db.trade_log = []
+        self.db.gift_log = []
+        self.db.received_first_gift = False
+        self.db.completed_first_trade = False
+        
+        # Currency system
+        self.db.currency = {
+            "gold": 0,
+            "silver": 0, 
+            "copper": 10  # Start with some copper
+        }
     
     def can_craft_recipe(self, recipe_class):
         """
@@ -225,8 +253,6 @@ class Character(ObjectParent, BaseClothedCharacter):
         
         return reduction
     
-     # typeclasses/characters.py (uppdaterad apply_cooldown metod)
-
     def apply_cooldown(self, cooldown_name, base_duration, skill_name=None):
         """
         Apply a cooldown with skill-based reduction.
@@ -387,6 +413,131 @@ class Character(ObjectParent, BaseClothedCharacter):
             protection["general"] += item.db.protection_value or 0
             
         return protection
+    
+    # Economy and trading methods
+    
+    def add_mentee(self, mentee):
+        """
+        Add a mentee to this character's list.
+        
+        Args:
+            mentee (Character): The character to mentor
+            
+        Returns:
+            bool: Success
+        """
+        if mentee in self.db.mentees:
+            self.msg(f"{mentee.name} is already your mentee.")
+            return False
+        
+        self.db.mentees.append(mentee)
+        self.db.is_mentor = True
+        mentee.db.mentor = self
+        
+        self.msg(f"|gYou are now mentoring {mentee.name}.|n")
+        mentee.msg(f"|g{self.name} is now your mentor!|n")
+        
+        # Grant mentor achievement
+        if hasattr(self, 'achievements') and len(self.db.mentees) == 1:
+            self.achievements.grant("first_mentee", "Became a mentor for the first time!")
+        
+        return True
+    
+    def remove_mentee(self, mentee):
+        """
+        Remove a mentee from this character's list.
+        
+        Args:
+            mentee (Character): The character to stop mentoring
+            
+        Returns:
+            bool: Success
+        """
+        if mentee not in self.db.mentees:
+            self.msg(f"{mentee.name} is not your mentee.")
+            return False
+        
+        self.db.mentees.remove(mentee)
+        if not self.db.mentees:
+            self.db.is_mentor = False
+        
+        mentee.db.mentor = None
+        
+        self.msg(f"|yYou are no longer mentoring {mentee.name}.|n")
+        mentee.msg(f"|y{self.name} is no longer your mentor.|n")
+        
+        return True
+    
+    def log_trade(self, partner, gave_items, received_items):
+        """
+        Log a completed trade for economic tracking.
+        
+        Args:
+            partner (Character): Trade partner
+            gave_items (list): Items given
+            received_items (list): Items received
+        """
+        log_entry = {
+            'partner': partner.key,
+            'gave': [item.key for item in gave_items],
+            'received': [item.key for item in received_items],
+            'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        
+        if not hasattr(self.db, 'trade_log'):
+            self.db.trade_log = []
+        
+        self.db.trade_log.append(log_entry)
+        
+        # Check for first trade achievement
+        if not self.db.completed_first_trade:
+            self.db.completed_first_trade = True
+            if hasattr(self, 'achievements'):
+                self.achievements.grant("first_trade", "Completed your first trade!")
+    
+    def get_currency_string(self):
+        """
+        Get a formatted string of current currency.
+        
+        Returns:
+            str: Formatted currency display
+        """
+        if not hasattr(self.db, 'currency'):
+            self.db.currency = {"gold": 0, "silver": 0, "copper": 0}
+        
+        parts = []
+        if self.db.currency['gold'] > 0:
+            parts.append(f"|y{self.db.currency['gold']}g|n")
+        if self.db.currency['silver'] > 0:
+            parts.append(f"|w{self.db.currency['silver']}s|n")
+        if self.db.currency['copper'] > 0:
+            parts.append(f"|r{self.db.currency['copper']}c|n")
+        
+        return ", ".join(parts) if parts else "|xno money|n"
+    
+    def can_afford(self, gold=0, silver=0, copper=0):
+        """
+        Check if character can afford a cost.
+        
+        Args:
+            gold (int): Gold required
+            silver (int): Silver required
+            copper (int): Copper required
+            
+        Returns:
+            bool: True if can afford
+        """
+        if not hasattr(self.db, 'currency'):
+            self.db.currency = {"gold": 0, "silver": 0, "copper": 0}
+        
+        # Convert to copper for comparison
+        total_copper = (self.db.currency.get('gold', 0) * 100 + 
+                       self.db.currency.get('silver', 0) * 10 + 
+                       self.db.currency.get('copper', 0))
+        
+        cost_copper = gold * 100 + silver * 10 + copper
+        
+        return total_copper >= cost_copper
     
     # Convenience methods (keeping all the original ones)
     

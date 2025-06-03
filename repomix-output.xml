@@ -40,6 +40,8 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
+.claude/
+  settings.local.json
 commands/
   clothing_commands.py
   command.py
@@ -149,1916 +151,15 @@ README.md
 <files>
 This section contains the contents of the repository's files.
 
-<file path="commands/crafting_commands.py">
-# commands/crafting_commands.py
-"""
-Crafting-related commands for the survival game.
-
-Extends the basic crafting command with additional features
-like recipe browsing and skill integration.
-"""
-
-from evennia.contrib.game_systems.crafting.crafting import CmdCraft as BaseCmdCraft
-from evennia.contrib.game_systems.crafting.crafting import craft
-from evennia import Command
-from evennia.utils import list_to_string, evtable
-from django.conf import settings
-
-
-class CmdCraft(BaseCmdCraft):
-    """
-    Craft items from recipes using tools and materials.
-    
-    Usage:
-        craft <recipe> [from <ingredients>] [using <tools>]
-        craft list [category]
-        craft info <recipe>
-        
-    Examples:
-        craft bread from flour, water, yeast using oven
-        craft pickaxe from iron, wood using forge, hammer
-        craft list survival
-        craft info "steam engine"
-        
-    The crafting system uses your skills and the quality of your
-    tools to determine the outcome. Higher skill levels result in
-    better quality items with improved stats.
-    
-    Categories:
-        survival - Food, water, basic necessities
-        tools - Tools and equipment
-        clothing - Armor and weather protection
-        steampunk - Advanced machinery and devices
-        
-    Your current crafting-related skills affect success rates:
-        - crafting: General crafting ability
-        - engineering: For complex mechanical items
-        - survival: For wilderness and food crafts
-    """
-    
-    key = "craft"
-    aliases = ["create", "make", "build"]
-    help_category = "Crafting"
-    
-    def func(self):
-        """Execute the craft command."""
-        if not self.args:
-            self.caller.msg("Usage: craft <recipe> [from <ingredient>,...] [using <tool>,...]")
-            self.caller.msg("       craft list [category]")
-            self.caller.msg("       craft info <recipe>")
-            return
-        
-        # Check for subcommands
-        if self.args.startswith("list"):
-            self.list_recipes()
-            return
-        elif self.args.startswith("info"):
-            self.show_recipe_info()
-            return
-        
-        # Otherwise, do normal crafting
-        super().func()
-    
-    def list_recipes(self):
-        """List available recipes, optionally filtered by category."""
-        from evennia.contrib.game_systems.crafting.crafting import _load_recipes, _RECIPE_CLASSES
-        
-        _load_recipes()
-        
-        # Parse category filter
-        args = self.args.split(None, 1)
-        category = args[1].lower() if len(args) > 1 else None
-        
-        # Get character's skills for display
-        crafting_skill = self.caller.skills.crafting.value
-        engineering_skill = self.caller.skills.engineering.value
-        survival_skill = self.caller.skills.survival.value
-        
-        # Build recipe list
-        recipes_by_category = {
-            "survival": [],
-            "tools": [],
-            "clothing": [],
-            "steampunk": [],
-            "other": []
-        }
-        
-        for recipe_name, recipe_class in _RECIPE_CLASSES.items():
-            # Categorize based on module or recipe properties
-            if hasattr(recipe_class, 'craft_category'):
-                if 'steampunk' in recipe_class.__module__:
-                    cat = "steampunk"
-                elif 'clothing' in recipe_class.__module__:
-                    cat = "clothing"
-                elif 'tool' in recipe_class.__module__:
-                    cat = "tools"
-                elif 'survival' in recipe_class.__module__:
-                    cat = "survival"
-                else:
-                    cat = "other"
-            else:
-                cat = "other"
-            
-            # Get skill info
-            skill_req = getattr(recipe_class, 'skill_requirement', 'crafting')
-            difficulty = getattr(recipe_class, 'difficulty', 0)
-            
-            # Check if player can attempt this
-            if skill_req == "engineering":
-                current_skill = engineering_skill
-            elif skill_req == "survival":
-                current_skill = survival_skill
-            else:
-                current_skill = crafting_skill
-            
-            can_attempt = current_skill >= difficulty
-            
-            # Format entry
-            if can_attempt:
-                status = "|g✓|n"
-            else:
-                status = "|r✗|n"
-            
-            entry = f"{status} {recipe_name:<20} ({skill_req} {difficulty}+)"
-            
-            recipes_by_category[cat].append((difficulty, entry))
-        
-        # Display results
-        if category and category in recipes_by_category:
-            # Show single category
-            self.caller.msg(f"\n|wCrafting Recipes - {category.title()}:|n")
-            recipes = sorted(recipes_by_category[category], key=lambda x: x[0])
-            for _, entry in recipes:
-                self.caller.msg(f"  {entry}")
-        else:
-            # Show all categories
-            self.caller.msg("\n|wCrafting Recipes:|n")
-            self.caller.msg("|xUse 'craft list <category>' to filter|n")
-            
-            for cat in ["survival", "tools", "clothing", "steampunk", "other"]:
-                if recipes_by_category[cat]:
-                    self.caller.msg(f"\n|w{cat.title()}:|n")
-                    recipes = sorted(recipes_by_category[cat], key=lambda x: x[0])
-                    for _, entry in recipes[:10]:  # Show first 10
-                        self.caller.msg(f"  {entry}")
-                    if len(recipes) > 10:
-                        self.caller.msg(f"  |x... and {len(recipes) - 10} more|n")
-        
-        # Show skill summary
-        self.caller.msg(f"\n|wYour Skills:|n")
-        self.caller.msg(f"  Crafting: {crafting_skill}")
-        self.caller.msg(f"  Engineering: {engineering_skill}")
-        self.caller.msg(f"  Survival: {survival_skill}")
-    
-    def show_recipe_info(self):
-        """Show detailed info about a specific recipe."""
-        from evennia.contrib.game_systems.crafting.crafting import _load_recipes, _RECIPE_CLASSES
-        
-        _load_recipes()
-        
-        # Get recipe name
-        args = self.args.split(None, 1)
-        if len(args) < 2:
-            self.caller.msg("Usage: craft info <recipe name>")
-            return
-        
-        recipe_name = args[1].lower()
-        
-        # Find recipe
-        recipe_class = None
-        for rname, rclass in _RECIPE_CLASSES.items():
-            if rname.lower() == recipe_name or recipe_name in rname.lower():
-                recipe_class = rclass
-                recipe_name = rname
-                break
-        
-        if not recipe_class:
-            self.caller.msg(f"No recipe found matching '{recipe_name}'.")
-            return
-        
-        # Display recipe info
-        self.caller.msg(f"\n|w{recipe_name.title()}|n")
-        if hasattr(recipe_class, '__doc__') and recipe_class.__doc__:
-            self.caller.msg(f"|x{recipe_class.__doc__.strip()}|n")
-        
-        # Requirements
-        skill_req = getattr(recipe_class, 'skill_requirement', 'crafting')
-        difficulty = getattr(recipe_class, 'difficulty', 0)
-        
-        self.caller.msg(f"\n|wRequirements:|n")
-        self.caller.msg(f"  Skill: {skill_req} {difficulty}+")
-        
-        # Tools
-        if recipe_class.tool_tags:
-            self.caller.msg(f"\n|wTools needed:|n")
-            for tool in recipe_class.tool_tags:
-                self.caller.msg(f"  - {tool}")
-        
-        # Ingredients
-        if recipe_class.consumable_tags:
-            self.caller.msg(f"\n|wIngredients:|n")
-            # Count duplicates
-            ing_counts = {}
-            for ing in recipe_class.consumable_tags:
-                ing_counts[ing] = ing_counts.get(ing, 0) + 1
-            
-            for ing, count in ing_counts.items():
-                if count > 1:
-                    self.caller.msg(f"  - {ing} x{count}")
-                else:
-                    self.caller.msg(f"  - {ing}")
-        
-        # Output
-        self.caller.msg(f"\n|wCreates:|n")
-        for proto in recipe_class.output_prototypes:
-            key = proto.get('key', 'unknown item')
-            self.caller.msg(f"  - {key}")
-        
-        # Craft time
-        craft_time = getattr(recipe_class, 'craft_time', 300)
-        minutes = craft_time // 60
-        seconds = craft_time % 60
-        if minutes:
-            time_str = f"{minutes}m {seconds}s" if seconds else f"{minutes}m"
-        else:
-            time_str = f"{seconds}s"
-        self.caller.msg(f"\n|wCraft time:|n {time_str}")
-        
-        # Check if player can attempt
-        current_skill = 0
-        if skill_req == "engineering":
-            current_skill = self.caller.skills.engineering.value
-        elif skill_req == "survival":
-            current_skill = self.caller.skills.survival.value
-        else:
-            current_skill = self.caller.skills.crafting.value
-        
-        if current_skill >= difficulty:
-            self.caller.msg(f"\n|gYou have the skill to attempt this recipe.|n")
-        else:
-            needed = difficulty - current_skill
-            self.caller.msg(f"\n|rYou need {needed} more {skill_req} skill to attempt this.|n")
-
-
-class CmdRecipes(Command):
-    """
-    View your known recipes and crafting statistics.
-    
-    Usage:
-        recipes
-        recipes stats
-        
-    Shows all recipes you've successfully crafted before,
-    along with your crafting statistics and achievements.
-    """
-    
-    key = "recipes"
-    aliases = ["known_recipes"]
-    locks = "cmd:all()"
-    help_category = "Crafting"
-    
-    def func(self):
-        """Display known recipes or stats."""
-        if self.args.strip() == "stats":
-            self.show_crafting_stats()
-        else:
-            self.show_known_recipes()
-    
-    def show_known_recipes(self):
-        """Display recipes the player has successfully crafted."""
-        known_recipes = self.caller.db.known_recipes or []
-        
-        if not known_recipes:
-            self.caller.msg("You haven't successfully crafted any recipes yet.")
-            self.caller.msg("Use |wcraft list|n to see available recipes.")
-            return
-        
-        self.caller.msg("|wYour Known Recipes:|n")
-        
-        # Group by category
-        by_category = {}
-        for recipe_name in known_recipes:
-            # Simple categorization
-            if any(word in recipe_name for word in ["bread", "stew", "tea", "preserved"]):
-                cat = "Food & Drink"
-            elif any(word in recipe_name for word in ["armor", "cloak", "goggles", "coat"]):
-                cat = "Clothing"
-            elif any(word in recipe_name for word in ["pickaxe", "tools", "forge", "workbench"]):
-                cat = "Tools"
-            elif any(word in recipe_name for word in ["steam", "clockwork", "automaton", "pressure"]):
-                cat = "Steampunk"
-            else:
-                cat = "Other"
-            
-            by_category.setdefault(cat, []).append(recipe_name)
-        
-        # Display by category
-        for cat, recipes in sorted(by_category.items()):
-            self.caller.msg(f"\n|w{cat}:|n")
-            for recipe in sorted(recipes):
-                count = self.caller.db.craft_counts.get(recipe, 0)
-                quality = self.caller.db.best_quality.get(recipe, "average")
-                self.caller.msg(f"  {recipe:<25} (crafted {count}x, best: {quality})")
-    
-    def show_crafting_stats(self):
-        """Display crafting statistics."""
-        stats = self.caller.db.crafting_stats or {}
-        
-        self.caller.msg("|wCrafting Statistics:|n")
-        
-        total_crafted = stats.get('total_crafted', 0)
-        total_failed = stats.get('total_failed', 0)
-        total_attempts = total_crafted + total_failed
-        
-        if total_attempts > 0:
-            success_rate = (total_crafted / total_attempts) * 100
-        else:
-            success_rate = 0
-        
-        self.caller.msg(f"\nTotal items crafted: {total_crafted}")
-        self.caller.msg(f"Failed attempts: {total_failed}")
-        self.caller.msg(f"Success rate: {success_rate:.1f}%")
-        
-        # Quality breakdown
-        quality_counts = stats.get('quality_counts', {})
-        if quality_counts:
-            self.caller.msg("\n|wQuality Distribution:|n")
-            for quality in ["poor", "average", "good", "fine", "excellent", "masterwork"]:
-                count = quality_counts.get(quality, 0)
-                if count > 0:
-                    percent = (count / total_crafted) * 100
-                    self.caller.msg(f"  {quality:<12} {count:>4} ({percent:>5.1f}%)")
-        
-        # Most crafted
-        craft_counts = self.caller.db.craft_counts or {}
-        if craft_counts:
-            self.caller.msg("\n|wMost Crafted Items:|n")
-            sorted_items = sorted(craft_counts.items(), key=lambda x: x[1], reverse=True)
-            for recipe, count in sorted_items[:5]:
-                self.caller.msg(f"  {recipe:<25} {count}x")
-        
-        # Skill levels
-        self.caller.msg("\n|wCrafting Skills:|n")
-        self.caller.msg(f"  Crafting: {self.caller.skills.crafting.value}")
-        self.caller.msg(f"  Engineering: {self.caller.skills.engineering.value}")
-        self.caller.msg(f"  Survival: {self.caller.skills.survival.value}")
-</file>
-
-<file path="world/recipes/base_recipes.py">
-# world/recipes/base_recipes.py
-"""
-Base recipe classes for the crafting system.
-
-This module provides base classes that integrate crafting with
-our skill system and quality mechanics.
-"""
-
-from evennia.contrib.game_systems.crafting.crafting import CraftingRecipe, CraftingValidationError
-from evennia.utils import gametime, iter_to_str
-from random import random, randint
-from django.conf import settings
-
-
-class SkillBasedRecipe(CraftingRecipe):
-    """
-    Base recipe class that integrates with our skill system.
-    
-    This adds:
-    - Skill requirements and checks
-    - Quality variations based on crafter skill
-    - Tool quality considerations  
-    - Integration with cooldown system
-    
-    Additional properties:
-        skill_requirement (str): Primary skill needed
-        difficulty (int): Minimum skill level (0-100)
-        quality_levels (dict): Maps skill ranges to quality outputs
-        craft_time (int): Base crafting time in seconds
-        craft_category (str): Category for cooldowns ("craft_basic", "craft_advanced", etc)
-    """
-    
-    # Base properties
-    skill_requirement = "crafting"
-    difficulty = 0
-    craft_time = 300  # 5 minutes base
-    craft_category = "craft_basic"
-    
-    # Quality mapping based on skill vs difficulty
-    quality_levels = {
-        -20: "poor",      # 20+ below difficulty
-        -10: "average",   # 10-19 below
-        0: "good",        # At difficulty
-        10: "fine",       # 10+ above
-        20: "excellent",  # 20+ above
-        30: "masterwork"  # 30+ above (requires master skill)
-    }
-    
-    # Messages
-    error_skill_too_low = "You need at least {difficulty} {skill_name} to craft {outputs}."
-    error_on_cooldown = "You are too tired to craft. Wait {time_left} seconds."
-    
-    # I world/recipes/base_recipes.py
-
-    def pre_craft(self, **kwargs):
-        """
-        Validate inputs and check skill requirements.
-        """
-        # Do normal validation first
-        super().pre_craft(**kwargs)
-    
-        # Check if crafter is on cooldown
-        if hasattr(self.crafter, 'cooldowns') and not self.crafter.cooldowns.ready(self.craft_category):
-            time_left = self.crafter.cooldowns.time_left(self.craft_category, use_int=True)
-            err = self.error_on_cooldown.format(time_left=time_left)
-            self.msg(err)
-            raise CraftingValidationError(err)
-    
-        # Check skill requirement
-        if hasattr(self.crafter, 'skills'):
-            # ÄNDRING: Använd skills direkt istället för get_skill_level
-            skill = getattr(self.crafter.skills, self.skill_requirement, None)
-            if skill:
-                skill_level = skill.value
-                skill_desc = skill.desc() if hasattr(skill, 'desc') else "unknown"
-            else:
-                skill_level = 0
-                skill_desc = "untrained"
-        else:
-            # Fallback for testing or NPCs
-            skill_level = 0
-            skill_desc = "untrained"
-        
-        if skill_level < self.difficulty:
-            err = self.error_skill_too_low.format(
-                difficulty=self.difficulty,
-                skill_name=self.skill_requirement,
-                outputs=iter_to_str([proto.get('key', 'item') for proto in self.output_prototypes])
-            )
-            self.msg(err)
-            raise CraftingValidationError(err)
-    
-        # Store skill level for use in do_craft
-        self.crafter_skill = skill_level
-
-    def calculate_quality(self):
-        """
-        Calculate output quality based on skill and other factors.
-    
-        Returns:
-            tuple: (quality_name, quality_modifier)
-        """
-        # Base quality from skill vs difficulty
-        skill_diff = self.crafter_skill - self.difficulty
-    
-        # Find appropriate quality level
-        quality_name = "average"
-        for threshold in sorted(self.quality_levels.keys(), reverse=True):
-            if skill_diff >= threshold:
-                quality_name = self.quality_levels[threshold]
-                break
-    
-        # Calculate quality modifier for item stats
-        base_modifier = 1.0 + (skill_diff / 100.0)  # +1% per skill point above difficulty
-    
-        # Tool quality bonus (if applicable)
-        tool_bonus = 0
-        for tool in self.validated_tools:
-            # FIXA: Kontrollera att quality finns och har ett värde
-            if hasattr(tool, 'db') and hasattr(tool.db, 'quality') and tool.db.quality is not None:
-                tool_bonus += (tool.db.quality - 50) / 200.0  # -25% to +25% based on tool quality
-            # Om inget quality är satt, anta standard quality (50)
-            else:
-                tool_bonus += 0  # Ingen bonus/penalty för verktyg utan quality
-    
-        if self.validated_tools:
-            tool_bonus /= len(self.validated_tools)
-    
-        total_modifier = base_modifier + tool_bonus
-    
-        # Add some randomness (±10%)
-        total_modifier *= (0.9 + random() * 0.2)
-    
-        # Clamp between 0.5 and 2.0
-        total_modifier = max(0.5, min(2.0, total_modifier))
-    
-        return quality_name, total_modifier
-
-    def do_craft(self, **kwargs):
-        """
-        Perform the crafting with quality variations.
-        """
-        # Calculate quality
-        quality_name, quality_modifier = self.calculate_quality()
-        
-        # Success chance based on skill
-        success_chance = 0.5 + (self.crafter_skill / 200.0)  # 50-100% based on skill
-        
-        if random() > success_chance:
-            self.msg("|rYour crafting attempt fails! The materials are ruined.|n")
-            return []
-        
-        # Create items with quality modifications
-        created_items = []
-        for prototype in self.output_prototypes:
-            # Copy prototype to avoid modifying original
-            modified_proto = prototype.copy()
-            
-            # Add quality to key
-            if quality_name != "average":
-                modified_proto["key"] = f"{quality_name} {modified_proto['key']}"
-            
-            # Apply quality modifier to relevant attributes
-            if "attrs" not in modified_proto:
-                modified_proto["attrs"] = []
-            
-            # Add quality-related attributes
-            modified_proto["attrs"].extend([
-                ("quality", quality_name),
-                ("quality_modifier", quality_modifier),
-                ("crafted_by", self.crafter.key),
-                ("craft_date", gametime.gametime())
-            ])
-            
-            # Spawn the item
-            from evennia.prototypes.spawner import spawn
-            items = spawn(modified_proto)
-            created_items.extend(items)
-        
-        # Apply crafting skill improvement
-        if self.crafter_skill < 100 and hasattr(self.crafter, 'improve_skill'):
-            # More skill gain for harder recipes
-            skill_gain = max(1, (self.difficulty // 20))
-            if self.crafter.improve_skill(self.skill_requirement, skill_gain):
-                self.msg(f"|gYour {self.skill_requirement} skill improves!|n")
-        
-        return created_items
-    
-    # I world/recipes/base_recipes.py (i SkillBasedRecipe)
-
-    def post_craft(self, craft_result, **kwargs):
-        """
-        Handle post-crafting cleanup and cooldowns.
-        """
-        # Call parent to handle consumables and messages
-        result = super().post_craft(craft_result, **kwargs)
-    
-        if craft_result:
-            # Track successful craft
-            if hasattr(self.crafter, 'db'):
-                # Add to known recipes
-                if not hasattr(self.crafter.db, 'known_recipes'):
-                    self.crafter.db.known_recipes = []
-                if self.name not in self.crafter.db.known_recipes:
-                    self.crafter.db.known_recipes.append(self.name)
-            
-                # Update craft count
-                if not hasattr(self.crafter.db, 'craft_counts'):
-                    self.crafter.db.craft_counts = {}
-                self.crafter.db.craft_counts[self.name] = self.crafter.db.craft_counts.get(self.name, 0) + 1
-            
-                # Track quality
-                for item in craft_result:
-                    if hasattr(item.db, 'quality'):
-                        quality = item.db.quality
-                        if not hasattr(self.crafter.db, 'best_quality'):
-                            self.crafter.db.best_quality = {}
-                        current_best = self.crafter.db.best_quality.get(self.name, "poor")
-                        quality_order = ["poor", "average", "good", "fine", "excellent", "masterwork"]
-                        if quality in quality_order and current_best in quality_order:
-                            if quality_order.index(quality) > quality_order.index(current_best):
-                                self.crafter.db.best_quality[self.name] = quality
-                    
-                        # Update stats
-                        if not hasattr(self.crafter.db, 'crafting_stats'):
-                            self.crafter.db.crafting_stats = {'total_crafted': 0, 'total_failed': 0, 'quality_counts': {}}
-                        self.crafter.db.crafting_stats['total_crafted'] += 1
-                        quality_counts = self.crafter.db.crafting_stats.get('quality_counts', {})
-                        quality_counts[quality] = quality_counts.get(quality, 0) + 1
-                        self.crafter.db.crafting_stats['quality_counts'] = quality_counts
-        
-            # Apply cooldown
-            if hasattr(self.crafter, 'apply_cooldown'):
-                actual_cooldown = self.crafter.apply_cooldown(
-                    self.craft_category, 
-                    self.craft_time,
-                    self.skill_requirement
-                )
-            
-                # Show quality message
-                for item in craft_result:
-                    if hasattr(item, 'db') and hasattr(item.db, 'quality'):
-                        quality = item.db.quality
-                        if quality != "average":
-                            self.msg(f"|yYou created a {quality} quality item!|n")
-    
-        return result
-
-
-class SkillAndStatRecipe(SkillBasedRecipe):
-    """
-    Advanced recipe that also considers character stats.
-    
-    Some recipes benefit from specific stats:
-    - STR for heavy work (smithing)
-    - DEX for precision work (clockwork)
-    - INT for complex recipes (engineering)
-    """
-    
-    # Additional properties
-    stat_requirement = None  # e.g., "strength"
-    stat_weight = 0.3  # How much the stat affects outcome (0-1)
-    
-    def calculate_quality(self):
-        """Override to include stat bonuses."""
-        quality_name, quality_modifier = super().calculate_quality()
-        
-        # Add stat bonus if applicable
-        if self.stat_requirement and hasattr(self.crafter, 'get_stat'):
-            stat_value = self.crafter.get_stat(self.stat_requirement)
-            if stat_value:
-                # Each point above 10 gives a small bonus
-                stat_bonus = (stat_value - 10) * 0.02 * self.stat_weight
-                quality_modifier += stat_bonus
-        
-        # Re-clamp after stat bonus
-        quality_modifier = max(0.5, min(2.0, quality_modifier))
-        
-        return quality_name, quality_modifier
-</file>
-
-<file path="world/recipes/clothing_recipes.py">
-# world/recipes/clothing_recipes.py
-"""
-Clothing and armor crafting recipes.
-
-These recipes create various clothing items that provide
-protection from weather and combat.
-"""
-
-from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
-
-
-class LeatherArmorRecipe(SkillAndStatRecipe):
-    """Craft leather armor for protection."""
-    
-    name = "leather armor"
-    skill_requirement = "crafting"
-    difficulty = 30
-    craft_time = 1800  # 30 minutes
-    craft_category = "craft_basic"
-    
-    # Strength helps with working thick leather
-    stat_requirement = "strength"
-    stat_weight = 0.3
-    
-    tool_tags = ["leather_tools", "workbench"]
-    consumable_tags = ["leather", "leather", "leather", "leather_strips", "buckles"]
-    
-    output_prototypes = [{
-        "key": "leather armor",
-        "typeclass": "typeclasses.objects.LeatherArmor",
-        "desc": "A sturdy set of leather armor with reinforced panels.",
-        "tags": [
-            ("armor", "item_type"),
-            ("leather_armor", "item_type")
-        ],
-        "attrs": [
-            ("clothing_type", "outerwear"),
-            ("protection_value", 5),  # Base armor
-            ("warmth_value", 10),
-            ("weather_protection", ["wind"]),
-            ("durability", 100),
-            ("max_durability", 100),
-            ("repair_materials", ["leather"]),
-            ("weight", 5)
-        ]
-    }]
-
-
-class WinterCloakRecipe(SkillBasedRecipe):
-    """Craft a warm winter cloak."""
-    
-    name = "winter cloak"
-    skill_requirement = "crafting"
-    difficulty = 25
-    craft_time = 1200  # 20 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = ["sewing_kit", "scissors"]
-    consumable_tags = ["wool_cloth", "wool_cloth", "fur_lining", "thread", "clasp"]
-    
-    output_prototypes = [{
-        "key": "winter cloak",
-        "typeclass": "typeclasses.objects.WinterCloak",
-        "desc": "A heavy woolen cloak lined with warm fur.",
-        "tags": [
-            ("cloak", "item_type"),
-            ("winter_gear", "item_type")
-        ],
-        "attrs": [
-            ("clothing_type", "cloak"),
-            ("warmth_value", 25),
-            ("weather_protection", ["snow", "wind", "rain"]),
-            ("stat_modifiers", {"constitution": 1}),
-            ("durability", 80),
-            ("max_durability", 80),
-            ("repair_materials", ["wool_cloth", "fur"]),
-            ("weight", 3)
-        ]
-    }]
-
-
-class EngineerGogglesRecipe(SkillBasedRecipe):
-    """Craft specialized engineering goggles."""
-    
-    name = "engineer goggles"
-    skill_requirement = "engineering"  # Requires engineering to make properly
-    difficulty = 40
-    craft_time = 1500  # 25 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = ["precision_tools", "lens_grinder"]
-    consumable_tags = ["brass_frame", "glass_lens", "glass_lens", "leather_strap", "tiny_gears"]
-    
-    output_prototypes = [{
-        "key": "engineering goggles",
-        "typeclass": "typeclasses.objects.EngineeringGoggles",
-        "desc": "Brass-framed goggles with multiple adjustable lenses.",
-        "tags": [
-            ("goggles", "item_type"),
-            ("engineering_gear", "item_type")
-        ],
-        "attrs": [
-            ("clothing_type", "goggles"),
-            ("stat_modifiers", {"intelligence": 2}),
-            ("engineering_bonus", 10),
-            ("magnification", 3),
-            ("durability", 60),
-            ("max_durability", 60),
-            ("repair_materials", ["brass", "glass"]),
-            ("weight", 0.5)
-        ]
-    }]
-
-
-class RaincoatRecipe(SkillBasedRecipe):
-    """Craft a waterproof raincoat."""
-    
-    name = "raincoat"
-    skill_requirement = "crafting"
-    difficulty = 20
-    craft_time = 900  # 15 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = ["sewing_kit", "waterproofing_kit"]
-    consumable_tags = ["canvas_cloth", "canvas_cloth", "oil_treatment", "buttons"]
-    
-    output_prototypes = [{
-        "key": "waterproof raincoat",
-        "typeclass": "typeclasses.objects.RainCoat",
-        "desc": "A long coat treated with oils to repel water.",
-        "tags": [
-            ("raincoat", "item_type"),
-            ("weather_gear", "item_type")
-        ],
-        "attrs": [
-            ("clothing_type", "outerwear"),
-            ("warmth_value", 10),
-            ("weather_protection", ["rain", "wind"]),
-            ("durability", 70),
-            ("max_durability", 70),
-            ("repair_materials", ["canvas_cloth", "oil"]),
-            ("weight", 2)
-        ]
-    }]
-</file>
-
-<file path="world/recipes/steampunk_recipes.py">
-# world/recipes/steampunk_recipes.py
-"""
-Steampunk-themed recipes for advanced technology.
-
-These recipes create steam-powered devices, clockwork mechanisms,
-and other technological marvels of the steampunk world.
-"""
-
-from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
-from evennia.contrib.game_systems.crafting.crafting import CraftingValidationError
-
-
-class SteamEngineRecipe(SkillAndStatRecipe):
-    """Build a basic steam engine - the heart of many devices."""
-    
-    name = "steam engine"
-    skill_requirement = "engineering"
-    difficulty = 50
-    craft_time = 3600  # 1 hour
-    craft_category = "craft_advanced"
-    
-    # Requires both skill and intelligence
-    stat_requirement = "intelligence"
-    stat_weight = 0.4
-    
-    tool_tags = ["forge", "precision_tools", "workbench"]
-    consumable_tags = ["iron_ingot", "iron_ingot", "copper_pipe", "brass_fitting", 
-                      "brass_fitting", "rubber_seal", "coal"]
-    
-    output_prototypes = [{
-        "key": "steam engine",
-        "typeclass": "typeclasses.objects.SteamEngine",
-        "desc": "A compact steam engine with gleaming brass fittings and copper pipes.",
-        "tags": [
-            ("steam_engine", "item_type"),
-            ("machine_part", "item_type"),
-            ("power_source", "crafting_material")
-        ],
-        "attrs": [
-            ("power_output", 100),  # Base power units
-            ("fuel_efficiency", 0.7),  # 70% efficient
-            ("max_pressure", 150),
-            ("weight", 25),
-            ("requires_water", True),
-            ("requires_coal", True),
-            ("maintenance_interval", 7200)  # Needs maintenance every 2 hours of use
-        ]
-    }]
-    
-    success_message = "The engine hums to life with a satisfying hiss of steam!"
-    failure_message = "The engine sputters and fails. The pressure seals weren't quite right."
-
-
-class ClockworkMechanismRecipe(SkillAndStatRecipe):
-    """Create a precise clockwork mechanism."""
-    
-    name = "clockwork mechanism"
-    skill_requirement = "engineering"
-    difficulty = 40
-    craft_time = 2400  # 40 minutes
-    craft_category = "craft_advanced"
-    
-    # Dexterity for precision work
-    stat_requirement = "dexterity"
-    stat_weight = 0.5
-    
-    tool_tags = ["precision_tools", "magnifying_glass", "workbench"]
-    consumable_tags = ["brass_gear", "brass_gear", "brass_gear", "steel_spring", 
-                      "steel_spring", "tiny_screws"]
-    
-    output_prototypes = [{
-        "key": "clockwork mechanism",
-        "typeclass": "typeclasses.objects.ClockworkDevice",
-        "desc": "An intricate assembly of gears and springs that tick with mechanical precision.",
-        "tags": [
-            ("clockwork", "item_type"),
-            ("mechanism", "crafting_material")
-        ],
-        "attrs": [
-            ("precision", 0.95),  # 95% timing accuracy
-            ("complexity", 3),  # Complexity level
-            ("tick_rate", 60),  # Ticks per minute
-            ("wound", False),
-            ("max_tension", 1000),
-            ("current_tension", 0)
-        ]
-    }]
-
-
-class SteamPistolRecipe(SkillBasedRecipe):
-    """Craft a steam-powered pistol."""
-    
-    name = "steam pistol"
-    skill_requirement = "engineering"
-    difficulty = 60
-    craft_time = 2700  # 45 minutes
-    craft_category = "craft_advanced"
-    
-    tool_tags = ["forge", "precision_tools", "weapon_molds"]
-    consumable_tags = ["steel_ingot", "brass_fitting", "pressure_chamber", 
-                      "wooden_grip", "trigger_mechanism"]
-    
-    output_prototypes = [{
-        "key": "steam pistol",
-        "typeclass": "typeclasses.objects.SteamWeapon",
-        "desc": "A brass and steel pistol with a small pressure chamber and steam vents.",
-        "tags": [
-            ("steam_pistol", "item_type"),
-            ("weapon", "item_type"),
-            ("ranged", "weapon_type")
-        ],
-        "attrs": [
-            ("damage", 15),  # Base damage
-            ("range", 10),  # 10 room range
-            ("accuracy", 0.7),  # 70% base accuracy
-            ("pressure_per_shot", 20),
-            ("max_pressure", 100),
-            ("current_pressure", 0),
-            ("reload_time", 5),  # 5 seconds between shots
-            ("weight", 3),
-            ("requires_steam_canister", True)
-        ]
-    }]
-
-
-class AutomatonCoreRecipe(SkillAndStatRecipe):
-    """Create the core for a mechanical automaton."""
-    
-    name = "automaton core"
-    skill_requirement = "engineering"
-    difficulty = 80
-    craft_time = 7200  # 2 hours
-    craft_category = "craft_advanced"
-    
-    stat_requirement = "intelligence"
-    stat_weight = 0.6  # Very INT dependent
-    
-    tool_tags = ["advanced_workbench", "precision_tools", "arcane_calibrator"]
-    consumable_tags = ["clockwork_mechanism", "steam_engine", "brass_chassis",
-                      "control_rods", "control_rods", "memory_gears", "soul_gem"]
-    
-    output_prototypes = [{
-        "key": "automaton core",
-        "typeclass": "typeclasses.objects.AutomatonCore",
-        "desc": "A complex fusion of clockwork and steam technology, pulsing with potential.",
-        "tags": [
-            ("automaton_core", "item_type"),
-            ("advanced_component", "crafting_material")
-        ],
-        "attrs": [
-            ("core_type", "basic"),
-            ("power_capacity", 1000),
-            ("instruction_set", "simple"),  # Can follow simple commands
-            ("sentience_level", 0.1),  # Barely sentient
-            ("activation_phrase", ""),  # Set when activated
-            ("owner", ""),
-            ("maintenance_log", [])
-        ]
-    }]
-    
-    def do_craft(self, **kwargs):
-        """Special handling for soul gem consumption."""
-        # Check for soul gem quality
-        soul_gem = None
-        for cons in self.validated_consumables:
-            if "soul_gem" in cons.tags.get(category="item_type", return_list=True):
-                soul_gem = cons
-                break
-        
-        if soul_gem and hasattr(soul_gem.db, 'soul_quality'):
-            # Better soul = better automaton
-            quality_bonus = soul_gem.db.soul_quality / 100.0
-            for proto in self.output_prototypes:
-                for i, (attr_name, attr_val) in enumerate(proto.get("attrs", [])):
-                    if attr_name == "sentience_level":
-                        new_sentience = attr_val + (quality_bonus * 0.5)
-                        proto["attrs"][i] = ("sentience_level", new_sentience)
-                        break
-        
-        return super().do_craft(**kwargs)
-
-
-class PressureGaugeRecipe(SkillBasedRecipe):
-    """A pressure gauge for monitoring steam devices."""
-    
-    name = "pressure gauge"
-    skill_requirement = "engineering"
-    difficulty = 30
-    craft_time = 900  # 15 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = ["precision_tools", "workbench"]
-    consumable_tags = ["brass_casing", "glass_face", "pressure_spring", "tiny_screws"]
-    
-    output_prototypes = [{
-        "key": "pressure gauge",
-        "typeclass": "typeclasses.objects.SteamComponent",
-        "desc": "A brass gauge with a glass face showing pressure readings.",
-        "tags": [
-            ("pressure_gauge", "item_type"),
-            ("steam_component", "crafting_material"),
-            ("monitoring_device", "item_type")
-        ],
-        "attrs": [
-            ("max_reading", 200),  # PSI
-            ("accuracy", 0.95),
-            ("warning_threshold", 150),
-            ("critical_threshold", 180),
-            ("weight", 0.5)
-        ]
-    }]
-
-
-class SteamJetpackRecipe(SkillAndStatRecipe):
-    """An advanced personal flight device."""
-    
-    name = "steam jetpack"
-    skill_requirement = "engineering"
-    difficulty = 90  # Master-level recipe
-    craft_time = 10800  # 3 hours
-    craft_category = "craft_advanced"
-    
-    stat_requirement = "intelligence"
-    stat_weight = 0.4
-    
-    tool_tags = ["advanced_forge", "precision_tools", "pressure_testing_rig"]
-    consumable_tags = ["steam_engine", "steam_engine", "brass_chassis", "leather_straps",
-                      "pressure_regulator", "thrust_nozzles", "control_mechanism", "padding"]
-    
-    # Can't succeed without very high skill
-    exact_consumables = True
-    exact_tools = True
-    
-    output_prototypes = [{
-        "key": "steam jetpack",
-        "typeclass": "typeclasses.objects.SteamJetpack",
-        "desc": "A marvel of engineering: twin brass engines mounted on a reinforced frame.",
-        "tags": [
-            ("jetpack", "item_type"),
-            ("steam_device", "item_type"),
-            ("flight_capable", "capability")
-        ],
-        "attrs": [
-            ("flight_duration", 300),  # 5 minutes per fuel load
-            ("max_altitude", 5),  # 5 rooms high
-            ("fuel_capacity", 10),
-            ("current_fuel", 0),
-            ("thrust_power", 200),
-            ("weight", 40),
-            ("worn_on", "back"),
-            ("requires_training", True)  # Need flight training to use safely
-        ]
-    }]
-    
-    error_skill_too_low = (
-        "This is far too complex for your current skill level. "
-        "Only a true master engineer could hope to create a {outputs}."
-    )
-    
-    success_message = (
-        "With a final adjustment, the jetpack roars to life! "
-        "The twin engines pulse with barely-contained power. "
-        "You've created something truly extraordinary!"
-    )
-</file>
-
-<file path="world/recipes/survival_recipes.py">
-# world/recipes/survival_recipes.py
-"""
-Survival-focused recipes for basic needs.
-
-These recipes create food, water containers, and basic tools
-needed for survival in the game world.
-"""
-
-from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
-from evennia.contrib.game_systems.crafting.crafting import CraftingValidationError
-from evennia.utils.utils import iter_to_str
-
-
-class WaterContainerRecipe(SkillBasedRecipe):
-    """Create a basic water container from leather."""
-    
-    name = "waterskin"
-    skill_requirement = "crafting"
-    difficulty = 10
-    craft_time = 180  # 3 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = ["knife"]
-    consumable_tags = ["leather", "twine"]
-    
-    output_prototypes = [{
-        "key": "waterskin",
-        "typeclass": "typeclasses.objects.Container",
-        "desc": "A leather waterskin for carrying water.",
-        "tags": [
-            ("waterskin", "item_type"),
-            ("container", "item_type"),
-            ("liquid_only", "container_type")
-        ],
-        "attrs": [
-            ("capacity", 3),  # Can hold 3 water items
-            ("liquid_only", True),
-            ("empty_weight", 0.5),
-            ("durability", 50),
-            ("max_durability", 50)
-        ]
-    }]
-
-
-class CampfireRecipe(SkillBasedRecipe):
-    """Build a campfire for cooking and warmth."""
-    
-    name = "campfire"
-    skill_requirement = "survival" 
-    difficulty = 5
-    craft_time = 120  # 2 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = []  # No tools needed
-    consumable_tags = ["wood", "wood", "wood"]  # Need 3 wood
-    
-    output_prototypes = [{
-        "key": "campfire",
-        "typeclass": "typeclasses.objects.Campfire",
-        "desc": "A crackling campfire providing warmth and light.",
-        "tags": [
-            ("campfire", "item_type"),
-            ("heat_source", "item_type"),
-            ("light_source", "item_type")
-        ],
-        "attrs": [
-            ("burn_time", 3600),  # Burns for 1 hour
-            ("is_lit", True),
-            ("warmth_radius", 1),  # Warms adjacent rooms
-            ("cooking_bonus", 10),  # +10% to cooking skill when used
-            ("portable", False)  # Can't be picked up while lit
-        ]
-    }]
-    
-    def do_craft(self, **kwargs):
-        """Override to check if location allows fires."""
-        location = self.crafter.location
-        
-        # Check if indoor location allows fires
-        if location.db.indoor and not location.db.allow_fire:
-            self.msg("|rYou cannot build a fire indoors here!|n")
-            return []
-        
-        # Check weather
-        weather = location.get_current_weather()
-        if "storm" in weather or "heavy_rain" in weather:
-            self.msg("|rThe weather is too harsh to build a fire.|n")
-            return []
-        
-        return super().do_craft(**kwargs)
-
-
-class BreadRecipe(SkillBasedRecipe):
-    """Bake bread - a basic food staple."""
-    
-    name = "bread"
-    skill_requirement = "crafting"
-    difficulty = 15
-    craft_time = 600  # 10 minutes  
-    craft_category = "craft_basic"
-    
-    tool_tags = ["oven", "mixing_bowl"]
-    consumable_tags = ["flour", "water", "yeast", "salt"]
-    
-    output_prototypes = [{
-        "key": "loaf of bread",
-        "typeclass": "typeclasses.objects.Food", 
-        "desc": "A freshly baked loaf of bread with a golden crust.",
-        "tags": [
-            ("bread", "item_type"),
-            ("food", "item_type")
-        ],
-        "attrs": [
-            ("nutrition", 30),  # Base nutrition value
-            ("weight", 0.5),
-            ("decay_rate", 0.1),  # Decays slowly
-            ("uses", 4)  # Can be eaten 4 times
-        ]
-    }]
-    
-    def calculate_quality(self):
-        """Override to give better nutrition for higher quality."""
-        quality_name, quality_modifier = super().calculate_quality()
-        
-        # Modify the nutrition value in output
-        for proto in self.output_prototypes:
-            for i, (attr_name, attr_val) in enumerate(proto.get("attrs", [])):
-                if attr_name == "nutrition":
-                    # Better quality = more nutritious
-                    new_nutrition = int(attr_val * quality_modifier)
-                    proto["attrs"][i] = ("nutrition", new_nutrition)
-                    break
-        
-        return quality_name, quality_modifier
-
-
-class PreservedMeatRecipe(SkillBasedRecipe):
-    """Create preserved meat that lasts longer."""
-    
-    name = "preserved meat"
-    skill_requirement = "survival"
-    difficulty = 25
-    craft_time = 900  # 15 minutes
-    craft_category = "craft_basic"
-    
-    tool_tags = ["knife", "smoking_rack"]
-    consumable_tags = ["raw_meat", "raw_meat", "salt", "herbs"]
-    
-    output_prototypes = [{
-        "key": "preserved meat",
-        "typeclass": "typeclasses.objects.Food",
-        "desc": "Strips of meat preserved with salt and smoke.",
-        "tags": [
-            ("preserved_meat", "item_type"),
-            ("food", "item_type")
-        ],
-        "attrs": [
-            ("nutrition", 40),
-            ("weight", 0.8),
-            ("decay_rate", 0.02),  # Very slow decay
-            ("uses", 2)
-        ]
-    }]
-
-
-class HerbalTeaRecipe(SkillBasedRecipe):
-    """Brew herbal tea for minor healing."""
-    
-    name = "herbal tea"
-    skill_requirement = "survival"
-    difficulty = 20
-    craft_time = 300
-    craft_category = "craft_basic"
-    
-    tool_tags = ["pot", "campfire"]
-    consumable_tags = ["herbs", "herbs", "water"]
-    
-    output_prototypes = [{
-        "key": "herbal tea",
-        "typeclass": "typeclasses.objects.Consumable",
-        "desc": "A steaming cup of medicinal herbal tea.",
-        "tags": [
-            ("tea", "item_type"),
-            ("drink", "item_type"),
-            ("medicine", "item_type")
-        ],
-        "attrs": [
-            ("thirst_value", 15),
-            ("healing_value", 10),  # Restores some health
-            ("effect_type", "heal_minor"),
-            ("uses", 1),
-            ("weight", 0.3)
-        ]
-    }]
-
-
-class StewRecipe(SkillAndStatRecipe):
-    """A hearty stew - excellent nutrition but requires skill."""
-    
-    name = "hearty stew"
-    skill_requirement = "crafting"
-    difficulty = 35
-    craft_time = 1200  # 20 minutes
-    craft_category = "craft_basic"
-    
-    # Wisdom helps with seasoning
-    stat_requirement = "wisdom"
-    stat_weight = 0.2
-    
-    tool_tags = ["pot", "ladle", "campfire"]
-    consumable_tags = ["meat", "vegetables", "vegetables", "herbs", "water", "salt"]
-    
-    output_prototypes = [{
-        "key": "pot of hearty stew",
-        "typeclass": "typeclasses.objects.Food",
-        "desc": "A large pot of thick, savory stew with chunks of meat and vegetables.",
-        "tags": [
-            ("stew", "item_type"),
-            ("food", "item_type")
-        ],
-        "attrs": [
-            ("nutrition", 60),  # Very nutritious
-            ("weight", 2.0),
-            ("decay_rate", 0.15),  # Spoils moderately fast
-            ("uses", 6),  # Feeds multiple people
-            ("warmth_bonus", 5)  # Provides warmth when eaten
-        ]
-    }]
-</file>
-
-<file path="world/recipes/tool_recipes.py">
-# world/recipes/tool_recipes.py
-"""
-Tool and equipment crafting recipes.
-
-These recipes create the tools needed for other crafting,
-as well as gathering and survival equipment.
-"""
-
-from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
-
-
-class PickaxeRecipe(SkillAndStatRecipe):
-    """Craft a pickaxe for mining stone."""
-    
-    name = "pickaxe"
-    skill_requirement = "crafting"
-    difficulty = 20
-    craft_time = 600  # 10 minutes
-    craft_category = "craft_basic"
-    
-    # Strength helps forge better tools
-    stat_requirement = "strength"
-    stat_weight = 0.4
-    
-    tool_tags = ["forge", "anvil", "hammer"]
-    consumable_tags = ["iron_ingot", "iron_ingot", "wooden_handle"]
-    
-    output_prototypes = [{
-        "key": "pickaxe",
-        "typeclass": "typeclasses.objects.Tool",
-        "desc": "A sturdy pickaxe with an iron head and wooden handle.",
-        "tags": [
-            ("pickaxe", "item_type"),
-            ("tool", "item_type"),
-            ("pickaxe", "crafting_tool")  # Can be used as tool in recipes
-        ],
-        "attrs": [
-            ("tool_type", "mining"),
-            ("efficiency", 1.0),  # Modified by quality
-            ("durability", 100),
-            ("max_durability", 100),
-            ("repair_materials", ["iron_ingot"]),
-            ("weight", 4),
-            ("quality", 50)  # Base quality
-        ]
-    }]
-    
-    def calculate_quality(self):
-        """Tools get bonus durability from quality."""
-        quality_name, quality_modifier = super().calculate_quality()
-        
-        # Apply quality to tool stats
-        for proto in self.output_prototypes:
-            attrs = proto.get("attrs", [])
-            for i, (attr_name, attr_val) in enumerate(attrs):
-                if attr_name == "efficiency":
-                    attrs[i] = ("efficiency", attr_val * quality_modifier)
-                elif attr_name == "max_durability":
-                    attrs[i] = ("max_durability", int(attr_val * quality_modifier))
-                elif attr_name == "durability":
-                    # Current durability matches max
-                    max_dur = int(100 * quality_modifier)
-                    attrs[i] = ("durability", max_dur)
-                elif attr_name == "quality":
-                    attrs[i] = ("quality", int(50 * quality_modifier))
-        
-        return quality_name, quality_modifier
-
-
-class PrecisionToolsRecipe(SkillBasedRecipe):
-    """Craft precision tools for engineering work."""
-    
-    name = "precision tools"
-    skill_requirement = "engineering"
-    difficulty = 45
-    craft_time = 2400  # 40 minutes
-    craft_category = "craft_advanced"
-    
-    tool_tags = ["forge", "grindstone", "workbench"]
-    consumable_tags = ["steel_ingot", "steel_ingot", "brass_fitting", "leather_wrap", "tool_case"]
-    
-    output_prototypes = [{
-        "key": "precision tools",
-        "typeclass": "typeclasses.objects.ToolKit",
-        "desc": "A leather case containing finely-crafted precision instruments.",
-        "tags": [
-            ("precision_tools", "item_type"),
-            ("tool", "item_type"),
-            ("precision_tools", "crafting_tool"),
-            ("toolkit", "container_type")
-        ],
-        "attrs": [
-            ("tool_type", "precision"),
-            ("engineering_bonus", 15),
-            ("contains_tools", [
-                "fine_pliers", "jewelers_screwdriver", "calipers",
-                "miniature_hammer", "tension_wrench"
-            ]),
-            ("durability", 80),
-            ("max_durability", 80),
-            ("repair_materials", ["steel_ingot"]),
-            ("weight", 2)
-        ]
-    }]
-
-
-class WorkbenchRecipe(SkillAndStatRecipe):
-    """Build a workbench for crafting."""
-    
-    name = "workbench"
-    skill_requirement = "crafting"
-    difficulty = 35
-    craft_time = 3600  # 1 hour
-    craft_category = "craft_basic"
-    
-    stat_requirement = "strength"
-    stat_weight = 0.3
-    
-    tool_tags = ["hammer", "saw", "measuring_tape"]
-    consumable_tags = ["wooden_plank", "wooden_plank", "wooden_plank", "wooden_plank",
-                      "iron_nails", "iron_nails", "vise"]
-    
-    output_prototypes = [{
-        "key": "sturdy workbench",
-        "typeclass": "typeclasses.objects.CraftingStation",
-        "desc": "A solid wooden workbench with a built-in vise and tool storage.",
-        "tags": [
-            ("workbench", "item_type"),
-            ("crafting_station", "item_type"),
-            ("workbench", "crafting_tool"),
-            ("furniture", "item_type")
-        ],
-        "attrs": [
-            ("station_type", "general"),
-            ("crafting_bonus", 10),  # +10% success rate
-            ("tool_storage", 20),  # Can store 20 items
-            ("portable", False),  # Too heavy to move easily
-            ("weight", 50),
-            ("workshop_level", 1)  # Basic workshop
-        ]
-    }]
-
-
-class ForgeRecipe(SkillAndStatRecipe):
-    """Build a forge for metalworking - needed for advanced crafting."""
-    
-    name = "forge"
-    skill_requirement = "engineering"
-    difficulty = 60
-    craft_time = 7200  # 2 hours
-    craft_category = "craft_advanced"
-    
-    stat_requirement = "strength"
-    stat_weight = 0.5  # Very physical work
-    
-    tool_tags = ["hammer", "tongs", "masonry_tools"]
-    consumable_tags = ["stone_block", "stone_block", "stone_block", "stone_block",
-                      "iron_grate", "bellows", "chimney_pipe", "fire_bricks"]
-    
-    output_prototypes = [{
-        "key": "smithing forge",
-        "typeclass": "typeclasses.objects.Forge",
-        "desc": "A stone forge with bellows and chimney, ready for metalworking.",
-        "tags": [
-            ("forge", "item_type"),
-            ("crafting_station", "item_type"),
-            ("forge", "crafting_tool"),
-            ("heat_source", "capability")
-        ],
-        "attrs": [
-            ("station_type", "metalworking"),
-            ("max_temperature", 1500),  # Celsius
-            ("fuel_type", "coal"),
-            ("fuel_capacity", 20),
-            ("current_fuel", 0),
-            ("crafting_bonus", 20),  # +20% for metal recipes
-            ("portable", False),
-            ("weight", 200),
-            ("workshop_level", 2),  # Advanced workshop
-            ("requires_chimney", True)
-        ]
-    }]
-    
-    def pre_craft(self, **kwargs):
-        """Check if location can support a forge."""
-        super().pre_craft(**kwargs)
-        
-        location = self.crafter.location
-        if location.db.indoor and not location.db.workshop:
-            err = "You need a proper workshop space to build a forge!"
-            self.msg(err)
-            raise CraftingValidationError(err)
-</file>
-
-<file path="world/tests/test_crafting.py">
-# world/tests/test_crafting.py
-"""
-Tests for the crafting system integration.
-"""
-
-from evennia.utils.test_resources import EvenniaTest
-from evennia.utils import create
-from typeclasses.characters import Character
-from typeclasses.objects import Object
-from world.recipes.survival_recipes import BreadRecipe, WaterContainerRecipe
-from world.recipes.tool_recipes import PickaxeRecipe
-from evennia.contrib.game_systems.crafting import craft
-from unittest.mock import patch, MagicMock
-
-
-class TestCraftingIntegration(EvenniaTest):
-    """Test crafting system with our custom recipes."""
-    
-    def setUp(self):
-        super().setUp()
-        self.crafter = create.create_object(Character, key="Crafter", location=self.room1)
-        
-        # Set up some basic skills
-        self.crafter.skills.crafting.base = 30
-        self.crafter.skills.engineering.base = 20
-        self.crafter.skills.survival.base = 25
-    
-    def test_recipe_skill_requirements(self):
-        """Test that recipes check skill requirements."""
-        # Create ingredients for bread
-        flour = create.create_object(Object, key="flour", location=self.crafter,
-                                   attributes=[("tags", ["flour"], "crafting_material")])
-        water = create.create_object(Object, key="water", location=self.crafter,
-                                   attributes=[("tags", ["water"], "crafting_material")])
-        yeast = create.create_object(Object, key="yeast", location=self.crafter,
-                                   attributes=[("tags", ["yeast"], "crafting_material")])
-        salt = create.create_object(Object, key="salt", location=self.crafter,
-                                  attributes=[("tags", ["salt"], "crafting_material")])
-        
-        # Create tools
-        oven = create.create_object(Object, key="oven", location=self.room1,
-                                  attributes=[("tags", ["oven"], "crafting_tool")])
-        bowl = create.create_object(Object, key="bowl", location=self.crafter,
-                                  attributes=[("tags", ["mixing_bowl"], "crafting_tool")])
-        
-        # Bread requires crafting 15, we have 30 - should succeed
-        recipe = BreadRecipe(self.crafter, flour, water, yeast, salt, oven, bowl)
-        
-        # Pre-craft should pass
-        try:
-            recipe.pre_craft()
-            validation_passed = True
-        except:
-            validation_passed = False
-            
-        self.assertTrue(validation_passed)
-        
-        # Lower skill and try again
-        self.crafter.skills.crafting.base = 10
-        recipe2 = BreadRecipe(self.crafter, flour, water, yeast, salt, oven, bowl)
-        
-        with self.assertRaises(Exception):  # Should raise CraftingValidationError
-            recipe2.pre_craft()
-    
-    def test_cooldown_integration(self):
-        """Test that crafting applies cooldowns."""
-        # Give crafter materials using seed
-        tools, consumables = WaterContainerRecipe.seed(location=self.crafter)
-        
-        # Craft waterskin
-        recipe = WaterContainerRecipe(self.crafter, *(tools + consumables))
-        
-        # Should not be on cooldown initially
-        self.assertTrue(self.crafter.cooldowns.ready("craft_basic"))
-        
-        # Craft the item
-        result = recipe.craft()
-        
-        # Should now be on cooldown
-        self.assertFalse(self.crafter.cooldowns.ready("craft_basic"))
-        
-        # Check cooldown duration is affected by skill
-        time_left = self.crafter.cooldowns.time_left("craft_basic")
-        # With 30 crafting skill, should have some reduction
-        self.assertLess(time_left, 180)  # Less than base 3 minutes
-    
-    def test_quality_system(self):
-        """Test that skill affects quality."""
-        # Create a skilled crafter
-        skilled_crafter = create.create_object(Character, key="Master", location=self.room1)
-        skilled_crafter.skills.crafting.base = 80  # Expert level
-        
-        # Create pickaxe ingredients
-        tools, consumables = PickaxeRecipe.seed(location=skilled_crafter)
-        
-        # Mock random to ensure consistent quality
-        with patch('world.recipes.base_recipes.random', return_value=0.5):
-            recipe = PickaxeRecipe(skilled_crafter, *(tools + consumables))
-            recipe.pre_craft()  # This sets crafter_skill
-            
-            quality_name, quality_mod = recipe.calculate_quality()
-            
-            # With skill 80 vs difficulty 20, should get excellent or masterwork
-            self.assertIn(quality_name, ["excellent", "masterwork"])
-            self.assertGreater(quality_mod, 1.3)  # Should have significant bonus
-    
-    def test_stat_bonus_crafting(self):
-        """Test that stats provide bonuses to crafting."""
-        # PickaxeRecipe uses strength
-        self.crafter.stats.strength.base = 16  # +6 bonus
-        
-        tools, consumables = PickaxeRecipe.seed(location=self.crafter)
-        recipe = PickaxeRecipe(self.crafter, *(tools + consumables))
-        
-        with patch('world.recipes.base_recipes.random', return_value=0.5):
-            recipe.pre_craft()
-            quality_name, quality_mod = recipe.calculate_quality()
-            
-            # Should get some bonus from strength
-            self.assertGreater(quality_mod, 1.0)
-    
-    # I world/tests/test_crafting.py
-
-    def test_craft_function_integration(self):
-        """Test using the craft() function directly."""
-        # Set up for bread crafting
-        tools, consumables = BreadRecipe.seed(location=self.crafter)
-    
-        # Mock random for consistent results
-        with patch('world.recipes.base_recipes.random', return_value=0.8):
-            # Use the craft function
-            result = craft(self.crafter, "bread", *(tools + consumables))
-        
-            # ÄNDRING: Kolla att result är en lista med objekt, inte True
-            self.assertTrue(result)  # Should have items in list
-            self.assertIsInstance(result, list)  # Should be a list
-            self.assertGreater(len(result), 0)  # Should have at least one item
-            self.assertEqual(result[0].key, "loaf of bread")
-        
-            # Check quality was applied
-            self.assertTrue(hasattr(result[0].db, 'quality'))
-            self.assertTrue(hasattr(result[0].db, 'crafted_by'))
-            self.assertEqual(result[0].db.crafted_by, "Crafter")
-
-    
-    def test_tool_quality_affects_crafting(self):
-        """Test that tool quality affects results."""
-        # Create high-quality tools
-        hammer = create.create_object(Object, key="masterwork hammer", location=self.crafter)
-        hammer.tags.add("hammer", category="crafting_tool")
-        hammer.db.quality = 90  # High quality tool
-        
-        # Create normal tools and materials
-        forge = create.create_object(Object, key="forge", location=self.room1)
-        forge.tags.add("forge", category="crafting_tool")
-        forge.db.quality = 50  # Average
-        
-        anvil = create.create_object(Object, key="anvil", location=self.room1)
-        anvil.tags.add("anvil", category="crafting_tool")
-        anvil.db.quality = 50
-        
-        # Materials
-        iron1 = create.create_object(Object, key="iron", location=self.crafter)
-        iron1.tags.add("iron_ingot", category="crafting_material")
-        iron2 = create.create_object(Object, key="iron", location=self.crafter)
-        iron2.tags.add("iron_ingot", category="crafting_material")
-        handle = create.create_object(Object, key="handle", location=self.crafter)
-        handle.tags.add("wooden_handle", category="crafting_material")
-        
-        # Craft with high-quality hammer
-        recipe = PickaxeRecipe(self.crafter, hammer, forge, anvil, iron1, iron2, handle)
-        
-        with patch('world.recipes.base_recipes.random', return_value=0.5):
-            recipe.pre_craft()
-            quality_name, quality_mod = recipe.calculate_quality()
-            
-            # Should get bonus from high-quality hammer
-            self.assertGreater(quality_mod, 1.0)
-
-
-class TestCraftingCommands(EvenniaTest):
-    """Test crafting commands."""
-    
-    def setUp(self):
-        super().setUp()
-        self.char = create.create_object(Character, key="Tester", location=self.room1)
-        self.char.skills.crafting.base = 20
-        
-        # Add command set
-        from commands.default_cmdsets import CharacterCmdSet
-        self.char.cmdset.add(CharacterCmdSet)
-    
-    @patch('evennia.contrib.game_systems.crafting.crafting._RECIPE_CLASSES', {
-        "bread": BreadRecipe,
-        "waterskin": WaterContainerRecipe
-    })
-    def test_craft_list_command(self):
-        """Test the craft list command."""
-        # Capture output
-        old_msg = self.char.msg
-        messages = []
-        self.char.msg = lambda text, **kwargs: messages.append(text)
-        
-        self.char.execute_cmd("craft list")
-        
-        # Check output
-        output = "\n".join(messages)
-        self.assertIn("Crafting Recipes", output)
-        self.assertIn("Your Skills:", output)
-        
-        # Should show recipes with difficulty
-        self.assertIn("bread", output.lower())
-        self.assertIn("waterskin", output.lower())
-        
-        self.char.msg = old_msg
-    
-    @patch('evennia.contrib.game_systems.crafting.crafting._RECIPE_CLASSES', {
-        "bread": BreadRecipe
-    })
-    def test_craft_info_command(self):
-        """Test the craft info command."""
-        old_msg = self.char.msg
-        messages = []
-        self.char.msg = lambda text, **kwargs: messages.append(text)
-        
-        self.char.execute_cmd("craft info bread")
-        
-        output = "\n".join(messages)
-        self.assertIn("Bread", output)
-        self.assertIn("Requirements:", output)
-        self.assertIn("Tools needed:", output)
-        self.assertIn("Ingredients:", output)
-        self.assertIn("flour", output)
-        
-        self.char.msg = old_msg
-    
-    def test_recipes_command(self):
-        """Test the recipes command."""
-        # Give character some known recipes
-        self.char.db.known_recipes = ["bread", "waterskin", "pickaxe"]
-        self.char.db.craft_counts = {"bread": 5, "waterskin": 2, "pickaxe": 1}
-        self.char.db.best_quality = {"bread": "good", "pickaxe": "excellent"}
-        
-        old_msg = self.char.msg
-        messages = []
-        self.char.msg = lambda text, **kwargs: messages.append(text)
-        
-        self.char.execute_cmd("recipes")
-        
-        output = "\n".join(messages)
-        self.assertIn("Your Known Recipes", output)
-        self.assertIn("bread", output)
-        self.assertIn("crafted 5x", output)
-        self.assertIn("best: good", output)
-        
-        self.char.msg = old_msg
-    
-    def test_recipes_stats_command(self):
-        """Test the recipes stats command."""
-        # Set up some stats
-        self.char.db.crafting_stats = {
-            'total_crafted': 25,
-            'total_failed': 5,
-            'quality_counts': {
-                'poor': 2,
-                'average': 10,
-                'good': 8,
-                'excellent': 5
-            }
-        }
-        
-        old_msg = self.char.msg
-        messages = []
-        self.char.msg = lambda text, **kwargs: messages.append(text)
-        
-        self.char.execute_cmd("recipes stats")
-        
-        output = "\n".join(messages)
-        self.assertIn("Crafting Statistics", output)
-        self.assertIn("Total items crafted: 25", output)
-        self.assertIn("Success rate: 83.3%", output)
-        self.assertIn("Quality Distribution", output)
-        
-        self.char.msg = old_msg
-
-
-# world/tests/test_crafting.py
-
-class TestCraftingTracking(EvenniaTest):
-    """Test that crafting statistics are tracked properly."""
-    
-    def setUp(self):
-        super().setUp()
-        self.crafter = create.create_object(Character, key="Tracker", location=self.room1)
-        self.crafter.skills.crafting.base = 50
-        
-        # Initialize tracking dicts on the crafter
-        self.crafter.db.known_recipes = []
-        self.crafter.db.craft_counts = {}
-        self.crafter.db.best_quality = {}
-        self.crafter.db.crafting_stats = {
-            'total_crafted': 0,
-            'total_failed': 0,
-            'quality_counts': {}
-        }
-    
-    def test_successful_craft_tracking(self):
-        """Test that successful crafts are tracked."""
-        # Craft bread using the normal craft function
-        tools, consumables = BreadRecipe.seed(location=self.crafter)
-        
-        with patch('world.recipes.base_recipes.random', return_value=0.8):
-            result = craft(self.crafter, "bread", *(tools + consumables))
-        
-        # Check that craft succeeded
-        self.assertTrue(result)
-        self.assertIsInstance(result, list)
-        self.assertGreater(len(result), 0)
-        
-        # Check tracking
-        self.assertIn("bread", self.crafter.db.known_recipes)
-        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 1)
-        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 1)
-        
-        # Check quality tracking
-        quality_counts = self.crafter.db.crafting_stats.get('quality_counts', {})
-        self.assertGreater(sum(quality_counts.values()), 0)
-    
-    def test_multiple_craft_tracking(self):
-        """Test that multiple crafts are tracked correctly."""
-        # Craft bread three times
-        for i in range(3):
-            tools, consumables = BreadRecipe.seed(location=self.crafter)
-            with patch('world.recipes.base_recipes.random', return_value=0.8):
-                result = craft(self.crafter, "bread", *(tools + consumables))
-                self.assertTrue(result)
-        
-        # Check counts
-        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 3)
-        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 3)
-    
-    def test_quality_tracking(self):
-        """Test that quality is tracked correctly."""
-        # Craft with different skill levels to get different qualities
-        
-        # Low skill - should get average or poor quality
-        self.crafter.skills.crafting.base = 20
-        tools, consumables = BreadRecipe.seed(location=self.crafter)
-        with patch('world.recipes.base_recipes.random', return_value=0.9):
-            result = craft(self.crafter, "bread", *(tools + consumables))
-        
-        # High skill - should get better quality
-        self.crafter.skills.crafting.base = 80
-        tools, consumables = BreadRecipe.seed(location=self.crafter)
-        with patch('world.recipes.base_recipes.random', return_value=0.9):
-            result = craft(self.crafter, "bread", *(tools + consumables))
-        
-        # Check that we have quality data
-        quality_counts = self.crafter.db.crafting_stats.get('quality_counts', {})
-        self.assertGreater(len(quality_counts), 0)
-        
-        # Check best quality tracking
-        best_quality = self.crafter.db.best_quality.get("bread", "poor")
-        self.assertIn(best_quality, ["poor", "average", "good", "fine", "excellent", "masterwork"])
-    
-    def test_failed_craft_tracking(self):
-        """Test that failed crafts are tracked."""
-        # Set skill too low for recipe
-        self.crafter.skills.crafting.base = 5  # Below bread's requirement of 15
-        
-        tools, consumables = BreadRecipe.seed(location=self.crafter)
-        
-        # This should fail due to low skill
-        result = craft(self.crafter, "bread", *(tools + consumables))
-        
-        # Should return empty list on failure
-        self.assertEqual(result, [])
-        
-        # Should not be in known recipes since it failed
-        self.assertNotIn("bread", self.crafter.db.known_recipes)
-        
-        # Should not increment craft count
-        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 0)
-        
-        # Total crafted should still be 0
-        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 0)
-    
-    def test_different_recipe_tracking(self):
-        """Test tracking multiple different recipes."""
-        # First craft bread
-        self.crafter.skills.crafting.base = 30
-        tools, consumables = BreadRecipe.seed(location=self.crafter)
-        with patch('world.recipes.base_recipes.random', return_value=0.8):
-            result = craft(self.crafter, "bread", *(tools + consumables))
-        
-        # Then craft a waterskin
-        tools2, consumables2 = WaterContainerRecipe.seed(location=self.crafter)
-        with patch('world.recipes.base_recipes.random', return_value=0.8):
-            result2 = craft(self.crafter, "waterskin", *(tools2 + consumables2))
-        
-        # Check both are tracked
-        self.assertIn("bread", self.crafter.db.known_recipes)
-        self.assertIn("waterskin", self.crafter.db.known_recipes)
-        
-        # Check individual counts
-        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 1)
-        self.assertEqual(self.crafter.db.craft_counts.get("waterskin", 0), 1)
-        
-        # Total should be 2
-        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 2)
-    
-    def test_craft_stats_initialization(self):
-        """Test that craft stats are properly initialized."""
-        # Create a new crafter without pre-initialized stats
-        new_crafter = create.create_object(Character, key="NewCrafter", location=self.room1)
-        new_crafter.skills.crafting.base = 30
-        
-        # Craft something
-        tools, consumables = BreadRecipe.seed(location=new_crafter)
-        with patch('world.recipes.base_recipes.random', return_value=0.8):
-            result = craft(new_crafter, "bread", *(tools + consumables))
-        
-        # Check that all tracking attributes were created
-        self.assertTrue(hasattr(new_crafter.db, 'known_recipes'))
-        self.assertTrue(hasattr(new_crafter.db, 'craft_counts'))
-        self.assertTrue(hasattr(new_crafter.db, 'best_quality'))
-        self.assertTrue(hasattr(new_crafter.db, 'crafting_stats'))
-        
-        # Check they have correct values
-        self.assertIn("bread", new_crafter.db.known_recipes)
-        self.assertEqual(new_crafter.db.craft_counts.get("bread", 0), 1)
-        self.assertEqual(new_crafter.db.crafting_stats['total_crafted'], 1)
+<file path=".claude/settings.local.json">
+{
+  "permissions": {
+    "allow": [
+      "Bash(evennia test:*)"
+    ],
+    "deny": []
+  }
+}
 </file>
 
 <file path="commands/clothing_commands.py">
@@ -2588,6 +689,361 @@ class Command(BaseCommand):
 #                 self.character = self.caller.get_puppet(self.session)
 #             else:
 #                 self.character = None
+</file>
+
+<file path="commands/crafting_commands.py">
+# commands/crafting_commands.py
+"""
+Crafting-related commands for the survival game.
+
+Extends the basic crafting command with additional features
+like recipe browsing and skill integration.
+"""
+
+from evennia.contrib.game_systems.crafting.crafting import CmdCraft as BaseCmdCraft
+from evennia.contrib.game_systems.crafting.crafting import craft
+from evennia import Command
+from evennia.utils import list_to_string, evtable
+from django.conf import settings
+
+
+class CmdCraft(BaseCmdCraft):
+    """
+    Craft items from recipes using tools and materials.
+    
+    Usage:
+        craft <recipe> [from <ingredients>] [using <tools>]
+        craft list [category]
+        craft info <recipe>
+        
+    Examples:
+        craft bread from flour, water, yeast using oven
+        craft pickaxe from iron, wood using forge, hammer
+        craft list survival
+        craft info "steam engine"
+        
+    The crafting system uses your skills and the quality of your
+    tools to determine the outcome. Higher skill levels result in
+    better quality items with improved stats.
+    
+    Categories:
+        survival - Food, water, basic necessities
+        tools - Tools and equipment
+        clothing - Armor and weather protection
+        steampunk - Advanced machinery and devices
+        
+    Your current crafting-related skills affect success rates:
+        - crafting: General crafting ability
+        - engineering: For complex mechanical items
+        - survival: For wilderness and food crafts
+    """
+    
+    key = "craft"
+    aliases = ["create", "make", "build"]
+    help_category = "Crafting"
+    
+    def func(self):
+        """Execute the craft command."""
+        if not self.args:
+            self.caller.msg("Usage: craft <recipe> [from <ingredient>,...] [using <tool>,...]")
+            self.caller.msg("       craft list [category]")
+            self.caller.msg("       craft info <recipe>")
+            return
+        
+        # Check for subcommands
+        if self.args.startswith("list"):
+            self.list_recipes()
+            return
+        elif self.args.startswith("info"):
+            self.show_recipe_info()
+            return
+        
+        # Otherwise, do normal crafting
+        super().func()
+    
+    def list_recipes(self):
+        """List available recipes, optionally filtered by category."""
+        from evennia.contrib.game_systems.crafting.crafting import _load_recipes, _RECIPE_CLASSES
+        
+        _load_recipes()
+        
+        # Parse category filter
+        args = self.args.split(None, 1)
+        category = args[1].lower() if len(args) > 1 else None
+        
+        # Get character's skills for display
+        crafting_skill = self.caller.skills.crafting.value
+        engineering_skill = self.caller.skills.engineering.value
+        survival_skill = self.caller.skills.survival.value
+        
+        # Build recipe list
+        recipes_by_category = {
+            "survival": [],
+            "tools": [],
+            "clothing": [],
+            "steampunk": [],
+            "other": []
+        }
+        
+        for recipe_name, recipe_class in _RECIPE_CLASSES.items():
+            # Categorize based on module or recipe properties
+            if hasattr(recipe_class, 'craft_category'):
+                if 'steampunk' in recipe_class.__module__:
+                    cat = "steampunk"
+                elif 'clothing' in recipe_class.__module__:
+                    cat = "clothing"
+                elif 'tool' in recipe_class.__module__:
+                    cat = "tools"
+                elif 'survival' in recipe_class.__module__:
+                    cat = "survival"
+                else:
+                    cat = "other"
+            else:
+                cat = "other"
+            
+            # Get skill info
+            skill_req = getattr(recipe_class, 'skill_requirement', 'crafting')
+            difficulty = getattr(recipe_class, 'difficulty', 0)
+            
+            # Check if player can attempt this
+            if skill_req == "engineering":
+                current_skill = engineering_skill
+            elif skill_req == "survival":
+                current_skill = survival_skill
+            else:
+                current_skill = crafting_skill
+            
+            can_attempt = current_skill >= difficulty
+            
+            # Format entry
+            if can_attempt:
+                status = "|g✓|n"
+            else:
+                status = "|r✗|n"
+            
+            entry = f"{status} {recipe_name:<20} ({skill_req} {difficulty}+)"
+            
+            recipes_by_category[cat].append((difficulty, entry))
+        
+        # Display results
+        if category and category in recipes_by_category:
+            # Show single category
+            self.caller.msg(f"\n|wCrafting Recipes - {category.title()}:|n")
+            recipes = sorted(recipes_by_category[category], key=lambda x: x[0])
+            for _, entry in recipes:
+                self.caller.msg(f"  {entry}")
+        else:
+            # Show all categories
+            self.caller.msg("\n|wCrafting Recipes:|n")
+            self.caller.msg("|xUse 'craft list <category>' to filter|n")
+            
+            for cat in ["survival", "tools", "clothing", "steampunk", "other"]:
+                if recipes_by_category[cat]:
+                    self.caller.msg(f"\n|w{cat.title()}:|n")
+                    recipes = sorted(recipes_by_category[cat], key=lambda x: x[0])
+                    for _, entry in recipes[:10]:  # Show first 10
+                        self.caller.msg(f"  {entry}")
+                    if len(recipes) > 10:
+                        self.caller.msg(f"  |x... and {len(recipes) - 10} more|n")
+        
+        # Show skill summary
+        self.caller.msg(f"\n|wYour Skills:|n")
+        self.caller.msg(f"  Crafting: {crafting_skill}")
+        self.caller.msg(f"  Engineering: {engineering_skill}")
+        self.caller.msg(f"  Survival: {survival_skill}")
+    
+    def show_recipe_info(self):
+        """Show detailed info about a specific recipe."""
+        from evennia.contrib.game_systems.crafting.crafting import _load_recipes, _RECIPE_CLASSES
+        
+        _load_recipes()
+        
+        # Get recipe name
+        args = self.args.split(None, 1)
+        if len(args) < 2:
+            self.caller.msg("Usage: craft info <recipe name>")
+            return
+        
+        recipe_name = args[1].lower()
+        
+        # Find recipe
+        recipe_class = None
+        for rname, rclass in _RECIPE_CLASSES.items():
+            if rname.lower() == recipe_name or recipe_name in rname.lower():
+                recipe_class = rclass
+                recipe_name = rname
+                break
+        
+        if not recipe_class:
+            self.caller.msg(f"No recipe found matching '{recipe_name}'.")
+            return
+        
+        # Display recipe info
+        self.caller.msg(f"\n|w{recipe_name.title()}|n")
+        if hasattr(recipe_class, '__doc__') and recipe_class.__doc__:
+            self.caller.msg(f"|x{recipe_class.__doc__.strip()}|n")
+        
+        # Requirements
+        skill_req = getattr(recipe_class, 'skill_requirement', 'crafting')
+        difficulty = getattr(recipe_class, 'difficulty', 0)
+        
+        self.caller.msg(f"\n|wRequirements:|n")
+        self.caller.msg(f"  Skill: {skill_req} {difficulty}+")
+        
+        # Tools
+        if recipe_class.tool_tags:
+            self.caller.msg(f"\n|wTools needed:|n")
+            for tool in recipe_class.tool_tags:
+                self.caller.msg(f"  - {tool}")
+        
+        # Ingredients
+        if recipe_class.consumable_tags:
+            self.caller.msg(f"\n|wIngredients:|n")
+            # Count duplicates
+            ing_counts = {}
+            for ing in recipe_class.consumable_tags:
+                ing_counts[ing] = ing_counts.get(ing, 0) + 1
+            
+            for ing, count in ing_counts.items():
+                if count > 1:
+                    self.caller.msg(f"  - {ing} x{count}")
+                else:
+                    self.caller.msg(f"  - {ing}")
+        
+        # Output
+        self.caller.msg(f"\n|wCreates:|n")
+        for proto in recipe_class.output_prototypes:
+            key = proto.get('key', 'unknown item')
+            self.caller.msg(f"  - {key}")
+        
+        # Craft time
+        craft_time = getattr(recipe_class, 'craft_time', 300)
+        minutes = craft_time // 60
+        seconds = craft_time % 60
+        if minutes:
+            time_str = f"{minutes}m {seconds}s" if seconds else f"{minutes}m"
+        else:
+            time_str = f"{seconds}s"
+        self.caller.msg(f"\n|wCraft time:|n {time_str}")
+        
+        # Check if player can attempt
+        current_skill = 0
+        if skill_req == "engineering":
+            current_skill = self.caller.skills.engineering.value
+        elif skill_req == "survival":
+            current_skill = self.caller.skills.survival.value
+        else:
+            current_skill = self.caller.skills.crafting.value
+        
+        if current_skill >= difficulty:
+            self.caller.msg(f"\n|gYou have the skill to attempt this recipe.|n")
+        else:
+            needed = difficulty - current_skill
+            self.caller.msg(f"\n|rYou need {needed} more {skill_req} skill to attempt this.|n")
+
+
+class CmdRecipes(Command):
+    """
+    View your known recipes and crafting statistics.
+    
+    Usage:
+        recipes
+        recipes stats
+        
+    Shows all recipes you've successfully crafted before,
+    along with your crafting statistics and achievements.
+    """
+    
+    key = "recipes"
+    aliases = ["known_recipes"]
+    locks = "cmd:all()"
+    help_category = "Crafting"
+    
+    def func(self):
+        """Display known recipes or stats."""
+        if self.args.strip() == "stats":
+            self.show_crafting_stats()
+        else:
+            self.show_known_recipes()
+    
+    def show_known_recipes(self):
+        """Display recipes the player has successfully crafted."""
+        known_recipes = self.caller.db.known_recipes or []
+        
+        if not known_recipes:
+            self.caller.msg("You haven't successfully crafted any recipes yet.")
+            self.caller.msg("Use |wcraft list|n to see available recipes.")
+            return
+        
+        self.caller.msg("|wYour Known Recipes:|n")
+        
+        # Group by category
+        by_category = {}
+        for recipe_name in known_recipes:
+            # Simple categorization
+            if any(word in recipe_name for word in ["bread", "stew", "tea", "preserved"]):
+                cat = "Food & Drink"
+            elif any(word in recipe_name for word in ["armor", "cloak", "goggles", "coat"]):
+                cat = "Clothing"
+            elif any(word in recipe_name for word in ["pickaxe", "tools", "forge", "workbench"]):
+                cat = "Tools"
+            elif any(word in recipe_name for word in ["steam", "clockwork", "automaton", "pressure"]):
+                cat = "Steampunk"
+            else:
+                cat = "Other"
+            
+            by_category.setdefault(cat, []).append(recipe_name)
+        
+        # Display by category
+        for cat, recipes in sorted(by_category.items()):
+            self.caller.msg(f"\n|w{cat}:|n")
+            for recipe in sorted(recipes):
+                count = self.caller.db.craft_counts.get(recipe, 0)
+                quality = self.caller.db.best_quality.get(recipe, "average")
+                self.caller.msg(f"  {recipe:<25} (crafted {count}x, best: {quality})")
+    
+    def show_crafting_stats(self):
+        """Display crafting statistics."""
+        stats = self.caller.db.crafting_stats or {}
+        
+        self.caller.msg("|wCrafting Statistics:|n")
+        
+        total_crafted = stats.get('total_crafted', 0)
+        total_failed = stats.get('total_failed', 0)
+        total_attempts = total_crafted + total_failed
+        
+        if total_attempts > 0:
+            success_rate = (total_crafted / total_attempts) * 100
+        else:
+            success_rate = 0
+        
+        self.caller.msg(f"\nTotal items crafted: {total_crafted}")
+        self.caller.msg(f"Failed attempts: {total_failed}")
+        self.caller.msg(f"Success rate: {success_rate:.1f}%")
+        
+        # Quality breakdown
+        quality_counts = stats.get('quality_counts', {})
+        if quality_counts:
+            self.caller.msg("\n|wQuality Distribution:|n")
+            for quality in ["poor", "average", "good", "fine", "excellent", "masterwork"]:
+                count = quality_counts.get(quality, 0)
+                if count > 0:
+                    percent = (count / total_crafted) * 100
+                    self.caller.msg(f"  {quality:<12} {count:>4} ({percent:>5.1f}%)")
+        
+        # Most crafted
+        craft_counts = self.caller.db.craft_counts or {}
+        if craft_counts:
+            self.caller.msg("\n|wMost Crafted Items:|n")
+            sorted_items = sorted(craft_counts.items(), key=lambda x: x[1], reverse=True)
+            for recipe, count in sorted_items[:5]:
+                self.caller.msg(f"  {recipe:<25} {count}x")
+        
+        # Skill levels
+        self.caller.msg("\n|wCrafting Skills:|n")
+        self.caller.msg(f"  Crafting: {self.caller.skills.crafting.value}")
+        self.caller.msg(f"  Engineering: {self.caller.skills.engineering.value}")
+        self.caller.msg(f"  Survival: {self.caller.skills.survival.value}")
 </file>
 
 <file path="commands/README.md">
@@ -4949,6 +3405,1128 @@ urlpatterns = [
 urlpatterns = urlpatterns + evennia_default_urlpatterns
 </file>
 
+<file path="world/recipes/base_recipes.py">
+# world/recipes/base_recipes.py
+"""
+Base recipe classes for the crafting system.
+
+This module provides base classes that integrate crafting with
+our skill system and quality mechanics.
+"""
+
+from evennia.contrib.game_systems.crafting.crafting import CraftingRecipe, CraftingValidationError
+from evennia.utils import gametime, iter_to_str
+from random import random, randint
+from django.conf import settings
+
+
+class SkillBasedRecipe(CraftingRecipe):
+    """
+    Base recipe class that integrates with our skill system.
+    
+    This adds:
+    - Skill requirements and checks
+    - Quality variations based on crafter skill
+    - Tool quality considerations  
+    - Integration with cooldown system
+    
+    Additional properties:
+        skill_requirement (str): Primary skill needed
+        difficulty (int): Minimum skill level (0-100)
+        quality_levels (dict): Maps skill ranges to quality outputs
+        craft_time (int): Base crafting time in seconds
+        craft_category (str): Category for cooldowns ("craft_basic", "craft_advanced", etc)
+    """
+    
+    # Base properties
+    skill_requirement = "crafting"
+    difficulty = 0
+    craft_time = 300  # 5 minutes base
+    craft_category = "craft_basic"
+    
+    # Quality mapping based on skill vs difficulty
+    quality_levels = {
+        -20: "poor",      # 20+ below difficulty
+        -10: "average",   # 10-19 below
+        0: "good",        # At difficulty
+        10: "fine",       # 10+ above
+        20: "excellent",  # 20+ above
+        30: "masterwork"  # 30+ above (requires master skill)
+    }
+    
+    # Messages
+    error_skill_too_low = "You need at least {difficulty} {skill_name} to craft {outputs}."
+    error_on_cooldown = "You are too tired to craft. Wait {time_left} seconds."
+    
+    # I world/recipes/base_recipes.py
+
+    def pre_craft(self, **kwargs):
+        """
+        Validate inputs and check skill requirements.
+        """
+        # Do normal validation first
+        super().pre_craft(**kwargs)
+    
+        # Check if crafter is on cooldown
+        if hasattr(self.crafter, 'cooldowns') and not self.crafter.cooldowns.ready(self.craft_category):
+            time_left = self.crafter.cooldowns.time_left(self.craft_category, use_int=True)
+            err = self.error_on_cooldown.format(time_left=time_left)
+            self.msg(err)
+            raise CraftingValidationError(err)
+    
+        # Check skill requirement
+        if hasattr(self.crafter, 'skills'):
+            # ÄNDRING: Använd skills direkt istället för get_skill_level
+            skill = getattr(self.crafter.skills, self.skill_requirement, None)
+            if skill:
+                skill_level = skill.value
+                skill_desc = skill.desc() if hasattr(skill, 'desc') else "unknown"
+            else:
+                skill_level = 0
+                skill_desc = "untrained"
+        else:
+            # Fallback for testing or NPCs
+            skill_level = 0
+            skill_desc = "untrained"
+        
+        if skill_level < self.difficulty:
+            err = self.error_skill_too_low.format(
+                difficulty=self.difficulty,
+                skill_name=self.skill_requirement,
+                outputs=iter_to_str([proto.get('key', 'item') for proto in self.output_prototypes])
+            )
+            self.msg(err)
+            raise CraftingValidationError(err)
+    
+        # Store skill level for use in do_craft
+        self.crafter_skill = skill_level
+
+    def calculate_quality(self):
+        """
+        Calculate output quality based on skill and other factors.
+    
+        Returns:
+            tuple: (quality_name, quality_modifier)
+        """
+        # Base quality from skill vs difficulty
+        skill_diff = self.crafter_skill - self.difficulty
+    
+        # Find appropriate quality level
+        quality_name = "average"
+        for threshold in sorted(self.quality_levels.keys(), reverse=True):
+            if skill_diff >= threshold:
+                quality_name = self.quality_levels[threshold]
+                break
+    
+        # Calculate quality modifier for item stats
+        base_modifier = 1.0 + (skill_diff / 100.0)  # +1% per skill point above difficulty
+    
+        # Tool quality bonus (if applicable)
+        tool_bonus = 0
+        for tool in self.validated_tools:
+            # FIXA: Kontrollera att quality finns och har ett värde
+            if hasattr(tool, 'db') and hasattr(tool.db, 'quality') and tool.db.quality is not None:
+                tool_bonus += (tool.db.quality - 50) / 200.0  # -25% to +25% based on tool quality
+            # Om inget quality är satt, anta standard quality (50)
+            else:
+                tool_bonus += 0  # Ingen bonus/penalty för verktyg utan quality
+    
+        if self.validated_tools:
+            tool_bonus /= len(self.validated_tools)
+    
+        total_modifier = base_modifier + tool_bonus
+    
+        # Add some randomness (±10%)
+        total_modifier *= (0.9 + random() * 0.2)
+    
+        # Clamp between 0.5 and 2.0
+        total_modifier = max(0.5, min(2.0, total_modifier))
+    
+        return quality_name, total_modifier
+
+    def do_craft(self, **kwargs):
+        """
+        Perform the crafting with quality variations.
+        """
+        # Calculate quality
+        quality_name, quality_modifier = self.calculate_quality()
+        
+        # Success chance based on skill
+        success_chance = 0.5 + (self.crafter_skill / 200.0)  # 50-100% based on skill
+        
+        if random() > success_chance:
+            self.msg("|rYour crafting attempt fails! The materials are ruined.|n")
+            return []
+        
+        # Create items with quality modifications
+        created_items = []
+        for prototype in self.output_prototypes:
+            # Copy prototype to avoid modifying original
+            modified_proto = prototype.copy()
+            
+            # Add quality to key
+            if quality_name != "average":
+                modified_proto["key"] = f"{quality_name} {modified_proto['key']}"
+            
+            # Apply quality modifier to relevant attributes
+            if "attrs" not in modified_proto:
+                modified_proto["attrs"] = []
+            
+            # Add quality-related attributes
+            modified_proto["attrs"].extend([
+                ("quality", quality_name),
+                ("quality_modifier", quality_modifier),
+                ("crafted_by", self.crafter.key),
+                ("craft_date", gametime.gametime())
+            ])
+            
+            # Spawn the item
+            from evennia.prototypes.spawner import spawn
+            items = spawn(modified_proto)
+            created_items.extend(items)
+        
+        # Apply crafting skill improvement
+        if self.crafter_skill < 100 and hasattr(self.crafter, 'improve_skill'):
+            # More skill gain for harder recipes
+            skill_gain = max(1, (self.difficulty // 20))
+            if self.crafter.improve_skill(self.skill_requirement, skill_gain):
+                self.msg(f"|gYour {self.skill_requirement} skill improves!|n")
+        
+        return created_items
+    
+    # I world/recipes/base_recipes.py (i SkillBasedRecipe)
+
+    def post_craft(self, craft_result, **kwargs):
+        """
+        Handle post-crafting cleanup and cooldowns.
+        """
+        # Call parent to handle consumables and messages
+        result = super().post_craft(craft_result, **kwargs)
+    
+        if craft_result:
+            # Track successful craft
+            if hasattr(self.crafter, 'db'):
+                # Add to known recipes
+                if not hasattr(self.crafter.db, 'known_recipes'):
+                    self.crafter.db.known_recipes = []
+                if self.name not in self.crafter.db.known_recipes:
+                    self.crafter.db.known_recipes.append(self.name)
+            
+                # Update craft count
+                if not hasattr(self.crafter.db, 'craft_counts'):
+                    self.crafter.db.craft_counts = {}
+                self.crafter.db.craft_counts[self.name] = self.crafter.db.craft_counts.get(self.name, 0) + 1
+            
+                # Track quality
+                for item in craft_result:
+                    if hasattr(item.db, 'quality'):
+                        quality = item.db.quality
+                        if not hasattr(self.crafter.db, 'best_quality'):
+                            self.crafter.db.best_quality = {}
+                        current_best = self.crafter.db.best_quality.get(self.name, "poor")
+                        quality_order = ["poor", "average", "good", "fine", "excellent", "masterwork"]
+                        if quality in quality_order and current_best in quality_order:
+                            if quality_order.index(quality) > quality_order.index(current_best):
+                                self.crafter.db.best_quality[self.name] = quality
+                    
+                        # Update stats
+                        if not hasattr(self.crafter.db, 'crafting_stats'):
+                            self.crafter.db.crafting_stats = {'total_crafted': 0, 'total_failed': 0, 'quality_counts': {}}
+                        self.crafter.db.crafting_stats['total_crafted'] += 1
+                        quality_counts = self.crafter.db.crafting_stats.get('quality_counts', {})
+                        quality_counts[quality] = quality_counts.get(quality, 0) + 1
+                        self.crafter.db.crafting_stats['quality_counts'] = quality_counts
+        
+            # Apply cooldown
+            if hasattr(self.crafter, 'apply_cooldown'):
+                actual_cooldown = self.crafter.apply_cooldown(
+                    self.craft_category, 
+                    self.craft_time,
+                    self.skill_requirement
+                )
+            
+                # Show quality message
+                for item in craft_result:
+                    if hasattr(item, 'db') and hasattr(item.db, 'quality'):
+                        quality = item.db.quality
+                        if quality != "average":
+                            self.msg(f"|yYou created a {quality} quality item!|n")
+    
+        return result
+
+
+class SkillAndStatRecipe(SkillBasedRecipe):
+    """
+    Advanced recipe that also considers character stats.
+    
+    Some recipes benefit from specific stats:
+    - STR for heavy work (smithing)
+    - DEX for precision work (clockwork)
+    - INT for complex recipes (engineering)
+    """
+    
+    # Additional properties
+    stat_requirement = None  # e.g., "strength"
+    stat_weight = 0.3  # How much the stat affects outcome (0-1)
+    
+    def calculate_quality(self):
+        """Override to include stat bonuses."""
+        quality_name, quality_modifier = super().calculate_quality()
+        
+        # Add stat bonus if applicable
+        if self.stat_requirement and hasattr(self.crafter, 'get_stat'):
+            stat_value = self.crafter.get_stat(self.stat_requirement)
+            if stat_value:
+                # Each point above 10 gives a small bonus
+                stat_bonus = (stat_value - 10) * 0.02 * self.stat_weight
+                quality_modifier += stat_bonus
+        
+        # Re-clamp after stat bonus
+        quality_modifier = max(0.5, min(2.0, quality_modifier))
+        
+        return quality_name, quality_modifier
+</file>
+
+<file path="world/recipes/clothing_recipes.py">
+# world/recipes/clothing_recipes.py
+"""
+Clothing and armor crafting recipes.
+
+These recipes create various clothing items that provide
+protection from weather and combat.
+"""
+
+from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
+
+
+class LeatherArmorRecipe(SkillAndStatRecipe):
+    """Craft leather armor for protection."""
+    
+    name = "leather armor"
+    skill_requirement = "crafting"
+    difficulty = 30
+    craft_time = 1800  # 30 minutes
+    craft_category = "craft_basic"
+    
+    # Strength helps with working thick leather
+    stat_requirement = "strength"
+    stat_weight = 0.3
+    
+    tool_tags = ["leather_tools", "workbench"]
+    consumable_tags = ["leather", "leather", "leather", "leather_strips", "buckles"]
+    
+    output_prototypes = [{
+        "key": "leather armor",
+        "typeclass": "typeclasses.objects.LeatherArmor",
+        "desc": "A sturdy set of leather armor with reinforced panels.",
+        "tags": [
+            ("armor", "item_type"),
+            ("leather_armor", "item_type")
+        ],
+        "attrs": [
+            ("clothing_type", "outerwear"),
+            ("protection_value", 5),  # Base armor
+            ("warmth_value", 10),
+            ("weather_protection", ["wind"]),
+            ("durability", 100),
+            ("max_durability", 100),
+            ("repair_materials", ["leather"]),
+            ("weight", 5)
+        ]
+    }]
+
+
+class WinterCloakRecipe(SkillBasedRecipe):
+    """Craft a warm winter cloak."""
+    
+    name = "winter cloak"
+    skill_requirement = "crafting"
+    difficulty = 25
+    craft_time = 1200  # 20 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = ["sewing_kit", "scissors"]
+    consumable_tags = ["wool_cloth", "wool_cloth", "fur_lining", "thread", "clasp"]
+    
+    output_prototypes = [{
+        "key": "winter cloak",
+        "typeclass": "typeclasses.objects.WinterCloak",
+        "desc": "A heavy woolen cloak lined with warm fur.",
+        "tags": [
+            ("cloak", "item_type"),
+            ("winter_gear", "item_type")
+        ],
+        "attrs": [
+            ("clothing_type", "cloak"),
+            ("warmth_value", 25),
+            ("weather_protection", ["snow", "wind", "rain"]),
+            ("stat_modifiers", {"constitution": 1}),
+            ("durability", 80),
+            ("max_durability", 80),
+            ("repair_materials", ["wool_cloth", "fur"]),
+            ("weight", 3)
+        ]
+    }]
+
+
+class EngineerGogglesRecipe(SkillBasedRecipe):
+    """Craft specialized engineering goggles."""
+    
+    name = "engineer goggles"
+    skill_requirement = "engineering"  # Requires engineering to make properly
+    difficulty = 40
+    craft_time = 1500  # 25 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = ["precision_tools", "lens_grinder"]
+    consumable_tags = ["brass_frame", "glass_lens", "glass_lens", "leather_strap", "tiny_gears"]
+    
+    output_prototypes = [{
+        "key": "engineering goggles",
+        "typeclass": "typeclasses.objects.EngineeringGoggles",
+        "desc": "Brass-framed goggles with multiple adjustable lenses.",
+        "tags": [
+            ("goggles", "item_type"),
+            ("engineering_gear", "item_type")
+        ],
+        "attrs": [
+            ("clothing_type", "goggles"),
+            ("stat_modifiers", {"intelligence": 2}),
+            ("engineering_bonus", 10),
+            ("magnification", 3),
+            ("durability", 60),
+            ("max_durability", 60),
+            ("repair_materials", ["brass", "glass"]),
+            ("weight", 0.5)
+        ]
+    }]
+
+
+class RaincoatRecipe(SkillBasedRecipe):
+    """Craft a waterproof raincoat."""
+    
+    name = "raincoat"
+    skill_requirement = "crafting"
+    difficulty = 20
+    craft_time = 900  # 15 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = ["sewing_kit", "waterproofing_kit"]
+    consumable_tags = ["canvas_cloth", "canvas_cloth", "oil_treatment", "buttons"]
+    
+    output_prototypes = [{
+        "key": "waterproof raincoat",
+        "typeclass": "typeclasses.objects.RainCoat",
+        "desc": "A long coat treated with oils to repel water.",
+        "tags": [
+            ("raincoat", "item_type"),
+            ("weather_gear", "item_type")
+        ],
+        "attrs": [
+            ("clothing_type", "outerwear"),
+            ("warmth_value", 10),
+            ("weather_protection", ["rain", "wind"]),
+            ("durability", 70),
+            ("max_durability", 70),
+            ("repair_materials", ["canvas_cloth", "oil"]),
+            ("weight", 2)
+        ]
+    }]
+</file>
+
+<file path="world/recipes/steampunk_recipes.py">
+# world/recipes/steampunk_recipes.py
+"""
+Steampunk-themed recipes for advanced technology.
+
+These recipes create steam-powered devices, clockwork mechanisms,
+and other technological marvels of the steampunk world.
+"""
+
+from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
+from evennia.contrib.game_systems.crafting.crafting import CraftingValidationError
+
+
+class SteamEngineRecipe(SkillAndStatRecipe):
+    """Build a basic steam engine - the heart of many devices."""
+    
+    name = "steam engine"
+    skill_requirement = "engineering"
+    difficulty = 50
+    craft_time = 3600  # 1 hour
+    craft_category = "craft_advanced"
+    
+    # Requires both skill and intelligence
+    stat_requirement = "intelligence"
+    stat_weight = 0.4
+    
+    tool_tags = ["forge", "precision_tools", "workbench"]
+    consumable_tags = ["iron_ingot", "iron_ingot", "copper_pipe", "brass_fitting", 
+                      "brass_fitting", "rubber_seal", "coal"]
+    
+    output_prototypes = [{
+        "key": "steam engine",
+        "typeclass": "typeclasses.objects.SteamEngine",
+        "desc": "A compact steam engine with gleaming brass fittings and copper pipes.",
+        "tags": [
+            ("steam_engine", "item_type"),
+            ("machine_part", "item_type"),
+            ("power_source", "crafting_material")
+        ],
+        "attrs": [
+            ("power_output", 100),  # Base power units
+            ("fuel_efficiency", 0.7),  # 70% efficient
+            ("max_pressure", 150),
+            ("weight", 25),
+            ("requires_water", True),
+            ("requires_coal", True),
+            ("maintenance_interval", 7200)  # Needs maintenance every 2 hours of use
+        ]
+    }]
+    
+    success_message = "The engine hums to life with a satisfying hiss of steam!"
+    failure_message = "The engine sputters and fails. The pressure seals weren't quite right."
+
+
+class ClockworkMechanismRecipe(SkillAndStatRecipe):
+    """Create a precise clockwork mechanism."""
+    
+    name = "clockwork mechanism"
+    skill_requirement = "engineering"
+    difficulty = 40
+    craft_time = 2400  # 40 minutes
+    craft_category = "craft_advanced"
+    
+    # Dexterity for precision work
+    stat_requirement = "dexterity"
+    stat_weight = 0.5
+    
+    tool_tags = ["precision_tools", "magnifying_glass", "workbench"]
+    consumable_tags = ["brass_gear", "brass_gear", "brass_gear", "steel_spring", 
+                      "steel_spring", "tiny_screws"]
+    
+    output_prototypes = [{
+        "key": "clockwork mechanism",
+        "typeclass": "typeclasses.objects.ClockworkDevice",
+        "desc": "An intricate assembly of gears and springs that tick with mechanical precision.",
+        "tags": [
+            ("clockwork", "item_type"),
+            ("mechanism", "crafting_material")
+        ],
+        "attrs": [
+            ("precision", 0.95),  # 95% timing accuracy
+            ("complexity", 3),  # Complexity level
+            ("tick_rate", 60),  # Ticks per minute
+            ("wound", False),
+            ("max_tension", 1000),
+            ("current_tension", 0)
+        ]
+    }]
+
+
+class SteamPistolRecipe(SkillBasedRecipe):
+    """Craft a steam-powered pistol."""
+    
+    name = "steam pistol"
+    skill_requirement = "engineering"
+    difficulty = 60
+    craft_time = 2700  # 45 minutes
+    craft_category = "craft_advanced"
+    
+    tool_tags = ["forge", "precision_tools", "weapon_molds"]
+    consumable_tags = ["steel_ingot", "brass_fitting", "pressure_chamber", 
+                      "wooden_grip", "trigger_mechanism"]
+    
+    output_prototypes = [{
+        "key": "steam pistol",
+        "typeclass": "typeclasses.objects.SteamWeapon",
+        "desc": "A brass and steel pistol with a small pressure chamber and steam vents.",
+        "tags": [
+            ("steam_pistol", "item_type"),
+            ("weapon", "item_type"),
+            ("ranged", "weapon_type")
+        ],
+        "attrs": [
+            ("damage", 15),  # Base damage
+            ("range", 10),  # 10 room range
+            ("accuracy", 0.7),  # 70% base accuracy
+            ("pressure_per_shot", 20),
+            ("max_pressure", 100),
+            ("current_pressure", 0),
+            ("reload_time", 5),  # 5 seconds between shots
+            ("weight", 3),
+            ("requires_steam_canister", True)
+        ]
+    }]
+
+
+class AutomatonCoreRecipe(SkillAndStatRecipe):
+    """Create the core for a mechanical automaton."""
+    
+    name = "automaton core"
+    skill_requirement = "engineering"
+    difficulty = 80
+    craft_time = 7200  # 2 hours
+    craft_category = "craft_advanced"
+    
+    stat_requirement = "intelligence"
+    stat_weight = 0.6  # Very INT dependent
+    
+    tool_tags = ["advanced_workbench", "precision_tools", "arcane_calibrator"]
+    consumable_tags = ["clockwork_mechanism", "steam_engine", "brass_chassis",
+                      "control_rods", "control_rods", "memory_gears", "soul_gem"]
+    
+    output_prototypes = [{
+        "key": "automaton core",
+        "typeclass": "typeclasses.objects.AutomatonCore",
+        "desc": "A complex fusion of clockwork and steam technology, pulsing with potential.",
+        "tags": [
+            ("automaton_core", "item_type"),
+            ("advanced_component", "crafting_material")
+        ],
+        "attrs": [
+            ("core_type", "basic"),
+            ("power_capacity", 1000),
+            ("instruction_set", "simple"),  # Can follow simple commands
+            ("sentience_level", 0.1),  # Barely sentient
+            ("activation_phrase", ""),  # Set when activated
+            ("owner", ""),
+            ("maintenance_log", [])
+        ]
+    }]
+    
+    def do_craft(self, **kwargs):
+        """Special handling for soul gem consumption."""
+        # Check for soul gem quality
+        soul_gem = None
+        for cons in self.validated_consumables:
+            if "soul_gem" in cons.tags.get(category="item_type", return_list=True):
+                soul_gem = cons
+                break
+        
+        if soul_gem and hasattr(soul_gem.db, 'soul_quality'):
+            # Better soul = better automaton
+            quality_bonus = soul_gem.db.soul_quality / 100.0
+            for proto in self.output_prototypes:
+                for i, (attr_name, attr_val) in enumerate(proto.get("attrs", [])):
+                    if attr_name == "sentience_level":
+                        new_sentience = attr_val + (quality_bonus * 0.5)
+                        proto["attrs"][i] = ("sentience_level", new_sentience)
+                        break
+        
+        return super().do_craft(**kwargs)
+
+
+class PressureGaugeRecipe(SkillBasedRecipe):
+    """A pressure gauge for monitoring steam devices."""
+    
+    name = "pressure gauge"
+    skill_requirement = "engineering"
+    difficulty = 30
+    craft_time = 900  # 15 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = ["precision_tools", "workbench"]
+    consumable_tags = ["brass_casing", "glass_face", "pressure_spring", "tiny_screws"]
+    
+    output_prototypes = [{
+        "key": "pressure gauge",
+        "typeclass": "typeclasses.objects.SteamComponent",
+        "desc": "A brass gauge with a glass face showing pressure readings.",
+        "tags": [
+            ("pressure_gauge", "item_type"),
+            ("steam_component", "crafting_material"),
+            ("monitoring_device", "item_type")
+        ],
+        "attrs": [
+            ("max_reading", 200),  # PSI
+            ("accuracy", 0.95),
+            ("warning_threshold", 150),
+            ("critical_threshold", 180),
+            ("weight", 0.5)
+        ]
+    }]
+
+
+class SteamJetpackRecipe(SkillAndStatRecipe):
+    """An advanced personal flight device."""
+    
+    name = "steam jetpack"
+    skill_requirement = "engineering"
+    difficulty = 90  # Master-level recipe
+    craft_time = 10800  # 3 hours
+    craft_category = "craft_advanced"
+    
+    stat_requirement = "intelligence"
+    stat_weight = 0.4
+    
+    tool_tags = ["advanced_forge", "precision_tools", "pressure_testing_rig"]
+    consumable_tags = ["steam_engine", "steam_engine", "brass_chassis", "leather_straps",
+                      "pressure_regulator", "thrust_nozzles", "control_mechanism", "padding"]
+    
+    # Can't succeed without very high skill
+    exact_consumables = True
+    exact_tools = True
+    
+    output_prototypes = [{
+        "key": "steam jetpack",
+        "typeclass": "typeclasses.objects.SteamJetpack",
+        "desc": "A marvel of engineering: twin brass engines mounted on a reinforced frame.",
+        "tags": [
+            ("jetpack", "item_type"),
+            ("steam_device", "item_type"),
+            ("flight_capable", "capability")
+        ],
+        "attrs": [
+            ("flight_duration", 300),  # 5 minutes per fuel load
+            ("max_altitude", 5),  # 5 rooms high
+            ("fuel_capacity", 10),
+            ("current_fuel", 0),
+            ("thrust_power", 200),
+            ("weight", 40),
+            ("worn_on", "back"),
+            ("requires_training", True)  # Need flight training to use safely
+        ]
+    }]
+    
+    error_skill_too_low = (
+        "This is far too complex for your current skill level. "
+        "Only a true master engineer could hope to create a {outputs}."
+    )
+    
+    success_message = (
+        "With a final adjustment, the jetpack roars to life! "
+        "The twin engines pulse with barely-contained power. "
+        "You've created something truly extraordinary!"
+    )
+</file>
+
+<file path="world/recipes/survival_recipes.py">
+# world/recipes/survival_recipes.py
+"""
+Survival-focused recipes for basic needs.
+
+These recipes create food, water containers, and basic tools
+needed for survival in the game world.
+"""
+
+from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
+from evennia.contrib.game_systems.crafting.crafting import CraftingValidationError
+from evennia.utils.utils import iter_to_str
+
+
+class WaterContainerRecipe(SkillBasedRecipe):
+    """Create a basic water container from leather."""
+    
+    name = "waterskin"
+    skill_requirement = "crafting"
+    difficulty = 10
+    craft_time = 180  # 3 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = ["knife"]
+    consumable_tags = ["leather", "twine"]
+    
+    output_prototypes = [{
+        "key": "waterskin",
+        "typeclass": "typeclasses.objects.Container",
+        "desc": "A leather waterskin for carrying water.",
+        "tags": [
+            ("waterskin", "item_type"),
+            ("container", "item_type"),
+            ("liquid_only", "container_type")
+        ],
+        "attrs": [
+            ("capacity", 3),  # Can hold 3 water items
+            ("liquid_only", True),
+            ("empty_weight", 0.5),
+            ("durability", 50),
+            ("max_durability", 50)
+        ]
+    }]
+
+
+class CampfireRecipe(SkillBasedRecipe):
+    """Build a campfire for cooking and warmth."""
+    
+    name = "campfire"
+    skill_requirement = "survival" 
+    difficulty = 5
+    craft_time = 120  # 2 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = []  # No tools needed
+    consumable_tags = ["wood", "wood", "wood"]  # Need 3 wood
+    
+    output_prototypes = [{
+        "key": "campfire",
+        "typeclass": "typeclasses.objects.Campfire",
+        "desc": "A crackling campfire providing warmth and light.",
+        "tags": [
+            ("campfire", "item_type"),
+            ("heat_source", "item_type"),
+            ("light_source", "item_type")
+        ],
+        "attrs": [
+            ("burn_time", 3600),  # Burns for 1 hour
+            ("is_lit", True),
+            ("warmth_radius", 1),  # Warms adjacent rooms
+            ("cooking_bonus", 10),  # +10% to cooking skill when used
+            ("portable", False)  # Can't be picked up while lit
+        ]
+    }]
+    
+    def do_craft(self, **kwargs):
+        """Override to check if location allows fires."""
+        location = self.crafter.location
+        
+        # Check if indoor location allows fires
+        if location.db.indoor and not location.db.allow_fire:
+            self.msg("|rYou cannot build a fire indoors here!|n")
+            return []
+        
+        # Check weather
+        weather = location.get_current_weather()
+        if "storm" in weather or "heavy_rain" in weather:
+            self.msg("|rThe weather is too harsh to build a fire.|n")
+            return []
+        
+        return super().do_craft(**kwargs)
+
+
+class BreadRecipe(SkillBasedRecipe):
+    """Bake bread - a basic food staple."""
+    
+    name = "bread"
+    skill_requirement = "crafting"
+    difficulty = 15
+    craft_time = 600  # 10 minutes  
+    craft_category = "craft_basic"
+    
+    tool_tags = ["oven", "mixing_bowl"]
+    consumable_tags = ["flour", "water", "yeast", "salt"]
+    
+    output_prototypes = [{
+        "key": "loaf of bread",
+        "typeclass": "typeclasses.objects.Food", 
+        "desc": "A freshly baked loaf of bread with a golden crust.",
+        "tags": [
+            ("bread", "item_type"),
+            ("food", "item_type")
+        ],
+        "attrs": [
+            ("nutrition", 30),  # Base nutrition value
+            ("weight", 0.5),
+            ("decay_rate", 0.1),  # Decays slowly
+            ("uses", 4)  # Can be eaten 4 times
+        ]
+    }]
+    
+    def calculate_quality(self):
+        """Override to give better nutrition for higher quality."""
+        quality_name, quality_modifier = super().calculate_quality()
+        
+        # Modify the nutrition value in output
+        for proto in self.output_prototypes:
+            for i, (attr_name, attr_val) in enumerate(proto.get("attrs", [])):
+                if attr_name == "nutrition":
+                    # Better quality = more nutritious
+                    new_nutrition = int(attr_val * quality_modifier)
+                    proto["attrs"][i] = ("nutrition", new_nutrition)
+                    break
+        
+        return quality_name, quality_modifier
+
+
+class PreservedMeatRecipe(SkillBasedRecipe):
+    """Create preserved meat that lasts longer."""
+    
+    name = "preserved meat"
+    skill_requirement = "survival"
+    difficulty = 25
+    craft_time = 900  # 15 minutes
+    craft_category = "craft_basic"
+    
+    tool_tags = ["knife", "smoking_rack"]
+    consumable_tags = ["raw_meat", "raw_meat", "salt", "herbs"]
+    
+    output_prototypes = [{
+        "key": "preserved meat",
+        "typeclass": "typeclasses.objects.Food",
+        "desc": "Strips of meat preserved with salt and smoke.",
+        "tags": [
+            ("preserved_meat", "item_type"),
+            ("food", "item_type")
+        ],
+        "attrs": [
+            ("nutrition", 40),
+            ("weight", 0.8),
+            ("decay_rate", 0.02),  # Very slow decay
+            ("uses", 2)
+        ]
+    }]
+
+
+class HerbalTeaRecipe(SkillBasedRecipe):
+    """Brew herbal tea for minor healing."""
+    
+    name = "herbal tea"
+    skill_requirement = "survival"
+    difficulty = 20
+    craft_time = 300
+    craft_category = "craft_basic"
+    
+    tool_tags = ["pot", "campfire"]
+    consumable_tags = ["herbs", "herbs", "water"]
+    
+    output_prototypes = [{
+        "key": "herbal tea",
+        "typeclass": "typeclasses.objects.Consumable",
+        "desc": "A steaming cup of medicinal herbal tea.",
+        "tags": [
+            ("tea", "item_type"),
+            ("drink", "item_type"),
+            ("medicine", "item_type")
+        ],
+        "attrs": [
+            ("thirst_value", 15),
+            ("healing_value", 10),  # Restores some health
+            ("effect_type", "heal_minor"),
+            ("uses", 1),
+            ("weight", 0.3)
+        ]
+    }]
+
+
+class StewRecipe(SkillAndStatRecipe):
+    """A hearty stew - excellent nutrition but requires skill."""
+    
+    name = "hearty stew"
+    skill_requirement = "crafting"
+    difficulty = 35
+    craft_time = 1200  # 20 minutes
+    craft_category = "craft_basic"
+    
+    # Wisdom helps with seasoning
+    stat_requirement = "wisdom"
+    stat_weight = 0.2
+    
+    tool_tags = ["pot", "ladle", "campfire"]
+    consumable_tags = ["meat", "vegetables", "vegetables", "herbs", "water", "salt"]
+    
+    output_prototypes = [{
+        "key": "pot of hearty stew",
+        "typeclass": "typeclasses.objects.Food",
+        "desc": "A large pot of thick, savory stew with chunks of meat and vegetables.",
+        "tags": [
+            ("stew", "item_type"),
+            ("food", "item_type")
+        ],
+        "attrs": [
+            ("nutrition", 60),  # Very nutritious
+            ("weight", 2.0),
+            ("decay_rate", 0.15),  # Spoils moderately fast
+            ("uses", 6),  # Feeds multiple people
+            ("warmth_bonus", 5)  # Provides warmth when eaten
+        ]
+    }]
+</file>
+
+<file path="world/recipes/tool_recipes.py">
+# world/recipes/tool_recipes.py
+"""
+Tool and equipment crafting recipes.
+
+These recipes create the tools needed for other crafting,
+as well as gathering and survival equipment.
+"""
+
+from world.recipes.base_recipes import SkillBasedRecipe, SkillAndStatRecipe
+
+
+class PickaxeRecipe(SkillAndStatRecipe):
+    """Craft a pickaxe for mining stone."""
+    
+    name = "pickaxe"
+    skill_requirement = "crafting"
+    difficulty = 20
+    craft_time = 600  # 10 minutes
+    craft_category = "craft_basic"
+    
+    # Strength helps forge better tools
+    stat_requirement = "strength"
+    stat_weight = 0.4
+    
+    tool_tags = ["forge", "anvil", "hammer"]
+    consumable_tags = ["iron_ingot", "iron_ingot", "wooden_handle"]
+    
+    output_prototypes = [{
+        "key": "pickaxe",
+        "typeclass": "typeclasses.objects.Tool",
+        "desc": "A sturdy pickaxe with an iron head and wooden handle.",
+        "tags": [
+            ("pickaxe", "item_type"),
+            ("tool", "item_type"),
+            ("pickaxe", "crafting_tool")  # Can be used as tool in recipes
+        ],
+        "attrs": [
+            ("tool_type", "mining"),
+            ("efficiency", 1.0),  # Modified by quality
+            ("durability", 100),
+            ("max_durability", 100),
+            ("repair_materials", ["iron_ingot"]),
+            ("weight", 4),
+            ("quality", 50)  # Base quality
+        ]
+    }]
+    
+    def calculate_quality(self):
+        """Tools get bonus durability from quality."""
+        quality_name, quality_modifier = super().calculate_quality()
+        
+        # Apply quality to tool stats
+        for proto in self.output_prototypes:
+            attrs = proto.get("attrs", [])
+            for i, (attr_name, attr_val) in enumerate(attrs):
+                if attr_name == "efficiency":
+                    attrs[i] = ("efficiency", attr_val * quality_modifier)
+                elif attr_name == "max_durability":
+                    attrs[i] = ("max_durability", int(attr_val * quality_modifier))
+                elif attr_name == "durability":
+                    # Current durability matches max
+                    max_dur = int(100 * quality_modifier)
+                    attrs[i] = ("durability", max_dur)
+                elif attr_name == "quality":
+                    attrs[i] = ("quality", int(50 * quality_modifier))
+        
+        return quality_name, quality_modifier
+
+
+class PrecisionToolsRecipe(SkillBasedRecipe):
+    """Craft precision tools for engineering work."""
+    
+    name = "precision tools"
+    skill_requirement = "engineering"
+    difficulty = 45
+    craft_time = 2400  # 40 minutes
+    craft_category = "craft_advanced"
+    
+    tool_tags = ["forge", "grindstone", "workbench"]
+    consumable_tags = ["steel_ingot", "steel_ingot", "brass_fitting", "leather_wrap", "tool_case"]
+    
+    output_prototypes = [{
+        "key": "precision tools",
+        "typeclass": "typeclasses.objects.ToolKit",
+        "desc": "A leather case containing finely-crafted precision instruments.",
+        "tags": [
+            ("precision_tools", "item_type"),
+            ("tool", "item_type"),
+            ("precision_tools", "crafting_tool"),
+            ("toolkit", "container_type")
+        ],
+        "attrs": [
+            ("tool_type", "precision"),
+            ("engineering_bonus", 15),
+            ("contains_tools", [
+                "fine_pliers", "jewelers_screwdriver", "calipers",
+                "miniature_hammer", "tension_wrench"
+            ]),
+            ("durability", 80),
+            ("max_durability", 80),
+            ("repair_materials", ["steel_ingot"]),
+            ("weight", 2)
+        ]
+    }]
+
+
+class WorkbenchRecipe(SkillAndStatRecipe):
+    """Build a workbench for crafting."""
+    
+    name = "workbench"
+    skill_requirement = "crafting"
+    difficulty = 35
+    craft_time = 3600  # 1 hour
+    craft_category = "craft_basic"
+    
+    stat_requirement = "strength"
+    stat_weight = 0.3
+    
+    tool_tags = ["hammer", "saw", "measuring_tape"]
+    consumable_tags = ["wooden_plank", "wooden_plank", "wooden_plank", "wooden_plank",
+                      "iron_nails", "iron_nails", "vise"]
+    
+    output_prototypes = [{
+        "key": "sturdy workbench",
+        "typeclass": "typeclasses.objects.CraftingStation",
+        "desc": "A solid wooden workbench with a built-in vise and tool storage.",
+        "tags": [
+            ("workbench", "item_type"),
+            ("crafting_station", "item_type"),
+            ("workbench", "crafting_tool"),
+            ("furniture", "item_type")
+        ],
+        "attrs": [
+            ("station_type", "general"),
+            ("crafting_bonus", 10),  # +10% success rate
+            ("tool_storage", 20),  # Can store 20 items
+            ("portable", False),  # Too heavy to move easily
+            ("weight", 50),
+            ("workshop_level", 1)  # Basic workshop
+        ]
+    }]
+
+
+class ForgeRecipe(SkillAndStatRecipe):
+    """Build a forge for metalworking - needed for advanced crafting."""
+    
+    name = "forge"
+    skill_requirement = "engineering"
+    difficulty = 60
+    craft_time = 7200  # 2 hours
+    craft_category = "craft_advanced"
+    
+    stat_requirement = "strength"
+    stat_weight = 0.5  # Very physical work
+    
+    tool_tags = ["hammer", "tongs", "masonry_tools"]
+    consumable_tags = ["stone_block", "stone_block", "stone_block", "stone_block",
+                      "iron_grate", "bellows", "chimney_pipe", "fire_bricks"]
+    
+    output_prototypes = [{
+        "key": "smithing forge",
+        "typeclass": "typeclasses.objects.Forge",
+        "desc": "A stone forge with bellows and chimney, ready for metalworking.",
+        "tags": [
+            ("forge", "item_type"),
+            ("crafting_station", "item_type"),
+            ("forge", "crafting_tool"),
+            ("heat_source", "capability")
+        ],
+        "attrs": [
+            ("station_type", "metalworking"),
+            ("max_temperature", 1500),  # Celsius
+            ("fuel_type", "coal"),
+            ("fuel_capacity", 20),
+            ("current_fuel", 0),
+            ("crafting_bonus", 20),  # +20% for metal recipes
+            ("portable", False),
+            ("weight", 200),
+            ("workshop_level", 2),  # Advanced workshop
+            ("requires_chimney", True)
+        ]
+    }]
+    
+    def pre_craft(self, **kwargs):
+        """Check if location can support a forge."""
+        super().pre_craft(**kwargs)
+        
+        location = self.crafter.location
+        if location.db.indoor and not location.db.workshop:
+            err = "You need a proper workshop space to build a forge!"
+            self.msg(err)
+            raise CraftingValidationError(err)
+</file>
+
 <file path="world/tests/__init__.py">
 """
 Test package for the Fantasy Steampunk MUD.
@@ -6381,6 +5959,522 @@ class TestCooldownBalancing(EvenniaTest):
             self.assertFalse(self.novice.cooldowns.ready("test3"))
 </file>
 
+<file path="world/tests/test_crafting.py">
+# world/tests/test_crafting.py
+"""
+Tests for the crafting system integration.
+"""
+
+from evennia.utils.test_resources import EvenniaTest
+from evennia.utils import create
+from typeclasses.characters import Character
+from typeclasses.objects import Object
+from world.recipes.survival_recipes import BreadRecipe, WaterContainerRecipe
+from world.recipes.tool_recipes import PickaxeRecipe
+from evennia.contrib.game_systems.crafting import craft
+from evennia.contrib.game_systems.crafting.crafting import CraftingValidationError
+from unittest.mock import patch, MagicMock, call
+
+
+class TestCraftingIntegration(EvenniaTest):
+    """Test crafting system with our custom recipes."""
+    
+    def setUp(self):
+        super().setUp()
+        self.crafter = create.create_object(Character, key="Crafter", location=self.room1)
+        
+        # Set up some basic skills
+        self.crafter.skills.crafting.base = 30
+        self.crafter.skills.engineering.base = 20
+        self.crafter.skills.survival.base = 25
+        
+        # Clear any cooldowns before each test
+        if hasattr(self.crafter, 'cooldowns'):
+            self.crafter.cooldowns.clear()
+    
+    def test_recipe_skill_requirements(self):
+        """Test that recipes check skill requirements."""
+        # Create ingredients for bread
+        flour = create.create_object(Object, key="flour", location=self.crafter)
+        flour.tags.add("flour", category="crafting_material")
+        
+        water = create.create_object(Object, key="water", location=self.crafter)
+        water.tags.add("water", category="crafting_material")
+        
+        yeast = create.create_object(Object, key="yeast", location=self.crafter)
+        yeast.tags.add("yeast", category="crafting_material")
+        
+        salt = create.create_object(Object, key="salt", location=self.crafter)
+        salt.tags.add("salt", category="crafting_material")
+        
+        # Create tools
+        oven = create.create_object(Object, key="oven", location=self.room1)
+        oven.tags.add("oven", category="crafting_tool")
+        
+        bowl = create.create_object(Object, key="bowl", location=self.crafter)
+        bowl.tags.add("mixing_bowl", category="crafting_tool")
+        
+        # Bread requires crafting 15, we have 30 - should succeed
+        recipe = BreadRecipe(self.crafter, flour, water, yeast, salt, oven, bowl)
+        
+        # Pre-craft should pass
+        try:
+            recipe.pre_craft()
+            validation_passed = True
+        except:
+            validation_passed = False
+            
+        self.assertTrue(validation_passed)
+        
+        # Lower skill and try again
+        self.crafter.skills.crafting.base = 10
+        recipe2 = BreadRecipe(self.crafter, flour, water, yeast, salt, oven, bowl)
+        
+        with self.assertRaises(Exception):  # Should raise CraftingValidationError
+            recipe2.pre_craft()
+    
+    def test_cooldown_integration(self):
+        """Test that crafting applies cooldowns."""
+        # Give crafter materials using seed
+        tools, consumables = WaterContainerRecipe.seed(location=self.crafter)
+        
+        # Craft waterskin
+        recipe = WaterContainerRecipe(self.crafter, *(tools + consumables))
+        
+        # Should not be on cooldown initially
+        self.assertTrue(self.crafter.cooldowns.ready("craft_basic"))
+        
+        # Craft the item
+        recipe.pre_craft()
+        result = recipe.do_craft()
+        recipe.post_craft(result)
+        
+        # Should now be on cooldown
+        self.assertFalse(self.crafter.cooldowns.ready("craft_basic"))
+        
+        # Check cooldown duration is affected by skill
+        time_left = self.crafter.cooldowns.time_left("craft_basic")
+        # With 30 crafting skill, should have some reduction
+        self.assertLess(time_left, 180)  # Less than base 3 minutes
+    
+    def test_quality_system(self):
+        """Test that skill affects quality."""
+        # Create a skilled crafter
+        skilled_crafter = create.create_object(Character, key="Master", location=self.room1)
+        skilled_crafter.skills.crafting.base = 80  # Expert level
+        
+        # Create pickaxe ingredients
+        tools, consumables = PickaxeRecipe.seed(location=skilled_crafter)
+        
+        # Mock random to ensure consistent quality
+        with patch('world.recipes.base_recipes.random', return_value=0.5):
+            recipe = PickaxeRecipe(skilled_crafter, *(tools + consumables))
+            recipe.pre_craft()  # This sets crafter_skill
+            
+            quality_name, quality_mod = recipe.calculate_quality()
+            
+            # With skill 80 vs difficulty 20, should get excellent or masterwork
+            self.assertIn(quality_name, ["excellent", "masterwork"])
+            self.assertGreater(quality_mod, 1.3)  # Should have significant bonus
+    
+    def test_stat_bonus_crafting(self):
+        """Test that stats provide bonuses to crafting."""
+        # PickaxeRecipe uses strength
+        self.crafter.stats.strength.base = 16  # +6 bonus
+        
+        tools, consumables = PickaxeRecipe.seed(location=self.crafter)
+        recipe = PickaxeRecipe(self.crafter, *(tools + consumables))
+        
+        with patch('world.recipes.base_recipes.random', return_value=0.5):
+            recipe.pre_craft()
+            quality_name, quality_mod = recipe.calculate_quality()
+            
+            # Should get some bonus from strength
+            self.assertGreater(quality_mod, 1.0)
+    
+    # I world/tests/test_crafting.py
+
+    def test_craft_function_integration(self):
+        """Test using the craft() function directly."""
+        # Set up for bread crafting
+        tools, consumables = BreadRecipe.seed(location=self.crafter)
+    
+        # Mock random for consistent results - need to mock the right random
+        # Success chance with skill 30 is 0.65, so we need random < 0.65 to succeed
+        with patch('world.recipes.base_recipes.random') as mock_random:
+            mock_random.return_value = 0.5
+            # Create the recipe instance and craft directly
+            recipe = BreadRecipe(self.crafter, *(tools + consumables))
+            
+            # Run pre_craft first to validate inputs
+            recipe.pre_craft()
+            
+            # Now verify we have the right inputs after validation
+            self.assertEqual(len(recipe.validated_tools), 2)  # oven and mixing_bowl
+            self.assertEqual(len(recipe.validated_consumables), 4)  # flour, water, yeast, salt
+            
+            result = recipe.do_craft()
+            recipe.post_craft(result)
+        
+            # Check that result is a list with objects
+            self.assertTrue(result)  # Should have items in list
+            self.assertIsInstance(result, list)  # Should be a list
+            self.assertGreater(len(result), 0)  # Should have at least one item
+            self.assertTrue(any("bread" in item.key for item in result))
+        
+            # Check quality was applied
+            self.assertTrue(hasattr(result[0].db, 'quality'))
+            self.assertTrue(hasattr(result[0].db, 'crafted_by'))
+            self.assertEqual(result[0].db.crafted_by, "Crafter")
+
+    
+    def test_tool_quality_affects_crafting(self):
+        """Test that tool quality affects results."""
+        # Create high-quality tools
+        hammer = create.create_object(Object, key="masterwork hammer", location=self.crafter)
+        hammer.tags.add("hammer", category="crafting_tool")
+        hammer.db.quality = 90  # High quality tool
+        
+        # Create normal tools and materials
+        forge = create.create_object(Object, key="forge", location=self.room1)
+        forge.tags.add("forge", category="crafting_tool")
+        forge.db.quality = 50  # Average
+        
+        anvil = create.create_object(Object, key="anvil", location=self.room1)
+        anvil.tags.add("anvil", category="crafting_tool")
+        anvil.db.quality = 50
+        
+        # Materials
+        iron1 = create.create_object(Object, key="iron", location=self.crafter)
+        iron1.tags.add("iron_ingot", category="crafting_material")
+        iron2 = create.create_object(Object, key="iron", location=self.crafter)
+        iron2.tags.add("iron_ingot", category="crafting_material")
+        handle = create.create_object(Object, key="handle", location=self.crafter)
+        handle.tags.add("wooden_handle", category="crafting_material")
+        
+        # Craft with high-quality hammer
+        recipe = PickaxeRecipe(self.crafter, hammer, forge, anvil, iron1, iron2, handle)
+        
+        with patch('world.recipes.base_recipes.random', return_value=0.5):
+            recipe.pre_craft()
+            quality_name, quality_mod = recipe.calculate_quality()
+            
+            # Should get bonus from high-quality hammer
+            self.assertGreater(quality_mod, 1.0)
+
+
+class TestCraftingCommands(EvenniaTest):
+    """Test crafting commands."""
+    
+    def setUp(self):
+        super().setUp()
+        self.char = create.create_object(Character, key="Tester", location=self.room1)
+        self.char.skills.crafting.base = 20
+        
+        # Add command set
+        from commands.default_cmdsets import CharacterCmdSet
+        self.char.cmdset.add(CharacterCmdSet)
+    
+    @patch('evennia.contrib.game_systems.crafting.crafting._RECIPE_CLASSES', {
+        "bread": BreadRecipe,
+        "waterskin": WaterContainerRecipe
+    })
+    def test_craft_list_command(self):
+        """Test the craft list command."""
+        # Capture output
+        old_msg = self.char.msg
+        messages = []
+        self.char.msg = lambda text, **kwargs: messages.append(text)
+        
+        self.char.execute_cmd("craft list")
+        
+        # Check output
+        output = "\n".join(messages)
+        self.assertIn("Crafting Recipes", output)
+        self.assertIn("Your Skills:", output)
+        
+        # Should show recipes with difficulty
+        self.assertIn("bread", output.lower())
+        self.assertIn("waterskin", output.lower())
+        
+        self.char.msg = old_msg
+    
+    @patch('evennia.contrib.game_systems.crafting.crafting._RECIPE_CLASSES', {
+        "bread": BreadRecipe
+    })
+    def test_craft_info_command(self):
+        """Test the craft info command."""
+        old_msg = self.char.msg
+        messages = []
+        self.char.msg = lambda text, **kwargs: messages.append(text)
+        
+        self.char.execute_cmd("craft info bread")
+        
+        output = "\n".join(messages)
+        self.assertIn("Bread", output)
+        self.assertIn("Requirements:", output)
+        self.assertIn("Tools needed:", output)
+        self.assertIn("Ingredients:", output)
+        self.assertIn("flour", output)
+        
+        self.char.msg = old_msg
+    
+    def test_recipes_command(self):
+        """Test the recipes command."""
+        # Give character some known recipes
+        self.char.db.known_recipes = ["bread", "waterskin", "pickaxe"]
+        self.char.db.craft_counts = {"bread": 5, "waterskin": 2, "pickaxe": 1}
+        self.char.db.best_quality = {"bread": "good", "pickaxe": "excellent"}
+        
+        old_msg = self.char.msg
+        messages = []
+        self.char.msg = lambda text, **kwargs: messages.append(text)
+        
+        self.char.execute_cmd("recipes")
+        
+        output = "\n".join(messages)
+        self.assertIn("Your Known Recipes", output)
+        self.assertIn("bread", output)
+        self.assertIn("crafted 5x", output)
+        self.assertIn("best: good", output)
+        
+        self.char.msg = old_msg
+    
+    def test_recipes_stats_command(self):
+        """Test the recipes stats command."""
+        # Set up some stats
+        self.char.db.crafting_stats = {
+            'total_crafted': 25,
+            'total_failed': 5,
+            'quality_counts': {
+                'poor': 2,
+                'average': 10,
+                'good': 8,
+                'excellent': 5
+            }
+        }
+        
+        old_msg = self.char.msg
+        messages = []
+        self.char.msg = lambda text, **kwargs: messages.append(text)
+        
+        self.char.execute_cmd("recipes stats")
+        
+        output = "\n".join(messages)
+        self.assertIn("Crafting Statistics", output)
+        self.assertIn("Total items crafted: 25", output)
+        self.assertIn("Success rate: 83.3%", output)
+        self.assertIn("Quality Distribution", output)
+        
+        self.char.msg = old_msg
+
+
+# world/tests/test_crafting.py
+
+class TestCraftingTracking(EvenniaTest):
+    """Test that crafting statistics are tracked properly."""
+    
+    def setUp(self):
+        super().setUp()
+        self.crafter = create.create_object(Character, key="Tracker", location=self.room1)
+        self.crafter.skills.crafting.base = 50
+        
+        # Clear any cooldowns before each test
+        if hasattr(self.crafter, 'cooldowns'):
+            self.crafter.cooldowns.clear()
+        
+        # Initialize tracking dicts on the crafter
+        self.crafter.db.known_recipes = []
+        self.crafter.db.craft_counts = {}
+        self.crafter.db.best_quality = {}
+        self.crafter.db.crafting_stats = {
+            'total_crafted': 0,
+            'total_failed': 0,
+            'quality_counts': {}
+        }
+    
+    def test_successful_craft_tracking(self):
+        """Test that successful crafts are tracked."""
+        # Craft bread using the normal craft function
+        tools, consumables = BreadRecipe.seed(location=self.crafter)
+        
+        with patch('world.recipes.base_recipes.random') as mock_random:
+            mock_random.return_value = 0.5
+            recipe = BreadRecipe(self.crafter, *(tools + consumables))
+            recipe.pre_craft()
+            result = recipe.do_craft()
+            recipe.post_craft(result)
+        
+        # Check that craft succeeded
+        self.assertTrue(result)
+        self.assertIsInstance(result, list)
+        self.assertGreater(len(result), 0)
+        
+        # Check tracking
+        self.assertIn("bread", self.crafter.db.known_recipes)
+        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 1)
+        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 1)
+        
+        # Check quality tracking
+        quality_counts = self.crafter.db.crafting_stats.get('quality_counts', {})
+        self.assertGreater(sum(quality_counts.values()), 0)
+    
+    def test_multiple_craft_tracking(self):
+        """Test that multiple crafts are tracked correctly."""
+        # Craft bread three times
+        for i in range(3):
+            # Clear cooldowns between crafts
+            if hasattr(self.crafter, 'cooldowns'):
+                self.crafter.cooldowns.clear()
+                
+            tools, consumables = BreadRecipe.seed(location=self.crafter)
+            with patch('world.recipes.base_recipes.random') as mock_random:
+                mock_random.return_value = 0.5
+                recipe = BreadRecipe(self.crafter, *(tools + consumables))
+                recipe.pre_craft()
+                result = recipe.do_craft()
+                recipe.post_craft(result)
+                self.assertTrue(result)
+        
+        # Check counts
+        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 3)
+        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 3)
+    
+    def test_quality_tracking(self):
+        """Test that quality is tracked correctly."""
+        # Craft with different skill levels to get different qualities
+        
+        # Low skill - should get average or poor quality
+        self.crafter.skills.crafting.base = 20
+        tools, consumables = BreadRecipe.seed(location=self.crafter)
+        with patch('random.random', return_value=0.9):
+            recipe = BreadRecipe(self.crafter, *(tools + consumables))
+            recipe.pre_craft()
+            result = recipe.do_craft()
+            recipe.post_craft(result)
+        
+        # Clear cooldown before second craft
+        if hasattr(self.crafter, 'cooldowns'):
+            self.crafter.cooldowns.clear()
+            
+        # High skill - should get better quality
+        self.crafter.skills.crafting.base = 80
+        tools, consumables = BreadRecipe.seed(location=self.crafter)
+        with patch('world.recipes.base_recipes.random') as mock_random:
+            mock_random.return_value = 0.5
+            recipe = BreadRecipe(self.crafter, *(tools + consumables))
+            recipe.pre_craft()
+            result = recipe.do_craft()
+            recipe.post_craft(result)
+        
+        # Check that we have quality data
+        quality_counts = self.crafter.db.crafting_stats.get('quality_counts', {})
+        self.assertGreater(len(quality_counts), 0)
+        
+        # Check best quality tracking
+        best_quality = self.crafter.db.best_quality.get("bread", "poor")
+        self.assertIn(best_quality, ["poor", "average", "good", "fine", "excellent", "masterwork"])
+    
+    def test_failed_craft_tracking(self):
+        """Test that failed crafts are tracked."""
+        # Set skill too low for recipe
+        self.crafter.skills.crafting.base = 5  # Below bread's requirement of 15
+        
+        tools, consumables = BreadRecipe.seed(location=self.crafter)
+        
+        # This should fail due to low skill
+        try:
+            recipe = BreadRecipe(self.crafter, *(tools + consumables))
+            recipe.pre_craft()
+            result = []
+        except CraftingValidationError:
+            result = []
+        
+        # Should return empty list on failure
+        self.assertEqual(result, [])
+        
+        # Should not be in known recipes since it failed
+        self.assertNotIn("bread", self.crafter.db.known_recipes)
+        
+        # Should not increment craft count
+        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 0)
+        
+        # Total crafted should still be 0
+        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 0)
+    
+    def test_different_recipe_tracking(self):
+        """Test tracking multiple different recipes."""
+        # First craft bread
+        self.crafter.skills.crafting.base = 30
+        tools, consumables = BreadRecipe.seed(location=self.crafter)
+        with patch('world.recipes.base_recipes.random') as mock_random:
+            mock_random.return_value = 0.5
+            recipe = BreadRecipe(self.crafter, *(tools + consumables))
+            recipe.pre_craft()
+            result = recipe.do_craft()
+            recipe.post_craft(result)
+        
+        # Clear cooldown before second craft
+        if hasattr(self.crafter, 'cooldowns'):
+            self.crafter.cooldowns.clear()
+            
+        # Then craft a waterskin
+        tools2, consumables2 = WaterContainerRecipe.seed(location=self.crafter)
+        with patch('world.recipes.base_recipes.random') as mock_random:
+            mock_random.return_value = 0.5
+            recipe2 = WaterContainerRecipe(self.crafter, *(tools2 + consumables2))
+            recipe2.pre_craft()
+            result2 = recipe2.do_craft()
+            recipe2.post_craft(result2)
+        
+        # Check both are tracked
+        self.assertIn("bread", self.crafter.db.known_recipes)
+        self.assertIn("waterskin", self.crafter.db.known_recipes)
+        
+        # Check individual counts
+        self.assertEqual(self.crafter.db.craft_counts.get("bread", 0), 1)
+        self.assertEqual(self.crafter.db.craft_counts.get("waterskin", 0), 1)
+        
+        # Total should be 2
+        self.assertEqual(self.crafter.db.crafting_stats['total_crafted'], 2)
+    
+    def test_craft_stats_initialization(self):
+        """Test that craft stats are properly initialized."""
+        # Create a new crafter without pre-initialized stats
+        new_crafter = create.create_object(Character, key="NewCrafter", location=self.room1)
+        new_crafter.skills.crafting.base = 30
+        
+        # Clear any cooldowns
+        if hasattr(new_crafter, 'cooldowns'):
+            new_crafter.cooldowns.clear()
+        
+        # Craft something
+        tools, consumables = BreadRecipe.seed(location=new_crafter)
+        # Mock random to return different values for quality calculation and success check
+        # First call is for quality randomness, second is for success check
+        with patch('world.recipes.base_recipes.random') as mock_random:
+            mock_random.return_value = 0.5
+            recipe = BreadRecipe(new_crafter, *(tools + consumables))
+            recipe.pre_craft()
+            result = recipe.do_craft()
+            recipe.post_craft(result)
+            
+        # Verify the craft succeeded
+        self.assertTrue(result, "Craft should have succeeded")
+        self.assertGreater(len(result), 0, "Should have created at least one item")
+        
+        # Check that all tracking attributes were created
+        self.assertTrue(hasattr(new_crafter.db, 'known_recipes'))
+        self.assertTrue(hasattr(new_crafter.db, 'craft_counts'))
+        self.assertTrue(hasattr(new_crafter.db, 'best_quality'))
+        self.assertTrue(hasattr(new_crafter.db, 'crafting_stats'))
+        
+        # Check they have correct values
+        self.assertIn("bread", new_crafter.db.known_recipes)
+        self.assertEqual(new_crafter.db.craft_counts.get("bread", 0), 1)
+        self.assertEqual(new_crafter.db.crafting_stats['total_crafted'], 1)
+</file>
+
 <file path="world/tests/test_gametime.py">
 # world/tests/test_gametime.py - hela den uppdaterade test-filen med enklare test
 
@@ -7494,179 +7588,6 @@ HELP_ENTRY_DICTS = [
 ]
 </file>
 
-<file path="world/prototypes.py">
-"""
-Prototypes
-
-A prototype is a simple way to create individualized instances of a
-given typeclass. It is dictionary with specific key names.
-
-For example, you might have a Sword typeclass that implements everything a
-Sword would need to do. The only difference between different individual Swords
-would be their key, description and some Attributes. The Prototype system
-allows to create a range of such Swords with only minor variations. Prototypes
-can also inherit and combine together to form entire hierarchies (such as
-giving all Sabres and all Broadswords some common properties). Note that bigger
-variations, such as custom commands or functionality belong in a hierarchy of
-typeclasses instead.
-
-A prototype can either be a dictionary placed into a global variable in a
-python module (a 'module-prototype') or stored in the database as a dict on a
-special Script (a db-prototype). The former can be created just by adding dicts
-to modules Evennia looks at for prototypes, the latter is easiest created
-in-game via the `olc` command/menu.
-
-Prototypes are read and used to create new objects with the `spawn` command
-or directly via `evennia.spawn` or the full path `evennia.prototypes.spawner.spawn`.
-
-A prototype dictionary have the following keywords:
-
-Possible keywords are:
-- `prototype_key` - the name of the prototype. This is required for db-prototypes,
-  for module-prototypes, the global variable name of the dict is used instead
-- `prototype_parent` - string pointing to parent prototype if any. Prototype inherits
-  in a similar way as classes, with children overriding values in their parents.
-- `key` - string, the main object identifier.
-- `typeclass` - string, if not set, will use `settings.BASE_OBJECT_TYPECLASS`.
-- `location` - this should be a valid object or #dbref.
-- `home` - valid object or #dbref.
-- `destination` - only valid for exits (object or #dbref).
-- `permissions` - string or list of permission strings.
-- `locks` - a lock-string to use for the spawned object.
-- `aliases` - string or list of strings.
-- `attrs` - Attributes, expressed as a list of tuples on the form `(attrname, value)`,
-  `(attrname, value, category)`, or `(attrname, value, category, locks)`. If using one
-   of the shorter forms, defaults are used for the rest.
-- `tags` - Tags, as a list of tuples `(tag,)`, `(tag, category)` or `(tag, category, data)`.
--  Any other keywords are interpreted as Attributes with no category or lock.
-   These will internally be added to `attrs` (equivalent to `(attrname, value)`.
-
-See the `spawn` command and `evennia.prototypes.spawner.spawn` for more info.
-
-"""
-
-## example of module-based prototypes using
-## the variable name as `prototype_key` and
-## simple Attributes
-
-# from random import randint
-#
-# GOBLIN = {
-# "key": "goblin grunt",
-# "health": lambda: randint(20,30),
-# "resists": ["cold", "poison"],
-# "attacks": ["fists"],
-# "weaknesses": ["fire", "light"],
-# "tags": = [("greenskin", "monster"), ("humanoid", "monster")]
-# }
-#
-# GOBLIN_WIZARD = {
-# "prototype_parent": "GOBLIN",
-# "key": "goblin wizard",
-# "spells": ["fire ball", "lighting bolt"]
-# }
-#
-# GOBLIN_ARCHER = {
-# "prototype_parent": "GOBLIN",
-# "key": "goblin archer",
-# "attacks": ["short bow"]
-# }
-#
-# This is an example of a prototype without a prototype
-# (nor key) of its own, so it should normally only be
-# used as a mix-in, as in the example of the goblin
-# archwizard below.
-# ARCHWIZARD_MIXIN = {
-# "attacks": ["archwizard staff"],
-# "spells": ["greater fire ball", "greater lighting"]
-# }
-#
-# GOBLIN_ARCHWIZARD = {
-# "key": "goblin archwizard",
-# "prototype_parent" : ("GOBLIN_WIZARD", "ARCHWIZARD_MIXIN")
-# }
-
-
-# world/prototypes.py (lägg till dessa prototypes)
-
-# Crafting Materials
-IRON_ORE = {
-    "key": "iron ore",
-    "typeclass": "typeclasses.objects.Object",
-    "desc": "A chunk of raw iron ore, ready for smelting.",
-    "tags": [("iron_ore", "crafting_material"), ("material", "item_type")],
-    "attrs": [
-        ("weight", 2.0),
-        ("value", 5)
-    ]
-}
-
-LEATHER = {
-    "key": "piece of leather",
-    "typeclass": "typeclasses.objects.Object", 
-    "desc": "A piece of tanned leather, supple and ready for crafting.",
-    "tags": [("leather", "crafting_material"), ("material", "item_type")],
-    "attrs": [
-        ("weight", 0.5),
-        ("value", 10),
-        ("quality", 50)
-    ]
-}
-
-FLOUR = {
-    "key": "bag of flour",
-    "typeclass": "typeclasses.objects.Object",
-    "desc": "A small bag of wheat flour for baking.",
-    "tags": [("flour", "crafting_material"), ("material", "item_type")],
-    "attrs": [
-        ("weight", 1.0),
-        ("value", 3),
-        ("perishable", True)
-    ]
-}
-
-# Crafting Tools
-OVEN = {
-    "key": "brick oven",
-    "typeclass": "typeclasses.objects.CraftingStation",
-    "desc": "A large brick oven perfect for baking bread and other foods.",
-    "tags": [("oven", "crafting_tool"), ("cooking_station", "item_type")],
-    "attrs": [
-        ("station_type", "cooking"),
-        ("crafting_bonus", 15),
-        ("portable", False),
-        ("weight", 500)
-    ]
-}
-
-FORGE = {
-    "key": "smithing forge",
-    "typeclass": "typeclasses.objects.Forge",
-    "desc": "A stone forge with bellows for metalworking.",
-    "tags": [("forge", "crafting_tool"), ("metalworking_station", "item_type")],
-    "attrs": [
-        ("station_type", "metalworking"),
-        ("max_temperature", 1500),
-        ("crafting_bonus", 20),
-        ("portable", False),
-        ("weight", 300)
-    ]
-}
-
-PRECISION_TOOLS = {
-    "key": "precision tool kit",
-    "typeclass": "typeclasses.objects.ToolKit",
-    "desc": "A leather case containing fine precision instruments.",
-    "tags": [("precision_tools", "crafting_tool"), ("toolkit", "item_type")],
-    "attrs": [
-        ("tool_type", "precision"),
-        ("engineering_bonus", 15),
-        ("quality", 75),
-        ("weight", 2)
-    ]
-}
-</file>
-
 <file path="world/README.md">
 # world/
 
@@ -8148,6 +8069,179 @@ class CmdForage(Command):
             caller.msg("You don't find anything edible.")
             # Still apply a short cooldown on failure
             caller.cooldowns.add("forage", 60)  # 1 minute on failure
+</file>
+
+<file path="world/prototypes.py">
+"""
+Prototypes
+
+A prototype is a simple way to create individualized instances of a
+given typeclass. It is dictionary with specific key names.
+
+For example, you might have a Sword typeclass that implements everything a
+Sword would need to do. The only difference between different individual Swords
+would be their key, description and some Attributes. The Prototype system
+allows to create a range of such Swords with only minor variations. Prototypes
+can also inherit and combine together to form entire hierarchies (such as
+giving all Sabres and all Broadswords some common properties). Note that bigger
+variations, such as custom commands or functionality belong in a hierarchy of
+typeclasses instead.
+
+A prototype can either be a dictionary placed into a global variable in a
+python module (a 'module-prototype') or stored in the database as a dict on a
+special Script (a db-prototype). The former can be created just by adding dicts
+to modules Evennia looks at for prototypes, the latter is easiest created
+in-game via the `olc` command/menu.
+
+Prototypes are read and used to create new objects with the `spawn` command
+or directly via `evennia.spawn` or the full path `evennia.prototypes.spawner.spawn`.
+
+A prototype dictionary have the following keywords:
+
+Possible keywords are:
+- `prototype_key` - the name of the prototype. This is required for db-prototypes,
+  for module-prototypes, the global variable name of the dict is used instead
+- `prototype_parent` - string pointing to parent prototype if any. Prototype inherits
+  in a similar way as classes, with children overriding values in their parents.
+- `key` - string, the main object identifier.
+- `typeclass` - string, if not set, will use `settings.BASE_OBJECT_TYPECLASS`.
+- `location` - this should be a valid object or #dbref.
+- `home` - valid object or #dbref.
+- `destination` - only valid for exits (object or #dbref).
+- `permissions` - string or list of permission strings.
+- `locks` - a lock-string to use for the spawned object.
+- `aliases` - string or list of strings.
+- `attrs` - Attributes, expressed as a list of tuples on the form `(attrname, value)`,
+  `(attrname, value, category)`, or `(attrname, value, category, locks)`. If using one
+   of the shorter forms, defaults are used for the rest.
+- `tags` - Tags, as a list of tuples `(tag,)`, `(tag, category)` or `(tag, category, data)`.
+-  Any other keywords are interpreted as Attributes with no category or lock.
+   These will internally be added to `attrs` (equivalent to `(attrname, value)`.
+
+See the `spawn` command and `evennia.prototypes.spawner.spawn` for more info.
+
+"""
+
+## example of module-based prototypes using
+## the variable name as `prototype_key` and
+## simple Attributes
+
+# from random import randint
+#
+# GOBLIN = {
+# "key": "goblin grunt",
+# "health": lambda: randint(20,30),
+# "resists": ["cold", "poison"],
+# "attacks": ["fists"],
+# "weaknesses": ["fire", "light"],
+# "tags": = [("greenskin", "monster"), ("humanoid", "monster")]
+# }
+#
+# GOBLIN_WIZARD = {
+# "prototype_parent": "GOBLIN",
+# "key": "goblin wizard",
+# "spells": ["fire ball", "lighting bolt"]
+# }
+#
+# GOBLIN_ARCHER = {
+# "prototype_parent": "GOBLIN",
+# "key": "goblin archer",
+# "attacks": ["short bow"]
+# }
+#
+# This is an example of a prototype without a prototype
+# (nor key) of its own, so it should normally only be
+# used as a mix-in, as in the example of the goblin
+# archwizard below.
+# ARCHWIZARD_MIXIN = {
+# "attacks": ["archwizard staff"],
+# "spells": ["greater fire ball", "greater lighting"]
+# }
+#
+# GOBLIN_ARCHWIZARD = {
+# "key": "goblin archwizard",
+# "prototype_parent" : ("GOBLIN_WIZARD", "ARCHWIZARD_MIXIN")
+# }
+
+
+# world/prototypes.py (lägg till dessa prototypes)
+
+# Crafting Materials
+IRON_ORE = {
+    "key": "iron ore",
+    "typeclass": "typeclasses.objects.Object",
+    "desc": "A chunk of raw iron ore, ready for smelting.",
+    "tags": [("iron_ore", "crafting_material"), ("material", "item_type")],
+    "attrs": [
+        ("weight", 2.0),
+        ("value", 5)
+    ]
+}
+
+LEATHER = {
+    "key": "piece of leather",
+    "typeclass": "typeclasses.objects.Object", 
+    "desc": "A piece of tanned leather, supple and ready for crafting.",
+    "tags": [("leather", "crafting_material"), ("material", "item_type")],
+    "attrs": [
+        ("weight", 0.5),
+        ("value", 10),
+        ("quality", 50)
+    ]
+}
+
+FLOUR = {
+    "key": "bag of flour",
+    "typeclass": "typeclasses.objects.Object",
+    "desc": "A small bag of wheat flour for baking.",
+    "tags": [("flour", "crafting_material"), ("material", "item_type")],
+    "attrs": [
+        ("weight", 1.0),
+        ("value", 3),
+        ("perishable", True)
+    ]
+}
+
+# Crafting Tools
+OVEN = {
+    "key": "brick oven",
+    "typeclass": "typeclasses.objects.CraftingStation",
+    "desc": "A large brick oven perfect for baking bread and other foods.",
+    "tags": [("oven", "crafting_tool"), ("cooking_station", "item_type")],
+    "attrs": [
+        ("station_type", "cooking"),
+        ("crafting_bonus", 15),
+        ("portable", False),
+        ("weight", 500)
+    ]
+}
+
+FORGE = {
+    "key": "smithing forge",
+    "typeclass": "typeclasses.objects.Forge",
+    "desc": "A stone forge with bellows for metalworking.",
+    "tags": [("forge", "crafting_tool"), ("metalworking_station", "item_type")],
+    "attrs": [
+        ("station_type", "metalworking"),
+        ("max_temperature", 1500),
+        ("crafting_bonus", 20),
+        ("portable", False),
+        ("weight", 300)
+    ]
+}
+
+PRECISION_TOOLS = {
+    "key": "precision tool kit",
+    "typeclass": "typeclasses.objects.ToolKit",
+    "desc": "A leather case containing fine precision instruments.",
+    "tags": [("precision_tools", "crafting_tool"), ("toolkit", "item_type")],
+    "attrs": [
+        ("tool_type", "precision"),
+        ("engineering_bonus", 15),
+        ("quality", 75),
+        ("weight", 2)
+    ]
+}
 </file>
 
 <file path="typeclasses/objects.py">
