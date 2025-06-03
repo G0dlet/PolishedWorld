@@ -23,6 +23,7 @@ from commands.survival_commands import CmdRest, CmdEat, CmdDrink, CmdStatus
 from evennia.contrib.grid.extended_room import ExtendedRoomCmdSet
 from evennia.contrib.game_systems.clothing.clothing import ClothedCharacterCmdSet
 from commands.clothing_commands import CmdClothingStatus, CmdRepair
+from commands.crafting_commands import CmdCraft, CmdRecipes
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -67,6 +68,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(ClothedCharacterCmdSet)
         self.add(CmdClothingStatus())
         self.add(CmdRepair())
+
+        # Add crafting commands
+        self.add(CmdCraft())
+        self.add(CmdRecipes())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

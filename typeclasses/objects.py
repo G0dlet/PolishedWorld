@@ -10,6 +10,7 @@ making them interact with the Extended Room's visibility system.
 
 from evennia.objects.objects import DefaultObject
 from evennia.utils import list_to_string
+from evennia.utils import gametime
 import random
 
 
@@ -587,3 +588,201 @@ class CamouflageCloak(SurvivalClothing):
         self.db.stealth_bonus = 20  # +20% harder to detect
         
         self.db.repair_materials = ["cloth", "dye"]
+
+
+# typeclasses/objects.py (lägg till dessa klasser)
+
+class Food(Object):
+    """
+    Base class for food items.
+    
+    Food provides nutrition and can decay over time.
+    Quality affects nutrition value.
+    """
+    
+    def at_object_creation(self):
+        super().at_object_creation()
+        
+        self.db.nutrition = 20
+        self.db.decay_rate = 0.1
+        self.db.uses = 1
+        self.db.created_time = 0  # Vi behöver importera gametime om vi vill använda det
+        
+    def get_nutrition_value(self):
+        """Get current nutrition considering decay."""
+        # Förenklad version utan gametime
+        base_nutrition = self.db.nutrition
+        if hasattr(self.db, 'quality_modifier'):
+            base_nutrition *= self.db.quality_modifier
+            
+        return int(base_nutrition)
+    
+    def at_eat(self, eater):
+        """Called when someone eats this food."""
+        nutrition = self.get_nutrition_value()
+        
+        # Apply nutrition
+        eater.traits.hunger.current += nutrition
+        
+        # Check for special effects
+        if hasattr(self.db, 'warmth_bonus'):
+            eater.msg(f"|yThe {self.key} warms you from within.|n")
+            # Could apply temporary warmth effect here
+        
+        # Use up one portion
+        self.db.uses -= 1
+        if self.db.uses <= 0:
+            self.delete()
+        else:
+            eater.msg(f"There are {self.db.uses} portions left.")
+
+
+class Tool(Object):
+    """
+    Base class for tools that can be used in crafting.
+    
+    Tools have durability and efficiency that affect
+    crafting outcomes.
+    """
+    
+    def at_object_creation(self):
+        super().at_object_creation()
+        
+        self.db.tool_type = "general"
+        self.db.efficiency = 1.0
+        self.db.durability = 100
+        self.db.max_durability = 100
+        self.db.quality = 50
+        
+    def use_tool(self, uses=1):
+        """Apply wear to the tool."""
+        self.db.durability -= uses
+        
+        if self.db.durability <= 0:
+            self.location.msg_contents(f"{self.key} breaks from overuse!")
+            self.delete()
+        elif self.db.durability < 20:
+            self.location.msg_contents(f"{self.key} is nearly broken.")
+    
+    def get_efficiency(self):
+        """Get current efficiency based on condition."""
+        condition_factor = self.db.durability / self.db.max_durability
+        return self.db.efficiency * condition_factor
+
+
+class CraftingStation(Object):
+    """
+    A crafting station that provides bonuses to crafting.
+    
+    Examples: workbench, forge, alchemy table
+    """
+    
+    def at_object_creation(self):
+        super().at_object_creation()
+        
+        self.db.station_type = "general"
+        self.db.crafting_bonus = 10
+        self.db.workshop_level = 1
+        self.db.desc = "A crafting station for creating items."
+        
+        # Make it non-portable by default
+        self.db.get_err_msg = "The {key} is too heavy to pick up."
+        
+    def at_object_receive(self, moved_obj, source_location, **kwargs):
+        """Called when an object enters this station (storage)."""
+        if moved_obj.tags.has("tool", category="item_type"):
+            moved_obj.msg(f"You store {moved_obj.key} in the {self.key}.")
+
+
+class SteamEngine(Object):
+    """A steam engine that can power other devices."""
+    
+    def at_object_creation(self):
+        super().at_object_creation()
+        
+        self.db.power_output = 100
+        self.db.fuel_efficiency = 0.7
+        self.db.max_pressure = 150
+        self.db.current_pressure = 0
+        self.db.fuel_level = 0
+        self.db.water_level = 0
+        self.db.is_running = False
+        
+    def add_fuel(self, amount):
+        """Add coal to the engine."""
+        self.db.fuel_level += amount
+        return True
+        
+    def add_water(self, amount):
+        """Add water to the boiler."""
+        self.db.water_level += amount
+        return True
+        
+    def start_engine(self):
+        """Attempt to start the engine."""
+        if self.db.fuel_level < 1:
+            return False, "Not enough fuel!"
+        if self.db.water_level < 1:
+            return False, "Not enough water!"
+            
+        self.db.is_running = True
+        self.db.current_pressure = 50  # Starting pressure
+        
+        # TODO: Add TickerHandler for fuel consumption
+        return True, "The engine roars to life!"
+        
+    def stop_engine(self):
+        """Shut down the engine."""
+        self.db.is_running = False
+        self.db.current_pressure = 0
+        return True, "The engine winds down to a stop."
+
+
+class Consumable(Object):
+    """
+    Base class for consumable items like potions, tea, etc.
+    
+    Can have various effects when consumed.
+    """
+    
+    def at_object_creation(self):
+        super().at_object_creation()
+        
+        self.db.uses = 1
+        self.db.effect_type = None
+        self.db.effect_value = 0
+        
+    def consume(self, consumer):
+        """Apply the consumable's effects."""
+        effect_type = self.db.effect_type
+        
+        if effect_type == "heal_minor":
+            amount = self.db.healing_value or 10
+            consumer.traits.health.current += amount
+            consumer.msg(f"|gYou feel better! (+{amount} health)|n")
+            
+        elif effect_type == "restore_fatigue":
+            amount = self.db.fatigue_value or 20
+            consumer.traits.fatigue.current += amount
+            consumer.msg(f"|yYou feel refreshed! (+{amount} fatigue)|n")
+            
+        # Handle thirst if it's a drink
+        if self.tags.has("drink", category="item_type"):
+            thirst_value = self.db.thirst_value or 10
+            consumer.traits.thirst.current += thirst_value
+            
+        self.db.uses -= 1
+        if self.db.uses <= 0:
+            self.delete()
+
+
+
+class Container(Object):
+    """
+    Placeholder - Remove lllather!
+    """
+
+    def at_object_creation(self):
+        super().at_object_creation()
+
+pass

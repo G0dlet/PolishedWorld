@@ -142,6 +142,49 @@ class Character(ObjectParent, BaseClothedCharacter):
                           "engineering", "survival", "trading"]:
             self.skills.add(skill_name, skill_name.title(), trait_type="counter",
                            base=0, mod=0, min=0, max=100, descs=skill_descs)
+        
+        # Initialize crafting tracking
+        self.db.known_recipes = []
+        self.db.craft_counts = {}
+        self.db.best_quality = {}
+        self.db.crafting_stats = {
+            'total_crafted': 0,
+            'total_failed': 0,
+            'quality_counts': {}
+        }
+    
+    def can_craft_recipe(self, recipe_class):
+        """
+        Check if character meets requirements for a recipe.
+        
+        Args:
+            recipe_class: The recipe class to check
+            
+        Returns:
+            tuple: (can_craft, reason)
+        """
+        # Check skill requirement
+        skill_req = getattr(recipe_class, 'skill_requirement', 'crafting')
+        difficulty = getattr(recipe_class, 'difficulty', 0)
+        
+        skill_level = 0
+        if skill_req == "engineering":
+            skill_level = self.skills.engineering.value
+        elif skill_req == "survival":
+            skill_level = self.skills.survival.value
+        else:
+            skill_level = self.skills.crafting.value
+        
+        if skill_level < difficulty:
+            return False, f"Need {skill_req} {difficulty}+"
+        
+        # Check cooldown
+        craft_category = getattr(recipe_class, 'craft_category', 'craft_basic')
+        if not self.cooldowns.ready(craft_category):
+            time_left = self.cooldowns.time_left(craft_category, use_int=True)
+            return False, f"On cooldown ({time_left}s)"
+        
+        return True, "OK"
     
     # Cooldown-related methods
     

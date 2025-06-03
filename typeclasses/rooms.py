@@ -120,6 +120,37 @@ class Room(ObjectParent, BaseExtendedRoom):
         
         # Set initial weather
         self.add_room_state("clear")
+        
+        # Workshop properties for crafting
+        self.db.workshop = False  # Is this a proper workshop?
+        self.db.workshop_level = 0  # 0=none, 1=basic, 2=advanced, 3=master
+        self.db.allow_fire = False  # Can fires be built here?
+        self.db.crafting_stations = []  # List of permanent stations
+    
+    def get_crafting_bonus(self, recipe_type="general"):
+        """
+        Get the total crafting bonus this room provides.
+        
+        Args:
+            recipe_type (str): Type of crafting being done
+            
+        Returns:
+            int: Total bonus percentage
+        """
+        bonus = 0
+        
+        # Base workshop bonus
+        if self.db.workshop:
+            bonus += self.db.workshop_level * 5
+        
+        # Check for relevant crafting stations
+        for obj in self.contents:
+            if obj.tags.has("crafting_station", category="item_type"):
+                if hasattr(obj.db, 'station_type'):
+                    if obj.db.station_type == recipe_type or obj.db.station_type == "general":
+                        bonus += obj.db.crafting_bonus or 0
+        
+        return bonus
     
     def get_season(self):
         """

@@ -242,6 +242,32 @@ MAX_SKILL_COOLDOWN_REDUCTION = 0.5  # 50% reduction at max skill
 CON_COOLDOWN_REDUCTION_PER_POINT = 0.01  # 1% per point
 
 ######################################################################
+# Crafting Configuration
+######################################################################
+
+# Where to find crafting recipes
+CRAFT_RECIPE_MODULES = [
+    "world.recipes.survival_recipes",
+    "world.recipes.steampunk_recipes", 
+    "world.recipes.clothing_recipes",
+    "world.recipes.tool_recipes",
+]
+
+# Crafting success modifiers
+CRAFTING_SKILL_WEIGHT = 0.7  # How much skill affects success (0-1)
+CRAFTING_TOOL_QUALITY_WEIGHT = 0.3  # How much tool quality affects result
+
+# Recipe difficulty tiers
+RECIPE_DIFFICULTY = {
+    "trivial": 0,      # Anyone can do this
+    "easy": 10,        # Novice crafters
+    "moderate": 30,    # Apprentice level
+    "hard": 50,        # Journeyman level
+    "expert": 70,      # Expert crafters only
+    "master": 90,      # Master crafters only
+}
+
+######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
 try:

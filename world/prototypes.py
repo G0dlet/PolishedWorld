@@ -88,3 +88,83 @@ See the `spawn` command and `evennia.prototypes.spawner.spawn` for more info.
 # "key": "goblin archwizard",
 # "prototype_parent" : ("GOBLIN_WIZARD", "ARCHWIZARD_MIXIN")
 # }
+
+
+# world/prototypes.py (lägg till dessa prototypes)
+
+# Crafting Materials
+IRON_ORE = {
+    "key": "iron ore",
+    "typeclass": "typeclasses.objects.Object",
+    "desc": "A chunk of raw iron ore, ready for smelting.",
+    "tags": [("iron_ore", "crafting_material"), ("material", "item_type")],
+    "attrs": [
+        ("weight", 2.0),
+        ("value", 5)
+    ]
+}
+
+LEATHER = {
+    "key": "piece of leather",
+    "typeclass": "typeclasses.objects.Object", 
+    "desc": "A piece of tanned leather, supple and ready for crafting.",
+    "tags": [("leather", "crafting_material"), ("material", "item_type")],
+    "attrs": [
+        ("weight", 0.5),
+        ("value", 10),
+        ("quality", 50)
+    ]
+}
+
+FLOUR = {
+    "key": "bag of flour",
+    "typeclass": "typeclasses.objects.Object",
+    "desc": "A small bag of wheat flour for baking.",
+    "tags": [("flour", "crafting_material"), ("material", "item_type")],
+    "attrs": [
+        ("weight", 1.0),
+        ("value", 3),
+        ("perishable", True)
+    ]
+}
+
+# Crafting Tools
+OVEN = {
+    "key": "brick oven",
+    "typeclass": "typeclasses.objects.CraftingStation",
+    "desc": "A large brick oven perfect for baking bread and other foods.",
+    "tags": [("oven", "crafting_tool"), ("cooking_station", "item_type")],
+    "attrs": [
+        ("station_type", "cooking"),
+        ("crafting_bonus", 15),
+        ("portable", False),
+        ("weight", 500)
+    ]
+}
+
+FORGE = {
+    "key": "smithing forge",
+    "typeclass": "typeclasses.objects.Forge",
+    "desc": "A stone forge with bellows for metalworking.",
+    "tags": [("forge", "crafting_tool"), ("metalworking_station", "item_type")],
+    "attrs": [
+        ("station_type", "metalworking"),
+        ("max_temperature", 1500),
+        ("crafting_bonus", 20),
+        ("portable", False),
+        ("weight", 300)
+    ]
+}
+
+PRECISION_TOOLS = {
+    "key": "precision tool kit",
+    "typeclass": "typeclasses.objects.ToolKit",
+    "desc": "A leather case containing fine precision instruments.",
+    "tags": [("precision_tools", "crafting_tool"), ("toolkit", "item_type")],
+    "attrs": [
+        ("tool_type", "precision"),
+        ("engineering_bonus", 15),
+        ("quality", 75),
+        ("weight", 2)
+    ]
+}
