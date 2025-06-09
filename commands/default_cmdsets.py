@@ -26,6 +26,7 @@ from commands.clothing_commands import CmdClothingStatus, CmdRepair
 from commands.crafting_commands import CmdCraft, CmdRecipes
 from commands.trade_commands import CmdTrade, CmdGive, CmdTradeHistory, CmdMarket
 from commands.currency_commands import CmdMoney, CmdOfferCurrency
+from commands.ticker_commands import TickerCmdSet
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -81,6 +82,9 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdTradeHistory())
         self.add(CmdMarket())
         self.add(CmdMoney())
+
+        # Add ticker commands for admins
+        self.add(TickerCmdSet)
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

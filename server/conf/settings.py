@@ -267,6 +267,17 @@ RECIPE_DIFFICULTY = {
     "master": 90,      # Master crafters only
 }
 
+########################################################################
+# Ticker Configurations
+########################################################################
+
+# Ticker intervals (in real seconds)
+SURVIVAL_UPDATE_INTERVAL = 600      # 10 minutes
+WEATHER_UPDATE_INTERVAL = 900       # 15 minutes
+RESOURCE_REGEN_INTERVAL = 3600      # 1 hour
+FOOD_SPOILAGE_INTERVAL = 1800       # 30 minutes
+SEASON_CHECK_INTERVAL = 21600       # 6 hours
+ENGINE_FUEL_INTERVAL = 300          # 5 minutes
 ######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
