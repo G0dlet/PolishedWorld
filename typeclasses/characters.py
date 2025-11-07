@@ -105,3 +105,74 @@ class Character(ObjectParent, DefaultCharacter):
             base=10,
             mod=0
         )
+
+        # === SURVIVAL TRAITS ===
+        
+        self.traits.add(
+            "hunger", "Hunger",
+            trait_type="gauge",
+            base=100,
+            mod=0,
+            min=0,
+            rate=0,
+            descs={
+                0: "starving",
+                20: "famished", 
+                40: "hungry",
+                60: "peckish",
+                80: "satisfied",
+                95: "full"
+            }
+        )
+        
+        self.traits.add(
+            "thirst", "Thirst",
+            trait_type="gauge", 
+            base=100,
+            mod=0,
+            min=0,
+            rate=0,
+            descs={
+                0: "dying of thirst",
+                20: "parched",
+                40: "thirsty", 
+                60: "could drink",
+                80: "hydrated",
+                95: "quenched"
+            }
+        )
+        
+        self.traits.add(
+            "fatigue", "Fatigue",
+            trait_type="gauge",
+            base=100, 
+            mod=0,
+            min=0,
+            rate=0,
+            descs={
+                0: "exhausted",
+                20: "drained",
+                40: "tired",
+                60: "weary", 
+                80: "rested",
+                95: "energetic"
+            }
+        )
+        
+        self.traits.add(
+            "health", "Health",
+            trait_type="gauge",
+            base=self.stats.con.value * 2,
+            mod=0,
+            min=0,
+            rate=0,
+            descs={
+                0: "dead",
+                10: "near death",
+                25: "critically wounded",
+                50: "badly hurt",
+                75: "injured",
+                90: "bruised",
+                100: "healthy"
+            }
+        )
