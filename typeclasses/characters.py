@@ -233,3 +233,27 @@ class Character(ObjectParent, DefaultCharacter):
             }
         )
 
+    def get_display_status(self, looker, **kwargs):
+        """
+        Displays character status including traits and vital stats.
+        """
+        text = super().get_display_status(looker, **kwargs)
+        
+        if looker == self:
+            text += "\n\n|wVital Status:|n"
+            text += f"\n  Health: {self.traits.health.percent()} - {self.traits.health.desc()}"
+            text += f"\n  Hunger: {self.traits.hunger.percent()} - {self.traits.hunger.desc()}"
+            text += f"\n  Thirst: {self.traits.thirst.percent()} - {self.traits.thirst.desc()}"
+            text += f"\n  Fatigue: {self.traits.fatigue.percent()} - {self.traits.fatigue.desc()}"
+        
+        return text
+    
+    def update_health_max(self):
+        """
+        Helper method to recalculate max health when CON changes.
+        """
+        new_max = self.stats.con.value * 2
+        current_percent = self.traits.health.percent(formatting=None)
+        
+        self.traits.health.base = new_max
+        self.traits.health.current = int(new_max * current_percent / 100)
