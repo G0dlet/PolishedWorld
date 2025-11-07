@@ -232,22 +232,7 @@ class Character(ObjectParent, DefaultCharacter):
                 95: "mighty"
             }
         )
-
-    def get_display_status(self, looker, **kwargs):
-        """
-        Displays character status including traits and vital stats.
-        """
-        text = super().get_display_status(looker, **kwargs)
-        
-        if looker == self:
-            text += "\n\n|wVital Status:|n"
-            text += f"\n  Health: {self.traits.health.percent()} - {self.traits.health.desc()}"
-            text += f"\n  Hunger: {self.traits.hunger.percent()} - {self.traits.hunger.desc()}"
-            text += f"\n  Thirst: {self.traits.thirst.percent()} - {self.traits.thirst.desc()}"
-            text += f"\n  Fatigue: {self.traits.fatigue.percent()} - {self.traits.fatigue.desc()}"
-        
-        return text
-    
+      
     def update_health_max(self):
         """
         Helper method to recalculate max health when CON changes.
