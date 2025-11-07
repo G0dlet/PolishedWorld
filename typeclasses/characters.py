@@ -176,3 +176,60 @@ class Character(ObjectParent, DefaultCharacter):
                 100: "healthy"
             }
         )
+
+        # === SKILLS ===
+        
+        self.skills.add(
+            "perception", "Perception",
+            trait_type="counter",
+            base=25,
+            current=25,
+            mod=0,
+            min=0,
+            max=100,
+            descs={
+                0: "oblivious",
+                20: "unaware",
+                40: "attentive",
+                60: "observant",
+                80: "sharp",
+                95: "eagle-eyed"
+            }
+        )
+        
+        self.skills.add(
+            "stealth", "Stealth", 
+            trait_type="counter",
+            base=20,
+            current=20,
+            mod=0,
+            min=0,
+            max=100,
+            descs={
+                0: "clumsy",
+                20: "obvious",
+                40: "careful",
+                60: "sneaky",
+                80: "stealthy",
+                95: "invisible"
+            }
+        )
+        
+        self.skills.add(
+            "athletics", "Athletics",
+            trait_type="counter", 
+            base=25,
+            current=25,
+            mod=0,
+            min=0,
+            max=100,
+            descs={
+                0: "feeble",
+                20: "weak",
+                40: "capable",
+                60: "athletic",
+                80: "strong",
+                95: "mighty"
+            }
+        )
+
