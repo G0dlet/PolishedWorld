@@ -2,6 +2,7 @@
 PolishedWorld Character typeclass
 
 Implements Mongoose Legend characteristics with Evennia's Traits contrib.
+Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 """
 
 from evennia import DefaultCharacter
@@ -14,12 +15,28 @@ from .objects import ObjectParent
 class Character(ObjectParent, DefaultCharacter):
     """
     PolishedWorld character with Mongoose Legend integration.
+
+    Uses three separate TraitHandlers:
+    - stats: Mongoose Legend characteristics (STR, DEX, CON, SIZ, INT, POW, CHA)
+    - traits: Survival gauges (hunger, thirst, fatigue, health)
+    - skills: Learnable skills using percentile system (0-100%)
     """
 
     @lazy_property
     def stats(self):
         """
         Handler for Mongoose Legend characteristics (Static traits).
+
+        These are the core attributes that define a character's 
+        physical and mental capabilities. Each is calculated as base + mod.
+        
+        - STR (Strength): Physical power
+        - DEX (Dexterity): Agility and reflexes  
+        - CON (Constitution): Health and stamina
+        - SIZ (Size): Physical mass and reach
+        - INT (Intelligence): Reasoning and memory
+        - POW (Power): Willpower and magical potency
+        - CHA (Charisma): Personality and leadership
         """
         return TraitHandler(
             self, 
@@ -31,6 +48,16 @@ class Character(ObjectParent, DefaultCharacter):
     def traits(self):
         """
         Handler for survival traits (Gauge traits with rate support).
+
+        These depletable resources affect character survival and performance.
+        All use the Gauge type which empties from max (base + mod).
+        
+        - hunger: Food need (0=starving, 100=full)
+        - thirst: Water need (0=dehydrated, 100=hydrated)
+        - fatigue: Rest need (0=exhausted, 100=well-rested)
+        - health: Hit points (0=dead, max=CON-based)
+        
+        Supports .rate for automatic changes (e.g., gradual hunger increase).
         """
         return TraitHandler(
             self, 
@@ -42,6 +69,17 @@ class Character(ObjectParent, DefaultCharacter):
     def skills(self):
         """
         Handler for learnable skills (Counter traits).
+
+        Mongoose Legend uses a percentile system where skills range 
+        from 0-100%. Base represents starting skill, current tracks 
+        progress, and mod can apply temporary bonuses/penalties.
+        
+        Skills will be added dynamically as characters learn them.
+        Common skills might include:
+        - Athletics, Stealth, Perception
+        - Combat skills (Swords, Bows, Unarmed, etc.)
+        - Craft skills (Smithing, Carpentry, Cooking, etc.)
+        - Lore skills (Nature, History, Magic, etc.)
         """
         return TraitHandler(
             self, 
@@ -52,6 +90,9 @@ class Character(ObjectParent, DefaultCharacter):
     def at_object_creation(self):
         """
         Called once when character is first created.
+
+        Initializes all Mongoose Legend characteristics with base values,
+        sets up survival traits at full, and prepares skills system.
         """
         super().at_object_creation()
         
@@ -107,6 +148,8 @@ class Character(ObjectParent, DefaultCharacter):
         )
 
         # === SURVIVAL TRAITS ===
+        # Gauges that deplete and can recover with rate
+        # All start at maximum (100) for a fresh, healthy character
         
         self.traits.add(
             "hunger", "Hunger",
@@ -114,6 +157,7 @@ class Character(ObjectParent, DefaultCharacter):
             base=100,
             mod=0,
             min=0,
+            # Rate will be set by game systems (e.g., -0.1 per second = slowly getting hungry)
             rate=0,
             descs={
                 0: "starving",
@@ -162,10 +206,11 @@ class Character(ObjectParent, DefaultCharacter):
         self.traits.add(
             "health", "Health",
             trait_type="gauge",
+            # Base health derived from CON (Mongoose Legend: HP based on CON)
             base=self.stats.con.value * 2,
             mod=0,
             min=0,
-            rate=0,
+            rate=0,  # Natural healing rate can be set later
             descs={
                 0: "dead",
                 10: "near death",
@@ -178,11 +223,15 @@ class Character(ObjectParent, DefaultCharacter):
         )
 
         # === SKILLS ===
+        # Skills start empty and are added as character learns them
+        # Using Counter type allows for base skill + improvements (current)
+        # Example initialization of common starting skills:
         
+        # Basic survival skills everyone starts with
         self.skills.add(
             "perception", "Perception",
             trait_type="counter",
-            base=25,
+            base=25,  # 25% base chance (INT + POW based in Mongoose Legend)
             current=25,
             mod=0,
             min=0,
@@ -200,7 +249,7 @@ class Character(ObjectParent, DefaultCharacter):
         self.skills.add(
             "stealth", "Stealth", 
             trait_type="counter",
-            base=20,
+            base=20,  # DEX + INT based
             current=20,
             mod=0,
             min=0,
@@ -218,7 +267,7 @@ class Character(ObjectParent, DefaultCharacter):
         self.skills.add(
             "athletics", "Athletics",
             trait_type="counter", 
-            base=25,
+            base=25,  # STR + DEX based
             current=25,
             mod=0,
             min=0,
@@ -236,6 +285,7 @@ class Character(ObjectParent, DefaultCharacter):
     def update_health_max(self):
         """
         Helper method to recalculate max health when CON changes.
+        Should be called whenever CON is modified.
         """
         new_max = self.stats.con.value * 2
         current_percent = self.traits.health.percent(formatting=None)
