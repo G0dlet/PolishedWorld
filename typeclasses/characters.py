@@ -1,26 +1,58 @@
 """
-Characters
+PolishedWorld Character typeclass
 
-Characters are (by default) Objects setup to be puppeted by Accounts.
-They are what you "see" in game. The Character class in this module
-is setup to be the "default" character type created by the default
-creation commands.
-
+Implements Mongoose Legend characteristics with Evennia's Traits contrib.
 """
 
-from evennia.objects.objects import DefaultCharacter
+from evennia import DefaultCharacter
+from evennia.utils import lazy_property
+from evennia.contrib.rpg.traits import TraitHandler
 
 from .objects import ObjectParent
 
 
 class Character(ObjectParent, DefaultCharacter):
     """
-    The Character just re-implements some of the Object's methods and hooks
-    to represent a Character entity in-game.
-
-    See mygame/typeclasses/objects.py for a list of
-    properties and methods available on all Object child classes like this.
-
+    PolishedWorld character with Mongoose Legend integration.
     """
 
-    pass
+    @lazy_property
+    def stats(self):
+        """
+        Handler for Mongoose Legend characteristics (Static traits).
+        """
+        return TraitHandler(
+            self, 
+            db_attribute_key="stats",
+            db_attribute_category="stats"
+        )
+    
+    @lazy_property
+    def traits(self):
+        """
+        Handler for survival traits (Gauge traits with rate support).
+        """
+        return TraitHandler(
+            self, 
+            db_attribute_key="traits",
+            db_attribute_category="traits"
+        )
+    
+    @lazy_property
+    def skills(self):
+        """
+        Handler for learnable skills (Counter traits).
+        """
+        return TraitHandler(
+            self, 
+            db_attribute_key="skills",
+            db_attribute_category="skills"
+        )
+    
+    def at_object_creation(self):
+        """
+        Called once when character is first created.
+        """
+        super().at_object_creation()
+        
+        # We'll add traits here in the next commits
