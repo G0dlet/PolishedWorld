@@ -55,4 +55,53 @@ class Character(ObjectParent, DefaultCharacter):
         """
         super().at_object_creation()
         
-        # We'll add traits here in the next commits
+        # === MONGOOSE LEGEND CHARACTERISTICS ===
+        
+        self.stats.add(
+            "str", "Strength",
+            trait_type="static",
+            base=10,
+            mod=0
+        )
+        
+        self.stats.add(
+            "dex", "Dexterity", 
+            trait_type="static",
+            base=10,
+            mod=0
+        )
+        
+        self.stats.add(
+            "con", "Constitution",
+            trait_type="static", 
+            base=10,
+            mod=0
+        )
+        
+        self.stats.add(
+            "siz", "Size",
+            trait_type="static",
+            base=10,
+            mod=0
+        )
+        
+        self.stats.add(
+            "int", "Intelligence",
+            trait_type="static",
+            base=10, 
+            mod=0
+        )
+        
+        self.stats.add(
+            "pow", "Power",
+            trait_type="static",
+            base=10,
+            mod=0
+        )
+        
+        self.stats.add(
+            "cha", "Charisma",
+            trait_type="static",
+            base=10,
+            mod=0
+        )
