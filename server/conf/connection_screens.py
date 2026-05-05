@@ -24,17 +24,17 @@ from django.conf import settings
 
 from evennia import utils
 
-CONNECTION_SCREEN = """
-|b==============================================================|n
- Welcome to |g{}|n, version {}!
+CONNECTION_SCREEN = r"""
+|y
+ ____       _ _     _              _   __        __         _     _ 
+!  _ \ ___ ! (_)___! !__   ___  __! !  \ \      / /__  _ __! ! __! !
+! !_) / _ \! ! / __! '_ \ / _ \/ _` !   \ \ /\ / / _ \! '__! !/ _` !
+!  __/ (_) ! ! \__ \ ! ! !  __/ (_! !    \ V  V / (_) ! !  ! ! (_! !
+!_!   \___/!_!_!___/_! !_!\___!\__,_!     \_/\_/ \___/!_!  !_!\__,_!
+|n
+              |W---|n  |WA frontier survival realm|n  |W---|n
 
- If you have an existing account, connect to it by typing:
-      |wconnect <username> <password>|n
- If you need to create an account, type (without the <>'s):
-      |wcreate <username> <password>|n
-
- If you have spaces in your username, enclose it in quotes.
- Enter |whelp|n for more info. |wlook|n will re-show this screen.
-|b==============================================================|n""".format(
+         |xPowered by Evennia  -  Mongoose Legend d100|n
+""".format(
     settings.SERVERNAME, utils.get_evennia_version("short")
 )

@@ -33,6 +33,8 @@ from evennia.settings_default import *
 
 # This is the name of your game. Make it catchy!
 SERVERNAME = "PolishedWorld"
+CMDSET_UNLOGGEDIN = "evennia.contrib.base_systems.menu_login.UnloggedinCmdSet"
+# CONNECTION_SCREEN_MODULE = "evennia.contrib.base_systems.menu_login.connection_screens"
 
 # ============================================================
 # GAME TIME SYSTEM - 13 Month Fantasy Calendar
