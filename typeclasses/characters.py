@@ -281,6 +281,38 @@ class Character(ObjectParent, DefaultCharacter):
                 95: "mighty"
             }
         )
+
+def at_post_unpuppet(self, account=None, session=None, **kwargs):
+    """
+    Override default: keep character in room as statue instead
+    of removing them from the world. The visual statue presentation
+    is handled by get_display_name and return_appearance overrides.
+    """
+    # Bail if any sessions are still puppeting (multisession scenarios)
+    if self.sessions.count():
+        return
+    
+    # Note: we deliberately do NOT call super() here.
+    # Default behavior would set self.location = None, which would
+    # break the statue logout system.
+    
+    if self.location:
+        self.db.prelogout_location = self.location  # safety, behåll konventionen
+        self.location.msg_contents(
+            f"{self.key}'s body slowly turns to weathered stone, "
+            "their final pose frozen in place.",
+            exclude=[self],
+        )
+
+def at_post_puppet(self, **kwargs):
+    """Broadcast awakening when a player re-takes control."""
+    super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
+    if self.location:
+        self.location.msg_contents(
+            f"The stone form of {self.key} stirs, color flowing back "
+            "into their flesh as they draw breath.",
+            exclude=[self],
+        )
       
 # === Display & Appearance ===
 
