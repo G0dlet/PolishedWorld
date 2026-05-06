@@ -293,6 +293,19 @@ def get_display_name(self, looker=None, **kwargs):
         return f"|wstone statue of {base_name}|n"
     return base_name
 
+def return_appearance(self, looker, **kwargs):
+    """
+    Statue description instead of character description in statue state.
+    """
+    if self.is_statue:
+        return (
+            f"|wA weathered stone statue depicting {self.key}.|n\n"
+            "The carved figure stands silent and unmoving, "
+            "its features captured in fine detail. "
+            "It seems to be waiting."
+        )
+    return super().return_appearance(looker, **kwargs)
+
     # === Properties ===
     
     @property
