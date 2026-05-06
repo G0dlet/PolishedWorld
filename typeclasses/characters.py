@@ -282,6 +282,17 @@ class Character(ObjectParent, DefaultCharacter):
             }
         )
       
+# === Display & Appearance ===
+
+def get_display_name(self, looker=None, **kwargs):
+    """
+    Show 'stone statue of X' in room listings when in statue state.
+    """
+    base_name = super().get_display_name(looker=looker, **kwargs)
+    if self.is_statue:
+        return f"|wstone statue of {base_name}|n"
+    return base_name
+
     # === Properties ===
     
     @property
