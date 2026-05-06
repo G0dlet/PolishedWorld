@@ -192,6 +192,46 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
 
         return name
 
+    def get_display_characters(self, looker, **kwargs):    # ← NY
+        """
+        Override: exclude statue-state characters from the Characters list.
+        They are rendered under 'You see:' via get_display_things instead.
+        """
+        characters = [
+            obj for obj in self.contents_get(content_type="character")
+            if obj != looker
+            and obj.access(looker, "view")
+            and not getattr(obj, "is_statue", False)
+        ]
+        if not characters:
+            return ""
+        names = ", ".join(c.get_display_name(looker, **kwargs) for c in characters)
+        return f"\n|wCharacters:|n {names}"
+
+    def get_display_things(self, looker, **kwargs):        # ← NY
+        """
+        Override: append statue-state characters to the 'You see:' line
+        so they appear as objects rather than characters.
+        """
+        base = super().get_display_things(looker, **kwargs)
+        
+        statues = [
+            obj for obj in self.contents_get(content_type="character")
+            if obj != looker
+            and obj.access(looker, "view")
+            and getattr(obj, "is_statue", False)
+        ]
+        if not statues:
+            return base
+        
+        statue_names = ", ".join(
+            s.get_display_name(looker, **kwargs) for s in statues
+        )
+        
+        if base:
+            return f"{base}, {statue_names}"
+        return f"\n|wYou see:|n {statue_names}"
+
     def at_object_creation(self):
         """
         Called when room is first created.

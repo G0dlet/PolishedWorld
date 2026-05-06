@@ -281,7 +281,73 @@ class Character(ObjectParent, DefaultCharacter):
                 95: "mighty"
             }
         )
+
+    def at_post_unpuppet(self, account=None, session=None, **kwargs):
+        """
+        Override default: keep character in room as statue instead
+        of removing them from the world. The visual statue presentation
+        is handled by get_display_name and return_appearance overrides.
+        """
+        # Bail if any sessions are still puppeting (multisession scenarios)
+        if self.sessions.count():
+            return
+    
+        # Note: we deliberately do NOT call super() here.
+        # Default behavior would set self.location = None, which would
+        # break the statue logout system.
+    
+        if self.location:
+            self.db.prelogout_location = self.location  # safety, behåll konventionen
+            self.location.msg_contents(
+                f"{self.key}'s body slowly turns to weathered stone, "
+                "their final pose frozen in place.",
+                exclude=[self],
+            )
+
+    def at_post_puppet(self, **kwargs):
+        """Broadcast awakening when a player re-takes control."""
+        super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
+        if self.location:
+            self.location.msg_contents(
+                f"The stone form of {self.key} stirs, color flowing back "
+                "into their flesh as they draw breath.",
+                exclude=[self],
+            )
       
+    # === Display & Appearance ===
+
+    def get_display_name(self, looker=None, **kwargs):
+        """
+        Show 'stone statue of X' in room listings when in statue state.
+        """
+        base_name = super().get_display_name(looker=looker, **kwargs)
+        if self.is_statue:
+            return f"|wstone statue of {base_name}|n"
+        return base_name
+
+    def return_appearance(self, looker, **kwargs):
+        """
+        Statue description instead of character description in statue state.
+        """
+        if self.is_statue:
+            return (
+                f"|wA weathered stone statue depicting {self.key}.|n\n"
+                "The carved figure stands silent and unmoving, "
+                "its features captured in fine detail. "
+                "It seems to be waiting."
+            )
+        return super().return_appearance(looker, **kwargs)
+
+    # === Properties ===
+    
+    @property
+    def is_statue(self):
+        """
+        True when no account is currently puppeting this character.
+        Used by display/appearance overrides for the statue logout system.
+        """
+        return not self.has_account
+
     def update_health_max(self):
         """
         Helper method to recalculate max health when CON changes.
