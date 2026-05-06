@@ -282,6 +282,16 @@ class Character(ObjectParent, DefaultCharacter):
             }
         )
       
+    # === Properties ===
+    
+    @property
+    def is_statue(self):
+        """
+        True when no account is currently puppeting this character.
+        Used by display/appearance overrides for the statue logout system.
+        """
+        return not self.has_account
+
     def update_health_max(self):
         """
         Helper method to recalculate max health when CON changes.
@@ -292,13 +302,3 @@ class Character(ObjectParent, DefaultCharacter):
         
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
-
-    # === Properties ===
-    
-    @property
-    def is_statue(self):
-        """
-        True when no account is currently puppeting this character.
-        Used by display/appearance overrides for the statue logout system.
-        """
-        return not self.has_account
