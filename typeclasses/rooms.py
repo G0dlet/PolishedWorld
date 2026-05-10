@@ -5,10 +5,17 @@ Rooms are simple containers that has no location of their own.
 
 Extended Room Integration:
 - Supports 13-month fantasy calendar with custom seasons
-- 24-hour day/night cycle with 8 time-of-day periods
+- 24-hour day/night cycle with 7 time-of-day periods
 - State-based room descriptions (weather, events, etc)
 - Room details (virtual lookable objects)
 - Random room echoes
+
+Time/Season detection:
+    All time-of-day and season queries delegate to
+    world/gametime_utils.py, which is the single source of truth
+    for in-game time. ExtendedRoom's built-in detection assumes a
+    12-month real-world calendar and would break on our 13-month
+    year, so we override get_time_of_day() and get_season() below.
 
 Season Mapping (matches settings.py):
 - Spring (84 days): Frostmelt, Greenrise, Bloomtide
@@ -16,8 +23,8 @@ Season Mapping (matches settings.py):
 - Autumn (84 days): Leaffall, Emberwind, Darkening
 - Winter (84 days): Frosthold, Deepsnow, Icewane
 
-Time of Day (8 periods for granular control):
-- Night: 00:00 - 04:00, 20:00 - 24:00
+Time of Day (7 periods, defined canonically in world/gametime_utils.py):
+- Night: 20:00 - 04:00 (wraps midnight)
 - Dawn: 04:00 - 06:00
 - Morning: 06:00 - 09:00
 - Day: 09:00 - 12:00
@@ -39,6 +46,8 @@ from evennia.objects.objects import DefaultRoom
 from evennia.contrib.grid.extended_room import ExtendedRoom
 
 from .objects import ObjectParent
+
+from world import gametime_utils
 
 
 class Room(ObjectParent, ExtendedRoom, DefaultRoom):
@@ -131,19 +140,58 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         "winter": (280 / 364, 1.0),  # Days 281-364 (Months 11-13)
     }
 
-    # Time of day definitions as fractions of the day (0.0 - 1.0)
-    # 8 periods for granular control over descriptions
-    # Note: 'night' uses list of tuples to cover two ranges
+    # Time of day definitions, kept here for ExtendedRoom compatibility
+    # (e.g. so the @desc command recognizes these period names).
+    # The CANONICAL detection logic lives in world/gametime_utils.py;
+    # see get_time_of_day() override below.
+    #
+    # 7 periods. `night` wraps midnight (20:00-04:00) but ExtendedRoom
+    # expects a single (start, end) tuple per key, so we list the
+    # 20:00-24:00 portion here as a placeholder. The full wrapping
+    # range is implemented in gametime_utils.TIMES_OF_DAY.
     times_of_day = {
-        "night_early": (0.0, 0.167),  # 00:00-04:00
-        "dawn": (0.167, 0.25),  # 04:00-06:00
-        "morning": (0.25, 0.375),  # 06:00-09:00
-        "day": (0.375, 0.5),  # 09:00-12:00
-        "afternoon": (0.5, 0.625),  # 12:00-15:00
-        "evening": (0.625, 0.75),  # 15:00-18:00
-        "dusk": (0.75, 0.833),  # 18:00-20:00
-        "night_late": (0.833, 1.0),  # 20:00-24:00
+        "night":     (20 / 24, 1.0),    # placeholder; full range wraps
+        "dawn":      (4 / 24, 6 / 24),  # 04:00-06:00
+        "morning":   (6 / 24, 9 / 24),  # 06:00-09:00
+        "day":       (9 / 24, 12 / 24), # 09:00-12:00
+        "afternoon": (12 / 24, 15 / 24),# 12:00-15:00
+        "evening":   (15 / 24, 18 / 24),# 15:00-18:00
+        "dusk":      (18 / 24, 20 / 24),# 18:00-20:00
     }
+
+    # ============================================================
+    # Time/Season Overrides — delegate to world/gametime_utils
+    # ============================================================
+    # ExtendedRoom's default get_time_of_day() and get_season() use
+    # evennia.utils.gametime + datetime.fromtimestamp, which assumes
+    # a 12-month real-world calendar and breaks on our 13-month year
+    # (datetime cannot represent month=13).
+    #
+    # We override both to delegate to gametime_utils, which wraps
+    # custom_gametime() and applies our calendar conventions.
+
+    def get_time_of_day(self):
+        """
+        Return the current time-of-day period name as a string.
+
+        One of: 'night', 'dawn', 'morning', 'day',
+        'afternoon', 'evening', 'dusk'.
+
+        Used by ExtendedRoom for selecting time-based descriptions
+        (e.g. desc_morning, $timeofday(night, ...) tags).
+        """
+        return gametime_utils.get_time_of_day()
+
+    def get_season(self):
+        """
+        Return the current season name as a string.
+
+        One of: 'spring', 'summer', 'autumn', 'winter'.
+
+        Used by ExtendedRoom for selecting seasonal descriptions
+        (e.g. desc_winter, $state(summer, ...) tags).
+        """
+        return gametime_utils.get_season()
 
     # ============================================================
     # Room Helper Methods
