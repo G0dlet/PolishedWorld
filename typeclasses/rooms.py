@@ -193,6 +193,53 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         """
         return gametime_utils.get_season()
 
+    @property
+    def room_states(self):
+        """
+        Override: dynamically include the current time-of-day and
+        season alongside manually-set room_state tags.
+
+        Why this exists:
+            ExtendedRoom's get_stateful_desc() and $state() FuncParser
+            both check self.room_states (tag-based). The contrib does
+            NOT automatically tag rooms with the current time-of-day;
+            it only consults get_season() as a fallback in Stage 3 of
+            the priority chain. That means desc_morning, desc_night,
+            etc. never fire unless something has set the tag manually.
+
+            We inject the current period auto-detected via our
+            gametime_utils overrides, so descriptions and $state()
+            fragments work without requiring a global ticker to write
+            tags into the database every period.
+
+        Behavior:
+            - Time-of-day is auto-added unless one is already pinned
+              manually (via `roomstate dawn` etc.). Manual wins.
+            - Season is auto-added unless one is already pinned
+              manually. Manual wins.
+            - Custom states (raining, flooded, etc.) are unaffected.
+
+        Returns:
+            list: sorted state names (parent's tags + auto-detected).
+        """
+        states = list(super().room_states)
+        times = set(self.times_of_day.keys())
+        seasons = set(self.seasons_per_year.keys())
+
+        # Inject current time-of-day if no time is manually pinned
+        if not any(s in times for s in states):
+            current_time = self.get_time_of_day()
+            if current_time:
+                states.append(current_time)
+
+        # Inject current season if no season is manually pinned
+        if not any(s in seasons for s in states):
+            current_season = self.get_season()
+            if current_season:
+                states.append(current_season)
+
+        return states
+
     # ============================================================
     # Room Helper Methods
     # ============================================================
