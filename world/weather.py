@@ -81,3 +81,11 @@ def broadcast_weather_change(new_state):
         if char and char.id not in seen:
             seen.add(char.id)
             char.msg(message)
+
+def get_current_weather():
+    """Return the global current weather, or 'clear' if unavailable."""
+    from evennia import GLOBAL_SCRIPTS
+    try:
+        return GLOBAL_SCRIPTS.weather.db.current_weather or "clear"
+    except Exception:
+        return "clear"
