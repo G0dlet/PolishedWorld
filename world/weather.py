@@ -56,3 +56,28 @@ def roll_weather(season, current=None):
     """
     allowed = SEASON_ALLOWED_WEATHER.get(season, WEATHER_STATES)
     return random.choice(allowed)
+
+def broadcast_weather_change(new_state):
+    """
+    Send the transition message for `new_state` to every online character.
+
+    Deduped by character (multi-session players get one message). Global by
+    design — weather is world-wide.
+
+    KNOWN LIMITATION (deferred): players in indoor rooms also see this
+    ("Rain begins to fall" in a cellar). Fix later with a room.is_outdoor
+    flag guarding the per-character send. Out of MVP scope.
+    """
+    message = WEATHER_MESSAGES.get(new_state)
+    if not message:
+        return
+    # Imported here so this module stays import-light and Evennia-optional
+    # for the pure-logic tests in Task 1.1.
+    from evennia.server.sessionhandler import SESSIONS
+
+    seen = set()
+    for sess in SESSIONS.get_sessions():
+        char = sess.puppet
+        if char and char.id not in seen:
+            seen.add(char.id)
+            char.msg(message)

@@ -138,6 +138,6 @@ class WeatherScript(Script):
             if new != old:
                 self.db.previous_weather = old
                 self.db.current_weather = new
-                # Broadcast wired in Task 1.3.
+                weather_logic.broadcast_weather_change(new)
         except Exception:
             logger.log_trace()
