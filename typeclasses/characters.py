@@ -8,6 +8,7 @@ Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 from evennia import DefaultCharacter
 from evennia.utils import lazy_property
 from evennia.contrib.rpg.traits import TraitHandler
+from evennia.contrib.rpg.buffs import BuffHandler
 
 from .objects import ObjectParent
 
@@ -87,6 +88,18 @@ class Character(ObjectParent, DefaultCharacter):
             db_attribute_category="skills"
         )
     
+    @lazy_property
+    def buffs(self):
+        """
+        Handler for temporary effects (Evennia buffs contrib).
+
+        Carries survival rate-modifiers (e.g. hot/cold environment scaling
+        hunger/thirst depletion) and condition markers (starving, dehydrated).
+        Default dbkey "buffs" does not collide with the stats/traits/skills
+        handlers, which use their own namespaced db attributes.
+        """
+        return BuffHandler(self)
+
     def at_object_creation(self):
         """
         Called once when character is first created.
