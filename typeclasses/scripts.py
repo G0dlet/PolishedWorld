@@ -13,6 +13,9 @@ just overloads its hooks to have it perform its function.
 """
 
 from evennia.scripts.scripts import DefaultScript
+from evennia.utils import logger
+from world import gametime_utils
+from world import weather as weather_logic
 
 
 class Script(DefaultScript):
@@ -101,3 +104,40 @@ class Script(DefaultScript):
     """
 
     pass
+
+
+class WeatherScript(Script):
+    """
+    Global weather system. Registered via settings.GLOBAL_SCRIPTS, so it
+    is auto-created on first server start and re-created if ever deleted.
+
+    State (persistent Attributes):
+        db.current_weather  (str): the active global weather state.
+        db.previous_weather (str): the state before the last change.
+
+    This is a *global* script (not attached to an object), so self.obj is
+    None — we never use self.obj.msg_contents. Broadcasting is added in
+    Task 1.3.
+    """
+
+    def at_script_creation(self):
+        self.key = "weather"
+        self.desc = "Global weather system"
+        # interval / persistent / repeats come from GLOBAL_SCRIPTS settings,
+        # which are authoritative; we only seed initial state here.
+        if self.db.current_weather is None:
+            self.db.current_weather = "clear"
+            self.db.previous_weather = "clear"
+
+    def at_repeat(self):
+        """Called every `interval` real seconds while the timer runs."""
+        try:
+            season = gametime_utils.get_season()
+            old = self.db.current_weather
+            new = weather_logic.roll_weather(season, current=old)
+            if new != old:
+                self.db.previous_weather = old
+                self.db.current_weather = new
+                weather_logic.broadcast_weather_change(new)
+        except Exception:
+            logger.log_trace()

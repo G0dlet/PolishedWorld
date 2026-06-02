@@ -48,6 +48,7 @@ from evennia.contrib.grid.extended_room import ExtendedRoom
 from .objects import ObjectParent
 
 from world import gametime_utils
+from world import weather as weather_logic
 
 
 class Room(ObjectParent, ExtendedRoom, DefaultRoom):
@@ -237,6 +238,16 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
             current_season = self.get_season()
             if current_season:
                 states.append(current_season)
+
+        # Inject global weather unless a weather state is manually pinned
+        # (microclimate override — e.g. a swamp pinned 'foggy' ignores the
+        # global weather). 'clear' is never injected: clear weather = the
+        # room's normal desc, no fragment.
+        weathers = set(weather_logic.WEATHER_STATES)
+        if not any(s in weathers for s in states):
+            current_weather = weather_logic.get_current_weather()
+            if current_weather and current_weather != "clear":
+                states.append(current_weather)
 
         return states
 

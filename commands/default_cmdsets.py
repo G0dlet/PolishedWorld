@@ -17,6 +17,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 from evennia import default_cmds
 from evennia.contrib.grid import extended_room
 from commands import character_commands
+from commands.admin_commands import CmdWeather
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -43,6 +44,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
 
         # Extended Room commands for seasonal/time-based room descriptions
         self.add(extended_room.ExtendedRoomCmdSet)
+
+        self.add(CmdWeather())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

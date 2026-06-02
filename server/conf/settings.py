@@ -86,6 +86,23 @@ SEASON_MONTHS = {
     "autumn": [8, 9, 10],          # 84 days, 12 weeks
     "winter": [11, 12, 13],        # 84 days, 12 weeks
 }
+
+# Global weather system.
+# interval 1800s = 30 real-min = 2 game-hours @ TIME_FACTOR 4.
+# Bump interval if weather feels too twitchy (3600 = 4 game-hours is calmer).
+# start_delay=True: keep the seeded 'clear' for the first cycle instead of
+# rolling the instant the script is first created.
+GLOBAL_SCRIPTS = {
+    "weather": {
+        "typeclass": "typeclasses.scripts.WeatherScript",
+        "interval": 1800,
+        "repeats": -1,
+        "persistent": True,
+        "start_delay": True,
+        "desc": "Global weather system",
+    },
+}
+
 ######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
