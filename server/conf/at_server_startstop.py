@@ -16,7 +16,12 @@ at_server_cold_start()
 at_server_cold_stop()
 
 """
+from evennia import TICKER_HANDLER
+from world.survival_ticker import deplete_all_survival_traits
 
+# Survival depletion ticker interval (seconds).
+# 10s during dev for fast feedback; set to 600 before merging to main.
+SURVIVAL_TICK_INTERVAL = 10   # TODO: 600 before merge
 
 def at_server_init():
     """
@@ -30,7 +35,15 @@ def at_server_start():
     This is called every time the server starts up, regardless of
     how it was shut down.
     """
-    pass
+    # Survival depletion ticker. Re-adding with the same
+    # interval+callback+idstring is idempotent (overwrites in place),
+    # so running this on every start is safe.
+    TICKER_HANDLER.add(
+        interval=SURVIVAL_TICK_INTERVAL,
+        callback=deplete_all_survival_traits,
+        idstring="survival",
+        persistent=True,
+    )
 
 
 def at_server_stop():
