@@ -11,12 +11,27 @@ This task (1.2) only enumerates + logs; depletion lands in Task 2.1.
 
 from evennia import SESSION_HANDLER
 from evennia.utils import logger
+from world.survival_buffs import Starving, Dehydrated
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
 # starvation in days). Fatigue slowest — most of its pressure comes later
 # from activity, not idle time.
 BASE_RATES = {"hunger": 1, "thirst": 2, "fatigue": 1}
+
+# HP lost per tick while a starvation/dehydration condition is active.
+# Integer on purpose: health.base is an int (con*2), so a fractional value
+# would risk the same round()-to-even "stuck" behavior we hit with fatigue.
+STARVE_DAMAGE = 1
+
+# (gauge key, condition buff) pairs that damage health at zero.
+# Fatigue is deliberately absent: in Legend, exhaustion is unconsciousness /
+# skill penalties, not location damage. Fatigue consequences are deferred to
+# the skill-check resolver.
+HEALTH_CONDITIONS = (
+    ("hunger", Starving),
+    ("thirst", Dehydrated),
+)
 
 def deplete_all_survival_traits():
     """
@@ -40,14 +55,38 @@ def deplete_all_survival_traits():
 
 
 def _deplete_character(char):
-    """Deplete one character's survival gauges, then check for worsening warnings."""
+    """Deplete gauges, apply zero-conditions, then check warnings."""
     for key, base in BASE_RATES.items():
         trait = char.traits.get(key)
         if trait is None:
             continue
         rate = char.buffs.check(base, f"{key}_rate")
         trait.current -= rate
+    _apply_survival_conditions(char)
     _check_survival_warnings(char)
+
+
+def _apply_survival_conditions(char):
+    """
+    Apply or clear starvation/dehydration conditions and damage health.
+
+    At gauge minimum: ensure the condition buff is present (at_apply fires its
+    onset message once, thanks to the has() guard) and subtract HP. Above
+    minimum: remove() the condition by key — safe to call every tick, it
+    no-ops if absent and only fires at_remove the tick it actually clears.
+    """
+    health = char.traits.get("health")
+    for key, buffclass in HEALTH_CONDITIONS:
+        trait = char.traits.get(key)
+        if trait is None:
+            continue
+        if trait.current <= trait.min:
+            if not char.buffs.has(buffclass):
+                char.buffs.add(buffclass)
+            if health is not None:
+                health.current -= STARVE_DAMAGE
+        else:
+            char.buffs.remove(buffclass.key)
 
 
 def _check_survival_warnings(char):
