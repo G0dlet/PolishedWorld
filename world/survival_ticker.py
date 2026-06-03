@@ -40,16 +40,60 @@ def deplete_all_survival_traits():
 
 
 def _deplete_character(char):
-    """
-    Deplete one character's hunger/thirst/fatigue by the buff-modified
-    base rate. Separated from the loop for readability and so it can be
-    called directly on a single character in @py tests.
-    """
+    """Deplete one character's survival gauges, then check for worsening warnings."""
     for key, base in BASE_RATES.items():
         trait = char.traits.get(key)
         if trait is None:
-            # Defensive: a character missing a survival gauge shouldn't
-            # crash the whole tick for everyone else.
             continue
         rate = char.buffs.check(base, f"{key}_rate")
         trait.current -= rate
+    _check_survival_warnings(char)
+
+
+def _check_survival_warnings(char):
+    """
+    Message the character only when a gauge drops into a *worse* descs bucket.
+
+    Previous bucket indices are tracked in non-persistent char.ndb, so this
+    costs no DB writes and resets harmlessly on reload (baseline re-established
+    silently on the next tick). Recovery messages are handled by the eat/drink/
+    rest commands, not here.
+    """
+    last = char.ndb.survival_buckets
+    if last is None:
+        last = {}
+
+    for key in BASE_RATES:
+        trait = char.traits.get(key)
+        if trait is None:
+            continue
+        idx = _bucket_index(trait)
+        if idx is None:
+            continue
+        prev = last.get(key)
+        if prev is not None and idx < prev:
+            # dropped into a worse bucket -> warn
+            char.msg(f"|yYou feel {trait.desc()}.|n")
+        last[key] = idx
+
+    char.ndb.survival_buckets = last
+
+def _bucket_index(trait):
+    """
+    Return the index of the descs bucket the trait's value currently falls in.
+
+    Mirrors GaugeTrait.desc(): descs is an ordered {upper_bound_inclusive: text}
+    map, small->big. The first bucket (lowest bound) is the *worst* state, so a
+    lower index means a worse condition. Returns None if the trait has no descs.
+
+    Indexing by position (not by label string) avoids ambiguity if two buckets
+    ever share the same label.
+    """
+    descs = trait.descs
+    if not descs:
+        return None
+    value = trait.value
+    for i, bound in enumerate(descs.keys()):
+        if value <= bound:
+            return i
+    return len(descs) - 1   # above the highest bound = best/last bucket
