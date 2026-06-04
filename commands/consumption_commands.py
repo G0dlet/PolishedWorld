@@ -86,3 +86,24 @@ class CmdDrink(Command):
         caller.msg(obj.consume_message.format(key=obj.get_display_name(caller)))
         if obj.is_empty():
             caller.msg(f"{obj.get_display_name(caller)} runs dry.")
+
+
+class CmdRest(Command):
+    """
+    Rest to recover fatigue over time.
+
+    Usage:
+      rest
+
+    Begin resting. Use 'rest' again, or move, to stop.
+    """
+
+    key = "rest"
+    help_category = "survival"
+
+    def func(self):
+        caller = self.caller
+        if caller.ndb.resting:
+            caller.stop_resting()
+            return
+        caller.start_resting()
