@@ -18,6 +18,7 @@ from evennia import default_cmds
 from evennia.contrib.grid import extended_room
 from commands import character_commands
 from commands.admin_commands import CmdWeather
+from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -46,6 +47,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(extended_room.ExtendedRoomCmdSet)
 
         self.add(CmdWeather())
+
+        self.add(CmdEat())
+        self.add(CmdDrink())
+        self.add(CmdRest())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

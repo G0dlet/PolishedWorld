@@ -7,7 +7,9 @@ Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 
 from evennia import DefaultCharacter
 from evennia.utils import lazy_property
+from evennia.utils.utils import delay
 from evennia.contrib.rpg.traits import TraitHandler
+from evennia.contrib.rpg.buffs import BuffHandler
 
 from .objects import ObjectParent
 
@@ -87,6 +89,18 @@ class Character(ObjectParent, DefaultCharacter):
             db_attribute_category="skills"
         )
     
+    @lazy_property
+    def buffs(self):
+        """
+        Handler for temporary effects (Evennia buffs contrib).
+
+        Carries survival rate-modifiers (e.g. hot/cold environment scaling
+        hunger/thirst depletion) and condition markers (starving, dehydrated).
+        Default dbkey "buffs" does not collide with the stats/traits/skills
+        handlers, which use their own namespaced db attributes.
+        """
+        return BuffHandler(self)
+
     def at_object_creation(self):
         """
         Called once when character is first created.
@@ -358,3 +372,64 @@ class Character(ObjectParent, DefaultCharacter):
         
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
+
+    # --- Rest / fatigue recovery ---
+    rest_interval = 10    # seconds between recovery ticks (lower during dev)
+    rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
+
+    def start_resting(self):
+        """Begin resting. Schedules the first recovery tick."""
+        fatigue = self.traits.get("fatigue")
+        if fatigue is None:
+            return
+        if fatigue.current >= fatigue.max:
+            self.msg("You are not tired.")
+            return
+        self.ndb.resting = True
+        self.msg("You settle down to rest.")
+        if self.location:
+            self.location.msg_contents(
+                f"{self.key} settles down to rest.", exclude=self
+            )
+        delay(self.rest_interval, self._rest_tick)
+
+    def stop_resting(self, reason="You stop resting."):
+        """Stop resting (no-op if not resting). Safe to call from anywhere."""
+        if not self.ndb.resting:
+            return
+        self.ndb.resting = False
+        self.msg(reason)
+        if self.location:
+            self.location.msg_contents(f"{self.key} gets up.", exclude=self)
+
+    def _rest_tick(self):
+        """
+        One recovery step. Reschedules itself while resting continues.
+
+        Stops (without rescheduling) if resting was cancelled, the character
+        is no longer actively puppeted (offline-safe via has_account), or the
+        fatigue gauge is full.
+        """
+        if not self.ndb.resting or not self.has_account:
+            self.ndb.resting = False
+            return
+        fatigue = self.traits.get("fatigue")
+        if fatigue is None:
+            self.ndb.resting = False
+            return
+        fatigue.current += self.rest_recovery   # auto-clamps to max
+        if fatigue.current >= fatigue.max:
+            self.ndb.resting = False
+            self.msg("You feel fully rested.")
+            if self.location:
+                self.location.msg_contents(
+                    f"{self.key} gets up, looking refreshed.", exclude=self
+                )
+            return
+        delay(self.rest_interval, self._rest_tick)   # reschedule
+
+    def at_pre_move(self, destination, move_type="move", **kwargs):
+        """Interrupt resting when moving, but allow the move itself."""
+        if self.ndb.resting:
+            self.stop_resting("You get up, interrupting your rest.")
+        return super().at_pre_move(destination, move_type=move_type, **kwargs)
