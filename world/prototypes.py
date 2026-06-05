@@ -88,3 +88,27 @@ See the `spawn` command and `evennia.prototypes.spawner.spawn` for more info.
 # "key": "goblin archwizard",
 # "prototype_parent" : ("GOBLIN_WIZARD", "ARCHWIZARD_MIXIN")
 # }
+
+# --- Foraging: berries & berry bush ---
+
+BERRIES = {
+    "prototype_key": "berries",
+    "typeclass": "typeclasses.consumables.Food",
+    "key": "handful of berries",
+    "desc": "A small handful of wild berries, tart and faintly sweet.",
+    "restore_amount": 10,
+    "consume_message": "You eat the berries. Tart, but they take the edge off your hunger.",
+}
+
+BERRY_BUSH = {
+    "prototype_key": "berry_bush",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "berry bush",
+    "aliases": ["bush"],
+    "desc": "A low, tangled bush, its branches dotted with small wild berries.",
+    "resource_type": "berries",
+    "max_yield": 5,
+    "regen_interval": 3600,        # game-seconds per berry (see note)
+    "available": 5,
+    "yield_prototype": "berries",  # must equal BERRIES' prototype_key
+}
