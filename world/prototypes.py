@@ -112,3 +112,13 @@ BERRY_BUSH = {
     "available": 5,
     "yield_prototype": "berries",  # must equal BERRIES' prototype_key
 }
+
+SPRING = {
+    "prototype_key": "spring",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "natural spring",
+    "aliases": ["spring", "water"],
+    "desc": "Cold, clear water wells up from between mossy stones and trickles away downhill.",
+    "resource_type": "water",
+    "is_water_source": True,
+}
