@@ -117,3 +117,33 @@ class ResourceNode(Object):
         if taken > 0:
             self.available -= taken
         return taken
+
+    # ------------------------------------------------------------------
+    # Player-facing appearance (read-only)
+    # ------------------------------------------------------------------
+
+    def _availability_phrase(self):
+        """An immersive, number-free line about current stock.
+
+        Deliberately vague: players read the world, not a spreadsheet.
+        Uses get_available() (persist=False) — looking never writes.
+        """
+        if self.is_water_source:
+            return "Clear water flows here, free for the taking."
+        available = self.get_available()
+        max_yield = self.max_yield
+        resource = self.resource_type
+        if available <= 0:
+            return f"It has been picked clean; no {resource} remain for now."
+        ratio = available / max_yield if max_yield else 0
+        if ratio <= 1 / 3:
+            return f"Only a few {resource} are left to gather."
+        if ratio <= 2 / 3:
+            return f"There are some {resource} here to gather."
+        return f"It is heavy with {resource}, ripe for the gathering."
+
+    def get_display_desc(self, looker, **kwargs):
+        """Base description plus a live availability line. No DB write."""
+        base = super().get_display_desc(looker, **kwargs)
+        phrase = self._availability_phrase()
+        return f"{base}\n\n{phrase}" if base else phrase
