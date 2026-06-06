@@ -10,6 +10,7 @@ from evennia.utils import lazy_property
 from evennia.utils.utils import delay
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.rpg.buffs import BuffHandler
+from evennia.contrib.game_systems.cooldowns import CooldownHandler
 
 from .objects import ObjectParent
 
@@ -100,6 +101,10 @@ class Character(ObjectParent, DefaultCharacter):
         handlers, which use their own namespaced db attributes.
         """
         return BuffHandler(self)
+
+    @lazy_property
+    def cooldowns(self):
+        return CooldownHandler(self, db_attribute="cooldowns")
 
     def at_object_creation(self):
         """
