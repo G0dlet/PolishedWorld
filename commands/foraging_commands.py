@@ -90,3 +90,61 @@ class CmdForage(Command):
             f"{caller.get_display_name()} forages from the {node.get_display_name()}.",
             exclude=caller,
         )
+
+
+class CmdRefill(Command):
+    """
+    Refill a drink container from a nearby water source.
+
+    Usage:
+        refill <container>
+
+    If you are at a spring, stream or other source of water, tops up a
+    refillable container you are carrying (a waterskin, for instance) to full.
+    """
+
+    key = "refill"
+    aliases = ["fill"]
+    locks = "cmd:all()"
+    help_category = "Survival"
+
+    def func(self):
+        caller = self.caller
+
+        # 1. Need a water source present in the room.
+        has_water = any(
+            o.is_water_source
+            for o in caller.location.contents
+            if o.is_typeclass("typeclasses.resources.ResourceNode", exact=False)
+        )
+        if not has_water:
+            caller.msg("There is no water source here to refill from.")
+            return
+
+        # 2. Which container? Must be named and carried.
+        target = self.args.strip()
+        if not target:
+            caller.msg("Refill what?")
+            return
+        container = caller.search(target, candidates=caller.contents)
+        if not container:
+            return  # search() already messaged the caller
+
+        # 3. Validate: a refillable Drink.
+        if not container.is_typeclass("typeclasses.consumables.Drink", exact=False):
+            caller.msg(f"You can't fill the {container.get_display_name(caller)} with water.")
+            return
+        if not container.refillable:
+            caller.msg(f"The {container.get_display_name(caller)} can't be refilled.")
+            return
+
+        # 4. Refill. refill() returns False if it was already full.
+        if not container.refill():
+            caller.msg(f"The {container.get_display_name(caller)} is already full.")
+            return
+
+        caller.msg(f"You fill the {container.get_display_name(caller)} with cool, clear water.")
+        caller.location.msg_contents(
+            f"{caller.get_display_name()} refills the {container.get_display_name()} at the water's edge.",
+            exclude=caller,
+        )
