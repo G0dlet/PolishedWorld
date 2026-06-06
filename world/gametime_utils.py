@@ -36,6 +36,7 @@ Public API:
 
 from django.conf import settings
 from evennia.contrib.base_systems import custom_gametime as _cgt
+from evennia.utils import gametime
 
 
 # ----------------------------------------------------------------------
@@ -83,6 +84,34 @@ def get_current_time():
         "month_display": month + 1,
         "day_of_month_display": week * 7 + day + 1,
     }
+
+def get_absolute_gametime() -> int:
+    """
+    Return the absolute in-game time as an integer number of seconds.
+
+    This is the single source of truth for any system that needs a
+    monotonic timestamp to diff against (e.g. ResourceNode lazy
+    regeneration, corpse decay). It wraps Evennia's core
+    ``gametime.gametime(absolute=True)``, which returns
+    ``game_epoch + (runtime - offset) * TIME_FACTOR`` as a float.
+
+    We truncate to ``int`` because:
+      * all our gauge/regen math is integer (your verified GaugeTrait
+        rounding lesson), and
+      * sub-second precision is meaningless when regen intervals are
+        measured in thousands of game-seconds.
+
+    Returns:
+        int: Absolute game-time in seconds. Monotonically increasing and
+        stable across server reloads.
+
+    Note:
+        This deliberately does NOT swallow exceptions. If the time
+        backend is broken, propagating is far safer than returning a
+        bogus 0 — a 0 timestamp would make a node believe an eternity
+        had passed and instantly refill to max on the next access.
+    """
+    return int(gametime.gametime(absolute=True))
 
 
 # ----------------------------------------------------------------------
