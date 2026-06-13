@@ -122,3 +122,29 @@ SPRING = {
     "resource_type": "water",
     "is_water_source": True,
 }
+
+PLANT_FIBER = {
+    "prototype_key": "plant_fiber",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "plant fiber",
+    "aliases": ["fiber"],
+    "desc": (
+        "A loose bundle of tough, stringy fibres stripped from a fibrous "
+        "plant. Twisted together, they could be worked into cordage."
+    ),
+    # The crafting contrib matches consumables by tag key within the
+    # 'crafting_material' category. "fiber" is what recipes will list.
+    "tags": [("fiber", "crafting_material")],
+}
+
+RAW_GOURD = {
+    "prototype_key": "raw_gourd",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "gourd",
+    "aliases": ["raw gourd"],
+    "desc": (
+        "A hard-shelled gourd, light and hollow once dried. Fitted with a "
+        "strap and a stopper, it could be made to hold water."
+    ),
+    "tags": [("gourd", "crafting_material")],
+}
