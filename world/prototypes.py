@@ -148,3 +148,29 @@ RAW_GOURD = {
     ),
     "tags": [("gourd", "crafting_material")],
 }
+
+FIBER_PLANT = {
+    "prototype_key": "fiber_plant",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "fibrous plant",
+    "aliases": ["plant", "fibre plant"],
+    "desc": "A clump of tall, sinewy stalks whose stems peel into long, tough fibres.",
+    "resource_type": "fibres",
+    "max_yield": 6,
+    "regen_interval": 1800,          # game-seconds per fibre; abundant (3 needed per twine)
+    "available": 6,
+    "yield_prototype": "plant_fiber",  # must equal PLANT_FIBER's prototype_key
+}
+
+GOURD_VINE = {
+    "prototype_key": "gourd_vine",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "gourd vine",
+    "aliases": ["vine", "gourd plant"],
+    "desc": "A sprawling vine heavy with hard-shelled gourds ripening along the ground.",
+    "resource_type": "gourds",
+    "max_yield": 3,
+    "regen_interval": 7200,          # game-seconds per gourd; scarcer (1 per waterskin)
+    "available": 3,
+    "yield_prototype": "raw_gourd",    # must equal RAW_GOURD's prototype_key
+}
