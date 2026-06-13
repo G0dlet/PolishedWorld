@@ -174,3 +174,13 @@ GOURD_VINE = {
     "available": 3,
     "yield_prototype": "raw_gourd",    # must equal RAW_GOURD's prototype_key
 }
+
+TWINE = {
+    "prototype_key": "twine",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "length of twine",
+    "aliases": ["twine", "cord", "cordage"],
+    "desc": "A length of twine twisted from plant fibres \u2014 rough but serviceable cordage.",
+    # Twine is itself a crafting material (consumed by the waterskin recipe in 3.3).
+    "tags": [("twine", "crafting_material")],
+}

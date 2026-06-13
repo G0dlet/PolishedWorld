@@ -1,9 +1,23 @@
 """
 world/recipes.py
 
-Crafting recipes for PolishedWorld, discovered by Evennia's crafting contrib
-via the CRAFT_RECIPE_MODULES setting. Recipes are CraftingRecipe subclasses;
-PolishedWorld's recipes will subclass MongooseCraftRecipe (Task 3.1) to add
-Legend skill resolution. Empty for now — the `craft` command works but lists
-no recipes until recipes land here.
+Concrete crafting recipes, discovered by Evennia's crafting contrib via
+CRAFT_RECIPE_MODULES. Recipes subclass MongooseCraftRecipe (world/crafting_base.py)
+to inherit Legend skill resolution, quality, tool modifiers and the cooldown sink.
+
+NOTE: MongooseCraftRecipe is imported, not defined here. callables_from_module()
+only registers classes whose __module__ is this module, so the imported base is
+not picked up as a phantom recipe.
 """
+
+from world.crafting_base import MongooseCraftRecipe
+
+
+class TwineRecipe(MongooseCraftRecipe):
+    """Twist three plant fibres into a length of twine."""
+
+    name = "twine"
+    consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres, matched by tag-key
+    output_prototypes = ["twine"]
+    tool_tag = None                                 # handcraft; no tool benefit
+    craft_cooldown = 20                             # quick craft (overrides base 30)
