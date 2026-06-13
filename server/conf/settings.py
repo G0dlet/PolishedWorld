@@ -103,6 +103,10 @@ GLOBAL_SCRIPTS = {
     },
 }
 
+# Crafting contrib: where to look for CraftingRecipe subclasses.
+# Verified settings key (singular RECIPE), read in crafting.py.
+CRAFT_RECIPE_MODULES = ["world.recipes"]
+
 ######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
