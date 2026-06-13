@@ -138,7 +138,21 @@ class CmdRefill(Command):
             caller.msg(f"The {container.get_display_name(caller)} can't be refilled.")
             return
 
-        # 4. Refill. refill() returns False if it was already full.
+        # 4. A spent container gives out when you dip it again. Checked BEFORE
+        #    filling, so the player got the use out of its last fill. Capture
+        #    the name first — we must not touch a deleted object afterwards.
+        if container.is_worn_out():
+            name = container.get_display_name(caller)
+            caller.msg(f"You dip the {name} in, but the worn vessel splits apart, ruined beyond use.")
+            caller.location.msg_contents(
+                f"{caller.get_display_name()}'s {name} falls apart at the water's edge.",
+                exclude=caller,
+            )
+            container.delete()
+            return
+
+        # 5. Refill. refill() returns False if already full; it also wears the
+        #    container by one point if it tracks durability (opt-in).
         if not container.refill():
             caller.msg(f"The {container.get_display_name(caller)} is already full.")
             return

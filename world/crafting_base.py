@@ -116,6 +116,15 @@ class MongooseCraftRecipe(CraftingRecipe):
         """Whether the validated consumables are deleted (always, for our policies)."""
         return True
 
+    def _finalize_item(self, obj, outcome):
+        """Hook for item-specific quality effects on a freshly crafted object.
+
+        Called once per spawned object, after `quality` is stamped and before
+        it enters the crafter's inventory. Default is a no-op; subclasses
+        translate quality into concrete stats (charges, durability, ...).
+        """
+        pass
+
     # ------------------------------------------------------------------
     # lifecycle overrides
     # ------------------------------------------------------------------
@@ -158,6 +167,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         for obj in result:
             obj.db.quality = quality
             obj.db.crafted_by = self.crafter.key
+            self._finalize_item(obj, outcome)
             # Self-contained: place the result in the crafter's inventory. The
             # `craft` command would also do this; setting location is idempotent.
             obj.location = self.crafter

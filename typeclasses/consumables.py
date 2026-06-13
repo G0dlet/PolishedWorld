@@ -46,4 +46,12 @@ class Drink(Object):
         if self.charges >= self.max_charges:
             return False
         self.charges = self.max_charges
+        # Durability is opt-in: only containers crafted with a durability value
+        # wear with use. Plain/found drinks (no durability attr) refill forever.
+        if self.db.durability is not None:
+            self.db.durability -= 1
         return True
+
+    def is_worn_out(self):
+        """True if this container has a durability value that has reached zero."""
+        return self.db.durability is not None and self.db.durability <= 0
