@@ -184,3 +184,25 @@ TWINE = {
     # Twine is itself a crafting material (consumed by the waterskin recipe in 3.3).
     "tags": [("twine", "crafting_material")],
 }
+
+WATERSKIN = {
+    "prototype_key": "waterskin",
+    "typeclass": "typeclasses.consumables.Drink",
+    "key": "waterskin",
+    "aliases": ["skin"],
+    "desc": "A hollow gourd fitted with a twine strap and a snug stopper, light enough to carry a few draughts of water.",
+    # Drink's AttributeProperty fields, set per-prototype (same pattern as BERRIES):
+    "charges": 0,            # crafted EMPTY — must be filled at a water source
+    "max_charges": 5,        # quality-scaling deferred to Task 4.1
+    "restore_amount": 15,
+    "refillable": True,
+}
+
+KNIFE = {
+    "prototype_key": "knife",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "knife",
+    "aliases": ["blade"],
+    "desc": "A simple bladed knife, handy for shaping and cutting.",
+    "tags": [("knife", "crafting_tool")],
+}
