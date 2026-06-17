@@ -301,6 +301,33 @@ class Character(ObjectParent, DefaultCharacter):
             }
         )
 
+        # Generic Craft skill. Mongoose Legend: Craft is an Advanced skill with
+        # base = DEX + INT. MVP uses ONE generic Craft skill; Legend's
+        # specialised Craft (Weaver), Craft (Cooper), etc. are a post-MVP
+        # upgrade. base/current are read from stats so the skill scales if
+        # starting characteristics ever change.
+        craft_base = self.stats.dex.value + self.stats.int.value
+        self.skills.add(
+            "craft", "Crafting",
+            trait_type="counter",
+            base=craft_base,
+            current=craft_base,
+            mod=0,
+            min=0,
+            # Legend permits skills >100%; capped at 100 for MVP to match the
+            # other skills. Lift this when skill-progression (Component 5) lands,
+            # since skill_check() already handles >100 faithfully.
+            max=100,
+            descs={
+                0: "unskilled",
+                20: "novice",
+                40: "apprentice",
+                60: "journeyman",
+                80: "skilled",
+                95: "master",
+            },
+        )
+
     def at_post_unpuppet(self, account=None, session=None, **kwargs):
         """
         Override default: keep character in room as statue instead

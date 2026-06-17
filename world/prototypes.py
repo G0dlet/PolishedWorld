@@ -122,3 +122,87 @@ SPRING = {
     "resource_type": "water",
     "is_water_source": True,
 }
+
+PLANT_FIBER = {
+    "prototype_key": "plant_fiber",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "plant fiber",
+    "aliases": ["fiber"],
+    "desc": (
+        "A loose bundle of tough, stringy fibres stripped from a fibrous "
+        "plant. Twisted together, they could be worked into cordage."
+    ),
+    # The crafting contrib matches consumables by tag key within the
+    # 'crafting_material' category. "fiber" is what recipes will list.
+    "tags": [("fiber", "crafting_material")],
+}
+
+RAW_GOURD = {
+    "prototype_key": "raw_gourd",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "gourd",
+    "aliases": ["raw gourd"],
+    "desc": (
+        "A hard-shelled gourd, light and hollow once dried. Fitted with a "
+        "strap and a stopper, it could be made to hold water."
+    ),
+    "tags": [("gourd", "crafting_material")],
+}
+
+FIBER_PLANT = {
+    "prototype_key": "fiber_plant",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "fibrous plant",
+    "aliases": ["plant", "fibre plant"],
+    "desc": "A clump of tall, sinewy stalks whose stems peel into long, tough fibres.",
+    "resource_type": "fibres",
+    "max_yield": 6,
+    "regen_interval": 1800,          # game-seconds per fibre; abundant (3 needed per twine)
+    "available": 6,
+    "yield_prototype": "plant_fiber",  # must equal PLANT_FIBER's prototype_key
+}
+
+GOURD_VINE = {
+    "prototype_key": "gourd_vine",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "gourd vine",
+    "aliases": ["vine", "gourd plant"],
+    "desc": "A sprawling vine heavy with hard-shelled gourds ripening along the ground.",
+    "resource_type": "gourds",
+    "max_yield": 3,
+    "regen_interval": 7200,          # game-seconds per gourd; scarcer (1 per waterskin)
+    "available": 3,
+    "yield_prototype": "raw_gourd",    # must equal RAW_GOURD's prototype_key
+}
+
+TWINE = {
+    "prototype_key": "twine",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "length of twine",
+    "aliases": ["twine", "cord", "cordage"],
+    "desc": "A length of twine twisted from plant fibres \u2014 rough but serviceable cordage.",
+    # Twine is itself a crafting material (consumed by the waterskin recipe in 3.3).
+    "tags": [("twine", "crafting_material")],
+}
+
+WATERSKIN = {
+    "prototype_key": "waterskin",
+    "typeclass": "typeclasses.consumables.Drink",
+    "key": "waterskin",
+    "aliases": ["skin"],
+    "desc": "A hollow gourd fitted with a twine strap and a snug stopper, light enough to carry a few draughts of water.",
+    # Drink's AttributeProperty fields, set per-prototype (same pattern as BERRIES):
+    "charges": 0,            # crafted EMPTY — must be filled at a water source
+    "max_charges": 5,        # quality-scaling deferred to Task 4.1
+    "restore_amount": 15,
+    "refillable": True,
+}
+
+KNIFE = {
+    "prototype_key": "knife",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "knife",
+    "aliases": ["blade"],
+    "desc": "A simple bladed knife, handy for shaping and cutting.",
+    "tags": [("knife", "crafting_tool")],
+}
