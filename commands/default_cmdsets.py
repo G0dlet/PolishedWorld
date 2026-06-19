@@ -16,6 +16,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 from evennia import default_cmds
 from evennia.contrib.grid import extended_room
+from evennia.contrib.game_systems.barter.barter import CmdTrade
 from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
 from commands import character_commands
 from commands.admin_commands import CmdWeather
@@ -58,6 +59,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRefill())
 
         self.add(CraftingCmdSet)
+
+        self.add(CmdTrade())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
