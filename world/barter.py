@@ -23,7 +23,7 @@ from evennia.contrib.game_systems.barter.barter import (
 )
 
 
-class MongooseTradeTimeout(BaseTradeTimeout):
+class PWTradeTimeout(BaseTradeTimeout):
     """Times out an unanswered trade *invite* and tears it down correctly."""
 
     def at_repeat(self):
@@ -105,6 +105,6 @@ class PWTradeHandler(BaseTradeHandler):
 # CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
 # `TradeTimeout` from this contrib module's globals at call time. Reassigning
 # it here transparently makes the unmodified func start OUR corrected script.
-barter_module.TradeTimeout = MongooseTradeTimeout
+barter_module.TradeTimeout = PWTradeTimeout
 
 barter_module.TradeHandler = PWTradeHandler
