@@ -17,7 +17,7 @@ Task 2.1: MongooseTradeTimeout
 
 from evennia.contrib.game_systems.barter import barter as barter_module
 from evennia.contrib.game_systems.barter.barter import (
-    CmdTrade,  # re-exported; importing this module installs the fixes below
+    CmdTrade as CmdBaseTrade,
     TradeTimeout as BaseTradeTimeout,
 )
 
@@ -38,6 +38,28 @@ class MongooseTradeTimeout(BaseTradeTimeout):
     def is_valid(self):
         handler = self.obj.ndb.tradehandler
         return bool(handler) and not handler.trade_started
+
+
+class CmdPWTrade(CmdBaseTrade):
+    """
+    Trade entry command with the bare-'trade' crash fixed.
+
+    Upstream's no-args branch reads self.caller.ndb.tradeevent.trade_started,
+    but ndb.tradeevent is never assigned -> AttributeError whenever you type
+    'trade' while already holding a tradehandler. We handle that one branch
+    here (reading the real attribute, tradehandler) and delegate every other
+    case to the unmodified upstream func.
+    """
+
+    def func(self):
+        if not self.args:
+            handler = self.caller.ndb.tradehandler
+            if handler and handler.trade_started:
+                self.caller.msg("You are already in a trade. Use 'end trade' to abort it.")
+            else:
+                self.caller.msg("Usage: trade <other party> [accept|decline] [:emote]")
+            return
+        return super().func()
 
 
 # CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
