@@ -21,7 +21,7 @@ from commands import character_commands
 from commands.admin_commands import CmdWeather
 from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
-
+from world.barter import CmdPWTrade
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -58,6 +58,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRefill())
 
         self.add(CraftingCmdSet)
+
+        self.add(CmdPWTrade())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
