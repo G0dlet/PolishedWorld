@@ -90,15 +90,16 @@ class PWTradeHandler(BaseTradeHandler):
             a_ok = all(obj.location == self.part_a for obj in self.part_a_offers)
             b_ok = all(obj.location == self.part_b for obj in self.part_b_offers)
             if not (a_ok and b_ok):
-                # An offered item left its owner's hands. Abort the swap, drop
-                # both accepts so the parties must re-confirm, and keep the
-                # session open so they can re-offer.
+                # An offered item left its owner's hands between the offer and the
+                # final accept. Cancel the whole trade: drop the accepts so super()
+                # moves nothing, then force a full teardown -- otherwise the stale
+                # item stays on offer and every re-accept just re-aborts forever.
                 self.part_a_accepted = False
                 self.part_b_accepted = False
-                msg = "Trade aborted: an offered item is no longer available. Please re-offer."
+                msg = "Trade cancelled: an offered item is no longer available."
                 self.part_a.msg(msg)
                 self.part_b.msg(msg)
-                return False
+                return super().finish(force=True)
         return super().finish(force=force)
 
 
