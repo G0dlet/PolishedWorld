@@ -18,6 +18,7 @@ Task 2.1: MongooseTradeTimeout
 from evennia.contrib.game_systems.barter import barter as barter_module
 from evennia.contrib.game_systems.barter.barter import (
     CmdTrade as CmdBaseTrade,
+    CmdAccept as CmdBaseAccept,
     TradeHandler as BaseTradeHandler,
     TradeTimeout as BaseTradeTimeout,
 )
@@ -103,9 +104,50 @@ class PWTradeHandler(BaseTradeHandler):
         return super().finish(force=force)
 
 
+class CmdPWAccept(CmdBaseAccept):
+    """
+    Accept command with an ownership re-validation guard.
+
+    CmdAccept has only two outcomes ('deal made' / 'must also accept'), driven
+    purely by finish()'s boolean, so a stale-item cancel can't be expressed via
+    the handler's return value. We intercept the *completing* accept here: if
+    an offered item has left its owner's hands, cancel cleanly and emit a single
+    'Trade cancelled' instead of letting the contrib print a misleading message.
+    """
+
+    def func(self):
+        caller = self.caller
+        if not self.trade_started:
+            caller.msg("Wait until the other party has accepted to trade with you.")
+            return
+
+        handler = self.tradehandler
+        # Does this accept complete the deal (i.e. has the other party already
+        # accepted)? Only then is the swap imminent and worth re-validating.
+        other_already_accepted = (
+            handler.part_b_accepted
+            if caller == handler.part_a
+            else handler.part_a_accepted
+        )
+        if other_already_accepted:
+            a_ok = all(o.location == handler.part_a for o in handler.part_a_offers)
+            b_ok = all(o.location == handler.part_b for o in handler.part_b_offers)
+            if not (a_ok and b_ok):
+                msg = "Trade cancelled: an offered item is no longer available."
+                handler.part_a.msg(msg)
+                handler.part_b.msg(msg)
+                # Reset accepts so the forced teardown moves nothing.
+                handler.part_a_accepted = False
+                handler.part_b_accepted = False
+                handler.finish(force=True)
+                return
+
+        return super().func()
+
+
 # CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
 # `TradeTimeout` from this contrib module's globals at call time. Reassigning
 # it here transparently makes the unmodified func start OUR corrected script.
 barter_module.TradeTimeout = PWTradeTimeout
-
 barter_module.TradeHandler = PWTradeHandler
+barter_module.CmdAccept = CmdPWAccept
