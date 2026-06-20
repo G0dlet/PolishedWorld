@@ -18,6 +18,7 @@ Task 2.1: MongooseTradeTimeout
 from evennia.contrib.game_systems.barter import barter as barter_module
 from evennia.contrib.game_systems.barter.barter import (
     CmdTrade as CmdBaseTrade,
+    TradeHandler as BaseTradeHandler,
     TradeTimeout as BaseTradeTimeout,
 )
 
@@ -62,7 +63,48 @@ class CmdPWTrade(CmdBaseTrade):
         return super().func()
 
 
+class PWTradeHandler(BaseTradeHandler):
+    """
+    TradeHandler with an ownership re-validation guard at completion.
+
+    Upstream finish() moves every offered object with `obj.location = ...`
+    without re-checking that the object is still in the offerer's possession.
+    The trade cmdset is *added* (not Replace), so drop/give/eat stay available
+    during a trade: a party can offer an item, the other accepts, then the
+    offerer disposes of that item before the final accept lands. Upstream would
+    then teleport the item from wherever it now is to the recipient -- a
+    dupe/loss vector in a player-driven economy.
+
+    We re-validate only on a *voluntary* completion (force=False). A forced
+    teardown (timeout, decline, 'end trade') must always be able to clean up,
+    so we never block it.
+    """
+
+    def finish(self, force=False):
+        if (
+            not force
+            and self.trade_started
+            and self.part_a_accepted
+            and self.part_b_accepted
+        ):
+            a_ok = all(obj.location == self.part_a for obj in self.part_a_offers)
+            b_ok = all(obj.location == self.part_b for obj in self.part_b_offers)
+            if not (a_ok and b_ok):
+                # An offered item left its owner's hands. Abort the swap, drop
+                # both accepts so the parties must re-confirm, and keep the
+                # session open so they can re-offer.
+                self.part_a_accepted = False
+                self.part_b_accepted = False
+                msg = "Trade aborted: an offered item is no longer available. Please re-offer."
+                self.part_a.msg(msg)
+                self.part_b.msg(msg)
+                return False
+        return super().finish(force=force)
+
+
 # CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
 # `TradeTimeout` from this contrib module's globals at call time. Reassigning
 # it here transparently makes the unmodified func start OUR corrected script.
 barter_module.TradeTimeout = MongooseTradeTimeout
+
+barter_module.TradeHandler = PWTradeHandler
