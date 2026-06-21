@@ -5,7 +5,7 @@ Implements Mongoose Legend characteristics with Evennia's Traits contrib.
 Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 """
 
-from evennia import DefaultCharacter
+from evennia.contrib.game_systems.clothing import ClothedCharacter
 from evennia.utils import lazy_property
 from evennia.utils.utils import delay
 from evennia.contrib.rpg.traits import TraitHandler
@@ -15,7 +15,7 @@ from evennia.contrib.game_systems.cooldowns import CooldownHandler
 from .objects import ObjectParent
 
 
-class Character(ObjectParent, DefaultCharacter):
+class Character(ObjectParent, ClothedCharacter):
     """
     PolishedWorld character with Mongoose Legend integration.
 

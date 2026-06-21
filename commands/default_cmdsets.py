@@ -22,6 +22,17 @@ from commands.admin_commands import CmdWeather
 from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from world.barter import CmdPWTrade
+# Clothing commands. Verified: NOT re-exported from the package __init__, must
+# come from the submodule. We cherry-pick individual commands rather than adding
+# ClothedCharacterCmdSet, which subclasses Evennia's DEFAULT CharacterCmdSet
+# (clothing.py:702) and would re-run a foreign at_cmdset_creation on top of ours.
+from evennia.contrib.game_systems.clothing.clothing import (
+    CmdWear,
+    CmdRemove,
+    CmdCover,
+    CmdUncover,
+    CmdInventory,
+)
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -60,6 +71,15 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CraftingCmdSet)
 
         self.add(CmdPWTrade())
+
+        # Clothing: wear/remove/cover/uncover. CmdInventory overrides the
+        # default 'inventory' (inv, i) to split worn vs carried items — useful
+        # once clothing exists; drop that one line if you'd rather keep default inv.
+        self.add(CmdWear())
+        self.add(CmdRemove())
+        self.add(CmdCover())
+        self.add(CmdUncover())
+        self.add(CmdInventory())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
