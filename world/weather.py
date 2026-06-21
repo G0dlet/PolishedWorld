@@ -59,14 +59,13 @@ def roll_weather(season, current=None):
 
 def broadcast_weather_change(new_state):
     """
-    Send the transition message for `new_state` to every online character.
+    Send the transition message for `new_state` to every online character
+    who is currently outdoors.
 
     Deduped by character (multi-session players get one message). Global by
-    design — weather is world-wide.
-
-    KNOWN LIMITATION (deferred): players in indoor rooms also see this
-    ("Rain begins to fall" in a cellar). Fix later with a room.is_outdoor
-    flag guarding the per-character send. Out of MVP scope.
+    design — weather is world-wide — but characters sheltered indoors (their
+    room has db.is_indoor set truthy) do not hear it. A character with no
+    location is treated as outdoors, preserving prior behavior.
     """
     message = WEATHER_MESSAGES.get(new_state)
     if not message:
@@ -78,9 +77,14 @@ def broadcast_weather_change(new_state):
     seen = set()
     for sess in SESSIONS.get_sessions():
         char = sess.puppet
-        if char and char.id not in seen:
-            seen.add(char.id)
-            char.msg(message)
+        if not char or char.id in seen:
+            continue
+        seen.add(char.id)
+        location = char.location
+        if location and location.db.is_indoor:
+            # Sheltered indoors: weather transitions aren't seen or heard here.
+            continue
+        char.msg(message)
 
 def get_current_weather():
     """Return the global current weather, or 'clear' if unavailable."""
