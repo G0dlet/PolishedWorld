@@ -384,6 +384,23 @@ class Character(ObjectParent, ClothedCharacter):
             )
         return super().return_appearance(looker, **kwargs)
 
+    def get_display_things(self, looker, **kwargs):
+        """
+        Hide the carried-items list from other observers.
+
+        Inherited behaviour (DefaultObject.get_display_things, reached via
+        ClothedCharacter) lists everything a character carries when looked at.
+        This predates the clothing contrib -- ClothedCharacter only added a
+        worn-item filter on top of the same exposure. For PolishedWorld a looker
+        should see what someone is *wearing* (that line comes from
+        get_display_desc) but not inventory their pockets, so we return the carry
+        list only to the character themselves. Builders can still use `examine`
+        to inspect contents.
+        """
+        if looker is not self:
+            return ""
+        return super().get_display_things(looker, **kwargs)
+
     # === Properties ===
     
     @property
