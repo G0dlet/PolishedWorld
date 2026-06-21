@@ -99,3 +99,36 @@ def worn_warmth(character):
     from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 
     return sum((garment.db.warmth or 0) for garment in get_worn_clothes(character))
+
+
+def apply_thermal_stress(character):
+    """
+    Recompute and apply the character's thermal stress buffs.
+
+    Called by the survival ticker each tick (before gauges deplete) and, later,
+    by the clothing wear/remove hooks for immediate feedback. Sets ColdStress and
+    HeatStress to exact stack counts from the character's regime and worn warmth.
+    Either may be zero, in which case that buff is removed.
+    """
+    from world.survival_buffs import ColdStress, HeatStress
+
+    regime = thermal_regime(character.location)
+    warmth = worn_warmth(character)
+    cold_stress, heat_stress = thermal_stress(regime, warmth)
+
+    _set_stress(character, ColdStress, cold_stress)
+    _set_stress(character, HeatStress, heat_stress)
+
+
+def _set_stress(character, buffclass, stacks):
+    """
+    Set a stress buff to an exact stack count.
+
+    buffs.add() *increments* stacks on an existing buff (verified against the
+    contrib), so we always remove() first to reset, then add() the fresh count.
+    remove() no-ops if absent. Stress of 0 leaves the buff removed. The buffs are
+    silent, so the per-tick remove/add churn produces no message spam.
+    """
+    character.buffs.remove(buffclass.key)
+    if stacks >= 1:
+        character.buffs.add(buffclass, stacks=stacks)
