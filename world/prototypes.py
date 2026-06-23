@@ -206,3 +206,63 @@ KNIFE = {
     "desc": "A simple bladed knife, handy for shaping and cutting.",
     "tags": [("knife", "crafting_tool")],
 }
+
+# --- Clothing: starter garments (warmth + clothing_type) ---
+# Spawn targets for testing the clothing/thermal chain. In the finished economy
+# these are NOT spawned freely: their SOURCE is the Task C.1 tailoring recipes
+# (player-crafted from gathered fibre/hide), and a durability SINK (same pattern
+# as waterskin wear) should follow. clothing_type + warmth are plain top-level
+# keys -> stored as db.clothing_type / db.warmth, which is exactly what the
+# clothing contrib's `wear` and world.thermal.worn_warmth read.
+
+FUR_CLOAK = {
+    "prototype_key": "fur_cloak",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "fur cloak",
+    "aliases": ["cloak", "fur"],
+    "desc": "A heavy cloak of stitched animal furs, thick enough to turn aside a winter wind.",
+    "clothing_type": "fullbody",
+    "warmth": 3,
+}
+
+WOOL_TUNIC = {
+    "prototype_key": "wool_tunic",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "wool tunic",
+    "aliases": ["tunic", "wool"],
+    "desc": "A coarse woollen tunic, warm and hard-wearing if a little scratchy.",
+    "clothing_type": "top",
+    "warmth": 2,
+}
+
+LINEN_SHIRT = {
+    "prototype_key": "linen_shirt",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "linen shirt",
+    "aliases": ["shirt", "linen"],
+    "desc": "A plain linen shirt, light against the skin and meant to be worn beneath heavier layers.",
+    "clothing_type": "undershirt",
+    "warmth": 1,
+}
+
+LEATHER_BOOTS = {
+    "prototype_key": "leather_boots",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "leather boots",
+    "aliases": ["boots"],
+    "desc": "Sturdy boots of oiled leather, laced high against mud and cold.",
+    "clothing_type": "shoes",
+    "warmth": 1,
+}
+
+STRAW_HAT = {
+    "prototype_key": "straw_hat",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "straw hat",
+    "aliases": ["hat", "straw"],
+    "desc": "A broad-brimmed hat woven from straw, good for keeping sun and rain off the face.",
+    "clothing_type": "hat",
+    # warmth 0 on purpose: this is a sun/rain piece. Its protection will live on
+    # the reserved rain_protection hook once that axis lands -- not warmth.
+    "warmth": 0,
+}
