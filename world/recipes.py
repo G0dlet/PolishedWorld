@@ -44,3 +44,31 @@ class WaterskinRecipe(MongooseCraftRecipe):
         else:                                           # shoddy (fumble, q25)
             obj.db.max_charges, obj.db.durability = 3, 3
         obj.db.charges = 0                              # crafted empty regardless
+
+
+class ClothRecipe(MongooseCraftRecipe):
+    """Weave plant fibres into a bolt of plain cloth."""
+
+    name = "cloth"
+    consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres per bolt
+    output_prototypes = ["cloth"]
+    tool_tag = None                                 # handwoven; no tool benefit
+    craft_cooldown = 25                             # between twine (20) and waterskin (45)
+
+
+class LinenShirtRecipe(MongooseCraftRecipe):
+    """Cut and stitch cloth into a linen shirt (undershirt layer)."""
+
+    name = "linen shirt"
+    consumable_tags = ["cloth", "cloth"]   # two bolts per shirt
+    output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
+    tool_tag = "needle"                    # OPTIONAL: needle eases stitching (+20); improvised -20
+    craft_cooldown = 40
+
+    # NOTE: no _finalize_item override yet. db.quality is stamped by the base; a
+    # future durability/wear task will read it (deferred sink, per the C.1 plan).
+
+# --- Future garments (one-liners once their materials have a source) ---
+# class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)
+# class FurCloakRecipe(MongooseCraftRecipe):    # needs "fur"/"hide" (creature harvesting)
+# class LeatherBootsRecipe(MongooseCraftRecipe):# needs "leather" (creature harvesting)

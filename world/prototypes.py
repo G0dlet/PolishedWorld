@@ -207,6 +207,36 @@ KNIFE = {
     "tags": [("knife", "crafting_tool")],
 }
 
+# --- Tailoring: woven cloth (intermediate material) + sewing tool ---
+# CLOTH is the middle of the tailoring chain: plant fibre -> cloth -> garment.
+# Its tag-key "cloth" is what garment recipes list in consumable_tags. Source =
+# ClothRecipe (world/recipes.py). A durability/wear SINK is deferred (same plan
+# as the waterskin: a future task adds _finalize_item + per-use wear).
+
+CLOTH = {
+    "prototype_key": "cloth",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "bolt of cloth",
+    "aliases": ["cloth"],
+    "desc": (
+        "A length of plain woven cloth, twisted and worked from plant fibres. "
+        "Cut and stitched, it can be made into a garment."
+    ),
+    "tags": [("cloth", "crafting_material")],
+}
+
+NEEDLE = {
+    "prototype_key": "needle",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "sewing needle",
+    "aliases": ["needle"],
+    "desc": "A slender needle for stitching cloth. Handy, but not strictly needed.",
+    # crafting_tool, NOT crafting_material: tools are matched separately and are
+    # never consumed. Its own crafting source (bone/bronze) is a future task; the
+    # garment recipe works WITHOUT it at a -20 improvised penalty until then.
+    "tags": [("needle", "crafting_tool")],
+}
+
 # --- Clothing: starter garments (warmth + clothing_type) ---
 # Spawn targets for testing the clothing/thermal chain. In the finished economy
 # these are NOT spawned freely: their SOURCE is the Task C.1 tailoring recipes
