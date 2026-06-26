@@ -18,10 +18,33 @@ Task 2.1: MongooseTradeTimeout
 from evennia.contrib.game_systems.barter import barter as barter_module
 from evennia.contrib.game_systems.barter.barter import (
     CmdTrade as CmdBaseTrade,
+    CmdOffer as CmdBaseOffer,
     CmdAccept as CmdBaseAccept,
     TradeHandler as BaseTradeHandler,
     TradeTimeout as BaseTradeTimeout,
 )
+
+
+def _all_offers_in_hand(handler):
+    """True if every offered item is still in its offerer's possession AND unworn.
+
+    Two ways an offer goes stale between the offer and the final accept:
+      * the item left the offerer's inventory (drop/give/eat) -> location check.
+      * the item was *worn* after being offered -> worn check. A worn garment
+        keeps location == owner, so the location check alone misses it and
+        finish() would teleport a worn item off the body.
+
+    Worn-ness is read as truthy db.worn, matching the clothing contrib's own
+    test (db.worn is True or a wearstyle string when worn; None/False otherwise).
+    """
+    for offers, owner in (
+        (handler.part_a_offers, handler.part_a),
+        (handler.part_b_offers, handler.part_b),
+    ):
+        for obj in offers or ():
+            if obj.location != owner or obj.db.worn:
+                return False
+    return True
 
 
 class PWTradeTimeout(BaseTradeTimeout):
@@ -64,6 +87,37 @@ class CmdPWTrade(CmdBaseTrade):
         return super().func()
 
 
+class CmdPWOffer(CmdBaseOffer):
+    """
+    Offer command that refuses to put worn clothing on the table.
+
+    A worn garment stays in the wearer's inventory (location == wearer) with a
+    truthy db.worn, so neither the contrib nor the location-based finish() guard
+    stops it being traded straight off the body. We reject it here, up front,
+    with a clear message. The completion guard is the backstop for the rarer
+    race where an item is worn *after* being offered.
+
+    We pre-scan with quiet search and only act on an unambiguous worn match;
+    missing/ambiguous names are left for upstream func to report normally, so we
+    never double-message. If nothing is worn we delegate to the unmodified func.
+    """
+
+    def func(self):
+        if self.args and self.trade_started:
+            for offername in (p.strip() for p in self.args.split(",")):
+                if not offername:
+                    continue
+                matches = self.caller.search(offername, quiet=True)
+                obj = matches[0] if len(matches) == 1 else None
+                if obj and obj.db.worn:
+                    self.caller.msg(
+                        f"You can't offer {obj.get_display_name(self.caller)} "
+                        "while you're wearing it \u2014 remove it first."
+                    )
+                    return
+        return super().func()
+
+
 class PWTradeHandler(BaseTradeHandler):
     """
     TradeHandler with an ownership re-validation guard at completion.
@@ -88,9 +142,7 @@ class PWTradeHandler(BaseTradeHandler):
             and self.part_a_accepted
             and self.part_b_accepted
         ):
-            a_ok = all(obj.location == self.part_a for obj in self.part_a_offers)
-            b_ok = all(obj.location == self.part_b for obj in self.part_b_offers)
-            if not (a_ok and b_ok):
+            if not _all_offers_in_hand(self):
                 # An offered item left its owner's hands between the offer and the
                 # final accept. Cancel the whole trade: drop the accepts so super()
                 # moves nothing, then force a full teardown -- otherwise the stale
@@ -130,9 +182,7 @@ class CmdPWAccept(CmdBaseAccept):
             else handler.part_a_accepted
         )
         if other_already_accepted:
-            a_ok = all(o.location == handler.part_a for o in handler.part_a_offers)
-            b_ok = all(o.location == handler.part_b for o in handler.part_b_offers)
-            if not (a_ok and b_ok):
+            if not _all_offers_in_hand(handler):
                 msg = "Trade cancelled: an offered item is no longer available."
                 handler.part_a.msg(msg)
                 handler.part_b.msg(msg)
@@ -150,4 +200,5 @@ class CmdPWAccept(CmdBaseAccept):
 # it here transparently makes the unmodified func start OUR corrected script.
 barter_module.TradeTimeout = PWTradeTimeout
 barter_module.TradeHandler = PWTradeHandler
+barter_module.CmdOffer = CmdPWOffer
 barter_module.CmdAccept = CmdPWAccept

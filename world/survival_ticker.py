@@ -12,6 +12,7 @@ This task (1.2) only enumerates + logs; depletion lands in Task 2.1.
 from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
+from world.thermal import apply_thermal_stress
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
@@ -55,7 +56,8 @@ def deplete_all_survival_traits():
 
 
 def _deplete_character(char):
-    """Deplete gauges, apply zero-conditions, then check warnings."""
+    """Recompute thermal stress, deplete gauges, apply zero-conditions, warn."""
+    apply_thermal_stress(char)
     for key, base in BASE_RATES.items():
         trait = char.traits.get(key)
         if trait is None:

@@ -15,7 +15,7 @@ iterating only online characters, not by buff autopause. Setting playtime
 True without autopause=True on the handler would be inert and misleading.
 """
 
-from evennia.contrib.rpg.buffs import BaseBuff
+from evennia.contrib.rpg.buffs import BaseBuff, Mod
 
 
 class Starving(BaseBuff):
@@ -46,3 +46,43 @@ class Dehydrated(BaseBuff):
 
     def at_remove(self, *args, **kwargs):
         self.owner.msg("|gThe worst of your thirst subsides.|n")
+
+
+class ColdStress(BaseBuff):
+    """
+    Silent thermal marker: the wearer is underdressed for the cold.
+
+    Stacks = cold_stress from world.thermal.thermal_stress, set fresh each tick
+    by apply_thermal_stress(). Drives faster hunger/fatigue depletion via mult
+    mods. Silent on purpose: it is reset (remove+add) every tick, so onset and
+    relief messaging is handled elsewhere (bucket-transition pattern), never here.
+    """
+    key = "cold_stress"
+    name = "Cold"
+    duration = -1
+    tickrate = 0
+    unique = True
+    maxstacks = 20
+    mods = [
+        Mod("hunger_rate", "mult", 0, perstack=0.08),
+        Mod("fatigue_rate", "mult", 0, perstack=0.08),
+    ]
+
+
+class HeatStress(BaseBuff):
+    """
+    Silent thermal marker: overdressed for the heat (or a hot climate).
+
+    Stacks = heat_stress from world.thermal.thermal_stress. Drives faster thirst
+    and mild fatigue depletion. Silent for the same reason as ColdStress.
+    """
+    key = "heat_stress"
+    name = "Overheated"
+    duration = -1
+    tickrate = 0
+    unique = True
+    maxstacks = 20
+    mods = [
+        Mod("thirst_rate", "mult", 0, perstack=0.10),
+        Mod("fatigue_rate", "mult", 0, perstack=0.04),
+    ]

@@ -107,6 +107,35 @@ GLOBAL_SCRIPTS = {
 # Verified settings key (singular RECIPE), read in crafting.py.
 CRAFT_RECIPE_MODULES = ["world.recipes"]
 
+# ============================================================
+# CLOTHING CONTRIB
+# evennia/contrib/game_systems/clothing/clothing.py
+# ============================================================
+# NOTE (verified against source): the contrib reads CLOTHING_TYPE_ORDER from
+# the *misspelled* key CLOTHING_TYPE_ORDERED (extra D, clothing.py:104-106).
+# This list is identical to the contrib default; we pin it because B.3's
+# prototypes hardcode these clothing_type strings and we don't want an upstream
+# reorder to silently shift our display order.
+CLOTHING_TYPE_ORDERED = [
+    "hat", "jewelry", "top", "undershirt", "gloves",
+    "fullbody", "bottom", "underpants", "socks", "shoes", "accessory",
+]
+
+# One garment per physical body region. Prevents warmth-stacking exploits:
+# worn_warmth() sums ALL worn pieces (covered ones included), so without a
+# per-slot cap a player could wear many fullbody cloaks for runaway warmth.
+# jewelry/accessory are intentionally omitted -> unlimited (decorative, warmth 0).
+CLOTHING_TYPE_LIMIT = {
+    "hat": 1, "top": 1, "undershirt": 1, "gloves": 1,
+    "fullbody": 1, "bottom": 1, "underpants": 1, "socks": 1, "shoes": 1,
+}
+
+# Deliberately NOT overriding CLOTHING_TYPE_AUTOCOVER: the contrib reads BOTH
+# autocover AND cant-cover-with from this single key (clothing.py:131-142), so
+# overriding it would clobber cant-cover-with. The default autocover dict
+# (top->undershirt, fullbody->undershirt+underpants, shoes->socks) is already
+# what we want. CLOTHING_OVERALL_LIMIT stays at its default (20).
+
 ######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################

@@ -5,7 +5,7 @@ Implements Mongoose Legend characteristics with Evennia's Traits contrib.
 Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 """
 
-from evennia import DefaultCharacter
+from evennia.contrib.game_systems.clothing import ClothedCharacter
 from evennia.utils import lazy_property
 from evennia.utils.utils import delay
 from evennia.contrib.rpg.traits import TraitHandler
@@ -15,7 +15,7 @@ from evennia.contrib.game_systems.cooldowns import CooldownHandler
 from .objects import ObjectParent
 
 
-class Character(ObjectParent, DefaultCharacter):
+class Character(ObjectParent, ClothedCharacter):
     """
     PolishedWorld character with Mongoose Legend integration.
 
@@ -383,6 +383,23 @@ class Character(ObjectParent, DefaultCharacter):
                 "It seems to be waiting."
             )
         return super().return_appearance(looker, **kwargs)
+
+    def get_display_things(self, looker, **kwargs):
+        """
+        Hide the carried-items list from other observers.
+
+        Inherited behaviour (DefaultObject.get_display_things, reached via
+        ClothedCharacter) lists everything a character carries when looked at.
+        This predates the clothing contrib -- ClothedCharacter only added a
+        worn-item filter on top of the same exposure. For PolishedWorld a looker
+        should see what someone is *wearing* (that line comes from
+        get_display_desc) but not inventory their pockets, so we return the carry
+        list only to the character themselves. Builders can still use `examine`
+        to inspect contents.
+        """
+        if looker is not self:
+            return ""
+        return super().get_display_things(looker, **kwargs)
 
     # === Properties ===
     
