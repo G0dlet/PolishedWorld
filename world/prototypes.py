@@ -207,6 +207,28 @@ KNIFE = {
     "tags": [("knife", "crafting_tool")],
 }
 
+RABBIT = {
+    "prototype_key": "rabbit",
+    "typeclass": "typeclasses.creatures.Creature",
+    "key": "rabbit",
+    "aliases": ["bunny", "coney"],
+    "desc": (
+        "A small wild rabbit with a soft grey-brown coat, ears flat against "
+        "its back. It freezes, watchful, ready to bolt at the first wrong move."
+    ),
+    # siz 4 overrides the typeclass default (8): a rabbit is small prey. This
+    # value drives harvest yield (H4) and feeds the hunt difficulty (H2.2).
+    "siz": 4,
+    # Explicit even though it matches the default -- the rabbit is the canonical
+    # owner of the "rabbit" harvest table (meat + a small hide, H4.2).
+    "harvest_template": "rabbit",
+    # Tag fauna by species so the spawn script (H1.3) and admin tools can query
+    # creatures -- mirrors the monster-tag convention in the file's examples.
+    "tags": [("rabbit", "creature")],
+    # flee_skill intentionally left to the typeclass default (30); the hunt
+    # difficulty knob is tuned at H2.2, not baked into the prototype here.
+}
+
 # --- Tailoring: woven cloth (intermediate material) + sewing tool ---
 # CLOTH is the middle of the tailoring chain: plant fibre -> cloth -> garment.
 # Its tag-key "cloth" is what garment recipes list in consumable_tags. Source =
