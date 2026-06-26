@@ -20,18 +20,27 @@ less than in a hot one. All numbers below are tunable; start conservative and
 adjust empirically.
 """
 
-# Per-regime ambient loads, as (cold_load, heat_load).
-#   cold_load  = how much warmth the climate demands (underdressing -> cold stress)
-#   heat_load  = baseline heat burden (overdressing pushes past COMFORT_MARGIN)
-THERMAL_LOADS = {
-    "cold":      (4, 0),
-    "temperate": (1, 1),
-    "hot":       (0, 3),
+# Per-regime comfort band (lo, hi) of worn warmth. A character is comfortable
+# (zero stress) while their summed warmth sits within [lo, hi] inclusive; below
+# lo they take cold stress, above hi heat stress, each graded by the gap.
+#
+#   lo == the warmth the climate demands. This is the old THERMAL_LOADS cold_load
+#         unchanged, so cold-side behaviour is identical to before.
+#   hi == the warmth tolerated before overheating. Replaces the old flat
+#         COMFORT_MARGIN, which -- being regime-independent -- punished a correctly
+#         dressed character: in cold you needed warmth 4 to stop shivering, yet a
+#         flat margin of 2 meant that same warmth already overheated you, so no
+#         outfit ever reached zero stress and a full winter kit (warmth ~7)
+#         heat-stressed in the snow. A regime-relative ceiling fixes both.
+#
+# All numbers are tunable; start conservative and adjust empirically. Keep
+# lo <= hi per regime, or the band is empty and every warmth value stresses.
+COMFORT_BANDS = {
+    #            (lo, hi)
+    "cold":      (4, 8),   # needs real insulation; tolerates heavy layering
+    "temperate": (1, 4),   # a light layer is comfortable; wide, forgiving band
+    "hot":       (0, 1),   # comfortable near-naked; overheats fast under layers
 }
-
-# Warmth you can carry before any heat stress accrues. Lets light clothing in a
-# temperate room sit at zero stress (comfortable) rather than mildly penalised.
-COMFORT_MARGIN = 2
 
 
 def thermal_regime(room):
@@ -75,15 +84,20 @@ def thermal_stress(regime, worn_warmth):
     """
     Convert (regime, worn warmth) into one-sided cold and heat stress values.
 
-    Both are clamped at zero — you are either under- or over-dressed for a given
-    climate, not both. These become buff stacks in Task A.3.
+    Each regime defines a comfort band [lo, hi] of worn warmth: dress below it
+    and you take cold stress, above it heat stress, inside it neither. A
+    correctly dressed character is therefore comfortable, and the two are
+    mutually exclusive whenever the band is non-empty. These become buff stacks
+    in the survival ticker (Task A.3).
 
     Returns:
         tuple[int, int]: (cold_stress, heat_stress).
     """
-    cold_load, heat_load = THERMAL_LOADS.get(regime, (0, 0))
-    cold_stress = max(0, cold_load - worn_warmth)                     # underdressed
-    heat_stress = max(0, worn_warmth + heat_load - COMFORT_MARGIN)    # overdressed
+    # Unknown regime -> a permissive band (never stress) is the safe failure mode
+    # in a live game; thermal_regime only ever returns the three keys above.
+    lo, hi = COMFORT_BANDS.get(regime, (0, 999))
+    cold_stress = max(0, lo - worn_warmth)            # underdressed for the climate
+    heat_stress = max(0, worn_warmth - hi)            # overdressed for the climate
     return cold_stress, heat_stress
 
 
