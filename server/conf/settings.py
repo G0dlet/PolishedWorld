@@ -101,6 +101,17 @@ GLOBAL_SCRIPTS = {
         "start_delay": True,
         "desc": "Global weather system",
     },
+    # Creature respawn ticker. interval 300s = 5 real-min = 20 game-min @ TIME_FACTOR 4.
+    # Sparse spawn (1/species/tick): a depleted 3-rabbit room refills over ~15 real-min.
+    # start_delay=False: begin topping up populations right after a restart.
+    "creature_spawn": {
+        "typeclass": "typeclasses.scripts.CreatureSpawnScript",
+        "interval": 300,
+        "repeats": -1,
+        "persistent": True,
+        "start_delay": False,
+        "desc": "Maintains creature populations in spawn-flagged rooms",
+    },
 }
 
 # Crafting contrib: where to look for CraftingRecipe subclasses.
