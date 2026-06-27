@@ -93,3 +93,70 @@ def skill_check(skill_value, modifier=0):
         "margin": target - roll,
         "crit_score": max(0, target // 10),
     }
+
+
+# --- Opposed resolution -----------------------------------------------------
+# Outcome labels for opposed_check().
+ATTACKER = "attacker"
+DEFENDER = "defender"
+STALEMATE = "stalemate"
+
+# Level-of-success ranking, best -> worst (Mongoose Legend, "Levels of Success").
+_LEVEL_RANK = {CRITICAL: 3, SUCCESS: 2, FAILURE: 1, FUMBLE: 0}
+
+
+def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0):
+    """
+    Resolve a Mongoose Legend *opposed* skill test (core rulebook, "Opposed
+    Skills", p.45).
+
+    Both sides roll their own skill_check. Resolution, in order:
+      1. Higher level of success wins (critical > success > failure > fumble).
+      2. Same level (so both succeeded): higher dice roll *within skill range*
+         wins -- the higher successful roll represents using more of one's skill.
+      3. Same level AND same roll: higher modified skill wins.
+      4. Still tied: coin toss.
+      5. If BOTH fail: stalemate -- the rulebook says re-roll later; callers
+         decide what an inconclusive contest means in their context.
+
+    NOTE: the "opposed skills over 100%" rule (highest mastered skill is dropped
+    to 100% and the excess penalises everyone) is intentionally NOT implemented
+    -- PolishedWorld caps skills at 100 for the MVP, so it is currently dead
+    code. Revisit when skill progression lifts the cap.
+
+    Args:
+        attacker_skill (int): The acting side's effective skill %.
+        defender_skill (int): The resisting side's effective skill %.
+        attacker_mod (int): Situational modifier for the attacker.
+        defender_mod (int): Situational modifier for the defender.
+
+    Returns:
+        dict: {
+            "winner" (str): one of "attacker", "defender", "stalemate".
+            "attacker" (dict): the attacker's full skill_check result.
+            "defender" (dict): the defender's full skill_check result.
+        }
+    """
+    a = skill_check(attacker_skill, attacker_mod)
+    d = skill_check(defender_skill, defender_mod)
+
+    # Both fail -> stalemate, regardless of failure vs fumble (rulebook: "if
+    # both fail then a stalemate has occurred").
+    if not a["success"] and not d["success"]:
+        winner = STALEMATE
+    else:
+        a_rank, d_rank = _LEVEL_RANK[a["result"]], _LEVEL_RANK[d["result"]]
+        if a_rank != d_rank:
+            # Different levels of success -> higher level wins.
+            winner = ATTACKER if a_rank > d_rank else DEFENDER
+        elif a["roll"] != d["roll"]:
+            # Same level (both succeeded) -> higher successful roll wins.
+            winner = ATTACKER if a["roll"] > d["roll"] else DEFENDER
+        elif a["target"] != d["target"]:
+            # Same roll too -> higher modified skill wins.
+            winner = ATTACKER if a["target"] > d["target"] else DEFENDER
+        else:
+            # Dead heat -> coin toss.
+            winner = ATTACKER if randint(1, 2) == 1 else DEFENDER
+
+    return {"winner": winner, "attacker": a, "defender": d}
