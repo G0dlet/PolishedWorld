@@ -25,6 +25,10 @@ from evennia import AttributeProperty
 from evennia.objects.objects import DefaultObject
 
 from .objects import ObjectParent
+from evennia.utils.create import create_object
+
+from world import gametime_utils
+from typeclasses.corpse import Corpse
 
 
 class Creature(ObjectParent, DefaultObject):
@@ -84,7 +88,21 @@ class Creature(ObjectParent, DefaultObject):
             else:
                 location.msg_contents(f"{self.key} dies.")
 
-        # TODO(H3.2): spawn Corpse(location=location) with
-        #   creature_siz=self.db.siz, creature_type=self.db.harvest_template,
-        #   death_time=gametime.gametime()  -- THEN delete.
+        # Spawn the harvestable corpse BEFORE deleting the creature, copying
+            # the data H4 needs to compute yields. death_time uses the SAME
+            # accessor as Corpse's lazy decay (gametime_utils.get_absolute_gametime)
+            # so the elapsed-time diff is meaningful. We already hold `location`.
+            create_object(
+                Corpse,
+                key=f"{self.key} corpse",
+                location=location,
+                attributes=[
+                    ("creature_siz", self.db.siz),
+                    ("creature_type", self.db.harvest_template),
+                    ("creature_natural_ap", self.db.natural_ap),
+                    ("death_time", gametime_utils.get_absolute_gametime()),
+                    ("desc", f"The lifeless body of a {self.key}."),
+                ],
+            )
+
         self.delete()
