@@ -328,6 +328,35 @@ class Character(ObjectParent, ClothedCharacter):
             },
         )
 
+        # Hunting skill. Custom PolishedWorld skill -- Legend has no "Hunting"
+        # Common skill; its nearest analogue is the Advanced "Track" skill
+        # (base INT+CON). Named "hunting" deliberately to avoid colliding with
+        # the "survival" trait-gauge category (hunger/thirst/fatigue). Flat
+        # base=25 follows the perception/athletics baseline convention -- every
+        # character starts with a little woodcraft. Drives the hunt skill-check
+        # (H2.2) and, later, hide-harvesting (H4.1).
+        #
+        # NOTE: keep these values in sync with HUNTING_SKILL_DEFAULTS in
+        # world/character_migrations.py so backfilled characters are identical
+        # to freshly created ones.
+        self.skills.add(
+            "hunting", "Hunting",
+            trait_type="counter",
+            base=25,
+            current=25,
+            mod=0,
+            min=0,
+            max=100,
+            descs={
+                0: "helpless",
+                20: "novice",
+                40: "competent",
+                60: "tracker",
+                80: "hunter",
+                95: "master hunter",
+            },
+        )
+
     def at_post_unpuppet(self, account=None, session=None, **kwargs):
         """
         Override default: keep character in room as statue instead
