@@ -21,6 +21,7 @@ from commands import character_commands
 from commands.admin_commands import CmdWeather
 from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
+from commands.hunting_commands import CmdHunt
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -67,6 +68,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
 
         self.add(CmdForage())
         self.add(CmdRefill())
+        self.add(CmdHunt())
 
         self.add(CraftingCmdSet)
 
