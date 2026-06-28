@@ -318,3 +318,43 @@ STRAW_HAT = {
     # the reserved rain_protection hook once that axis lands -- not warmth.
     "warmth": 0,
 }
+
+# --- Hunting: harvestable creature parts (H4.2) ---
+# SOURCE: the harvest command (H4.3) spawns these from a corpse, gated by skill
+# and decay. They are NOT spawned freely in the finished economy -- same as the
+# clothing prototypes above. SINKS: rabbit_meat -> eaten (CmdEat); raw_hide ->
+# consumed by the H5 tanning recipe into leather. Both prototype_keys are
+# referenced by world/harvest_templates.py's rabbit template.
+
+RABBIT_MEAT = {
+    "prototype_key": "rabbit_meat",
+    "typeclass": "typeclasses.consumables.Food",
+    "key": "raw rabbit meat",
+    "aliases": ["meat", "rabbit meat"],
+    "desc": (
+        "A portion of raw, dark rabbit meat, still cool to the touch. Edible as "
+        "it is, though gamey and tough -- it would sit far better cooked."
+    ),
+    # Modest restore on purpose: this is raw small-game. The future cooking step
+    # (a recipe turning rabbit_meat -> cooked_meat) is where the larger hunger
+    # payoff should live, so this is left with headroom. Plain top-level keys map
+    # to db.restore_amount / db.consume_message, exactly what CmdEat reads.
+    "restore_amount": 15,
+    "consume_message": "You eat {key}. Gamey and tough raw, but it takes the edge off your hunger.",
+}
+
+RAW_HIDE = {
+    "prototype_key": "raw_hide",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "raw hide",
+    # NOTE: deliberately no "skin" alias -- that collides with the waterskin's
+    # "skin" alias and would make `... skin` ambiguous for anyone carrying both.
+    "aliases": ["hide", "pelt"],
+    "desc": (
+        "A raw animal hide, fur still on and the underside damp. Untreated it "
+        "will spoil; tanned, it becomes leather fit for working."
+    ),
+    # crafting_material tag-key "raw_hide" is what the H5 tanning recipe lists in
+    # consumable_tags. Same convention as PLANT_FIBER's "fiber" and CLOTH's "cloth".
+    "tags": [("raw_hide", "crafting_material")],
+}
