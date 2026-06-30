@@ -99,9 +99,10 @@ words are fine as prototype *aliases* but never as tag-keys. Introducing a **new
 shared material** is a curated decision — FLAG it for Claude/Adam; do not invent
 the tag-key yourself. (Per-creature food byproducts like `venison` are not shared
 materials and are not registered — but their shared parts must reuse registry
-tag-keys.) A reference to a material whose registry `status` is `PLANNED` (not yet
-built, e.g. `leather`, `bone` until the deer batch lands) is treated as missing —
-FLAG it.
+tag-keys.) A generator may reference a material only when its registry status is 
+EXISTS. Materials marked DATA, BLOCKED or DECISION are not in the 
+repo yet — reference one only if the current batch is the one creating it; 
+otherwise FLAG it.
 
 ### Everything is crafted, from base material up — tools included
 Every finished item, **including crafting tools** (knife, needle, awl, …), must be
