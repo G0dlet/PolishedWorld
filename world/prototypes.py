@@ -358,3 +358,18 @@ RAW_HIDE = {
     # consumable_tags. Same convention as PLANT_FIBER's "fiber" and CLOTH's "cloth".
     "tags": [("raw_hide", "crafting_material")],
 }
+
+LEATHER = {
+    "prototype_key": "leather",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "piece of leather",
+    "aliases": ["leather"],
+    "desc": (
+        "A supple piece of tanned leather, cured from a raw hide. Worked and "
+        "stitched, it becomes boots, straps and other sturdy gear."
+    ),
+    # crafting_material tag-key "leather" is what the leather-boots recipe (H5.2)
+    # lists in consumable_tags. Same convention as CLOTH's "cloth" and
+    # RAW_HIDE's "raw_hide".
+    "tags": [("leather", "crafting_material")],
+}

@@ -56,6 +56,16 @@ class ClothRecipe(MongooseCraftRecipe):
     craft_cooldown = 25                             # between twine (20) and waterskin (45)
 
 
+class LeatherRecipe(MongooseCraftRecipe):
+    """Tan two raw hides into a piece of workable leather."""
+
+    name = "leather"                              # recipe-registry name (≠ prototype_key, separate namespace)
+    consumable_tags = ["raw_hide", "raw_hide"]    # two hides per piece, matched by tag-key
+    output_prototypes = ["leather"]               # the new H5.1 prototype
+    tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (+20); absent = -20
+    craft_cooldown = 45                           # involved work (soak/scrape/tan); overrides base 30
+
+
 class LinenShirtRecipe(MongooseCraftRecipe):
     """Cut and stitch cloth into a linen shirt (undershirt layer)."""
 
