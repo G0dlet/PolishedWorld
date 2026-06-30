@@ -78,6 +78,18 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     # NOTE: no _finalize_item override yet. db.quality is stamped by the base; a
     # future durability/wear task will read it (deferred sink, per the C.1 plan).
 
+
+class LeatherBootsRecipe(MongooseCraftRecipe):
+    """Stitch two pieces of leather into a pair of sturdy boots."""
+
+    name = "leather boots"                       # space, mirroring "linen shirt"
+    consumable_tags = ["leather", "leather"]     # two pieces per pair
+    output_prototypes = ["leather_boots"]        # existing Component B prototype
+    tool_tag = "needle"                          # OPTIONAL: needle eases stitching (+20); improvised -20
+    craft_cooldown = 40                          # mirrors linen shirt
+    # No _finalize_item: db.quality is stamped by the base; the H6 durability/wear
+    # task will read it. Same deferred-sink stance as LinenShirtRecipe.    
+    
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)
 # class FurCloakRecipe(MongooseCraftRecipe):    # needs "fur"/"hide" (creature harvesting)
