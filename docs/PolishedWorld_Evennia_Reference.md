@@ -1,6 +1,9 @@
 # PolishedWorld Evennia Reference
+
+> **Rev 1 · 2026-07-01** — version-header convention introduced; content current through §12 (search multimatch & disambiguation UX).
+> **Canonical:** `docs/PolishedWorld_Evennia_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
  
-**Purpose:** Curated reference of Evennia modules and contribs used (or planned) in PolishedWorld. This is a working document — extend as new systems are integrated. Verified against Evennia main branch (snapshot taken 2026-05).
+**Purpose:** Curated reference of Evennia modules and contribs used (or planned) in PolishedWorld. This is a working document — extend as new systems are integrated. Verified against Evennia `main`; per-copy freshness is tracked in the Rev header above.
  
 **How to use:** Treat this as the primary lookup for Evennia API in this project. When something is missing or unclear, fall back to:
 1. `web_fetch` against `https://raw.githubusercontent.com/evennia/evennia/main/...` for ad-hoc deep dives
@@ -891,7 +894,94 @@ dbrefs (`craft X from #140, #141`) are the bulletproof alternative — exact and
 
 ---
  
-## 12. Quick-reference table
+## 12. Search multimatch & disambiguation UX
+
+*(Verified against live Evennia `main`, 2026-07-01. §11.6 covers the search-*resolution* mechanic — exact-first, then fuzzy — and the crafting-ingredient angle; this section covers the multimatch *UX*: why `ball-1`/`ball-2` appears and the three ways to tune it.)*
+
+The default multimatch prompt is **intentional and fully tunable**. It's a *symptom* of two objects sharing an identical key, so the best fix is usually to make multimatch rare rather than to prettify the number (see §12.5).
+
+### 12.1 What produces `ball-1` / `ball-2`
+
+When a search returns >1 match, Evennia routes the result through the pluggable hook named by `SEARCH_AT_RESULT` (default `evennia.utils.utils.at_search_result`). For a multimatch it prints a `More than one match...` header, then one line per match rendered by `SEARCH_MULTIMATCH_TEMPLATE`. The *input* syntax the player types to disambiguate is defined by `SEARCH_MULTIMATCH_REGEX` (§11.6 shows this regex from the crafting side — here is the full trio):
+
+```python
+# evennia/settings_default.py
+SEARCH_MULTIMATCH_REGEX = r"^(?P<name>.*?)-(?P<number>[0-9]+)(?P<args>(?:\s.*)?)$"
+SEARCH_MULTIMATCH_TEMPLATE = " {name}-{number}{aliases}{info}\n"
+SEARCH_AT_RESULT = "evennia.utils.utils.at_search_result"
+```
+
+Internally `at_search_result` groups matches by `get_display_name(caller)` (case-insensitively), strips pluralization aliases, and fills the template per match. Fields: `{number}` (ordinal from 1), `{name}` (display key), `{aliases}` (`[a;b]`), `{info}` (e.g. `#dbref`, staff only).
+
+### 12.2 Lever 1 — reskin via settings (cheapest, global)
+
+Change `SEARCH_MULTIMATCH_TEMPLATE` **and** `SEARCH_MULTIMATCH_REGEX` together. ⚠️ **They must stay in sync** — Evennia warns about this explicitly: the regex must keep the `(?P<name>...)` and `(?P<number>...)` capture groups (and may keep the optional `(?P<args>...)`), and the template must render a form the regex can parse back. This only *reskins* the number; the player still types a numeric disambiguator, and it's global (affects every search in the game).
+
+```python
+# settings.py — ILLUSTRATIVE ONLY: numbered-list style ("  1. a steel dagger").
+# Verify the round-trip (template output -> regex parse) in a test before shipping.
+SEARCH_MULTIMATCH_REGEX = r"^(?P<number>[0-9]+)[.\s-]+(?P<name>.*?)(?P<args>(?:\s.*)?)$"
+SEARCH_MULTIMATCH_TEMPLATE = "  {number}. {name}{aliases}{info}\n"
+```
+
+### 12.3 Lever 2 — replace `SEARCH_AT_RESULT` (full message control)
+
+Point the setting at your own function for total control over *both* nomatch and multimatch output (it serves command- **and** object-searches). Signature and contract:
+
+```python
+# world/search.py
+def at_search_result(matches, caller, query="", quiet=False, **kwargs):
+    # matches: list of 0 / 1 / >1 entities (or Commands).
+    # Must MSG appropriate errors (unless quiet) and RETURN a single match or None.
+    # Respect kwargs["nofound_string"] / kwargs["multimatch_string"] if callers pass them.
+    ...
+```
+```python
+# settings.py
+SEARCH_AT_RESULT = "world.search.at_search_result"
+```
+
+Easiest path: copy `evennia.utils.utils.at_search_result` verbatim and edit only the `len(matches) > 1` branch. The single-match (`return matches[0]`) and nomatch branches must be preserved or every search in the game breaks.
+
+### 12.4 Lever 3 — `quiet=True` + your own resolver (best UX, most work)
+
+`caller.search(query, quiet=True)` suppresses the default error and **returns the raw list**, letting a specific command resolve ambiguity interactively instead of forcing the player to re-type `dagger-2`. Evennia commands support generator `yield` for input:
+
+```python
+def func(self):
+    matches = self.caller.search(self.args, quiet=True)
+    if not matches:
+        self.caller.msg(f"You see no '{self.args}'.")
+        return
+    if len(matches) > 1:
+        for i, m in enumerate(matches, 1):
+            self.caller.msg(f"  {i}. {m.get_display_name(self.caller)}")
+        resp = yield ("Which one? (number)")      # command-level input
+        try:
+            target = matches[int(resp.strip()) - 1]
+        except (ValueError, IndexError):
+            self.caller.msg("Cancelled.")
+            return
+    else:
+        target = matches[0]
+    # ... use target
+```
+
+⚠️ `yield`-based input needs a session-backed command context (the default cmdhandler provides it; batch/unit-test contexts may not). Scope it to the few commands that need pretty disambiguation, not globally.
+
+### 12.5 Design stance for PolishedWorld — fix identity, not the number
+
+The prompt is ugly because the game can't tell two objects apart. Preferred order:
+
+1. **Individuate crafted items** — give them distinguishing adjectives/aliases (material, quality tier, maker's mark) so an exact search (`steel dagger`, `bjorn's dagger`) returns a single hit and no prompt appears. Per §11.6, `object_search` runs the **exact key/alias pass first**, so a unique alias short-circuits multimatch entirely. Rides free on the crafting-quality progression hook (crit-craft → superior/named items) and recipe work.
+2. **Stack truly-identical consumables** (arrows, twine) into one quantity-bearing object rather than N disambiguable ones — fewer objects also means lighter DB load with many players. Evennia has no built-in stacking; it's a custom `quantity`-attr + merge-on-same-key pattern (verify the contrib landscape at design time).
+3. **Reskin / interactive resolver** (§12.2–12.4) is then only *residual polish* for the few remaining collisions, not the primary fix.
+
+Roadmap cross-ref: backlog item *"Search / disambiguation UX + item identity"*.
+
+---
+
+## 13. Quick-reference table
  
 | System | Module path | Status |
 |---|---|---|
@@ -905,8 +995,9 @@ dbrefs (`craft X from #140, #141`) are the bulletproof alternative — exact and
 | Crafting | `evennia.contrib.game_systems.crafting` | Planned (post-MVP, 320 recipes) |
 | Clothing | `evennia.contrib.game_systems.clothing` | Planned (post-MVP) |
 | AttributeProperty | `evennia.typeclasses.attributes` (built-in) | Use throughout |
+| Search multimatch UX | settings `SEARCH_MULTIMATCH_*` / `SEARCH_AT_RESULT` | Backlog — item-identity + optional reskin (§12) |
  
 ---
  
-**Last verified:** Evennia main, snapshot 2026-05.
+**Freshness:** tracked in the Rev header at the top of this file (Evennia baseline: `main`; §12 spot-checked 2026-07-01).
 **Maintained alongside:** `PolishedWorld_GDD_v2.md`, `PolishedWorld_Functional_Decomposition.md`, `PolishedWorld_Code_Standards.md`.
