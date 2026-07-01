@@ -30,6 +30,11 @@ class ClothingWithBuffs(ContribClothing):
         Attribute (default 0, visible in `examine`) even before a prototype
         overrides it.
 
+    condition: 0-100 wear state. Effective warmth is scaled by condition/100 in
+        thermal.worn_warmth, so a worn-out garment insulates less. autocreate=True
+        for the same reason as warmth -- every garment owns a real db.condition
+        the GarmentWearScript (H6.2) can decrement and `examine` can show.
+
     Reserved (autocreate=False -- no db Attribute, no `examine` entry until a
     system assigns them):
         rain_protection -- future wet/exposure axis, same pattern as warmth.
@@ -38,6 +43,7 @@ class ClothingWithBuffs(ContribClothing):
     """
 
     warmth = AttributeProperty(default=0, autocreate=True)
+    condition = AttributeProperty(default=100, autocreate=True)
 
     rain_protection = AttributeProperty(default=0, autocreate=False)
     armor_points = AttributeProperty(default=0, autocreate=False)
