@@ -1,5 +1,8 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 1 · 2026-07-01** — added §9 (documentation version-header convention).
+> **Canonical:** `AGENTS.md` @ G0dlet/PolishedWorld — git wins.
+
 You are a code agent working in **PolishedWorld**, a high-fantasy sandbox-survival
 MUD built on the **Evennia** framework (Python 3.11+) using the **Mongoose Legend**
 (d100 percentile) ruleset.
@@ -374,3 +377,35 @@ a new attribute, typeclass, `clothing_type`, skill, or convention, Claude will
 update the relevant schema section here (or hand Adam a patch). Your job is to
 generate data that conforms to the schemas *as written above* — if the data you're
 asked for doesn't fit, that's a FLAG, not a reason to extend the schema yourself.
+
+---
+
+## 9. Documentation version headers
+
+Every Markdown doc in this project (repo **and** any project-knowledge copy) carries
+a version header directly under its H1 title, so anyone can tell at a glance whether
+they're looking at the latest copy:
+
+```markdown
+# <Title>
+
+> **Rev N · YYYY-MM-DD** — one-line changelog of this rev
+> **Canonical:** `<path>` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+```
+
+Rules:
+
+- **Rev** is a monotonic integer, starting at `1`, **`+1` on every content change**,
+  never reused. **Date** is that rev's date. **Changelog** is one line describing
+  what changed in this rev.
+- **Bumping the Rev is a mandatory part of any commit that changes a doc's content.**
+  A content diff that does not move the Rev line is a review red flag.
+- **No commit SHA in the header** — it is stale-by-construction (the bump commit
+  changes the file, producing a new SHA). Rev + date is the human key; `git log` is
+  the ground truth.
+- A doc not yet in the repo marks Canonical as *"project-knowledge only — not yet in repo."*
+
+This applies to **docs only**. The data files you generate (`world/prototypes.py`,
+`world/recipes.py`, `world/harvest_templates.py`, …) are **not** docs and carry no Rev
+header. But if you are ever asked to edit a Markdown doc that has one, bump its Rev in
+the same commit.
