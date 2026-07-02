@@ -1,6 +1,6 @@
 # PolishedWorld Evennia Reference
 
-> **Rev 1 · 2026-07-01** — version-header convention introduced; content current through §12 (search multimatch & disambiguation UX).
+> **Rev 2 · 2026-07-02** — added §11.7–§11.11 (H6 garment durability: TICKER_HANDLER vs GLOBAL_SCRIPTS, command testing via execute_cmd, validate-then-commit ordering, repair-as-command, condition end-rounding).
 > **Canonical:** `docs/PolishedWorld_Evennia_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
  
 **Purpose:** Curated reference of Evennia modules and contribs used (or planned) in PolishedWorld. This is a working document — extend as new systems are integrated. Verified against Evennia `main`; per-copy freshness is tracked in the Rev header above.
@@ -891,6 +891,48 @@ craft fails. Supply identical ingredients with Evennia's numbered disambiguation
     craft leather boots from leather-1, leather-2 using needle
 
 dbrefs (`craft X from #140, #141`) are the bulletproof alternative — exact and unambiguous.
+
+### 11.7 TICKER_HANDLER vs GLOBAL_SCRIPTS — which for a global periodic system
+Both the survival ticker (`world/survival_ticker.py`) and the garment-wear ticker
+(`world/garment_wear.py`) are **module-level callables registered with
+`TICKER_HANDLER.add(...)` in `server/conf/at_server_startstop.py`**, NOT
+`settings.GLOBAL_SCRIPTS` scripts. Use TICKER_HANDLER when the job is "run this
+function every N seconds over the online population" — the callback must be a
+picklable module-level function (no closures/lambdas) for `persistent=True`.
+Reserve GLOBAL_SCRIPTS for systems needing their own persistent Attribute state and
+lifecycle hooks (e.g. `WeatherScript` holding `db.current_weather`). Re-adding with
+the same `idstring` is idempotent, so calling `.add` on every `at_server_start` is safe.
+
+### 11.8 Driving commands from `@py`, and cooldown cleanup in tests
+`caller.execute_cmd("repair linen shirt")` runs a full command (parse + func + its
+own messaging) inside a `@py` one-liner — the way to integration-test a Command
+without a live client. Reset a cooldown between runs with
+`caller.cooldowns.reset("<key>")`; without it the cooldown gate fires first and masks
+the branch you meant to test. Keep RNG out of unit tests by extracting the pure
+decision (e.g. `CmdRepair._resolved_condition(current, outcome)`) so tier maths can be
+asserted deterministically, separate from the random `skill_check`.
+
+### 11.9 Command structure: validate-then-commit ordering
+Order a command so every *free bailout* (missing/ambiguous target, wrong type,
+nothing to do, missing materials, on cooldown) returns BEFORE anything is consumed.
+Only once the attempt is irrevocably resolved do you consume materials and set the
+cooldown — on success, failure AND fumble alike. The single-threaded reactor makes
+the collect→roll→consume sequence atomic against concurrent runs, so no locking is
+needed. (See `CmdRepair`, `CmdHarvest`.)
+
+### 11.10 Repair mutates in place → command, not recipe
+`MongooseCraftRecipe`/`CraftingRecipe` are strictly input→**new** output (`do_craft`
+spawns from `output_prototypes`). A task that must target an existing object and
+mutate one of its Attributes (garment repair raising `db.condition`) has no clean
+recipe path — write a dedicated Command instead. Bonus: resolving one named object
+also sidesteps the `craft` ingredient multimatch problem (§11.6).
+
+### 11.11 Condition-scaled sums: round the total, not the parts
+When several worn items each contribute a small fractional value, scale each
+fractionally, sum, and round **once** at the end. Rounding per item first makes two
+worn-1 garments at 49% both round to 0 → total 0, when the true stacked value is
+round(0.98)=1. `world/thermal.py::worn_warmth` follows this. Distinct from
+"sum-then-scale", which is wrong because the scale (condition) is per item.
 
 ---
  

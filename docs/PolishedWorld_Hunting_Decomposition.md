@@ -275,13 +275,32 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
  
 ---
  
-## 11. Component H6 — Garment Durability + Repair (sinken)
+## 11. Component H6 — Garment Durability + Repair (sinken)   ✅ KLAR & committad
  
 > **Legend-adaption:** Arms of Legend slitageregler är AP/strids-centrerade (wear-nivåer
 > Protected/Basic/Common/Rigorous, veckor mellan reparation, reparationskostnad). Vi adapterar
 > *modellen* till warmth-axeln: ett `condition` 0–100 som skalar effektiv `warmth`; degraderas per
 > wear-nivå över speltid + exponering; återställs av en Tailoring-reparation. Samma andemening,
 > rätt axel för ett survival-spel. Exakta veckor/kostnad lyfts från AoL-tabellen vid implementation.
+
+> **Som byggt (avviker medvetet från skissen nedan — verifierat mot källan; commit-
+> meddelandena nedan är de faktiska i git):**
+> - **H6.1** byggd som skissat. `worn_warmth` summerar `warmth*condition/100` fraktionellt
+>   och **rundar totalen EN gång** (två warmth-1 @49% → 1, inte 0+0); `g.db.condition or 100`
+>   håller legacy/plain-plagg opåverkade.
+>   Commit: `feat(clothing): scale effective warmth by garment condition`
+> - **H6.2** byggd som **TICKER_HANDLER-callback** i `world/garment_wear.py`
+>   (`idstring="garment_wear"`, registrerad i `server/conf/at_server_startstop.py`), INTE ett
+>   GLOBAL_SCRIPTS-`GarmentWearScript`. Skäl: speglar survival-tickern (enda som redan
+>   itererar online burna-plagg-karaktärer) + heltals-condition utan fraktionsfälla.
+>   Exponering (`thermal_regime`+`is_indoor`) → Protected/Basic/Common/Rigorous, **samplad vid
+>   tick-tid**; rater 0/1/2/4 ur AoL 1–2 AP-raden (AP=2); prod-intervall 10800 s (12 speltimmar).
+>   Commit: `feat(clothing): add garment wear ticker degrading worn garments over time`
+> - **H6.3** byggd som **`CmdRepair`** (`commands/repair_commands.py`, alias `mend`), INTE ett
+>   recept — repair muterar ett befintligt plagg in-place; recept spawnar ny output. Craft-
+>   skillcheck, needle +20/−20, tier→condition (crit→100 / success +30 / failure slösar
+>   material / fumble −10), konsumerar cloth + twine.
+>   Commit: `feat(commands): add CmdRepair restoring garment condition via Tailoring`
  
 ### Task H6.1 — `condition` på plagg + skalad warmth
 - **Goal:** `condition` AttributeProperty (0–100) på `ClothingWithBuffs`; effektiv warmth skalas av den.
