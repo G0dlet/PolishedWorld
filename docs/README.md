@@ -1,6 +1,6 @@
 # PolishedWorld — docs
 
-> **Rev 1 · 2026-07-01** — index + version-header convention established.
+> **Rev 2 · 2026-07-02** — added GameGold design, GameGold economy, and core-instructions docs to the index (moved out of the project-knowledge-only list).
 > **Canonical:** `docs/README.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 Planning and reference documentation for PolishedWorld, organised by altitude.
@@ -45,8 +45,11 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
 | Crafting docs | tactical | `docs/crafting/` |
+| GameGold design | design (crypto spec) | `docs/GameGold_Design.md` |
+| GameGold economy | design (economy) | `docs/PolishedWorld_GameGold_Economy.md` |
 | Agent scope & schemas | governance | `AGENTS.md` |
+| Core instructions | governance (project meta) | `docs/PolishedWorld_Core_Instructions.md` |
 
 *(Docs still living only in project knowledge — testing reference, functional-decomposition
-methodology, Mongoose Legend notes, GameGold economy, code standards, creature-harvesting
+methodology, Mongoose Legend notes, code standards, creature-harvesting
 design — get a header and move here as they're next touched.)*
