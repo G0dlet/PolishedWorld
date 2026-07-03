@@ -1,7 +1,8 @@
 # PolishedWorld Development - Core Custom Instructions
 
+> **Rev 2 · 2026-07-03** — synced Current State to `feature/hunting` post-H6 (H1–H6 complete & committed; H7 now the active front); fixed IDE (Neorg → neovim/LazyVim); promoted Cooldowns contrib from *planned* to *in use*; flagged Currency as design-only (not yet in codebase); added `roadmap.md` and `AGENTS.md` to reference list.
 > **Rev 1 · 2026-07-02** — first versioned copy; synced Current State to feature/hunting (H1–H6), updated contrib statuses and GameGold platform.
-> **Canonical:** `docs/PolishedWorld_Core_Instructions.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+> **Canonical:** `docs/PolishedWorld_Core_Instructions.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 ## Project Overview
 **PolishedWorld** is a high fantasy sandbox survival MUD built on:
@@ -28,7 +29,7 @@
 ### Response Requirements
 
 #### ✅ ALWAYS Do:
-1. **Verify before answering** - If uncertain about Evennia/Mongoose Legend, ask for documentation
+1. **Verify before answering** - Fetch live repo files (`raw.githubusercontent.com/G0dlet/PolishedWorld/<branch>/<path>`) before writing code or editing docs. Never trust memory/docs over the live repo — flag discrepancies explicitly.
 2. **Provide working code** - Complete, runnable Python with imports and error handling
 3. **Cite Evennia contribs** - Reference by path (e.g., `evennia.contrib.game_systems.crafting`)
 4. **Consider multiplayer** - Race conditions, concurrent access, server load
@@ -72,6 +73,8 @@ All features are broken down using Functional Decomposition:
 - "Let's implement Task X.Y" → Get code + tests
 - "Where are we?" → Progress check
 
+**Branch discipline:** docs live on `main`; feature code lives on the current feature branch (`feature/<name>`). This distinction matters for every file fetch.
+
 See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 
 ---
@@ -86,12 +89,12 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 ### Environment
 - **OS**: Linux
 - **Evennia**: Latest from main (consider pinning for stability)
-- **IDE**: Neorg
+- **IDE / tooling**: neovim + LazyVim, tmux, lazygit
 - **Version Control**: Git with GitHub
 
 ### Project Repository
-- **GitHub**: [https://github.com/G0dlet/PolishedWorld]
-- **Branch Strategy**: main = stable, feature branches for development
+- **GitHub**: https://github.com/G0dlet/PolishedWorld (public — files fetchable directly via `raw.githubusercontent.com`)
+- **Branch Strategy**: `main` = stable + all docs; feature branches for development code
 
 ---
 
@@ -110,18 +113,31 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 - Weather system
 - Statue logout + custom connection screen
 
-### 🔄 In Progress — `feature/hunting`
-- **H1–H5** ✅ — `Creature` typeclass, rabbit prototype + spawn script, hunting skill + `CmdHunt` (Mongoose Legend opposed skill resolution), `Corpse` typeclass with lazy decay, `CmdHarvest`, hide tanning recipe (H5.1), leather boot tailoring recipe (H5.2)
-- **H6.1** ✅ — `condition` AttributeProperty (0–100) on `ClothingWithBuffs`; `worn_warmth` rounding fix (sum fractions first, round total once)
-- **H6.2** ✅ — `world/garment_wear.py` TICKER_HANDLER wear system (`idstring="garment_wear"`, persistent); 25% (yellow) / 10% (red) threshold warnings
-- **H6.3** 🔜 next — `CmdRepair` (dedicated command, mutates existing garment `db.condition` in place, consumes cloth/thread, Craft skill check)
+### ✅ Completed & Committed — `feature/hunting` (H1–H6)
+- **H1–H3** — `Creature` typeclass, rabbit prototype + spawn script, hunting skill + `CmdHunt` (Mongoose Legend opposed skill resolution), `Corpse` typeclass with lazy decay, `at_death` → corpse conversion
+- **H4** — `CmdHarvest` (decay-gated, skill checks, cooldown), harvest templates + prototypes
+- **H5** — `raw_hide` → `leather` tanning recipe (H5.1) + `leather` → `leather boots` tailoring recipe (H5.2). Naming convention: `"leather boots"` (space, not underscore)
+- **H6.1** — `condition` AttributeProperty (0–100) on `ClothingWithBuffs`; `worn_warmth` rounding fix (sum fractions first, round total once)
+- **H6.2** — `world/garment_wear.py` TICKER_HANDLER wear system (`idstring="garment_wear"`, persistent); 25% (yellow) / 10% (red) threshold warnings
+- **H6.3** — `CmdRepair` (`commands/repair_commands.py`, alias `mend`) — dedicated command that mutates an existing garment's `db.condition` in place (recipes spawn new output, so cannot be used for in-place mutation); consumes cloth/thread, Craft/Tailoring skill check, `repair` cooldown
+
+### 🔄 In Progress — `feature/hunting` (H7)
+- **H7 — Player Death & Corpse** (decomposition verified against live source; not permadeath — respawn with debuff)
+  - **H7.1** — `PlayerCorpse` class + `at_character_death(killer=None)` consequence hook
+  - **H7.2** — single `apply_health_damage()` HP-0 chokepoint (summed damage across conditions + reentrancy guard, so starvation + dehydration in one tick can't double-fire death)
+  - **H7.3** — respawn location, timed death debuff, corpse expiry sink
+  - **H7.4** — dying-state (deferred; the two seams above let it slot in without a rewrite)
+- **Open design decisions to resolve before implementing:**
+  1. Clear worn-state on items moved to `PlayerCorpse`?
+  2. Reset hunger/thirst on respawn?
+  3. Lazy-delete on corpse interaction vs. accept lingering expired corpses?
 
 ### 📋 Next Steps
-1. Complete **H6.3 `CmdRepair`** — closes the garment durability loop
-2. **H7** — Player death mechanics (`at_character_death()` hook + `apply_health_damage()` chokepoint)
-3. Resume crafting content pipeline (OpenCode Go bulk data generation per `AGENTS.md` / `world/material_registry.py` schemas)
-4. **Stage 1 roadmap** — Skill Improvement System; felt-progress / legibility layer
-5. **Stage 2** — In-game currency system (Gold/Silver/Copper — currently absent from codebase)
+1. Resolve the three H7 design decisions, then implement **H7.1 → H7.3**
+2. Merge `feature/hunting`; resume crafting content pipeline (OpenCode Go bulk data generation per `AGENTS.md` / `world/material_registry.py` schemas)
+3. **Stage 1 roadmap** — Skill Improvement System; felt-progress / legibility layer
+4. **Stage 2** — In-game currency system (Gold/Silver/Copper — currently absent from codebase)
+5. Testworld (`build_testworld.py` + `testworld_data.py`) — deferred until hunting complete
 
 ---
 
@@ -132,18 +148,28 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 - **Buffs** — Temporary effects (thermal, etc.) ✅
 - **Extended Room** — Time/season descriptions ✅
 - **Barter** — Player-to-player trading ✅
-- **Crafting** — Item creation (foundation) ✅
-- **Cooldowns** — Rate limiting (planned)
+- **Crafting** — Item creation (foundation; `CRAFT_RECIPE_MODULES`, import from `evennia.contrib.game_systems.crafting.crafting`) ✅
+- **Clothing** — Wearable garments + thermal buffs ✅
+- **Cooldowns** — Rate limiting on harvest / craft / repair (`caller.cooldowns.ready/add`) ✅
 
 ### Custom Systems
-- **GameTime**: 13-month calendar, 4x real-time speed
-- **Survival**: Hunger/thirst/fatigue with trait-based tracking
-- **Currency**: Gold/Silver/Copper (100:1 ratios)
+- **GameTime**: 13-month calendar, 4x real-time speed. Time queries route through `world/gametime_utils.py` (`get_absolute_gametime()` etc.) on `feature/hunting`.
+- **Survival**: Hunger/thirst/fatigue with trait-based tracking (TICKER_HANDLER-driven)
+- **Currency** *(design only — not yet in codebase)*: Gold / Silver / Copper, `1 Gold = 100 Silver = 10,000 Copper`. Planned for Stage 2.
 
 ### Mongoose Legend Adaptations
 - Auto-resolve routine skill checks
 - Real-time with cooldowns (not turn-based rounds)
 - Skill improvement on use (not session XP)
+- `opposed_check` in `world/skillcheck.py` implements full Legend resolution order (level of success → higher successful roll → higher skill → coin toss; both fail = stalemate)
+
+### GameGold (post-MVP crypto layer)
+- Platform: **blackcoin-more** fork (Bitcoin Core 26.x base, PoSV3, actively maintained)
+- 100% PoS after 100 PoW bootstrap blocks, 1-min blocktimes, 1 coin/block, fair launch, no premine
+- 1:1 peg with in-game gold; gold created **only** via crypto exchange (no NPC sources); all circulation player-to-player
+- Temple-faucet (staking donation wallet) funds small task rewards to solve cold-start
+- Philosophy: hobby/experiment, not investment; speculation discouraged; developer never sells officially
+- See `PolishedWorld_GameGold_Economy.md` for full design
 
 ---
 
@@ -174,7 +200,7 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 
 ## Critical Reminders
 
-🔴 **Never invent Evennia functionality** - Ask for docs if uncertain
+🔴 **Never invent Evennia functionality** - Fetch live source / ask for docs if uncertain
 
 🎲 **Mongoose Legend** - Verify mechanics match rulebook
 
@@ -184,23 +210,28 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 
 💰 **Economy** - Every item needs defined source AND sink
 
-🔐 **Multiplayer** - Race conditions, concurrent access
+🔐 **Multiplayer** - Race conditions, concurrent access, atomic claim-before-spawn with refund on exception
 
 📝 **Atomic Commits** - One task = one commit
+
+📄 **Doc discipline** - All `docs/` files carry a Rev header (blockquote `Rev N · date`, changelog, `Canonical:` path). Repo copy is canonical; fetch live before editing.
 
 ---
 
 ## Additional Project Knowledge
 
 For detailed documentation, see separate project files:
+- `docs/roadmap.md` - Strategic roadmap (epic/milestone altitude)
+- `PolishedWorld_Functional_Decomposition.md` - Development methodology
+- `PolishedWorld_Hunting_Decomposition.md` - Current feature's tactical decomposition
+- `PolishedWorld_Evennia_Reference.md` - Evennia API reference and accumulated gotchas
 - `PolishedWorld_Code_Standards.md` - Code quality, Evennia patterns, best practices
 - `PolishedWorld_Mongoose_Legend.md` - RPG mechanics integration
 - `PolishedWorld_GameGold_Economy.md` - Cryptocurrency and economy design
-- `PolishedWorld_Functional_Decomposition.md` - Development methodology
 - `PolishedWorld_Testing_Reference.md` - Testing guide and quick commands
-- `PolishedWorld_Evennia_Reference.md` - Evennia API reference and gotchas
+- `AGENTS.md` - OpenCode Go content-generation scope + golden rules
 
 ---
 
-**Last Updated**: 2026-07-02
-**Current Priority**: `feature/hunting` — H6.3 `CmdRepair` (garment durability loop)
+**Last Updated**: 2026-07-03
+**Current Priority**: `feature/hunting` — H7 Player Death (resolve 3 open design decisions, then implement H7.1–H7.3)
