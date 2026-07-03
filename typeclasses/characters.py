@@ -13,6 +13,9 @@ from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
 
 from .objects import ObjectParent
+from evennia import create_object
+from evennia.utils import logger
+from world.survival_buffs import DeathWeakness
 
 
 class Character(ObjectParent, ClothedCharacter):
@@ -454,6 +457,110 @@ class Character(ObjectParent, ClothedCharacter):
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
     rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
+    
+    def at_character_death(self, killer=None):
+        """
+        Consequence hook for a character hitting 0 HP. NOT permadeath.
+
+        Spawns a PlayerCorpse where the character fell, moves all non-soulbound
+        inventory (worn items stripped first) into it, relocates the character to
+        their respawn point, restores health/hunger/thirst, clears survival
+        conditions, and applies a timed post-death weakness.
+
+        This is the single consequence chokepoint (H7.1). In normal play H7.2's
+        apply_health_damage is the only caller; the reentrancy guard below is
+        defense-in-depth against a direct or duplicate call (e.g. two damage
+        sources resolving in one tick) so one death never spawns two corpses.
+
+        Args:
+            killer (Object | str | None): whatever dealt the fatal blow, kept for
+                future logging / PvP attribution. Mechanically unused for now.
+        """
+        # Reentrancy guard. ndb (non-persistent) suffices: a death resolves
+        # synchronously in one call, and a post-reload session can't be mid-death.
+        # Unset ndb reads as None (falsy), so the first entry always proceeds.
+        if self.ndb._dying:
+            return
+        self.ndb._dying = True
+        try:
+            location = self.location
+
+            # Spawn the corpse where they fell. A character with no location is
+            # not in the world -- skip the corpse but still respawn/heal so we
+            # can never strand them in a dead state.
+            corpse = None
+            if location:
+                try:
+                    corpse = create_object(
+                        "typeclasses.corpse.PlayerCorpse",
+                        key=f"corpse of {self.key}",
+                        location=location,
+                        attributes=[("owner", self.id)],
+                    )
+                except Exception:
+                    # A failed corpse spawn must not abort respawn. Log and fall
+                    # through: the player keeps their items rather than voiding
+                    # them -- the safe failure for a player-driven economy.
+                    logger.log_trace(
+                        f"at_character_death: PlayerCorpse spawn failed for {self}"
+                    )
+
+            # Drop inventory into the corpse. list() snapshots contents because
+            # we mutate it while iterating.
+            if corpse:
+                for obj in list(self.contents):
+                    if obj.tags.has("soulbound"):
+                        continue
+                    try:
+                        if obj.db.worn:
+                            obj.remove(self, quiet=True)
+                        # move_to returns False on failure WITHOUT raising, so a
+                        # silent stranding would otherwise vanish from the loot. Log
+                        # it and leave the item on the character (safe economic
+                        # failure: they keep it rather than it disappearing).
+                        if not obj.move_to(corpse, quiet=True, move_hooks=False):
+                            logger.log_err(
+                                f"at_character_death: {obj} (#{obj.id}) failed to "
+                                f"move to corpse of {self}; item retained on character."
+                            )
+                    except Exception:
+                        # One bad item must not abort the whole death sequence.
+                        logger.log_trace(
+                            f"at_character_death: failed to move {obj} to corpse"
+                        )
+
+            # Relocate to respawn. respawn_location gets its temple default in
+            # H7.3; the fallback chain guarantees a valid destination today
+            # (self.home always exists).
+            destination = self.db.respawn_location or self.home or location
+            if destination:
+                self.move_to(destination, quiet=True, move_hooks=False)
+
+            # Restore vitals (decision 2: reset hunger/thirst -- respawned "fresh").
+            health = self.traits.get("health")
+            if health:
+                health.current = health.max
+            for gauge_key in ("hunger", "thirst"):
+                gauge = self.traits.get(gauge_key)
+                if gauge:
+                    gauge.current = gauge.max
+
+            # Clear survival conditions now so the next tick doesn't flash
+            # "Starving" on a freshly-fed character (the ticker would clear them
+            # anyway once the gauge reads above min; this just avoids the lag).
+            for condition_key in ("starving", "dehydrated"):
+                self.buffs.remove(condition_key)
+
+            # Timed post-death debuff. remove-then-add guarantees a fresh single
+            # stack with a fresh duration on re-death (buffs.add otherwise stacks).
+            self.buffs.remove(DeathWeakness.key)
+            self.buffs.add(DeathWeakness)
+
+            self.msg("|RYou have died.|n")
+        finally:
+            # Always clear the guard, even on exception, so a later legitimate
+            # death is never silently swallowed.
+            self.ndb._dying = False
 
     def start_resting(self):
         """Begin resting. Schedules the first recovery tick."""

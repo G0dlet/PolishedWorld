@@ -147,3 +147,24 @@ class Corpse(ObjectParent, DefaultObject):
         """Append the current decay state to the corpse's description."""
         appearance = super().return_appearance(looker, **kwargs)
         return f"{appearance}\nIt looks {self.decay_stage_name}."
+
+
+class PlayerCorpse(Corpse):
+    """
+    The remains of a dead player character.
+
+    Inherits Corpse's lazy, tickerless decay wholesale: Corpse.at_object_creation
+    stamps death_time (gametime_utils.get_absolute_gametime), locks the carcass
+    against pickup (get:false()), and decay_stage/is_expired compute on demand.
+    Unlike a creature Corpse it holds the player's REAL dropped objects, looted
+    individually via ordinary get-locks -- not harvestable parts.
+
+    Inherited creature_type/creature_siz defaults (rabbit/4) are meaningless here
+    but harmless: no player-corpse code path reads them. H7.1 keeps this class
+    minimal; H7.3 adds the longer recovery window and the return_appearance
+    expiry sink (crumble + delete contents).
+    """
+
+    # Distinguishes player corpses from creature corpses for search/loot rules.
+    # autocreate=True so lookups never hit a None-guard.
+    is_player_corpse = AttributeProperty(default=True, autocreate=True)

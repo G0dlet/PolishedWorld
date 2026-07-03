@@ -86,3 +86,37 @@ class HeatStress(BaseBuff):
         Mod("thirst_rate", "mult", 0, perstack=0.10),
         Mod("fatigue_rate", "mult", 0, perstack=0.04),
     ]
+
+
+class DeathWeakness(BaseBuff):
+    """
+    Timed post-death debuff: the shock of near-death leaves you tiring easily.
+
+    Unlike the survival *conditions* (Starving/Dehydrated, duration=-1, cleared
+    by the ticker when the gauge recovers), this is SELF-expiring: duration > 0
+    makes the buffs contrib schedule its own cleanup via
+    utils.delay(duration, cleanup, persistent=True) and fire at_expire when it
+    lapses -- verified in evennia/contrib/rpg/buffs/buff.py. No ticker involved.
+
+    The single mult mod on 'fatigue_rate' is consumed by the exact same
+    buffs.check(base, "fatigue_rate") call the survival ticker already makes in
+    _deplete_character, so a just-respawned character burns fatigue ~50% faster
+    for the duration. No new integration point is introduced.
+    """
+
+    key = "death_weakness"
+    name = "Death's Chill"
+    flavor = "The chill of near-death lingers; your body tires easily."
+    duration = 300          # real seconds; self-expiring. H7.3 will tune this.
+    tickrate = 0            # passive mod only; no self-tick
+    unique = True
+    maxstacks = 1           # re-death refreshes (via remove-then-add), never stacks
+    mods = [
+        Mod("fatigue_rate", "mult", 0, perstack=0.5),   # +50% fatigue depletion
+    ]
+
+    def at_apply(self, *args, **kwargs):
+        self.owner.msg("|rYou claw back from the edge of death, weak and shaken.|n")
+
+    def at_expire(self, *args, **kwargs):
+        self.owner.msg("|gThe shadow of death lifts; your strength returns.|n")
