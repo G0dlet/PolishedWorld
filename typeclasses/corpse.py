@@ -176,6 +176,15 @@ class PlayerCorpse(Corpse):
     # time to run back. Env-scaled like all decay (cold slows it, heat speeds it).
     _PLAYER_EXPIRY_HOURS = 288
 
+    def at_object_creation(self):
+        """Inherit the carcass get-lock + death stamp, then open looting."""
+        super().at_object_creation()   # get:false() + death_time default
+        # Open looting via CmdContainerGet's get_from check. This is a DIFFERENT
+        # lock from the inherited get:false(): get_from governs taking items OUT
+        # of the corpse, get governs pocketing the carcass itself. Together --
+        # anyone loots the contents, nobody walks off with the body.
+        self.locks.add("get_from:true()")
+
     @property
     def is_expired(self):
         """Override the base 144h window with the longer player recovery window."""
