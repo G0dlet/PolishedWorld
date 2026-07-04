@@ -458,6 +458,37 @@ class Character(ObjectParent, ClothedCharacter):
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
     rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
     
+    def apply_health_damage(self, amount, source=None):
+        """
+        Single chokepoint for all HP loss. Subtracts `amount` from health and
+        fires at_character_death() if that reaches the health minimum (0).
+
+        Every damage source -- survival conditions now, combat later -- must
+        route through here so death can never be bypassed, and so the future
+        dying-state (H7.4) has exactly one place to hook.
+
+        Args:
+            amount (int): HP to remove. <= 0 is a no-op, so callers can pass a
+                summed total without special-casing a zero-damage tick.
+            source (Object | str | None): what dealt the damage; forwarded to
+                at_character_death as `killer` for future attribution/logging.
+        """
+        if amount <= 0:
+            return
+        health = self.traits.get("health")
+        if health is None:
+            return
+        # Already at/below min: a death is in progress or already resolved this
+        # tick. Do nothing. This is defense-in-depth for future direct callers
+        # (combat); the summation in the ticker is the primary double-death guard.
+        if health.current <= health.min:
+            return
+        health.current -= amount
+        if health.current <= health.min:
+            # GaugeTrait has no min-callback, so we detect the threshold crossing
+            # explicitly rather than relying on the trait to notify us.
+            self.at_character_death(killer=source)
+
     def at_character_death(self, killer=None):
         """
         Consequence hook for a character hitting 0 HP. NOT permadeath.
