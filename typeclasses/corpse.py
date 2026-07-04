@@ -161,10 +161,52 @@ class PlayerCorpse(Corpse):
 
     Inherited creature_type/creature_siz defaults (rabbit/4) are meaningless here
     but harmless: no player-corpse code path reads them. H7.1 keeps this class
-    minimal; H7.3 adds the longer recovery window and the return_appearance
-    expiry sink (crumble + delete contents).
+    minimal; H7.3b adds the loot-access lock (get_from) and the CmdContainerGet
+    integration.
     """
 
     # Distinguishes player corpses from creature corpses for search/loot rules.
     # autocreate=True so lookups never hit a None-guard.
     is_player_corpse = AttributeProperty(default=True, autocreate=True)
+
+    # Player loot deserves a more forgiving recovery window than a rabbit
+    # carcass (144h). The visual decay pace is INHERITED unchanged (skeletal at
+    # 96h); only the cleanup window extends, so the corpse -- and the loot it
+    # still holds -- lingers as a skeleton until this point, giving a dead player
+    # time to run back. Env-scaled like all decay (cold slows it, heat speeds it).
+    _PLAYER_EXPIRY_HOURS = 288
+
+    @property
+    def is_expired(self):
+        """Override the base 144h window with the longer player recovery window."""
+        return self._elapsed_game_hours() >= self._PLAYER_EXPIRY_HOURS
+
+    def return_appearance(self, looker, **kwargs):
+        """
+        Lazy expiry sink + loot display.
+
+        On look: if the corpse has lingered past its recovery window, it -- and
+        every item still inside -- crumbles away here. This is the no-ticker
+        realisation of the loot sink: gear not recovered in time is destroyed
+        with the body. Otherwise we defer to the inherited appearance, which
+        already lists contents via the {things} template slot, so a looter sees
+        exactly what is left to take without needing CmdContainerLook.
+
+        Multiplayer note: if two players look near-simultaneously past expiry,
+        the first triggers the delete; the second's look/get simply finds nothing
+        (a graceful "not found"), never a half-deleted corpse.
+        """
+        if self.is_expired:
+            if self.location:
+                self.location.msg_contents(
+                    f"|xThe {self.key} finally crumbles to dust, and what it "
+                    f"held is lost with it.|n"
+                )
+            # Contents first, then the carcass. Per-item independent decay (loot
+            # lingering after the body is gone) is a future refinement; today the
+            # sink is atomic -- see decomp section 13.
+            for obj in list(self.contents):
+                obj.delete()
+            self.delete()
+            return ""
+        return super().return_appearance(looker, **kwargs)
