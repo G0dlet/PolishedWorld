@@ -103,17 +103,28 @@ def thermal_stress(regime, worn_warmth):
 
 def worn_warmth(character):
     """
-    Sum the db.warmth of everything `character` is currently wearing.
+    Sum the effective warmth of everything `character` is currently wearing.
 
-    Covered layers count: a shirt under a coat still insulates. Garments without
-    a warmth value contribute 0. Works whether or not the clothing contrib's
-    typeclasses are installed -- get_worn_clothes only inspects db.worn.
+    Each piece contributes warmth * condition/100 -- a worn-out garment insulates
+    less. Covered layers count: a shirt under a coat still insulates. Garments
+    with no warmth contribute 0; garments with no condition (a plain contrib
+    garment, not a ClothingWithBuffs) default to full condition, so an item that
+    predates the condition system is never penalised. Works whether or not the
+    clothing contrib's typeclasses are installed -- get_worn_clothes only inspects
+    db.worn.
+
+    Rounding is done once, on the *total*: each garment's fractional contribution
+    is summed first, so several lightly-insulating worn pieces still stack to a
+    sensible whole (two warmth-1 garments at 49% give round(0.98) = 1, not 0+0).
     """
     # Lazy import keeps this module import-light (mirrors weather.py's pattern).
     from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 
-    return sum((garment.db.warmth or 0) for garment in get_worn_clothes(character))
-
+    total = sum(
+        (garment.db.warmth or 0) * (garment.db.condition or 100) / 100
+        for garment in get_worn_clothes(character)
+    )
+    return round(total)
 
 def apply_thermal_stress(character):
     """

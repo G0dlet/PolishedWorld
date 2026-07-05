@@ -70,14 +70,23 @@ def _deplete_character(char):
 
 def _apply_survival_conditions(char):
     """
-    Apply or clear starvation/dehydration conditions and damage health.
+    Apply or clear starvation/dehydration conditions, then route the summed
+    damage through the death chokepoint.
 
     At gauge minimum: ensure the condition buff is present (at_apply fires its
-    onset message once, thanks to the has() guard) and subtract HP. Above
-    minimum: remove() the condition by key — safe to call every tick, it
-    no-ops if absent and only fires at_remove the tick it actually clears.
+    onset message once, thanks to the has() guard) and accrue STARVE_DAMAGE.
+    Above minimum: remove() the condition by key (no-ops if absent, only fires
+    at_remove the tick it actually clears).
+
+    We SUM across conditions and make a SINGLE apply_health_damage call. This
+    keeps "one fatal tick -> one corpse" correct independently of two other
+    facts (the reset-on-respawn in at_character_death, and the <=min guard in
+    apply_health_damage): a per-condition reroute would only stay single-death
+    by accident of those, and would silently start double-killing the day either
+    changed. Summation makes the intent explicit -- a character both starving
+    and dehydrated takes 2 damage and dies once.
     """
-    health = char.traits.get("health")
+    total_damage = 0
     for key, buffclass in HEALTH_CONDITIONS:
         trait = char.traits.get(key)
         if trait is None:
@@ -85,11 +94,12 @@ def _apply_survival_conditions(char):
         if trait.current <= trait.min:
             if not char.buffs.has(buffclass):
                 char.buffs.add(buffclass)
-            if health is not None:
-                health.current -= STARVE_DAMAGE
+            total_damage += STARVE_DAMAGE
         else:
             char.buffs.remove(buffclass.key)
 
+    if total_damage:
+        char.apply_health_damage(total_damage, source="survival")
 
 def _check_survival_warnings(char):
     """

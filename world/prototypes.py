@@ -207,6 +207,28 @@ KNIFE = {
     "tags": [("knife", "crafting_tool")],
 }
 
+RABBIT = {
+    "prototype_key": "rabbit",
+    "typeclass": "typeclasses.creatures.Creature",
+    "key": "rabbit",
+    "aliases": ["bunny", "coney"],
+    "desc": (
+        "A small wild rabbit with a soft grey-brown coat, ears flat against "
+        "its back. It freezes, watchful, ready to bolt at the first wrong move."
+    ),
+    # siz 4 overrides the typeclass default (8): a rabbit is small prey. This
+    # value drives harvest yield (H4) and feeds the hunt difficulty (H2.2).
+    "siz": 4,
+    # Explicit even though it matches the default -- the rabbit is the canonical
+    # owner of the "rabbit" harvest table (meat + a small hide, H4.2).
+    "harvest_template": "rabbit",
+    # Tag fauna by species so the spawn script (H1.3) and admin tools can query
+    # creatures -- mirrors the monster-tag convention in the file's examples.
+    "tags": [("rabbit", "creature")],
+    # flee_skill intentionally left to the typeclass default (30); the hunt
+    # difficulty knob is tuned at H2.2, not baked into the prototype here.
+}
+
 # --- Tailoring: woven cloth (intermediate material) + sewing tool ---
 # CLOTH is the middle of the tailoring chain: plant fibre -> cloth -> garment.
 # Its tag-key "cloth" is what garment recipes list in consumable_tags. Source =
@@ -295,4 +317,59 @@ STRAW_HAT = {
     # warmth 0 on purpose: this is a sun/rain piece. Its protection will live on
     # the reserved rain_protection hook once that axis lands -- not warmth.
     "warmth": 0,
+}
+
+# --- Hunting: harvestable creature parts (H4.2) ---
+# SOURCE: the harvest command (H4.3) spawns these from a corpse, gated by skill
+# and decay. They are NOT spawned freely in the finished economy -- same as the
+# clothing prototypes above. SINKS: rabbit_meat -> eaten (CmdEat); raw_hide ->
+# consumed by the H5 tanning recipe into leather. Both prototype_keys are
+# referenced by world/harvest_templates.py's rabbit template.
+
+RABBIT_MEAT = {
+    "prototype_key": "rabbit_meat",
+    "typeclass": "typeclasses.consumables.Food",
+    "key": "raw rabbit meat",
+    "aliases": ["meat", "rabbit meat"],
+    "desc": (
+        "A portion of raw, dark rabbit meat, still cool to the touch. Edible as "
+        "it is, though gamey and tough -- it would sit far better cooked."
+    ),
+    # Modest restore on purpose: this is raw small-game. The future cooking step
+    # (a recipe turning rabbit_meat -> cooked_meat) is where the larger hunger
+    # payoff should live, so this is left with headroom. Plain top-level keys map
+    # to db.restore_amount / db.consume_message, exactly what CmdEat reads.
+    "restore_amount": 15,
+    "consume_message": "You eat {key}. Gamey and tough raw, but it takes the edge off your hunger.",
+}
+
+RAW_HIDE = {
+    "prototype_key": "raw_hide",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "raw hide",
+    # NOTE: deliberately no "skin" alias -- that collides with the waterskin's
+    # "skin" alias and would make `... skin` ambiguous for anyone carrying both.
+    "aliases": ["hide", "pelt"],
+    "desc": (
+        "A raw animal hide, fur still on and the underside damp. Untreated it "
+        "will spoil; tanned, it becomes leather fit for working."
+    ),
+    # crafting_material tag-key "raw_hide" is what the H5 tanning recipe lists in
+    # consumable_tags. Same convention as PLANT_FIBER's "fiber" and CLOTH's "cloth".
+    "tags": [("raw_hide", "crafting_material")],
+}
+
+LEATHER = {
+    "prototype_key": "leather",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "piece of leather",
+    "aliases": ["leather"],
+    "desc": (
+        "A supple piece of tanned leather, cured from a raw hide. Worked and "
+        "stitched, it becomes boots, straps and other sturdy gear."
+    ),
+    # crafting_material tag-key "leather" is what the leather-boots recipe (H5.2)
+    # lists in consumable_tags. Same convention as CLOTH's "cloth" and
+    # RAW_HIDE's "raw_hide".
+    "tags": [("leather", "crafting_material")],
 }

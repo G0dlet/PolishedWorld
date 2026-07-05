@@ -12,8 +12,11 @@ just overloads its hooks to have it perform its function.
 
 """
 
+from collections.abc import Mapping
 from evennia.scripts.scripts import DefaultScript
 from evennia.utils import logger
+from evennia.prototypes.spawner import spawn
+from evennia.utils.search import search_tag
 from world import gametime_utils
 from world import weather as weather_logic
 
@@ -141,3 +144,64 @@ class WeatherScript(Script):
                 weather_logic.broadcast_weather_change(new)
         except Exception:
             logger.log_trace()
+
+
+class CreatureSpawnScript(Script):
+    """
+    Global respawn ticker. Registered via settings.GLOBAL_SCRIPTS, so it is
+    auto-created on first server start and re-created if ever deleted.
+
+    Keeps creature populations topped up in rooms that opt in. A room opts in
+    with two pieces of config:
+
+        room.db.spawn_creatures = {"rabbit": 3}   # prototype_key -> target count
+        room.tags.add("creature_spawn", category="room_flag")
+
+    The tag is what makes this scale: the script queries only flagged rooms via
+    search_tag, never the whole world -- important as the map grows toward the
+    long-term Daggerfall-scale vision. The dict key is a creature prototype_key,
+    which by convention equals that creature's species tag (rabbit carries
+    tags=[("rabbit", "creature")]), so a species can be counted cheaply.
+
+    Spawning is *sparse*: at most one creature per species per room per tick, so
+    a depleted room refills gradually instead of a whole herd popping in at once.
+    """
+
+    def at_script_creation(self):
+        self.key = "creature_spawn"
+        self.desc = "Maintains creature populations in spawn-flagged rooms"
+
+    def at_repeat(self):
+        """Top up each flagged room by at most one creature per species."""
+        try:
+            for room in search_tag("creature_spawn", category="room_flag"):
+                config = room.db.spawn_creatures
+                if not isinstance(config, Mapping):
+                    continue
+                for prototype_key, target in config.items():
+                    if not isinstance(target, int) or target <= 0:
+                        continue
+                    if self._count_species(room, prototype_key) < target:
+                        self._spawn_one(prototype_key, room)
+        except Exception:
+            # One bad room must never kill the ticker for everyone else.
+            logger.log_trace()
+
+    @staticmethod
+    def _count_species(room, species):
+        """Living creatures of `species` (by species tag) currently in `room`."""
+        return sum(
+            1 for obj in room.contents
+            if obj.tags.has(species, category="creature")
+        )
+
+    @staticmethod
+    def _spawn_one(species, room):
+        """Spawn a single creature of `species` into `room`, silently."""
+        spawned = spawn(species)
+        if not spawned:
+            logger.log_err(f"CreatureSpawnScript: unknown prototype '{species}'")
+            return
+        # Direct location set = silent placement (no 'a rabbit arrives' spam every
+        # interval). Bypassing move hooks is intentional for ambient spawning.
+        spawned[0].location = room

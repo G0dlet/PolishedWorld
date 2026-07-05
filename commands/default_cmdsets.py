@@ -17,10 +17,13 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 from evennia import default_cmds
 from evennia.contrib.grid import extended_room
 from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
+from evennia.contrib.game_systems.containers.containers import CmdContainerGet
 from commands import character_commands
 from commands.admin_commands import CmdWeather
 from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
+from commands.hunting_commands import CmdHunt, CmdHarvest
+from commands.repair_commands import CmdRepair
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -67,8 +70,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
 
         self.add(CmdForage())
         self.add(CmdRefill())
+        self.add(CmdHunt())
+        self.add(CmdHarvest())
 
         self.add(CraftingCmdSet)
+        self.add(CmdRepair())
 
         self.add(CmdPWTrade())
 
@@ -80,6 +86,14 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdCover())
         self.add(CmdUncover())
         self.add(CmdInventory())
+
+        # Corpse/container looting: replaces stock 'get' with a version that also
+        # supports 'get <obj> from <container>' (checks the container's get_from
+        # lock). Deliberately NOT the full ContainerCmdSet -- that bundles
+        # CmdContainerLook, which would clobber extended_room's seasonal look.
+        # Plain 'get <obj>' is unchanged. Full put/storage containers are a
+        # later task (see decomp section 13).
+        self.add(CmdContainerGet())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
