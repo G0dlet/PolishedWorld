@@ -1,7 +1,10 @@
 # PolishedWorld — Hunting & Harvesting Decomposition
- 
-**Feature branch (planned):** `feature/hunting`
-**Status:** Planning / decomposed
+
+> **Rev 1 · 2026-07-05** — first version header; H7 (Player Death & Corpse) implemented & committed on `feature/hunting` (H7.1/H7.2/H7.3a/3b/3c); resolved the staty-vs-död and soulbound open questions; added per-item-decay and full-container-support backlog notes.
+> **Canonical:** `docs/PolishedWorld_Hunting_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
+
+**Feature branch:** `feature/hunting`
+**Status:** H1–H7 implemented & committed (H7.4 dying-state deferred)
 **Philosophy:** skynda långsamt — validera creature+corpse innan harvesting byggs ovanpå.
  
 ---
@@ -67,7 +70,7 @@ Resten är "fortsätt i survival-banan".
 | **B — Harvest-payoff** | H4.1, H4.2, H4.3 | `meat` som mat + `raw_hide` som material |
 | **C — Stäng clothing-loopen** ✅ | H5.1, H5.2 | `raw_hide` → `leather` → `leather_boots` |
 | **D — Sinken** | H6.1, H6.2, H6.3 | Plagg slits & repareras (Legend wear) |
-| **B/C — Spelar-död** | H7.1, H7.2, H7.3 | HP 0 = död → player-corpse + respawn (deferred: H7.4 dying-state) |
+| **B/C — Spelar-död** ✅ | H7.1, H7.2, H7.3 | HP 0 = död → player-corpse + respawn (deferred: H7.4 dying-state) |
  
 ---
  
@@ -334,7 +337,22 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
 - **Commit:** `feat(recipes): add garment repair restoring condition via Tailoring`
 ---
  
-## 12. Component H7 — Player Death & Corpse
+## 12. Component H7 — Player Death & Corpse   ✅ KLAR & committad
+
+> **As-built vs skissen nedan (source-verifierat H7):** key-shape-blocken i varje task är den
+> *ursprungliga* skissen och avviker medvetet från vad som shippades:
+> - `_clear_statue_state()` finns **inte** — `is_statue` är en property (`not self.has_account`),
+>   inget att nolla. Anropet togs bort.
+> - `death_time` stämplas via `gametime_utils.get_absolute_gametime()` (ärvs från `Corpse`),
+>   **inte** `gametime.gametime()`.
+> - corpse-key är engelska (`corpse of {name}`), inte `{key}s kvarlevor`.
+> - respawn: `db.respawn_location` → `settings.DEFAULT_RESPAWN_DBREF` → `home` → `location`.
+> - Endast **en** direkt HP-skadekälla fanns (survival-tickern); thermal skadar inte HP direkt.
+>   H7.2 summerar skadan per tick till **ett** `apply_health_damage`-anrop.
+> - H7.3 delades i **H7.3a** (expiry-sink + loot-visning via `return_appearance {things}`),
+>   **H7.3b** (öppen looting: `get_from:true()` + `CmdContainerGet`), **H7.3c** (respawn + debuff-tuning).
+> - Debuffen modar tillfälligt `hunger_rate/thirst_rate` (+25%); byts till `fatigue_rate` när
+>   fatigue får noll-konsekvens.
  
 > **Scope-beslut:** Vi börjar med **HP ≤ 0 = död direkt** (inget First Aid-fönster). Designen byggs
 > dock kring två fogar så dying-state (H7.4) kan läggas till senare utan omskrivning:
@@ -343,7 +361,7 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
 > konsekvens, inte radering. Player-corpse = den organiska ekonomi-sinken (droppat arbete kan
 > förfalla bort om det inte hämtas).
  
-### Task H7.1 — `PlayerCorpse` + `at_character_death()`-hook
+### Task H7.1 — `PlayerCorpse` + `at_character_death()`-hook  ✅
 - **Goal:** En metod `Character.at_character_death(killer=None)` som spawnar en `PlayerCorpse`,
   flyttar buret/buret inventory dit, respawnar karaktären och sätter en död-debuff.
 - **Dependencies:** H3.1 (`Corpse` lazy-decay), staty-logout-systemet (`at_post_unpuppet`).
@@ -376,7 +394,7 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
 - **@py test:** ge char items, anropa `char.at_character_death()` → PlayerCorpse med items finns,
   char på respawn-platsen, debuff aktiv.
 - **Commit:** `feat(death): add PlayerCorpse and at_character_death consequence hook`
-### Task H7.2 — HP-0 chokepoint (`apply_health_damage`)
+### Task H7.2 — HP-0 chokepoint (`apply_health_damage`)  ✅
 - **Goal:** En enda helper som all HP-skada går genom; eldar `at_character_death()` vid HP ≤ 0.
 - **Dependencies:** H7.1, survival-tickern (thermal/svält-skada), HP-gauge-traiten.
 - **Approach (key shape):**
@@ -391,7 +409,7 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
   **alla** via denna metod. **Detta är fogen** där dying-state-grenen (H7.4) sen läggs in på ETT ställe.
 - **@py test:** sätt HP lågt, `char.apply_health_damage(99)` → död-loopen körs en gång (inte dubbelt).
 - **Commit:** `feat(death): funnel HP loss through apply_health_damage with death threshold`
-### Task H7.3 — Respawn + död-debuff
+### Task H7.3 — Respawn + död-debuff  ✅  *(delad i H7.3a expiry-sink / H7.3b öppen looting / H7.3c respawn+debuff)*
 - **Goal:** Definiera respawn-plats (temple/hem) och en tillfällig, läkande debuff efter död.
 - **Dependencies:** H7.1, buffs-systemet.
 - **Approach:** `db.respawn_location` (default temple — knyter an till GameGold-templet). Debuff =
@@ -416,10 +434,12 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
 - **Befintliga karaktärer** saknar `hunting` — engångs-batch vid H2.1.
 - **Reload-krav:** nya recept laddas modul-level → `reload` efter H5/H6.3 (känt mönster).
 - **Wear-takt:** Legend räknar veckor; vid 4× speltid måste tickerns rate kännas rättvis, inte tjatig.
-- **Staty vs död (H7.1):** dö-och-logga-ut / logout-medan-tickern-dödar — död-state måste ta prioritet över `at_post_unpuppet`-statysystemet.
-- **Soulbound (H7.1):** ska något (t.ex. mest basala plagg/verktyg) överleva döden, eller droppar allt? Påverkar loss-frustration för nya spelare.
+- **Staty vs död (H7.1):** ~~dö-och-logga-ut / logout-medan-tickern-dödar~~ **LÖST:** survival-tickern är session-enumererad (bara online-karaktärer) → en utloggad staty kan inte dö av survival. Login-routing till respawn behövs först med H7.4 (dying-state) eller framtida offline-dödsvektorer.
+- **Soulbound (H7.1):** ~~ska något överleva döden?~~ **LÖST (v1):** allt icke-`soulbound`-taggat droppar; `soulbound`-taggen hoppas över. Inga soulbound-items finns än — dörren står öppen för att tagga basala plagg/verktyg senare om loss-frustration blir problem.
+- **Per-item decay (backlog, post-H7):** items försvinner idag TILLSAMMANS med PlayerCorpse vid expiry (en raderingspunkt, H7.3a). Framtida förfining: egna oberoende decay-timers så items ligger kvar som loot-hög efter att liket ruttnat bort och bryts ner var för sig (läder före stål). Centraliserad radering gör detta additivt.
+- **Full container-support (backlog, post-H7):** H7.3b lade medvetet bara till `CmdContainerGet` (inte `ContainerCmdSet`-bunten, som skulle ersätta `look` och krocka med extended_rooms `CmdExtendedRoomLook`). Framtida task när väskor/kistor finns: `CmdPut` + generell `ContribContainer`-förvaring; `CmdContainerLook` troligen permanent överhoppad (extended_room äger `look`).
 - **PvP-policy:** behöver beslutas innan combat introduceras, men inte nu — död-loopen byggs under survival-only-död först.
 ---
  
 **Skapad:** denna session · **Stil:** Functional Decomposition (Goal/Deps/Approach/@py/Commit)
-**Nästa steg:** "Let's implement Task H1.1" → full runnable kod + tester (efter slutlig source-check).
+**Nästa steg:** feature/hunting → main; nästa front = Skill Improvement System (roadmap Stage 1).
