@@ -1,6 +1,6 @@
 # PolishedWorld Evennia Reference
 
-> **Rev 2 · 2026-07-02** — added §11.7–§11.11 (H6 garment durability: TICKER_HANDLER vs GLOBAL_SCRIPTS, command testing via execute_cmd, validate-then-commit ordering, repair-as-command, condition end-rounding).
+> **Rev 3 · 2026-07-05** — added §11.12–§11.15 (H7 death/corpse: typeclass compile-fail → DefaultObject fallback, return_appearance {things} contents listing, containers get_from vs get + ContainerCmdSet/extended_room look collision, search_object #dbref resolution).
 > **Canonical:** `docs/PolishedWorld_Evennia_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
  
 **Purpose:** Curated reference of Evennia modules and contribs used (or planned) in PolishedWorld. This is a working document — extend as new systems are integrated. Verified against Evennia `main`; per-copy freshness is tracked in the Rev header above.
@@ -936,6 +936,50 @@ round(0.98)=1. `world/thermal.py::worn_warmth` follows this. Distinct from
 
 ---
  
+### 11.12 Typeclass compile failure → silent `DefaultObject` fallback
+
+A `SyntaxError`/`ImportError` in a typeclass module means Evennia can't import the class, and
+objects using it fall back to base `DefaultObject`. The symptom surfaces *far from the cause*:
+a broken `characters.py` shows up as `'DefaultObject' object has no attribute 'buffs'` fired by
+the survival ticker every tick — not as an error in `characters.py`. First diagnostic for any
+`'DefaultObject' object has no attribute '<your-custom-attr>'`: `python -m py_compile <file>`.
+A clean compile rules the module out. Don't debug the code that happens to crash; find the
+module that won't load.
+
+### 11.13 `return_appearance` lists contents via the `{things}` slot
+
+`DefaultObject.return_appearance` fills its `appearance_template` with
+`things=self.get_display_things(looker)`, so looking at *any* object already lists its contents.
+Consequence for containers: `look <container>` shows what's inside for free — you do **not** need
+`CmdContainerLook` to display contents. (PlayerCorpse relies on this for loot display, skipping
+`CmdContainerLook` to avoid the collision in §11.14.)
+
+### 11.14 Containers contrib — locks, backward-compat, and the `look` collision
+
+`evennia.contrib.game_systems.containers`:
+
+- `CmdContainerGet(CmdGet)` (key `get`) is backward-compatible: no `from` clause → `location =
+  caller.location`, i.e. plain `get <obj>` behaves exactly like stock. With `from`, it searches
+  the container and checks `location.access(caller, "get_from")`.
+- Two **orthogonal** locks: `get` governs picking up the object itself; `get_from` governs taking
+  items *out* of it. `get:false()` + `get_from:true()` = can't be pocketed, but freely looted.
+- Import commands from the submodule (`...containers.containers import CmdContainerGet`) — they
+  are **not** re-exported from the package `__init__.py` (same pattern as `CraftingCmdSet`).
+- ⚠️ `ContainerCmdSet` bundles `CmdContainerLook`, which replaces `look` and **collides** with
+  extended_room's `CmdExtendedRoomLook` (seasonal descriptions). With extended_room in use, add
+  the individual commands you need (e.g. just `CmdContainerGet`), not the bundle.
+
+### 11.15 `search_object()` resolves `#dbref` strings
+
+`evennia.utils.search.search_object(searchdata)` accepts a `#dbref` string or int, not just a key
+(docstring: "Object key or dbref to search for."). Handy for resolving a configurable dbref from
+settings into an object:
+
+```python
+matches = search.search_object(getattr(settings, "DEFAULT_RESPAWN_DBREF", None))
+dest = matches[0] if matches else (self.home or self.location)
+```
+
 ## 12. Search multimatch & disambiguation UX
 
 *(Verified against live Evennia `main`, 2026-07-01. §11.6 covers the search-*resolution* mechanic — exact-first, then fuzzy — and the crafting-ingredient angle; this section covers the multimatch *UX*: why `ball-1`/`ball-2` appears and the three ways to tune it.)*
