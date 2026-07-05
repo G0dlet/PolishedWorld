@@ -90,7 +90,8 @@ class HeatStress(BaseBuff):
 
 class DeathWeakness(BaseBuff):
     """
-    Timed post-death debuff: the shock of near-death leaves you tiring easily.
+    Timed post-death debuff: a body clawing back from death burns through food
+    and water faster while it recovers.
 
     Unlike the survival *conditions* (Starving/Dehydrated, duration=-1, cleared
     by the ticker when the gauge recovers), this is SELF-expiring: duration > 0
@@ -98,21 +99,38 @@ class DeathWeakness(BaseBuff):
     utils.delay(duration, cleanup, persistent=True) and fire at_expire when it
     lapses -- verified in evennia/contrib/rpg/buffs/buff.py. No ticker involved.
 
-    The single mult mod on 'fatigue_rate' is consumed by the exact same
-    buffs.check(base, "fatigue_rate") call the survival ticker already makes in
-    _deplete_character, so a just-respawned character burns fatigue ~50% faster
-    for the duration. No new integration point is introduced.
+    The mult mods on 'hunger_rate'/'thirst_rate' are consumed by the exact same
+    buffs.check(base, "<key>_rate") calls the survival ticker already makes in
+    _deplete_character, so a just-respawned character grows hungry and thirsty
+    ~25% faster for the duration. No new integration point is introduced, and
+    because respawn resets hunger/thirst to max, this is felt pressure -- not a
+    death spiral.
+
+    Design note: this deliberately targets hunger/thirst rather than fatigue,
+    because fatigue currently has no consequence when it bottoms out (deferred
+    to the future skill-check resolver). Once fatigue exhaustion carries a real
+    penalty, switch these mods back to 'fatigue_rate' -- thematically "weak and
+    shaken" fits fatigue better than appetite.
     """
 
     key = "death_weakness"
     name = "Death's Chill"
-    flavor = "The chill of near-death lingers; your body tires easily."
+    flavor = "The chill of near-death lingers; hunger and thirst gnaw as you mend."
     duration = 300          # real seconds; self-expiring. H7.3 will tune this.
     tickrate = 0            # passive mod only; no self-tick
     unique = True
     maxstacks = 1           # re-death refreshes (via remove-then-add), never stacks
     mods = [
-        Mod("fatigue_rate", "mult", 0, perstack=0.5),   # +50% fatigue depletion
+        # A body clawing back from death burns through food and water faster
+        # while it recovers. These hit hunger_rate/thirst_rate -- the exact
+        # checks the survival ticker already makes -- so the penalty is FELT now
+        # via the death chokepoint (hungrier/thirstier -> starve -> the same
+        # apply_health_damage path we built in H7.2). We avoid fatigue_rate:
+        # fatigue has no zero-consequence yet, so that mod would be inert.
+        # Modest +25%; hunger/thirst reset to max on respawn, so this is real
+        # pressure -- not a death spiral. Dial after playtesting.
+        Mod("hunger_rate", "mult", 0, perstack=0.25),
+        Mod("thirst_rate", "mult", 0, perstack=0.25),
     ]
 
     def at_apply(self, *args, **kwargs):

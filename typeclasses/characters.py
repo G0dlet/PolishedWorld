@@ -17,6 +17,9 @@ from evennia import create_object
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 
+from django.conf import settings
+from evennia.utils import search
+
 
 class Character(ObjectParent, ClothedCharacter):
     """
@@ -489,6 +492,26 @@ class Character(ObjectParent, ClothedCharacter):
             # explicitly rather than relying on the trait to notify us.
             self.at_character_death(killer=source)
 
+    def _get_respawn_location(self):
+        """
+        Resolve where this character respawns on death.
+
+        Priority: per-character override (db.respawn_location), then a global
+        default from settings (DEFAULT_RESPAWN_DBREF -- points at the GameGold
+        temple once it's built), then the character's home, then current
+        location as a last resort. Every step is guarded so a stale or missing
+        dbref can never strand a dead player.
+        """
+        override = self.db.respawn_location
+        if override:
+            return override
+        dbref = getattr(settings, "DEFAULT_RESPAWN_DBREF", None)
+        if dbref:
+            matches = search.search_object(dbref)
+            if matches:
+                return matches[0]
+        return self.home or self.location
+
     def at_character_death(self, killer=None):
         """
         Consequence hook for a character hitting 0 HP. NOT permadeath.
@@ -563,7 +586,7 @@ class Character(ObjectParent, ClothedCharacter):
             # Relocate to respawn. respawn_location gets its temple default in
             # H7.3; the fallback chain guarantees a valid destination today
             # (self.home always exists).
-            destination = self.db.respawn_location or self.home or location
+            destination = self._get_respawn_location()
             if destination:
                 self.move_to(destination, quiet=True, move_hooks=False)
 
