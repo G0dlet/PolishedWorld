@@ -523,6 +523,64 @@ class Character(ObjectParent, ClothedCharacter):
         return {"skill_key": skill_key, "rolled": True, "old": old, "new": new,
                 "delta": new - old, "beat": res["beat"], "crossed": crossed}
 
+    # Real-time seconds between on-use improvement ticks *per skill*. A balance
+    # knob (dev value; tune once playtesting shows the grind's real shape). Real
+    # time, not game time: this throttles wall-clock action spam, not in-game
+    # duration.
+    improvement_cooldown = 30
+
+    def attempt_skill_improvement(self, skill_key, outcome, meaningful=True):
+        """
+        Gated entry point for on-use skill growth. Call sites route every
+        relevant skill_check through here; this decides whether the use is
+        eligible and, if so, performs one improvement roll via
+        improve_skill_on_use.
+
+        Three gates, all of which must pass (Component B.2 design lock):
+          1. Success-only: only a passed check teaches. A failed/fumbled attempt
+             (outcome["success"] is False) never improves -- mirrors RuneQuest's
+             "experience check on success" and stops failure from paying.
+          2. Real difficulty: `meaningful` must be True. Trivial/auto-pass call
+             sites pass meaningful=False so AFK-farmable actions don't reward.
+             Currently a *seam*, not a policy: both live call sites (craft, hunt)
+             are meaningful and use the default. When trivial checks exist, they
+             opt out here -- we don't build the difficulty heuristic speculatively.
+          3. Cooldown: at most one tick per skill per `improvement_cooldown` real
+             seconds (Cooldowns contrib). The direct anti-spam rate-limiter -- a
+             hunter firing many checks still banks only one improvement per window.
+
+        Args:
+            skill_key (str): the skill the check exercised, e.g. "craft"/"hunting".
+            outcome (dict): a world.skillcheck.skill_check result (needs the
+                "success" bool). opposed_check callers pass the *winning side's
+                own* skill_check dict (e.g. result["attacker"]), and only when
+                the player actually won.
+            meaningful (bool): False to opt a trivial call site out of gate 2.
+
+        Returns:
+            dict or None: the improve_skill_on_use summary (for felt-progress)
+            when a tick fired, else None (gated out -- the common case, so
+            callers MUST handle None).
+        """
+        # Gates 1 + 2: cheap booleans first, before touching the cooldown store.
+        if not meaningful or not outcome.get("success"):
+            return None
+
+        # Gate 3: per-skill cooldown, namespaced so skills throttle
+        # independently (improving craft doesn't block a hunting tick).
+        cd_key = f"improve_{skill_key}"
+        if not self.cooldowns.ready(cd_key):
+            return None
+
+        # Eligible. Apply the roll, then start the window *only if* a real tick
+        # happened: a maxed skill (rolled=False) can't grow, so it shouldn't burn
+        # a cooldown. No await between ready-check and add -> no race (single
+        # -threaded reactor), so check+set stays atomic.
+        result = self.improve_skill_on_use(skill_key)
+        if result and result["rolled"]:
+            self.cooldowns.add(cd_key, self.improvement_cooldown)
+        return result
+
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
     rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
