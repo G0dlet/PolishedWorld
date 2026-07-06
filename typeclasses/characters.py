@@ -16,6 +16,7 @@ from .objects import ObjectParent
 from evennia import create_object
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
+from world.improvement import improvement_roll
 
 from django.conf import settings
 from evennia.utils import search
@@ -456,6 +457,71 @@ class Character(ObjectParent, ClothedCharacter):
         
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
+
+    def improve_skill_on_use(self, skill_key):
+        """
+        Attempt one Legend improvement roll on a skill and apply the result.
+
+        The on-use analogue of spending an Improvement Roll in the tabletop
+        game, and the single chokepoint for on-use skill growth. It does NOT
+        decide *whether* a use is eligible (success-only, real-difficulty,
+        cooldown) -- that gate lives in the caller (Component B.2). By the time
+        this runs, the decision to attempt improvement has already been made.
+
+        Improvement is measured against the skill's *permanent* learned level
+        (`.current`), NOT its effective `.value`. `.value` folds in situational
+        `.mod` (e.g. a +20 tool buff); a temporary bonus must not raise the
+        roll's target and make a skill *harder to permanently improve*. So we
+        read and write `.current` throughout and let the MVP cap (100) hold.
+
+        Args:
+            skill_key (str): key of the skill, e.g. "craft" or "hunting".
+
+        Returns:
+            dict or None: None if this character has no such skill. Otherwise a
+            summary the felt-progress layer consumes:
+              - "skill_key" (str)
+              - "rolled" (bool): False when already at cap (no roll is wasted
+                on a mastered skill).
+              - "old" / "new" (int): permanent skill % before / after.
+              - "delta" (int): new - old (0 when maxed).
+              - "beat" (bool): did the roll beat current skill (the 1D4+1
+                outcome)? False when not rolled.
+              - "crossed" (list[int]): which of 25/50/75/100 were passed this
+                tick -- the celebration hooks for C.2.
+
+        Multiplayer note: this is a read-modify-write on `.current`. Evennia's
+        Twisted reactor runs single-threaded and does not preempt a command
+        mid-call, so concurrent uses serialise safely without an explicit lock.
+        """
+        skill = self.skills.get(skill_key)
+        if skill is None:
+            # Unknown/unlearned skill: silent no-op rather than raising, so a
+            # shared call site that passes a key this character lacks stays safe.
+            return None
+
+        old = int(skill.current)
+        # max may be None on a legacy/handcrafted trait; fall back to 100 to
+        # match at_object_creation's skills.add(..., max=100).
+        cap = skill.max if skill.max is not None else 100
+
+        # Already mastered -> don't waste a roll (or a celebration) on it.
+        if old >= cap:
+            return {"skill_key": skill_key, "rolled": False, "old": old,
+                    "new": old, "delta": 0, "beat": False, "crossed": []}
+
+        int_char = self.stats.int.value   # full INT added to the 1D100 (Legend)
+        res = improvement_roll(old, int_char)
+
+        # CounterTrait's setter already clamps via _enforce_boundaries, but we
+        # clamp here too so the returned old/new/delta are exact regardless.
+        new = min(cap, old + res["gained"])
+        skill.current = new
+
+        crossed = [t for t in (25, 50, 75, 100) if old < t <= new]
+
+        return {"skill_key": skill_key, "rolled": True, "old": old, "new": new,
+                "delta": new - old, "beat": res["beat"], "crossed": crossed}
 
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
