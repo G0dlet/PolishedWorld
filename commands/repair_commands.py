@@ -130,8 +130,13 @@ class CmdRepair(Command):
                 f"cloth and twine are wasted."
             )
 
-        # A worn garment's effective warmth is read live from condition, so
-        # refresh the wearer's thermal buffs to register the change at once --
+        # On-use skill improvement (Component B.3). Success-gated + cooldown
+        # -limited inside attempt_skill_improvement; repair trains the same
+        # "craft" skill as crafting. Placed after the outcome message so a later
+        # "your Crafting improves" line (C.1) reads after the repair result.
+        caller.attempt_skill_improvement("craft", outcome)
+
+        # A worn garment's effective warmth is read live from condition, so        # refresh the wearer's thermal buffs to register the change at once --
         # mirroring the wear/remove hooks in typeclasses/clothing.py.
         if garment.db.worn:
             apply_thermal_stress(caller)

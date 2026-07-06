@@ -102,6 +102,11 @@ class CmdHunt(Command):
             caller.cooldowns.add("hunt", HUNT_COOLDOWN)
 
             if winner == ATTACKER:
+                # On-use skill improvement (Component B.3). A won hunt trains
+                # "hunting". opposed_check returns stalemate unless a side
+                # succeeds, so an ATTACKER win always carries a successful
+                # attacker roll -> pass that side's own skill_check dict.
+                caller.attempt_skill_improvement("hunting", result["attacker"])
                 # Caught. at_death() does its own kill messaging, spawns the
                 # corpse (from H3.2), and deletes the creature.
                 target.at_death(caller)
@@ -254,6 +259,11 @@ class CmdHarvest(Command):
         modifier = part["difficulty"] + self._tool_modifier(caller)
         outcome = skill_check(skill_value, modifier)
         result = outcome["result"]
+
+        # On-use skill improvement (Component B.3). Trains the part's own skill
+        # (usually "hunting"); the per-skill improve cooldown means a harvest
+        # moments after the hunt is naturally throttled -- no double-dip.
+        caller.attempt_skill_improvement(part["skill"], outcome)
 
         # 10. Apply the outcome.
         if outcome["success"]:

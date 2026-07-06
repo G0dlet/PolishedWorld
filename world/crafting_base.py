@@ -159,6 +159,16 @@ class MongooseCraftRecipe(CraftingRecipe):
         if cooldowns:
             cooldowns.add(self._cooldown_key, self.craft_cooldown)
 
+        # On-use skill improvement (Component B.3). Gated inside
+        # attempt_skill_improvement (success + cooldown); a failed check simply
+        # returns None. Placed before the produce/consume branch so growth ties
+        # to the skill *check* succeeding, not to whether an item was yielded.
+        # getattr-guarded to match this module's defensive crafter access -- a
+        # crafter is normally a Character, but the world layer shouldn't assume it.
+        improve = getattr(self.crafter, "attempt_skill_improvement", None)
+        if improve:
+            improve(self.skill_name, outcome)
+
         if not self._should_produce(tier):
             return None  # non-raw policies: failure/fumble yield nothing
 
