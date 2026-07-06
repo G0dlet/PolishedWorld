@@ -1,10 +1,11 @@
 # PolishedWorld — Skill Improvement Decomposition (Stage 1)
 
-> **Rev 1 · 2026-07-06** — first version header. Written after live source-verification of `main` (post-`feature/hunting` merge). Records the greenfield finding (`check_skill_improvement` does **not** exist), the verbatim Legend Improvement-Roll rule, the four locked design decisions, and the A–E component breakdown.
+> **Rev 2 · 2026-07-06** — Session A complete: A.1 (pure primitive), B.1 (`improve_skill_on_use` chokepoint), B.2 (`attempt_skill_improvement` gated wrapper), B.3 (wired into craft/repair/hunt) committed & in-game-verified on `feature/skill-improvement`. Records the B.2 consolidation (gated wrapper vs pure predicate) and the verified `.current`-vs-`.value` improvement/resolution split. Session C (felt-progress) next.
+> **Rev 1 · 2026-07-06** — first version header. Live source-verification of `main` (post-`feature/hunting` merge): greenfield finding (`check_skill_improvement` does **not** exist), verbatim Legend Improvement-Roll rule, four locked design decisions, A–E breakdown.
 > **Canonical:** `docs/PolishedWorld_Skill_Improvement_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/skill-improvement`
-**Status:** Decomposed & source-verified. Task A.1 next (greenfield primitive).
+**Status:** Session A complete — A.1 + B.1 + B.2 + B.3 committed & in-game-verified on `feature/skill-improvement`. Session C (felt-progress) next.
 **Philosophy:** skynda långsamt — bygg en *helt smal men komplett* vertikal skiva (primitiv → trigger → felt-progress) för de skills som faktiskt har check-sites (`craft`, `hunting`), validera in-game, tuna siffrorna sen. Ja till "balansera sen", nej till "validera sen".
 
 ---
@@ -79,7 +80,7 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
 
 | Session | Tasks | Resultat |
 |---------|-------|----------|
-| **A — Primitiv + on-use-spine** | A.1, B.1, B.2, B.3 | Craft/hunt-checks kan förbättra respektive skill, gated & rate-limitat |
+| **A — Primitiv + on-use-spine** ✅ | A.1, B.1, B.2, B.3 | KLAR & committad. Craft/repair/hunt förbättrar sina skills, gated på success + svårighet-söm + cooldown |
 | **B — Felt-progress** | C.1, C.2, C.3 | Tick-feedback, tröskel-celebration, `progress`-kommando (delta sedan login) |
 | **C — Characteristic + HP** | D.1, D.2 | HP-recompute-hook vid CON-höjning; minimal char-höjning (admin/test) |
 | **D — Migration** | E.1 | Befintliga hårdkodade chars grandfathrade för ny per-char state |
@@ -88,7 +89,7 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
 
 ## 6. Component A — Improvement-primitiv (ren, testbar)
 
-### Task A.1 — `world/improvement.py`
+### Task A.1 — `world/improvement.py`  ✅ KLAR & committad
 - **Goal:** En *ren* funktion `improvement_roll(skill_value, int_char)` som implementerar Legends ≤100 %-Improvement-Roll (1D100 + INT vs current → +1D4+1, annars garanterat +1).
 - **Dependencies:** inga (spegling av `world/skillcheck.py`:s renhet; ingen Evennia-import).
 - **Approach (key shape):**
@@ -113,7 +114,24 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
 
 ## 7. Component B — On-use-trigger
 
-### Task B.1 — `Character.improve_skill_on_use(skill_key)`
+> **Som byggt (Session A, verifierat mot källan):**
+> - **B.1** `improve_skill_on_use` muterar `.current` och returnerar en summary; skickar inga
+>   meddelanden (C.1/C.2 äger feedbacken). Läser `.current` (permanent nivå) för improvement,
+>   INTE `.value` — en situationell `.mod`/tool-buff ska inte höja improvement-rollens target och
+>   göra skillen svårare att permanent förbättra. CounterTrait-settern klampar själv vid `max`
+>   (`_enforce_boundaries`), men vi klampar även i Python för exakt `old/new/delta`.
+> - **B.2** byggd som en **konsoliderad gated wrapper** `attempt_skill_improvement(skill_key,
+>   outcome, meaningful=True)` — check + cooldown-set + delegering till B.1 i EN metod, inte en ren
+>   predikat-gate med separat cooldown-set i B.3 (medveten avvikelse mot skissen). Skäl: cooldown
+>   check+set atomiskt på ett ställe, och de tre call-sites slipper duplicera cooldown-logik.
+>   Cooldownen startas bara om en riktig tick skedde (maxad skill bränner inget fönster). Gate 2
+>   ("verklig svårighet") är en `meaningful`-**söm**, inte en policy — byggs när triviala checks finns.
+> - **B.3** wire:ade fyra call-sites: craft `do_craft`, repair (samma `craft`-skill), hunt
+>   opposed-ATTACKER (skickar `result["attacker"]`), harvest `part["skill"]`. Endast `craft` och
+>   `hunting` har live call-sites idag; per-skill-cooldownen hindrar hunt+harvest från att
+>   dubbeldippa `hunting`. Verifierat i spel: repair 90→91, twine-craft 95→96 (kritisk), hunt 85→86.
+
+### Task B.1 — `Character.improve_skill_on_use(skill_key)`  ✅ KLAR & committad
 - **Goal:** Chokepoint på `Character` som läser INT + current skill, anropar A.1, applicerar gain på `skills.<key>.current` (guardat, kappat vid `max=100`), returnerar delta + ev. korsad tröskel.
 - **Dependencies:** A.1; `typeclasses/characters.py` TraitHandlers.
 - **Approach:** läs `self.stats.int.value` + `self.skills.get(skill_key)`; `res = improvement_roll(skill.value, int_val)`; `skill.current = min(skill.max or 100, skill.current + res["gained"])`. Returnera `{"delta", "old", "new", "crossed"}`. Analog med `apply_health_damage` (single HP-loss chokepoint).
@@ -121,14 +139,14 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
 - **@py test:** sätt `char.skills.craft.current = 20`, kör metoden, verifiera `current` växte med `delta`.
 - **Commit:** `feat(characters): add improve_skill_on_use chokepoint`
 
-### Task B.2 — Eligibility-gate
+### Task B.2 — Eligibility-gate  ✅ KLAR & committad (som `attempt_skill_improvement`)
 - **Goal:** Ett test som avgör om en given check får trigga improvement: **success/critical** + **verklig svårighet** + **cooldown** per skill.
 - **Dependencies:** B.1; Cooldowns-contrib (redan i bruk, `self.cooldowns`).
 - **Approach:** gate-funktion tar `(outcome_dict, skill_key)` → bool. Success-only: `outcome["success"]`. Real-diff: hoppa om effektiv target ≥ tak *eller* call-site flaggat trivialt. Cooldown: `self.cooldowns.ready(f"improve_{skill_key}")`, sätt `self.cooldowns.add(...)` vid tick. Cooldown-längd = ratt (game-minuter), tunas senare.
 - **@py test:** kör gate två gånger i rad → andra blockad av cooldown; kör med `success=False` → blockad.
 - **Commit:** `feat(improvement): gate on-use ticks by success + cooldown`
 
-### Task B.3 — Hooka call-sites
+### Task B.3 — Hooka call-sites  ✅ KLAR & committad
 - **Goal:** Craft (crafting_base + repair) och hunt anropar B.1 via B.2 efter `skill_check`.
 - **Dependencies:** B.1, B.2; `world/crafting_base.py`, `commands/repair_commands.py`, `commands/hunting_commands.py`.
 - **Approach:** efter varje `outcome = skill_check(...)`: `if gate(outcome, skill_key): caller.improve_skill_on_use(skill_key)`. `crafting_base.py` är world-lager (recept-spawn) → hämta craftaren korrekt; hunt/repair är commands (`caller`).

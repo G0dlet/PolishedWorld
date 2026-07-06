@@ -1,6 +1,6 @@
 # PolishedWorld Evennia Reference
 
-> **Rev 3 · 2026-07-05** — added §11.12–§11.15 (H7 death/corpse: typeclass compile-fail → DefaultObject fallback, return_appearance {things} contents listing, containers get_from vs get + ContainerCmdSet/extended_room look collision, search_object #dbref resolution).
+> **Rev 4 · 2026-07-06** — Stage-1 skill-improvement session: §3.5 CounterTrait setter-clamps addendum, §6.2 cooldown real-time-seconds note, §11.16 `evennia shell` interactive-console paste gotcha.
 > **Canonical:** `docs/PolishedWorld_Evennia_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
  
 **Purpose:** Curated reference of Evennia modules and contribs used (or planned) in PolishedWorld. This is a working document — extend as new systems are integrated. Verified against Evennia `main`; per-copy freshness is tracked in the Rev header above.
@@ -351,6 +351,13 @@ skriver aldrig tillbaka — inga namn överlever mellan rader, och comprehension
 failar (de slår upp i de tomma globals). Spelvärld/DB-state persisterar dock. Använd
 `evennia shell` för ren modullogik; självständiga `@py`-rader med `print()` för in-game-checks.
 
+**Settern klampar också (verifierat 2026-07-06):** `current`-*settern* kör `_enforce_boundaries`,
+så `skill.current = X` klampas till `[min, max]` vid tilldelning (max via `>=`). En read-modify
+-write som `skill.current = skill.current + gained` auto-kappar därför vid traitens max (skills
+använder `max=100`) — ingen manuell `min(cap, …)` krävs för säkerhet, men explicit klampning i
+Python håller ett returnerat `old/new/delta` exakt. **Progression läser `.current`** (permanent
+nivå), **resolution läser `.value`** (`(current + mod) * mult`, situationell) — en tool-`.mod`-buff
+ska hjälpa själva checken men inte höja en improvement-rolls target.
 ---
  
 ## 4. BuffHandler (planned)
@@ -550,7 +557,10 @@ char.cooldowns.cleanup()                      # purge expired entries
  
 char.cooldowns.all                            # → dict of all cooldowns
 ```
- 
+
+**Enhet = realtidssekunder** (`time.time()`), inte speltid. En saknad cooldown räknas som ready.
+Rätt enhet för att strypa spelarens wall-clock-action-spam (t.ex. Stage-1:s on-use-improvement-gate).
+
 ### 6.3 ⚠️ No callbacks
  
 > *"This module does not register or provide callback functionality for when a cooldown becomes ready again. Users of cooldowns are expected to query the state of any cooldowns they are interested in."*
@@ -985,6 +995,22 @@ dest = matches[0] if matches else (self.home or self.location)
 *(Verified against live Evennia `main`, 2026-07-01. §11.6 covers the search-*resolution* mechanic — exact-first, then fuzzy — and the crafting-ingredient angle; this section covers the multimatch *UX*: why `ball-1`/`ball-2` appears and the three ways to tune it.)*
 
 The default multimatch prompt is **intentional and fully tunable**. It's a *symptom* of two objects sharing an identical key, so the best fix is usually to make multimatch rare rather than to prettify the number (see §12.5).
+
+### 11.16 `evennia shell` interactive-console paste-fälla
+
+`evennia shell` är en vanlig Python `InteractiveConsole` (`code`/`codeop`). Att klistra in ett
+flerradigt compound statement — en `for`/`if` vars kropp spänner över flera rader, *särskilt* med
+en implicit radbrytning inuti parenteser — följt av ett dedenterat top-level-statement utan tom rad
+emellan, får den inkrementella kompilatorn att ackumulera allt till ETT block och kasta
+`SyntaxError` (Python 3.14 fel-hintar till och med "Did you mean 'not'?"). Det är en paste-artefakt,
+inte ett kodfel.
+
+**Fix — två paste-säkra former:**
+- En fysisk rad per statement: `for x in seq: a = f(x); print(a)` (hela kroppen på raden).
+- Eller wrappa flerradig kod i `exec("""…""")` så konsolen ser en enda sträng, aldrig indraget.
+
+Skild från §3.5:s `@py`-not (rad-isolerat namespace). Tumregel för stat-/loop-tester: en fysisk
+rad per statement, eller `exec` en sträng.
 
 ### 12.1 What produces `ball-1` / `ball-2`
 
