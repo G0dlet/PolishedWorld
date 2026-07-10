@@ -175,6 +175,71 @@ GOURD_VINE = {
     "yield_prototype": "raw_gourd",    # must equal RAW_GOURD's prototype_key
 }
 
+# --- Bootstrap primitives: stone & stick (gathered) + their nodes ---
+# The zero-to-tool loop's raw inputs. STONE + STICK (+ fibre) feed the ungated
+# StoneKnifeRecipe (C.3); STONE also anchors future toolmaking. Same shape as
+# PLANT_FIBER/FIBER_PLANT: a crafting_material item, and a ResourceNode whose
+# yield_prototype equals the material's prototype_key. Nodes are discovered by
+# `forage` automatically (ResourceNode + yield_prototype, not a water source).
+
+STONE = {
+    "prototype_key": "stone",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "stone",
+    "aliases": ["rock"],
+    "desc": (
+        "A fist-sized stone, hard and angular. Struck against another, a shard "
+        "could be knapped off to take a rough cutting edge."
+    ),
+    # Matched by tag-key "stone" within the crafting_material category, exactly
+    # as PLANT_FIBER uses "fiber".
+    "tags": [("stone", "crafting_material")],
+}
+
+STICK = {
+    "prototype_key": "stick",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "stick",
+    "aliases": ["branch"],
+    "desc": (
+        "A straight length of dry wood, snapped free of a deadfall. Sound "
+        "enough to serve as a handle or haft."
+    ),
+    "tags": [("stick", "crafting_material")],
+}
+
+STONE_OUTCROP = {
+    "prototype_key": "stone_outcrop",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "rocky outcrop",
+    "aliases": ["outcrop", "rocks"],
+    "desc": (
+        "A shelf of weathered rock breaking through the soil, loose stones "
+        "scattered at its foot for the taking."
+    ),
+    "resource_type": "stones",
+    "max_yield": 4,
+    "regen_interval": 3600,          # game-seconds/stone; quarried, slower than fibre
+    "available": 4,
+    "yield_prototype": "stone",      # must equal STONE's prototype_key
+}
+
+STICK_DEADFALL = {
+    "prototype_key": "stick_deadfall",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "fallen branches",
+    "aliases": ["deadfall", "branches", "sticks"],
+    "desc": (
+        "A tangle of dead branches and dry twigs, heaped where a limb came "
+        "down. Easy pickings for handles and hafts."
+    ),
+    "resource_type": "sticks",
+    "max_yield": 6,
+    "regen_interval": 1800,          # game-seconds/stick; abundant, like fibre
+    "available": 6,
+    "yield_prototype": "stick",      # must equal STICK's prototype_key
+}
+
 TWINE = {
     "prototype_key": "twine",
     "typeclass": "typeclasses.objects.Object",
