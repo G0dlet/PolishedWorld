@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 5 · 2026-07-10** — Skill-improvement Session C: §3.5 `desc()`-reads-`.value` corollary — tier-lookup på permanent nivå måste ske på råa `.current`-ints via `tier_for`, inte `skill.desc()`.
 > **Rev 4 · 2026-07-06** — Stage-1 skill-improvement session: §3.5 CounterTrait setter-clamps addendum, §6.2 cooldown real-time-seconds note, §11.16 `evennia shell` interactive-console paste gotcha.
 > **Canonical:** `docs/PolishedWorld_Evennia_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
  
@@ -358,6 +359,8 @@ använder `max=100`) — ingen manuell `min(cap, …)` krävs för säkerhet, me
 Python håller ett returnerat `old/new/delta` exakt. **Progression läser `.current`** (permanent
 nivå), **resolution läser `.value`** (`(current + mod) * mult`, situationell) — en tool-`.mod`-buff
 ska hjälpa själva checken men inte höja en improvement-rolls target.
+**Corollary — `desc()` läser också `.value`:** `CounterTrait.desc()` slår upp descs-etiketten mot `self.value` (buffad), inte `.current`. En aktiv `.mod` (t.ex. +20 tool-buff) kan därför få `desc()` att rapportera fel tier. För tier-lookup på *permanent* nivå (t.ex. desc-tier-celebration som ska spegla verklig rang, inte tillfällig buff): använd en ren `tier_for(value, descs)` som speglar Evennias övre-gräns-inklusive-loop men tar en explicit int (`world/improvement.tier_for`), matad med de råa `old`/`new`-ints från `improve_skill_on_use`. Samma `.current`/`.value`-regel, en gång till.
+
 ---
  
 ## 4. BuffHandler (planned)

@@ -1,11 +1,12 @@
 # PolishedWorld — Skill Improvement Decomposition (Stage 1)
 
+> **Rev 3 · 2026-07-10** — Session C complete: C.1 (tick-feedback), C.2 (tier-celebration), C.3 (`progress` command) committed & in-game-verified on `feature/skill-improvement`. **Component C done → skill-improvement feature functionally complete.** Corrections vs Rev 2's plan, all forced by live source: (1) celebration fires on **desc-tier crossings**, not the 25/50/75/100 quarter marks — the quarters decoupled from the real named ranks, and the desc words mix nouns ("tracker") and adjectives ("mighty", "sneaky"), so "You are now a X" was ungrammatical; shipped copy is label-safe `Your {skill} reaches a new tier: |y{tier}|n.`; (2) `CounterTrait.desc()` reads the buff-inflated `.value`, so tier detection uses a pure `world/improvement.tier_for(value, descs)` on the permanent `old`/`new` ints (mod-safe) — never `skill.desc()`; (3) there were **four** call-sites, not three — harvest (`hunting_commands`) was the missed fourth; (4) C.3 baseline is an `AttributeProperty` dict snapshotted in `at_post_puppet` (after the safe `super()`, fresh dict each puppet), diffed on `.current`.
 > **Rev 2 · 2026-07-06** — Session A complete: A.1 (pure primitive), B.1 (`improve_skill_on_use` chokepoint), B.2 (`attempt_skill_improvement` gated wrapper), B.3 (wired into craft/repair/hunt) committed & in-game-verified on `feature/skill-improvement`. Records the B.2 consolidation (gated wrapper vs pure predicate) and the verified `.current`-vs-`.value` improvement/resolution split. Session C (felt-progress) next.
 > **Rev 1 · 2026-07-06** — first version header. Live source-verification of `main` (post-`feature/hunting` merge): greenfield finding (`check_skill_improvement` does **not** exist), verbatim Legend Improvement-Roll rule, four locked design decisions, A–E breakdown.
 > **Canonical:** `docs/PolishedWorld_Skill_Improvement_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/skill-improvement`
-**Status:** Session A complete — A.1 + B.1 + B.2 + B.3 committed & in-game-verified on `feature/skill-improvement`. Session C (felt-progress) next.
+**Status:** Feature complete — Sessions A (A.1 + B.1 + B.2 + B.3) and C (C.1 + C.2 + C.3) committed & in-game-verified on `feature/skill-improvement`. Component C (felt-progress) done; ready to merge to `main`.
 **Philosophy:** skynda långsamt — bygg en *helt smal men komplett* vertikal skiva (primitiv → trigger → felt-progress) för de skills som faktiskt har check-sites (`craft`, `hunting`), validera in-game, tuna siffrorna sen. Ja till "balansera sen", nej till "validera sen".
 
 ---
@@ -157,22 +158,22 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
 
 ## 8. Component C — Felt-progress / legibility
 
-### Task C.1 — Tick-feedback
-- **Goal:** Omedelbart meddelande vid meningsfull tick: `"Your Crafting improves! (+3, now 41%)"`.
-- **Dependencies:** B.1 (returnerar delta).
+### Task C.1 — Tick-feedback ✅
+- **Goal:** Omedelbart meddelande vid meningsfull tick: `"Your Crafting improves! (+N, now X%)"`.
+- **Shipped:** shared `Character._improvement_feedback(result)` formatter (presentation layer; `world/improvement.py` stays pure and silent). Wired at **all four** call-sites — craft (`post_craft`), repair (inline), hunt-attack (after the kill message), hunt-harvest (after the outcome). Returns `""` and stays silent when the attempt was gated out.
 - **Commit:** `feat(improvement): message the player on each skill tick`
 
-### Task C.2 — Tröskel-celebration
-- **Goal:** Extra markering vid 25/50/75/100 (desc-tier-korsning är naturlig hook: `"You are now a |ytracker|n."`).
-- **Dependencies:** B.1 (`crossed`), skill-`descs`.
-- **Commit:** `feat(improvement): celebrate skill milestone thresholds`
+### Task C.2 — Tier-celebration ✅
+- **Goal:** Extra markering när en tick korsar en **desc-tier-gräns** (en riktig namngiven rang-up) — *inte* 25/50/75/100-kvartsmarkeringarna (frikopplade från rangerna; se Rev 3).
+- **Shipped:** composed onto `_improvement_feedback` via pure `world/improvement.tier_for(value, descs)` — a mirror of Evennia's upper-bound-inclusive `desc()` lookup but on the permanent `old`/`new` ints (NOT `skill.desc()`, which reads the buff-inflated `.value`). Label-safe copy across noun *and* adjective tiers: `Your {skill} reaches a new tier: |y{tier}|n.`. Idempotent (improvement monotonic; boundaries ≥15 apart, max tick +5 → one boundary per tick). B.1's `crossed` field is now vestigial (kept for a future progress bar).
+- **Dependencies:** skill-`descs`, C.1 (`_improvement_feedback` seam).
+- **Commit:** `feat(improvement): celebrate desc-tier rank-ups on skill ticks`
 
-### Task C.3 — `progress`-kommando (delta sedan login)
-- **Goal:** Legibility-yta: visa hur mycket varje skill växt sedan senaste login.
-- **Dependencies:** per-login-snapshot: baseline fångas i `at_post_puppet`, diffas on-demand (`AttributeProperty`).
+### Task C.3 — `progress`-kommando (delta sedan login) ✅
+- **Goal:** Legibility-yta: visa hur mycket varje skill växt sedan denna login.
+- **Shipped:** `Character.login_skill_snapshot` (`AttributeProperty`, default=None, autocreate=False) captured in `at_post_puppet` after the safe `super()` — a fresh dict each puppet, so the baseline resets on reconnect (the "sedan login"-semantik). `CmdProgress` (`commands/character_commands.py`, registered in `default_cmdsets`) diffs on-demand on `.current` (permanent → a worn tool buff never shows as progress) and lists only grown skills as `Skill  before → now  (+delta)`.
 - **Multiplayer:** snapshot per karaktär, inget delat state.
-- **@py test:** sätt baseline, tick:a en skill, kör `progress` → visar +delta.
-- **Commit:** `feat(commands): add progress command showing skill deltas since login`
+- **Commit:** `feat(progress): add \`progress\` command showing skill growth since login`
 
 ---
 
