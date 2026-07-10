@@ -1,5 +1,6 @@
 # PolishedWorld — Crafting Progression & Tools Decomposition
 
+> **Rev 5 · 2026-07-10** — Component D **complete & in-game-verified**. D.4 (repair convergence): `CmdRepair` gate broadened `ClothingWithBuffs` → `DurableObject` (tools + garments); materials data-driven via `target.db.repair_materials or REPAIR_MATERIALS` (`stone_knife` → stick+fibre, `bone_needle` → bone; garments keep cloth+twine); copy neutralised to mend/restore. D.5: `STONE_KNIFE` condition 40, `BONE_NEEDLE` 30 — and the §10.1 prototype-key-vs-autocreate override is now **verified** (spawn → 40/30, prototype value wins). The source→sink→repair loop is closed end-to-end. Next: Component E (quality → capability).
 > **Rev 4 · 2026-07-10** — Component D (tool wear sink) underway: §9 reconciled and split D.1→D.5. D.1 (per-use wear read from `self.inputs`, not `validated_tools`), D.2 (broken tool = absent/improvised, **not** deleted — supersedes Rev 3's `delete()`), and D.3 (colour-banded `condition_line` shown on `look` for tools *and* garments) complete & in-game-verified. D.4 (repair convergence — `CmdRepair` broadened to `DurableObject`, data-driven `db.repair_materials`) and D.5 (bootstrap start-condition tuning + prototype-override verify) remain. Tool-repair promoted from §13 backlog into D.4.
 > **Rev 3 · 2026-07-10** — Component C (Tool bootstrap) complete & in-game-verified: `typeclasses/tools.py::Tool(DurableObject, Object)` (condition=100 free via MRO-walk); `stone`/`stick` primitives + `stone_outcrop`/`stick_deadfall` nodes; `StoneKnifeRecipe` (`["stone","stick","fiber"]` → distinct `stone_knife`, `tool_tag=None`); `bone` part in the rabbit harvest-template (`skill=craft`, `difficulty=0`, `yield_divisor=4`, `max_stage=SKELETON`) + `BONE` primitive; `BoneNeedleRecipe` (`["bone"]` → distinct `bone_needle`, `tool_tag=None`). Zero-to-tool loop playtested both ways (forage→stone knife, hunt→bone→bone needle). Locked distinct bootstrap-tool prototypes (not reused `knife`/`needle`) + raw-fibre binding. Verified live: `_tool_modifier` returns 0 for `tool_tag=None` before the penalty path; base has no `min_skill` (Component F adds it); `CmdHarvest` iterates template parts dynamically. Next: Component D (tool wear sink), fresh chat.
 > **Rev 2 · 2026-07-10** — Component A (tool-modifier flip) and Component B (shared durability) complete: `typeclasses/durable.py::DurableObject` (condition/apply_wear/is_broken/condition_line) landed; `ClothingWithBuffs(DurableObject, ContribClothing)` inherits it. Alt A locked — `condition_line()` is helper/examine-only, no player-`look` injection until wear is live (Component D). Corrected the B.1 test hint (below). Next: Component C (Tool bootstrap), fresh chat.
@@ -7,7 +8,7 @@
 > **Canonical:** `docs/PolishedWorld_Crafting_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/crafting-progression`
-**Status:** Components A, B, C complete & in-game-verified on `feature/crafting-progression`; D (tool wear sink) is next.
+**Status:** Components A, B, C, D complete & in-game-verified on `feature/crafting-progression`; E (quality → capability) is next.
 **Philosophy:** skynda långsamt — korrigera verktygssemantiken och lägg den gemensamma `condition`-axeln innan primitiva verktyg och kvalitet byggs ovanpå.
 
 ---
@@ -202,16 +203,18 @@ Verktyg nöts per genomförd craft; ett brutet verktyg räknas som frånvarande 
 - **Implementation:** `DurableObject.get_display_desc` appendar `condition_line()` via `super()`-MRO (bevarar base: `DefaultObject` för Tool, `ContribClothing` för plagg). Färgband i `condition_line()`: `|g`>66 / `|y`33–66 / `|r`<33 (`_COND_GOOD=66`/`_COND_WORN=33`). Delad på mixin → verktyg **och** plagg ansluter i ett svep (Tool förblir tunn; revokerar B.2:s Alt-A-deferral).
 - **Commit:** `feat(durable): show condition on look for tools and garments` ✅
 
-### Task D.4 — Repair-konvergens 🔲 *(sessionens tyngsta; ev. split D.4a/D.4b)*
+### Task D.4 — Repair-konvergens ✅
 - **Goal:** `CmdRepair` reparerar durable-verktyg, inte bara plagg.
 - **Dependencies:** D.2 (trasiga verktyg ligger kvar), `commands/repair_commands.py`, `typeclasses/clothing.py` (`ClothingWithBuffs(DurableObject, …)` — bekräftat: `isinstance(target, DurableObject)` fångar båda).
 - **Implementation (låst):** grinden `isinstance(garment, ClothingWithBuffs)` → `isinstance(target, DurableObject)`. Material data-drivet: `_collect_materials` läser `target.db.repair_materials or REPAIR_MATERIALS` (plagg default cloth/twine; `stone_knife` → stick+fiber). Generalisera crit/success/fumble-copy bort från "stitching/patch" till neutralt ("mend/restore"). `apply_thermal_stress` bara vid `garment.db.worn` (verktyg saknar → hoppar naturligt). **Split om >90 min:** D.4a (gate + condition-read + neutral copy, interim cloth/twine) / D.4b (data-driven per-tool material).
+- **Shipped:** gate `isinstance(target, DurableObject)` (garments + tools); `func` reads `required = target.db.repair_materials or REPAIR_MATERIALS` once and passes to `_collect_materials(caller, required)`; neutral copy (mend/restore/"botch the work"); `apply_thermal_stress` still guarded on `target.db.worn` (tools skip naturally). Prototypes: `STONE_KNIFE.repair_materials=("stick","fiber")`, `BONE_NEEDLE.repair_materials=("bone",)`. `_tool_modifier` left garment-centric (needle) — see §13 backlog. Verified: T1 tier-maths (100/80/50/40), T2 tool-repair stick+fibre 50→80, T3 missing-material bailout (nothing consumed), T4 garment cloth/twine fallback, T5 non-durable refused.
 - **Commit:** `feat(repair): allow repairing durable tools, not just garments`
 
-### Task D.5 — Bootstrap start-condition + prototyp-override-verify 🔲
+### Task D.5 — Bootstrap start-condition + prototyp-override-verify ✅
 - **Goal:** Crude bootstrap-verktyg får kortare livslängd så wear känns; verifiera att prototyp-`condition` overridar autocreate-100.
 - **Dependencies:** D.1 (wear live), `world/prototypes.py`.
 - **Implementation (låst):** `STONE_KNIFE: condition 40`, `BONE_NEEDLE: 30` (metall `KNIFE`/`NEEDLE` stannar 100). VERIFIERA: spawn → `db.condition == 40` (§8.7/§10.1-corollary, prototyp-vs-autocreate OVERIFIERAD).
+- **Shipped & verified:** `STONE_KNIFE: "condition": 40`, `BONE_NEEDLE: "condition": 30` (metal `KNIFE`/`NEEDLE` untouched → autocreate-100). Prototype-key-vs-autocreate ordering **confirmed**: `@reload` + spawn → `db.condition == 40 / 30`, so the prototype top-level key wins over the AttributeProperty default (resolves the §10.1-corollary flag; no `at_object_creation` stamping needed).
 - **Commit:** `feat(prototypes): lower bootstrap tool start condition`
 
 ---
@@ -283,4 +286,5 @@ Ett superior verktyg är enda vägen över baseline — knyter ihop verktygs- oc
 - **Jakt-oberoende needle-primitiv:** t.ex. `thorn`/`stick`-nål, så needle-bootstrap inte kräver en jakt.
 - **Metallverktyg + station/forge:** bättre condition/quality-verktyg som kräver en craft-station (capability-gate) — bortom denna stage.
 - **Fumble-extra-wear tuning:** om `tool_wear_on_fumble` ska divergera från per-use.
+- **`CmdRepair._tool_modifier` är plagg-centrerad:** letar alltid efter en `needle`, så att bära en synål gör det (felaktigt) lättare att laga en *stenkniv*. Generalisera per target-typ när superior-verktyg landar (Component G) — låg blast radius, osynlig utan inspektion.
 - **Individuering bortom "superior":** material-/maker's-mark-alias för full disambiguation-root-cause-fix (pairar med Stage 3).
