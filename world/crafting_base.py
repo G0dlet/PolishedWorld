@@ -62,6 +62,11 @@ class MongooseCraftRecipe(CraftingRecipe):
     # supplied without the contrib rejecting it as an unexpected input.
     exact_tools = False
 
+    # Tool-wear sink (Component D). A completed craft nicks the used tool's
+    # condition by this much (Task D.1). Overridable per recipe; a fumble-scaled
+    # variant (tool_wear_on_fumble) is deferred to a later balance pass (§13).
+    tool_wear = 5
+
     # Result-tier -> base quality (Mongoose Legend Item Quality bands). A critical
     # adds the critical score on top (Legend core: bonus == modified skill // 10).
     QUALITY_BY_TIER = {"critical": 100, "success": 100, "failure": 50, "fumble": 25}
@@ -91,6 +96,28 @@ class MongooseCraftRecipe(CraftingRecipe):
         trait = skills.get(self.skill_name) if skills else None
         return trait.value if trait else 0
 
+    def _used_tool(self):
+        """The supplied tool object matching this recipe's tool_tag, or None.
+
+        Single source of truth for "which input is the tool": _tool_modifier
+        (the check modifier) and the D.1 wear sink both read this, so they can
+        never disagree about which object is the tool.
+
+        Scans self.inputs -- NOT self.validated_tools. A MongooseCraftRecipe
+        declares its tool through our own optional `tool_tag`, never the
+        contrib's required `tool_tags`; the contrib's validation therefore
+        leaves validated_tools EMPTY. self.inputs is where the actually-supplied
+        tool reliably lives, so we scan it here (the old _tool_modifier body).
+        """
+        if not self.tool_tag:
+            return None
+        for obj in self.inputs:
+            if obj and hasattr(obj, "tags") and obj.tags.has(
+                self.tool_tag, category=self.tool_tag_category
+            ):
+                return obj
+        return None
+
     def _tool_modifier(self):
         """Tool modifier for the craft check (RAW-aligned, Arms of Legend).
 
@@ -104,12 +131,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         """
         if not self.tool_tag:
             return 0
-        for obj in self.inputs:
-            if obj and hasattr(obj, "tags") and obj.tags.has(
-                self.tool_tag, category=self.tool_tag_category
-            ):
-                return 0  # baseline: the expected tool is normal, not a bonus
-        return self.improvised_penalty
+        return 0 if self._used_tool() is not None else self.improvised_penalty
 
     def _quality_for(self, outcome):
         """Map a skill_check outcome to a stamped quality value."""
@@ -172,6 +194,18 @@ class MongooseCraftRecipe(CraftingRecipe):
         cooldowns = getattr(self.crafter, "cooldowns", None)
         if cooldowns:
             cooldowns.add(self._cooldown_key, self.craft_cooldown)
+
+        # Tool-wear sink (Component D.1). A *completed* attempt wears the used
+        # tool. Placed here -- after rolled=True and the cooldown add, before the
+        # produce/consume branch -- so wear ties to a real craft and never to a
+        # cooldown-abort or invalid-input bail (both raise before do_craft runs).
+        # _used_tool() reads self.inputs (validated_tools is empty for our
+        # optional-tool recipes; see its docstring) and nicks the tool, never a
+        # consumable. hasattr-guarded: a future station/furnace could carry the
+        # tool tag without being a DurableObject, and only wearable tools wear.
+        tool = self._used_tool()
+        if tool is not None and hasattr(tool, "apply_wear"):
+            tool.apply_wear(self.tool_wear)
 
         # On-use skill improvement (Component B.3). Gated inside
         # attempt_skill_improvement (success + cooldown); a failed check simply
