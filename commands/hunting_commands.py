@@ -106,10 +106,15 @@ class CmdHunt(Command):
                 # "hunting". opposed_check returns stalemate unless a side
                 # succeeds, so an ATTACKER win always carries a successful
                 # attacker roll -> pass that side's own skill_check dict.
-                caller.attempt_skill_improvement("hunting", result["attacker"])
+                imp = caller.attempt_skill_improvement("hunting", result["attacker"])
                 # Caught. at_death() does its own kill messaging, spawns the
                 # corpse (from H3.2), and deletes the creature.
                 target.at_death(caller)
+                # C.1 tick-feedback AFTER the kill line: "you catch it" -> "you
+                # got better at hunting".
+                text = caller._improvement_feedback(imp)
+                if text:
+                    caller.msg(text)
                 return
 
             if winner == DEFENDER:
@@ -263,7 +268,7 @@ class CmdHarvest(Command):
         # On-use skill improvement (Component B.3). Trains the part's own skill
         # (usually "hunting"); the per-skill improve cooldown means a harvest
         # moments after the hunt is naturally throttled -- no double-dip.
-        caller.attempt_skill_improvement(part["skill"], outcome)
+        imp = caller.attempt_skill_improvement(part["skill"], outcome)
 
         # 10. Apply the outcome.
         if outcome["success"]:
@@ -318,6 +323,11 @@ class CmdHarvest(Command):
                 f"You can't cleanly take the {part_name} from {corpse_label}. "
                 f"You can try again."
             )
+        
+        # C.1 tick-feedback after the harvest outcome line.
+        text = caller._improvement_feedback(imp)
+        if text:
+            caller.msg(text)
 
         # 11. An attempt resolved (success/fumble/failure) -> commit the cooldown.
         #     Every earlier `return` is a free bailout that never reaches here.

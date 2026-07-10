@@ -134,9 +134,13 @@ class CmdRepair(Command):
         # -limited inside attempt_skill_improvement; repair trains the same
         # "craft" skill as crafting. Placed after the outcome message so a later
         # "your Crafting improves" line (C.1) reads after the repair result.
-        caller.attempt_skill_improvement("craft", outcome)
+        imp = caller.attempt_skill_improvement("craft", outcome)
+        text = caller._improvement_feedback(imp)
+        if text:
+            caller.msg(text)
 
-        # A worn garment's effective warmth is read live from condition, so        # refresh the wearer's thermal buffs to register the change at once --
+        # A worn garment's effective warmth is read live from condition, so        
+        # refresh the wearer's thermal buffs to register the change at once --
         # mirroring the wear/remove hooks in typeclasses/clothing.py.
         if garment.db.worn:
             apply_thermal_stress(caller)

@@ -134,6 +134,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         # post_craft (always called) sees rolled=False and consumes nothing.
         self.rolled = False
         self.skill_outcome = None
+        self.improvement_result = None
 
         # Contrib input validation (materials/tools). Raises CraftingValidationError
         # on bad inputs; the base craft() catches it and skips do_craft.
@@ -165,9 +166,11 @@ class MongooseCraftRecipe(CraftingRecipe):
         # to the skill *check* succeeding, not to whether an item was yielded.
         # getattr-guarded to match this module's defensive crafter access -- a
         # crafter is normally a Character, but the world layer shouldn't assume it.
+        # Capture the summary (not discard it): post_craft threads it into the
+        # player-facing feedback after the craft-result message (C.1). None when
+        # gated out -- the common case.
         improve = getattr(self.crafter, "attempt_skill_improvement", None)
-        if improve:
-            improve(self.skill_name, outcome)
+        self.improvement_result = improve(self.skill_name, outcome) if improve else None
 
         if not self._should_produce(tier):
             return None  # non-raw policies: failure/fumble yield nothing
@@ -198,6 +201,16 @@ class MongooseCraftRecipe(CraftingRecipe):
             self.msg(template.format(outputs=outputs))
         else:
             self.msg(self.fail_no_item_message)
+
+        # C.1 tick-feedback: right after the craft-result line so "you made X"
+        # and "your Crafting improved" read as one beat. getattr-guarded to match
+        # this module's defensive crafter access; improvement_result is None when
+        # the improvement attempt was gated out.
+        feedback = getattr(self.crafter, "_improvement_feedback", None)
+        if feedback and self.improvement_result:
+            text = feedback(self.improvement_result)
+            if text:
+                self.msg(text)
 
         if self._should_consume(tier):
             for obj in self.validated_consumables:

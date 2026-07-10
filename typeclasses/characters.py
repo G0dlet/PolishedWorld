@@ -523,7 +523,7 @@ class Character(ObjectParent, ClothedCharacter):
         return {"skill_key": skill_key, "rolled": True, "old": old, "new": new,
                 "delta": new - old, "beat": res["beat"], "crossed": crossed}
 
-    # Real-time seconds between on-use improvement ticks *per skill*. A balance
+            # Real-time seconds between on-use improvement ticks *per skill*. A balance
     # knob (dev value; tune once playtesting shows the grind's real shape). Real
     # time, not game time: this throttles wall-clock action spam, not in-game
     # duration.
@@ -580,6 +580,41 @@ class Character(ObjectParent, ClothedCharacter):
         if result and result["rolled"]:
             self.cooldowns.add(cd_key, self.improvement_cooldown)
         return result
+
+    def _improvement_feedback(self, result):
+        """
+        Render the player-facing feedback for one improvement result.
+
+        Presentation layer for on-use skill growth: the improvement primitive
+        (world/improvement.py) stays pure and silent; every call site that fires
+        a tick routes its result dict through here and messages the return. One
+        place for the copy across all four call sites (craft, repair, hunt-attack,
+        hunt-harvest), and the single seam the threshold celebration (C.2) will
+        compose onto.
+
+        Args:
+            result (dict or None): the attempt_skill_improvement summary, or None
+                when the attempt was gated out (the common case). Callers may pass
+                it straight through -- no pre-check needed.
+
+        Returns:
+            str: the message to show the player, or "" when there's nothing to
+                announce (gated out, or a maxed skill whose tick didn't roll).
+                Callers guard with `if text:` before messaging.
+        """
+        # Gated out (None) or a maxed skill that burned no growth (rolled=False):
+        # nothing to say. A rolled tick always has delta >= 1 (Legend's +1 floor),
+        # so rolled=True is a sufficient gate.
+        if not result or not result.get("rolled"):
+            return ""
+
+        # Re-fetch for the display label ("Crafting", not "craft"). The skill
+        # existed when the tick fired; guard against a mid-command removal by
+        # falling back to a title-cased key.
+        skill = self.skills.get(result["skill_key"])
+        label = skill.name if skill is not None else result["skill_key"].title()
+
+        return f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"
 
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
