@@ -88,7 +88,33 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (+20); improvised -20
     craft_cooldown = 40                          # mirrors linen shirt
     # No _finalize_item: db.quality is stamped by the base; the H6 durability/wear
-    # task will read it. Same deferred-sink stance as LinenShirtRecipe.    
+    # task will read it. Same deferred-sink stance as LinenShirtRecipe.
+
+
+class StoneKnifeRecipe(MongooseCraftRecipe):
+    """Knap a stone flake, haft it to a stick, lash it with fibre: a crude knife.
+
+    The bootstrap tool of the zero-to-tool loop -- ungated and tool-free so a
+    brand-new character can make their first knife from gathered primitives alone.
+    """
+
+    name = "stone knife"
+    # Stone flake + wooden haft + fibre lashing, matched by crafting_material
+    # tag-key. Raw `fiber` (not crafted twine) keeps this a SINGLE craft with no
+    # nested sub-craft, so the very first tool stays low-friction (decision b).
+    consumable_tags = ["stone", "stick", "fiber"]
+    output_prototypes = ["stone_knife"]
+    # tool_tag=None -> _tool_modifier() returns 0 (NO improvised penalty): a
+    # bootstrap you make with your hands must not be penalised for lacking the
+    # very tool it exists to give you. No min_skill: the base has no skill floor,
+    # so ungated is simply the default.
+    tool_tag = None
+    craft_cooldown = 30                 # base default; a first-tool assembly
+
+    # No _finalize_item: db.quality is stamped by the base for Component E to read
+    # later. consume_policy inherits "raw" -> every attempt yields a knife (quality
+    # scales with the roll), so a new player never loses gathered materials to a
+    # bad roll and is never left tool-less.
     
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)

@@ -272,6 +272,29 @@ KNIFE = {
     "tags": [("knife", "crafting_tool")],
 }
 
+# --- Bootstrap tool: crude stone knife (crafted, C.3) ---
+# The zero-to-tool loop's OUTPUT: a knapped stone flake lashed to a haft. A real
+# Tool typeclass (so it owns `condition` for free via DurableObject), tagged
+# ("knife", "crafting_tool") -- the SAME tool-key as the metal KNIFE, so it
+# satisfies every recipe that wants a knife (waterskin, leather). DISTINCT from
+# KNIFE (locked decision a): a named, world-flavoured crude tool and a target for
+# Component D wear balance, while start `condition` stays at the DurableObject
+# default (100) -- start-condition tuning is deferred to when wear is live.
+STONE_KNIFE = {
+    "prototype_key": "stone_knife",
+    "typeclass": "typeclasses.tools.Tool",
+    "key": "stone knife",
+    # NOT "knife"/"blade": individuated so it never multimatches the metal KNIFE
+    # (key "knife", alias "blade"). Tool-matching is by TAG, not name, so this
+    # alias choice costs nothing downstream.
+    "aliases": ["stone blade"],
+    "desc": (
+        "A crude knife: a sharp-knapped stone flake lashed to a short wooden "
+        "haft with plant fibre. Rough, but it holds an edge well enough to work."
+    ),
+    "tags": [("knife", "crafting_tool")],
+}
+
 RABBIT = {
     "prototype_key": "rabbit",
     "typeclass": "typeclasses.creatures.Creature",
