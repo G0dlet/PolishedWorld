@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 7 · 2026-07-10** — Crafting Progression Component C (tool bootstrap): new §8.7 (verified live) — `MongooseCraftRecipe._tool_modifier` returns 0 for `tool_tag=None` *before* the penalty path (bootstrap-safe, no −20); the base has **no** `min_skill`/skill-floor (ungated by default — Component F adds gating); `CmdHarvest` iterates template parts dynamically, so adding a part is pure data and existing corpses gain it live after reload; `CmdRepair` is gated to `ClothingWithBuffs` only (tools not yet repairable — Component D convergence). §10.1 corollary — a crafted/spawned `Tool` autocreates `condition=100` free (confirmed end-to-end); prototype-key-vs-autocreate override still unverified (flag for Component D.5).
 > **Rev 6 · 2026-07-10** — Crafting Progression Component B (shared durability): §10.1 AttributeProperty-on-a-mixin (init_evennia_properties walks full __mro__ → autocreate fires on the host; MRO gives the mixin's descriptor precedence, no migration), §11.17 exec/shell-defined throwaway typeclasses fall silently to DefaultObject, §11.18 ContribClothing.wear stores wearstyle *as* db.worn (pass True for style-less wear).
 > **Rev 5 · 2026-07-10** — Skill-improvement Session C: §3.5 `desc()`-reads-`.value` corollary — tier-lookup på permanent nivå måste ske på råa `.current`-ints via `tier_for`, inte `skill.desc()`.
 > **Rev 4 · 2026-07-06** — Stage-1 skill-improvement session: §3.5 CounterTrait setter-clamps addendum, §6.2 cooldown real-time-seconds note, §11.16 `evennia shell` interactive-console paste gotcha.
@@ -724,6 +725,15 @@ Mongoose-Legend skill check integration goes in `pre_craft` (gate on success) or
 ### 8.6 ⚠️ Recipe loading is module-level
  
 Recipes are discovered at startup by walking `CRAFT_RECIPE_MODULES`. Adding a new recipe requires either a server reload or a manual `_load_recipes()` call. For a 320+ recipe system, organize recipes into focused submodules to keep load times reasonable and merge conflicts manageable.
+
+### 8.7 ⚠️ MongooseCraftRecipe bootstrap findings (Component C, verified live)
+
+- **`tool_tag=None` skips the penalty path.** `_tool_modifier()` opens with `if not self.tool_tag: return 0` — *before* the has-tool loop — so a recipe with `tool_tag=None` gets modifier 0, **not** `improvised_penalty`. This is what makes tool-free bootstrap recipes (stone knife, bone needle) craftable without a −20. Present-tool is likewise baseline 0 (Component A flip); only a *superior* tool grants `+tool_bonus` (Component G).
+- **No `min_skill` in the base.** `MongooseCraftRecipe` has no skill-floor mechanism at all — recipes are ungated by default. "Ungated bootstrap" means simply *not adding one*. A `min_skill` gate is Component F's job (it adds it to `pre_craft`).
+- **A crafted/spawned `Tool` gets `condition=100` for free.** Spawning `stone_knife`/`bone_needle` (both `Tool(DurableObject, Object)`) yields `db.condition=100` with no `at_object_creation` override, confirming §10.1 end-to-end. ⚠️ We never set `condition` as a prototype key, so **prototype-key-vs-autocreate ordering is unverified** — if a future prototype sets `condition: 60`, confirm the prototype value wins over the autocreate default (Component D.5).
+- **`CmdHarvest` iterates template parts dynamically.** It validates `get_part(creature_type, part_name)` and lists `get_template(...)` keys — no hardcoded meat/hide. Adding a part to `world/harvest_templates.py` is pure data; the command picks it up, and **existing corpses gain the part live after reload** (parts are read at harvest-time from the corpse's `creature_type`, not baked in at spawn).
+- **`CmdRepair` is gated to `ClothingWithBuffs`** (`isinstance` check, ~line 88), so tools are not yet repairable even though they share the `condition` axis. Broadening that check to `DurableObject` is the Component D wear→repair convergence point.
+- **Known limitation (backlog):** distinct crafted tools keep the tool-word in their `key` (`stone knife` / `bone needle`), so `get knife` / `get needle` can multimatch the metal versions. Crafting is unaffected (tool match is tag-based, consumables are named explicitly in `from …`). See §12.5 — fix identity, not the number.
  
 ---
  
@@ -827,6 +837,8 @@ Compared to `self.db.desc`: identical persistence, cleaner syntax, IDE-friendly 
 An `AttributeProperty` can live on a plain, non-typeclass mixin and still autocreate on the host at object-creation. `evennia/typeclasses/models.py::init_evennia_properties()` walks the **entire `type(self).__mro__`** and collects every `AttributeProperty` in `vars(base)` for *each* base — including a bare `class Mixin:` that never touched the typeclass metaclass — then `getattr`s each once so `autocreate=True` fires. The descriptor becomes db-backed only through a real host (one whose instances have an `.attributes` handler); a bare `Mixin()` has none, so test the mixin through a host, never a bare instance (§11.17).
 
 This is the mechanism behind `typeclasses/durable.py::DurableObject` (`condition`, `apply_wear`, `is_broken`, `condition_line`), inherited by `ClothingWithBuffs(DurableObject, ContribClothing)` and, later, `Tool(DurableObject, Object)`. MRO order `(Mixin, ContribBase)` puts the mixin **first**, so its descriptor takes precedence while the base's methods (clothing's `wear`/`remove`) resolve unchanged. A default identical to a previously-local `AttributeProperty` (here `condition=100`) means **no migration** of already-spawned objects. Django/Evennia allow a non-model mixin ahead of a model base; the most-derived metaclass (`TypeclassBase`) is selected automatically.
+
+**Corollary (Component C, confirmed):** `Tool(DurableObject, Object)` shipped exactly this way — spawning `stone_knife`/`bone_needle` yields `db.condition=100` with no `at_object_creation` on `Tool` (it stays a thin, empty typeclass; the wear *trigger* lives in the recipe, Component D). One thing this did **not** exercise: overriding the autocreated default via a prototype top-level key (`"condition": N`). Component C left every tool at 100, so if Component D.5 lowers a bootstrap tool's start condition, verify empirically that the prototype value wins over the AttributeProperty default (spawn → assert `db.condition == N`).
  
 ---
  

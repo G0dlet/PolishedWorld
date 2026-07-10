@@ -1,5 +1,6 @@
 # PolishedWorld — Strategic Roadmap
 
+> **Rev 3 · 2026-07-10** — Stage 2 (Crafting progression & tools) **underway** on `feature/crafting-progression`: Components A (tool-modifier flip), B (shared `condition` durability axis), and C (tool bootstrap — `Tool` typeclass, stone/stick primitives + nodes, stone-knife & bone-needle recipes) complete & in-game-verified. The zero-to-tool loop is playtestable both ways (forage→stone knife, hunt→bone→bone needle). Remaining Stage 2: D (tool wear sink) → E (quality→capability) → F (skill-gate) → G (superior-tool scaling). Tactical detail in `PolishedWorld_Crafting_Progression_Decomposition.md` (Rev 3).
 > **Rev 2 · 2026-07-10** — Stage 1 (Skill Improvement) **complete & in-game-verified** on `feature/skill-improvement`: primitive → gated trigger → felt-progress (tick-feedback + desc-tier celebration + `progress` command). Resolves the skill-improvement pacing/display open question (raw % is the single mechanical truth, surfaced via on-use ticks + desc-tier-crossing celebration, no 1–99 badge). Hunting (Stage 0) merged to `main`. **Critical-path reorder:** the two crafting-economy epics that cash in Stage 1 are promoted out of the backlog ahead of currency — new order S2 Crafting progression & tools → S3 Recipe knowledge & discovery → S4 In-game currency → S5 Combat → S6 Wilderness → S7 Magic → S8 GameGold (later stages renumbered +2).
 > **Rev 1 · 2026-07-01** — initial strategic roadmap: felt-progress + legibility (Stage 1), recipe-knowledge economy epic, search/disambiguation UX item, full decision log.
 > **Canonical:** `docs/roadmap.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
@@ -50,6 +51,9 @@ Every epic below is justified against at least one pillar. Anything that serves 
 
 ### 🔄 Feature-complete on `feature/skill-improvement` (ready to merge)
 - **Stage 1 — Skill Improvement** ✅ — Legend-faithful improvement-on-use (`world/improvement.py` pure primitive → `improve_skill_on_use` chokepoint → `attempt_skill_improvement` gated wrapper, wired at four check-sites: craft, repair, hunt-attack, hunt-harvest), plus the felt-progress layer: per-tick feedback, desc-tier-crossing celebration, and the `progress` command (deltas since login). In-game-verified. Canonical doc: `PolishedWorld_Skill_Improvement_Decomposition.md` (Rev 3).
+
+### 🔄 In progress on `feature/crafting-progression`
+- **Stage 2 — Crafting progression & tools** (partial) — Components A (tool-modifier flip: present tool = baseline 0, absent = penalty), B (shared `condition` durability axis via `typeclasses/durable.py::DurableObject`, inherited by clothing and tools), and C (tool bootstrap: `Tool(DurableObject, Object)`, `stone`/`stick` gatherables + nodes, `StoneKnifeRecipe` & `BoneNeedleRecipe`) complete & in-game-verified. Zero-to-tool loop playtested. Remaining: D (wear sink) → E (quality) → F (skill-gate) → G (superior tools). Canonical doc: `PolishedWorld_Crafting_Progression_Decomposition.md` (Rev 3).
 
 ---
 

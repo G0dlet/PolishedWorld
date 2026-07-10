@@ -1,11 +1,12 @@
 # PolishedWorld — Crafting Progression & Tools Decomposition
 
+> **Rev 3 · 2026-07-10** — Component C (Tool bootstrap) complete & in-game-verified: `typeclasses/tools.py::Tool(DurableObject, Object)` (condition=100 free via MRO-walk); `stone`/`stick` primitives + `stone_outcrop`/`stick_deadfall` nodes; `StoneKnifeRecipe` (`["stone","stick","fiber"]` → distinct `stone_knife`, `tool_tag=None`); `bone` part in the rabbit harvest-template (`skill=craft`, `difficulty=0`, `yield_divisor=4`, `max_stage=SKELETON`) + `BONE` primitive; `BoneNeedleRecipe` (`["bone"]` → distinct `bone_needle`, `tool_tag=None`). Zero-to-tool loop playtested both ways (forage→stone knife, hunt→bone→bone needle). Locked distinct bootstrap-tool prototypes (not reused `knife`/`needle`) + raw-fibre binding. Verified live: `_tool_modifier` returns 0 for `tool_tag=None` before the penalty path; base has no `min_skill` (Component F adds it); `CmdHarvest` iterates template parts dynamically. Next: Component D (tool wear sink), fresh chat.
 > **Rev 2 · 2026-07-10** — Component A (tool-modifier flip) and Component B (shared durability) complete: `typeclasses/durable.py::DurableObject` (condition/apply_wear/is_broken/condition_line) landed; `ClothingWithBuffs(DurableObject, ContribClothing)` inherits it. Alt A locked — `condition_line()` is helper/examine-only, no player-`look` injection until wear is live (Component D). Corrected the B.1 test hint (below). Next: Component C (Tool bootstrap), fresh chat.
 > **Rev 1 · 2026-07-10** — first version header. Decomposes roadmap Stage 2 (Crafting progression & tools) into two threads (skill→capability, tools) plus a bootstrap chain. Locks D1–D4 this session: shared quality-band helper (superior = crit-tier), hybrid skill-gate, shared `condition` durability axis across clothing+tools, and corrected tool-modifier semantics (present=baseline / absent=penalty) with primitive stone/stick tools as bootstrap. Flags two source discrepancies: waterskin's dead `>=125` branch and the `condition` vs `durability` naming split.
 > **Canonical:** `docs/PolishedWorld_Crafting_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/crafting-progression`
-**Status:** decomposed, not yet implemented (A.1 is the first task)
+**Status:** Components A, B, C complete & in-game-verified on `feature/crafting-progression`; D (tool wear sink) is next.
 **Philosophy:** skynda långsamt — korrigera verktygssemantiken och lägg den gemensamma `condition`-axeln innan primitiva verktyg och kvalitet byggs ovanpå.
 
 ---
@@ -140,7 +141,7 @@ En sanningskälla för wear-axeln, som både clothing och tools ärver.
 
 ---
 
-## 8. Component C — Tool bootstrap (D4)   ← BOOTSTRAP
+## 8. Component C — Tool bootstrap (D4) ✅   ← BOOTSTRAP  *(complete & in-game-verified)*
 
 Ny `Tool`-typeclass född med condition, nya gatherbara primitiver, och primitiva verktygsrecept utan verktygskrav. Efter denna komponent är hela noll-till-verktyg-loopen speltestbar.
 
@@ -163,6 +164,7 @@ Ny `Tool`-typeclass född med condition, nya gatherbara primitiver, och primitiv
 - **Dependencies:** C.1, C.2, `MongooseCraftRecipe`, `CRAFT_RECIPE_MODULES`.
 - **Implementation:** `class StoneKnifeRecipe(MongooseCraftRecipe)` i `world/recipes.py`: `consumable_tags=["stone","stick"]` (ev. `+["fiber"]`), `output_prototypes=["knife"]` (eller en distinkt `stone_knife`-prototyp med lägre start-`condition`), `tool_tag=None` (inget verktyg → ingen penalty), lämplig `craft_cooldown`. Ingen `min_skill` (ogated bootstrap).
 - **Testing:** Ny karaktär (låg craft), gather sten+pinne, `craft stone knife` → får en `Tool` med condition; verifiera att den fungerar som `knife`-verktyg i ett waterskin-craft (baseline 0, inte penalty).
+- **Shipped:** distinct `stone_knife` prototype (`typeclasses.tools.Tool`, tag `("knife","crafting_tool")`, start `condition`=100 — start-tuning deferred to D.5); `consumable_tags=["stone","stick","fiber"]` (raw-fibre binding, not twine); `craft_cooldown=30`. `consume_policy="raw"` → a bad roll still yields a knife.
 - **Commit:** `feat(recipes): add stone knife bootstrap recipe (no tool required)`
 
 ### Task C.4 — `BoneNeedleRecipe` (harvest-länkad primitiv)
@@ -170,6 +172,7 @@ Ny `Tool`-typeclass född med condition, nya gatherbara primitiver, och primitiv
 - **Dependencies:** C.1, C.3-mönstret; `world/harvest_templates.py` (lägg `bone` i rabbit-templaten) + `BONE`-prototyp.
 - **Implementation:** Lägg en `bone`-del i rabbit harvest-templaten + `BONE`-prototyp (tag `bone`/`crafting_material`). `class BoneNeedleRecipe(MongooseCraftRecipe)`: `consumable_tags=["bone"]`, `output_prototypes=["needle"]`, `tool_tag=None`. Notera i doccen att needle-bootstrap därmed förutsätter en jakt (medveten koppling hunting→tools); en jakt-oberoende variant (t.ex. `thorn`/`stick`-nål) är en möjlig framtida additiv källa.
 - **Testing:** Jaga → harvest `bone` → `craft bone needle` → verifiera needle-verktyg fungerar i ett garment-craft.
+- **Shipped:** distinct `bone_needle` prototype (`typeclasses.tools.Tool`, tag `("needle","crafting_tool")`) — **not** reused `needle` (parity with `stone_knife`; plain `needle` kept as a future bronze/metal target). Rabbit `bone` part: `skill="craft"`, `difficulty=0`, `yield_divisor=4` (SIZ 4 → 1 bone), `max_stage=SKELETON` (harvestable to bare skeleton). `BoneNeedleRecipe`: `consumable_tags=["bone"]`, `tool_tag=None`, `craft_cooldown=30`.
 - **Commit:** `feat(recipes): add bone needle recipe (harvest-linked bootstrap)`
 
 ---
