@@ -73,14 +73,49 @@ class DurableObject:
         """True once condition has hit 0 (spent; must be repaired or discarded)."""
         return self.condition <= 0
 
+    # Condition colour bands (Task D.3), locked once the line is first shown to
+    # players. Green above 66, yellow across the middle, red below 33.
+    _COND_GOOD = 66
+    _COND_WORN = 33
+
     def condition_line(self):
         """
-        One-line condition read for display, e.g. 'Condition: 72%'.
+        One-line condition read for display, e.g. 'Condition: |g72%|n'.
 
         Pure formatting helper -- it renders, it does not decide *where* it is
-        shown. Consumers call it explicitly: repair feedback, tool-break messages
-        (Component D), and a future player-facing look injection once wear is
-        live. Kept uncolored/unbanded here so no threshold decision is smuggled
-        into the foundation; coloring can layer in when the line is first shown.
+        shown. Consumers call it explicitly: the player-facing look injection
+        (get_display_desc below), repair feedback, and tool-break messages.
+
+        Colour banded (Task D.3): green > 66, yellow 33-66, red < 33, so a
+        glance at `look` reads how spent a tool or garment is. The threshold was
+        deliberately kept out of the foundation until now (durable.py owns the
+        axis, not display policy); this is where the line is first shown, so the
+        bands land here.
         """
-        return f"Condition: {self.condition}%"
+        cond = self.condition
+        if cond > self._COND_GOOD:
+            color = "|g"
+        elif cond >= self._COND_WORN:
+            color = "|y"
+        else:
+            color = "|r"
+        return f"Condition: {color}{cond}%|n"
+
+    def get_display_desc(self, looker, **kwargs):
+        """Append the condition line to this object's description on `look`.
+
+        This is the player-facing wear readout: ordinary players have no
+        `examine`, so `look` is where they must see how worn a tool or garment
+        is. Living on DurableObject (not Tool) means tools and garments both
+        gain the line from one place -- Tool stays thin, and any future durable
+        typeclass inherits it for free.
+
+        super() walks the host's MRO to the real typeclass's get_display_desc
+        (DefaultObject for a Tool; ContribClothing for a garment, whose worn
+        list is preserved), so we augment that base rather than replace it. The
+        mixin sits before the real base in every host's MRO, so this override
+        wins while still deferring to the base via super().
+        """
+        base = super().get_display_desc(looker, **kwargs)
+        line = self.condition_line()
+        return f"{base}\n\n{line}" if base else line
