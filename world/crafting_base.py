@@ -48,11 +48,15 @@ class MongooseCraftRecipe(CraftingRecipe):
     consume_policy = "raw"                # see module docstring
 
     # Optional tool: NOT a required tool_tag (so the craft is always possible),
-    # but its presence shifts the skill check. Pass it in-game via `using <tool>`.
+    # but its ABSENCE penalises the skill check. A recipe's tool_tag is the tool
+    # it is designed around, so *having* it is the baseline (modifier 0), not a
+    # bonus; only a *superior* tool grants a positive modifier (Component G).
     tool_tag = None                       # e.g. "knife"; None = no tool interaction
-    tool_bonus = 20                       # circumstance bonus when the tool is present
-    improvised_penalty = -20              # penalty when absent. Arms of Legend RAW is
-                                          # -40 for improvised tools; softened for MVP.
+    tool_bonus = 20                       # RESERVED (Component G): the positive modifier
+                                          # a *superior* tool will grant. A plain present
+                                          # tool is baseline (0), so this is unused for now.
+    improvised_penalty = -20              # penalty when the tool is absent. Arms of Legend
+                                          # RAW is -40 for improvised tools; softened for MVP.
 
     # We allow extra/optional tools through validation so an optional tool can be
     # supplied without the contrib rejecting it as an unexpected input.
@@ -88,14 +92,23 @@ class MongooseCraftRecipe(CraftingRecipe):
         return trait.value if trait else 0
 
     def _tool_modifier(self):
-        """+bonus if the optional tool was supplied, penalty if not; 0 if no tool used."""
+        """Tool modifier for the craft check (RAW-aligned, Arms of Legend).
+
+        The recipe's tool_tag is the tool the craft is *designed around*, so
+        having it is the baseline (0), not a bonus -- lacking it is what shifts
+        the check. The only way above baseline is a *superior* tool (Component G).
+
+            no tool_tag            -> 0  (recipe needs no tool)
+            tool present           -> 0  (baseline; the expected tool)
+            tool absent/improvised -> improvised_penalty
+        """
         if not self.tool_tag:
             return 0
         for obj in self.inputs:
             if obj and hasattr(obj, "tags") and obj.tags.has(
                 self.tool_tag, category=self.tool_tag_category
             ):
-                return self.tool_bonus
+                return 0  # baseline: the expected tool is normal, not a bonus
         return self.improvised_penalty
 
     def _quality_for(self, outcome):
