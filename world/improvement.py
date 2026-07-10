@@ -92,3 +92,45 @@ def improvement_roll(skill_value, int_char):
         "total": total,
         "beat": beat,
     }
+
+
+def tier_for(value, descs):
+    """
+    Resolve which description tier an integer skill value falls in.
+
+    Mirrors Evennia's CounterTrait.desc() upper-bound-inclusive lookup, but on
+    an *explicit* integer instead of reading the trait's live ``.value``. That
+    distinction is the whole point of this helper: ``.value`` is
+    ``(current + mod) * mult`` and so is inflated by any active tool buff,
+    whereas skill improvement -- and the "reached a new tier" celebration built
+    on it -- must read the *permanent* ``.current`` level. Feeding the raw
+    old/new ints from improve_skill_on_use keeps tier detection buff-proof: a
+    +20 knife must never fake a rank-up, and must never mask a real one.
+
+    Kept pure (no trait objects) like the rest of this module so it unit-tests
+    in isolation, exactly as world/skillcheck.py's primitives do.
+
+    Args:
+        value (int): the skill score to classify (a permanent .current level).
+            int()-coerced, mirroring improvement_roll's defensive coercion.
+        descs (dict or None): the trait's {upper_bound_inclusive: label} map,
+            e.g. {0: "helpless", 20: "novice", 40: "competent", ...}. Iterated
+            in insertion order -- exactly as Evennia does -- and our maps are
+            declared ascending, so order is meaningful and correct.
+
+    Returns:
+        str: the label for the band ``value`` falls in. A value above the
+            highest bound returns the highest label (Evennia's own rule). Returns
+            "" when ``descs`` is empty or None, matching desc()'s miss behaviour
+            so callers can treat "" as "no tier information -> skip".
+    """
+    if not descs:
+        return ""
+    highest = ""
+    value = int(value)
+    for bound, label in descs.items():
+        highest = label
+        if value <= bound:
+            return label
+    # Above every bound -> the top tier (mirrors CounterTrait.desc()).
+    return highest

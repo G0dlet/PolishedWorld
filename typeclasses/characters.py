@@ -16,7 +16,7 @@ from .objects import ObjectParent
 from evennia import create_object
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
-from world.improvement import improvement_roll
+from world.improvement import improvement_roll, tier_for
 
 from django.conf import settings
 from evennia.utils import search
@@ -614,7 +614,23 @@ class Character(ObjectParent, ClothedCharacter):
         skill = self.skills.get(result["skill_key"])
         label = skill.name if skill is not None else result["skill_key"].title()
 
-        return f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"
+        lines = [f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"]
+
+        # C.2 tier-celebration: fire only on the tick that actually crosses a
+        # desc-tier boundary (a genuine named rank-up), never on the raw quarter
+        # marks. Computed from the permanent old/new ints via tier_for (NOT
+        # skill.desc(), which reads the buff-inflated .value), so a tool buff can
+        # neither fake nor mask a crossing. Naturally idempotent: improvement is
+        # monotonic (delta >= 1) and boundaries sit >= 15 apart while a single
+        # tick gains at most 5, so each boundary is crossed on exactly one tick.
+        # descs is None on an un-migrated character -> tier_for returns "" -> skip.
+        descs = skill.descs if skill is not None else None
+        old_tier = tier_for(result["old"], descs)
+        new_tier = tier_for(result["new"], descs)
+        if new_tier and new_tier != old_tier:
+            lines.append(f"Your {label} reaches a new tier: |y{new_tier}|n.")
+
+        return "\n".join(lines)
 
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
