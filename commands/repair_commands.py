@@ -9,7 +9,7 @@ output). Resolving one carried/worn garment by name also sidesteps the crafting
 multimatch issue, since we target a single object, not a bag of ingredient tokens.
 
 Model: roll the crafter's Craft skill (world/skillcheck.py), modified by whether
-a needle is carried (+20) or improvised (-20), mirroring the tailoring recipes'
+a needle is carried (baseline 0) or improvised (-20), mirroring the tailoring recipes'
 optional-tool handling. The result tier decides the condition change; a fumble
 damages the garment further. Cloth and twine are consumed on *any* resolved
 attempt -- including a plain failure -- so low-skill spam carries a real cost.
@@ -30,10 +30,12 @@ REPAIR_COOLDOWN = 40
 # the crafting_material category, verified against world/recipes.py.
 REPAIR_MATERIALS = ("cloth", "twine")
 
-# Craft-tool modifier, mirroring MongooseCraftRecipe (tool_bonus /
-# improvised_penalty). A needle helps; bare-handed stitching is penalised, not
-# blocked, so a new player is never locked out.
-NEEDLE_BONUS = 20
+# Craft-tool modifier, mirroring MongooseCraftRecipe. A needle is the expected
+# tool, so having it is the baseline (0), not a bonus; bare-handed stitching is
+# penalised (not blocked, so a new player is never locked out). Only a superior
+# needle would grant a positive modifier (Component G).
+NEEDLE_BONUS = 20        # RESERVED (Component G): positive modifier for a superior
+                         # needle. A plain present needle is baseline (0), unused now.
 IMPROVISED_PENALTY = -20
 
 # Condition change by result tier (locked this session). Critical fully renews;
@@ -189,8 +191,12 @@ class CmdRepair(Command):
 
     @staticmethod
     def _tool_modifier(caller):
-        """+NEEDLE_BONUS if a needle is carried, else the improvised penalty."""
+        """0 if the expected needle is carried (baseline), else improvised penalty.
+
+        Mirrors MongooseCraftRecipe._tool_modifier: having the tool the work is
+        designed around is normal, not a bonus; lacking it is the penalty.
+        """
         for obj in caller.contents:
             if obj.tags.has("needle", category="crafting_tool"):
-                return NEEDLE_BONUS
+                return 0  # baseline: the expected needle is normal, not a bonus
         return IMPROVISED_PENALTY
