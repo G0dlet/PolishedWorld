@@ -297,6 +297,9 @@ STONE_KNIFE = {
     # the flake to a fresh stick with plant fibre. Tag-keys: STICK ("stick") +
     # PLANT_FIBER ("fiber"). Overrides CmdRepair's cloth/twine default.
     "repair_materials": ("stick", "fiber"),
+    # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
+    # DurableObject's autocreate-100. Metal KNIFE stays pristine (no override).
+    "condition": 40,
 }
 
 RABBIT = {
@@ -375,6 +378,9 @@ BONE_NEEDLE = {
     # Data-driven repair (D.4): re-grind the point from a fresh bone splinter.
     # Single-material by design (balance-tunable later); tag-key BONE ("bone").
     "repair_materials": ("bone",),
+    # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
+    # DurableObject's autocreate-100. Metal NEEDLE stays pristine (no override).
+    "condition": 30,
 }
 
 # --- Clothing: starter garments (warmth + clothing_type) ---
