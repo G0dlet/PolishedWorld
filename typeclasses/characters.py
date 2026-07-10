@@ -13,7 +13,7 @@ from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
 
 from .objects import ObjectParent
-from evennia import create_object
+from evennia import create_object, AttributeProperty
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 from world.improvement import improvement_roll, tier_for
@@ -389,6 +389,18 @@ class Character(ObjectParent, ClothedCharacter):
     def at_post_puppet(self, **kwargs):
         """Broadcast awakening when a player re-takes control."""
         super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
+
+        # C.3: snapshot each skill's permanent level (.current, never .value --
+        # a tool buff worn at login must not skew the baseline) so `progress` can
+        # report growth since this login. A fresh dict every puppet also resets
+        # the baseline on reconnect -- the "since login" semantics we want. Cheap
+        # (a handful of skills) and per-character, so no shared state across
+        # concurrent players. (Comprehension is fine here: real method code, not
+        # an @py exec, so the §11.16 exec-locals gotcha does not apply.)
+        self.login_skill_snapshot = {
+            key: self.skills.get(key).current for key in self.skills.all()
+        }
+
         if self.location:
             self.location.msg_contents(
                 f"The stone form of {self.key} stirs, color flowing back "
@@ -528,6 +540,13 @@ class Character(ObjectParent, ClothedCharacter):
     # time, not game time: this throttles wall-clock action spam, not in-game
     # duration.
     improvement_cooldown = 30
+
+    # C.3: per-login baseline of every skill's permanent level, captured in
+    # at_post_puppet and diffed on demand by the `progress` command to show
+    # growth *this session*. default=None + autocreate=False, and we always
+    # ASSIGN a fresh dict at login (never mutate in place), sidestepping the
+    # mutable-default sharing trap; readers coalesce None -> {}.
+    login_skill_snapshot = AttributeProperty(default=None, autocreate=False)
 
     def attempt_skill_improvement(self, skill_key, outcome, meaningful=True):
         """
