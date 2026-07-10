@@ -161,6 +161,62 @@ class CmdSkills(Command):
         self.caller.msg(msg)
 
 
+class CmdProgress(Command):
+    """
+    View your skill growth this session
+
+    Usage:
+        progress
+
+    Shows how far each skill has climbed since you logged in -- the value at
+    login, the value now, and the points gained. Skills that haven't moved are
+    left out. Only you can see this.
+    """
+
+    key = "progress"
+    locks = "cmd:all()"
+    help_category = "Character"
+
+    def func(self):
+        """Display per-skill growth since the login snapshot."""
+        char = self.caller
+
+        if not hasattr(char, "skills"):
+            self.caller.msg("You have no skills to display.")
+            return
+
+        # Baseline captured at login (Character.at_post_puppet). Coalesce
+        # None -> {} for the edge where this runs before any puppet snapshot.
+        snapshot = char.login_skill_snapshot or {}
+        rule = "|g" + "=" * 40 + "|n"
+
+        rows = []
+        for skill_key in sorted(char.skills.all()):
+            skill = char.skills.get(skill_key)
+            before = snapshot.get(skill_key)
+            now = skill.current
+            # Skip skills absent at login (before is None) or unchanged. Growth
+            # is read on .current (permanent), matching the snapshot, so a worn
+            # tool buff never masquerades as progress.
+            if before is None or now <= before:
+                continue
+            rows.append((skill.name, before, now, now - before))
+
+        if not rows:
+            self.caller.msg(
+                f"\n|wProgress this session:|n\n{rule}\n"
+                "  No skills have improved since you logged in.\n"
+                f"{rule}"
+            )
+            return
+
+        lines = ["\n|wProgress this session:|n", rule]
+        for name, before, now, gain in rows:
+            lines.append(f"  |y{name:14}|n {before:>3} |w→|n {now:<3} (|G+{gain}|n)")
+        lines.append(rule)
+        self.caller.msg("\n".join(lines))
+
+
 class CmdSheet(Command):
     """
     View your complete character sheet

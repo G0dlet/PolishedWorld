@@ -13,9 +13,10 @@ from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
 
 from .objects import ObjectParent
-from evennia import create_object
+from evennia import create_object, AttributeProperty
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
+from world.improvement import improvement_roll, tier_for
 
 from django.conf import settings
 from evennia.utils import search
@@ -388,6 +389,18 @@ class Character(ObjectParent, ClothedCharacter):
     def at_post_puppet(self, **kwargs):
         """Broadcast awakening when a player re-takes control."""
         super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
+
+        # C.3: snapshot each skill's permanent level (.current, never .value --
+        # a tool buff worn at login must not skew the baseline) so `progress` can
+        # report growth since this login. A fresh dict every puppet also resets
+        # the baseline on reconnect -- the "since login" semantics we want. Cheap
+        # (a handful of skills) and per-character, so no shared state across
+        # concurrent players. (Comprehension is fine here: real method code, not
+        # an @py exec, so the §11.16 exec-locals gotcha does not apply.)
+        self.login_skill_snapshot = {
+            key: self.skills.get(key).current for key in self.skills.all()
+        }
+
         if self.location:
             self.location.msg_contents(
                 f"The stone form of {self.key} stirs, color flowing back "
@@ -456,6 +469,187 @@ class Character(ObjectParent, ClothedCharacter):
         
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
+
+    def improve_skill_on_use(self, skill_key):
+        """
+        Attempt one Legend improvement roll on a skill and apply the result.
+
+        The on-use analogue of spending an Improvement Roll in the tabletop
+        game, and the single chokepoint for on-use skill growth. It does NOT
+        decide *whether* a use is eligible (success-only, real-difficulty,
+        cooldown) -- that gate lives in the caller (Component B.2). By the time
+        this runs, the decision to attempt improvement has already been made.
+
+        Improvement is measured against the skill's *permanent* learned level
+        (`.current`), NOT its effective `.value`. `.value` folds in situational
+        `.mod` (e.g. a +20 tool buff); a temporary bonus must not raise the
+        roll's target and make a skill *harder to permanently improve*. So we
+        read and write `.current` throughout and let the MVP cap (100) hold.
+
+        Args:
+            skill_key (str): key of the skill, e.g. "craft" or "hunting".
+
+        Returns:
+            dict or None: None if this character has no such skill. Otherwise a
+            summary the felt-progress layer consumes:
+              - "skill_key" (str)
+              - "rolled" (bool): False when already at cap (no roll is wasted
+                on a mastered skill).
+              - "old" / "new" (int): permanent skill % before / after.
+              - "delta" (int): new - old (0 when maxed).
+              - "beat" (bool): did the roll beat current skill (the 1D4+1
+                outcome)? False when not rolled.
+              - "crossed" (list[int]): which of 25/50/75/100 were passed this
+                tick -- the celebration hooks for C.2.
+
+        Multiplayer note: this is a read-modify-write on `.current`. Evennia's
+        Twisted reactor runs single-threaded and does not preempt a command
+        mid-call, so concurrent uses serialise safely without an explicit lock.
+        """
+        skill = self.skills.get(skill_key)
+        if skill is None:
+            # Unknown/unlearned skill: silent no-op rather than raising, so a
+            # shared call site that passes a key this character lacks stays safe.
+            return None
+
+        old = int(skill.current)
+        # max may be None on a legacy/handcrafted trait; fall back to 100 to
+        # match at_object_creation's skills.add(..., max=100).
+        cap = skill.max if skill.max is not None else 100
+
+        # Already mastered -> don't waste a roll (or a celebration) on it.
+        if old >= cap:
+            return {"skill_key": skill_key, "rolled": False, "old": old,
+                    "new": old, "delta": 0, "beat": False, "crossed": []}
+
+        int_char = self.stats.int.value   # full INT added to the 1D100 (Legend)
+        res = improvement_roll(old, int_char)
+
+        # CounterTrait's setter already clamps via _enforce_boundaries, but we
+        # clamp here too so the returned old/new/delta are exact regardless.
+        new = min(cap, old + res["gained"])
+        skill.current = new
+
+        crossed = [t for t in (25, 50, 75, 100) if old < t <= new]
+
+        return {"skill_key": skill_key, "rolled": True, "old": old, "new": new,
+                "delta": new - old, "beat": res["beat"], "crossed": crossed}
+
+            # Real-time seconds between on-use improvement ticks *per skill*. A balance
+    # knob (dev value; tune once playtesting shows the grind's real shape). Real
+    # time, not game time: this throttles wall-clock action spam, not in-game
+    # duration.
+    improvement_cooldown = 30
+
+    # C.3: per-login baseline of every skill's permanent level, captured in
+    # at_post_puppet and diffed on demand by the `progress` command to show
+    # growth *this session*. default=None + autocreate=False, and we always
+    # ASSIGN a fresh dict at login (never mutate in place), sidestepping the
+    # mutable-default sharing trap; readers coalesce None -> {}.
+    login_skill_snapshot = AttributeProperty(default=None, autocreate=False)
+
+    def attempt_skill_improvement(self, skill_key, outcome, meaningful=True):
+        """
+        Gated entry point for on-use skill growth. Call sites route every
+        relevant skill_check through here; this decides whether the use is
+        eligible and, if so, performs one improvement roll via
+        improve_skill_on_use.
+
+        Three gates, all of which must pass (Component B.2 design lock):
+          1. Success-only: only a passed check teaches. A failed/fumbled attempt
+             (outcome["success"] is False) never improves -- mirrors RuneQuest's
+             "experience check on success" and stops failure from paying.
+          2. Real difficulty: `meaningful` must be True. Trivial/auto-pass call
+             sites pass meaningful=False so AFK-farmable actions don't reward.
+             Currently a *seam*, not a policy: both live call sites (craft, hunt)
+             are meaningful and use the default. When trivial checks exist, they
+             opt out here -- we don't build the difficulty heuristic speculatively.
+          3. Cooldown: at most one tick per skill per `improvement_cooldown` real
+             seconds (Cooldowns contrib). The direct anti-spam rate-limiter -- a
+             hunter firing many checks still banks only one improvement per window.
+
+        Args:
+            skill_key (str): the skill the check exercised, e.g. "craft"/"hunting".
+            outcome (dict): a world.skillcheck.skill_check result (needs the
+                "success" bool). opposed_check callers pass the *winning side's
+                own* skill_check dict (e.g. result["attacker"]), and only when
+                the player actually won.
+            meaningful (bool): False to opt a trivial call site out of gate 2.
+
+        Returns:
+            dict or None: the improve_skill_on_use summary (for felt-progress)
+            when a tick fired, else None (gated out -- the common case, so
+            callers MUST handle None).
+        """
+        # Gates 1 + 2: cheap booleans first, before touching the cooldown store.
+        if not meaningful or not outcome.get("success"):
+            return None
+
+        # Gate 3: per-skill cooldown, namespaced so skills throttle
+        # independently (improving craft doesn't block a hunting tick).
+        cd_key = f"improve_{skill_key}"
+        if not self.cooldowns.ready(cd_key):
+            return None
+
+        # Eligible. Apply the roll, then start the window *only if* a real tick
+        # happened: a maxed skill (rolled=False) can't grow, so it shouldn't burn
+        # a cooldown. No await between ready-check and add -> no race (single
+        # -threaded reactor), so check+set stays atomic.
+        result = self.improve_skill_on_use(skill_key)
+        if result and result["rolled"]:
+            self.cooldowns.add(cd_key, self.improvement_cooldown)
+        return result
+
+    def _improvement_feedback(self, result):
+        """
+        Render the player-facing feedback for one improvement result.
+
+        Presentation layer for on-use skill growth: the improvement primitive
+        (world/improvement.py) stays pure and silent; every call site that fires
+        a tick routes its result dict through here and messages the return. One
+        place for the copy across all four call sites (craft, repair, hunt-attack,
+        hunt-harvest), and the single seam the threshold celebration (C.2) will
+        compose onto.
+
+        Args:
+            result (dict or None): the attempt_skill_improvement summary, or None
+                when the attempt was gated out (the common case). Callers may pass
+                it straight through -- no pre-check needed.
+
+        Returns:
+            str: the message to show the player, or "" when there's nothing to
+                announce (gated out, or a maxed skill whose tick didn't roll).
+                Callers guard with `if text:` before messaging.
+        """
+        # Gated out (None) or a maxed skill that burned no growth (rolled=False):
+        # nothing to say. A rolled tick always has delta >= 1 (Legend's +1 floor),
+        # so rolled=True is a sufficient gate.
+        if not result or not result.get("rolled"):
+            return ""
+
+        # Re-fetch for the display label ("Crafting", not "craft"). The skill
+        # existed when the tick fired; guard against a mid-command removal by
+        # falling back to a title-cased key.
+        skill = self.skills.get(result["skill_key"])
+        label = skill.name if skill is not None else result["skill_key"].title()
+
+        lines = [f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"]
+
+        # C.2 tier-celebration: fire only on the tick that actually crosses a
+        # desc-tier boundary (a genuine named rank-up), never on the raw quarter
+        # marks. Computed from the permanent old/new ints via tier_for (NOT
+        # skill.desc(), which reads the buff-inflated .value), so a tool buff can
+        # neither fake nor mask a crossing. Naturally idempotent: improvement is
+        # monotonic (delta >= 1) and boundaries sit >= 15 apart while a single
+        # tick gains at most 5, so each boundary is crossed on exactly one tick.
+        # descs is None on an un-migrated character -> tier_for returns "" -> skip.
+        descs = skill.descs if skill is not None else None
+        old_tier = tier_for(result["old"], descs)
+        new_tier = tier_for(result["new"], descs)
+        if new_tier and new_tier != old_tier:
+            lines.append(f"Your {label} reaches a new tier: |y{new_tier}|n.")
+
+        return "\n".join(lines)
 
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
