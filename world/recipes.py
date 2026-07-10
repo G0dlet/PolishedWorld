@@ -115,6 +115,27 @@ class StoneKnifeRecipe(MongooseCraftRecipe):
     # later. consume_policy inherits "raw" -> every attempt yields a knife (quality
     # scales with the roll), so a new player never loses gathered materials to a
     # bad roll and is never left tool-less.
+
+
+class BoneNeedleRecipe(MongooseCraftRecipe):
+    """Grind a harvested bone to a point and eye it: a crude sewing needle.
+
+    The tailoring bootstrap, deliberately hunting-linked -- its only input is
+    `bone`, taken from a corpse (C.4 harvest part). Ungated and tool-free so a
+    single hunt can yield a needle with no prior tools.
+    """
+
+    name = "bone needle"
+    consumable_tags = ["bone"]          # one harvested bone, matched by tag-key
+    output_prototypes = ["bone_needle"]
+    # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty). No
+    # min_skill: the base has no skill floor, so ungated is the default. (A future
+    # tool_tag="knife" -- carving needs a blade -- is a deliberate deferral.)
+    tool_tag = None
+    craft_cooldown = 30                 # small, fiddly assembly; mirrors stone knife
+
+    # No _finalize_item: db.quality is stamped by the base for Component E to read.
+    # consume_policy inherits "raw" -> a hunt is never wasted on a bad roll.
     
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)

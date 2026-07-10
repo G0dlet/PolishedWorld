@@ -347,6 +347,29 @@ NEEDLE = {
     "tags": [("needle", "crafting_tool")],
 }
 
+# --- Bootstrap tool: bone needle (crafted from harvested bone, C.4) ---
+# The tailoring bootstrap's OUTPUT, deliberately hunting-linked: its only input
+# is `bone`, harvested from a corpse (C.4 harvest part). A real Tool (owns
+# `condition` via DurableObject), tagged ("needle","crafting_tool") -- the SAME
+# tool-key as the plain NEEDLE, so it satisfies every recipe that wants a needle
+# (linen shirt, leather boots). DISTINCT from NEEDLE (parity with stone_knife):
+# a crude, world-flavoured tool and a Component D wear target, while NEEDLE stays
+# as a future bronze/metal needle. Start `condition` autocreates to 100.
+BONE_NEEDLE = {
+    "prototype_key": "bone_needle",
+    "typeclass": "typeclasses.tools.Tool",
+    "key": "bone needle",
+    # NOT a bare "needle" alias: individuated so it never multimatches the plain
+    # NEEDLE (alias "needle"). Tool-matching is by TAG, not name, so this costs
+    # nothing downstream.
+    "aliases": ["bone pin"],
+    "desc": (
+        "A crude needle ground from a splinter of bone, its eye bored by hand. "
+        "Rough at the point, but it draws thread through cloth well enough."
+    ),
+    "tags": [("needle", "crafting_tool")],
+}
+
 # --- Clothing: starter garments (warmth + clothing_type) ---
 # Spawn targets for testing the clothing/thermal chain. In the finished economy
 # these are NOT spawned freely: their SOURCE is the Task C.1 tailoring recipes
@@ -445,6 +468,20 @@ RAW_HIDE = {
     # crafting_material tag-key "raw_hide" is what the H5 tanning recipe lists in
     # consumable_tags. Same convention as PLANT_FIBER's "fiber" and CLOTH's "cloth".
     "tags": [("raw_hide", "crafting_material")],
+}
+
+BONE = {
+    "prototype_key": "bone",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "bone",
+    "aliases": ["small bone"],
+    "desc": (
+        "A slender, clean-picked bone, hard and pale. Ground to a point and "
+        "eyed, it could serve as a crude sewing needle."
+    ),
+    # crafting_material tag-key "bone" -> BoneNeedleRecipe consumable_tags.
+    # Same convention as RAW_HIDE's "raw_hide" and PLANT_FIBER's "fiber".
+    "tags": [("bone", "crafting_material")],
 }
 
 LEATHER = {
