@@ -293,6 +293,10 @@ STONE_KNIFE = {
         "haft with plant fibre. Rough, but it holds an edge well enough to work."
     ),
     "tags": [("knife", "crafting_tool")],
+    # Data-driven repair (D.4): a stone knife is re-hafted, not patched -- re-lash
+    # the flake to a fresh stick with plant fibre. Tag-keys: STICK ("stick") +
+    # PLANT_FIBER ("fiber"). Overrides CmdRepair's cloth/twine default.
+    "repair_materials": ("stick", "fiber"),
 }
 
 RABBIT = {
@@ -368,6 +372,9 @@ BONE_NEEDLE = {
         "Rough at the point, but it draws thread through cloth well enough."
     ),
     "tags": [("needle", "crafting_tool")],
+    # Data-driven repair (D.4): re-grind the point from a fresh bone splinter.
+    # Single-material by design (balance-tunable later); tag-key BONE ("bone").
+    "repair_materials": ("bone",),
 }
 
 # --- Clothing: starter garments (warmth + clothing_type) ---
