@@ -200,7 +200,7 @@ WATERSKIN = {
 
 KNIFE = {
     "prototype_key": "knife",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.tools.Tool",
     "key": "knife",
     "aliases": ["blade"],
     "desc": "A simple bladed knife, handy for shaping and cutting.",
@@ -249,7 +249,7 @@ CLOTH = {
 
 NEEDLE = {
     "prototype_key": "needle",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.tools.Tool",
     "key": "sewing needle",
     "aliases": ["needle"],
     "desc": "A slender needle for stitching cloth. Handy, but not strictly needed.",
