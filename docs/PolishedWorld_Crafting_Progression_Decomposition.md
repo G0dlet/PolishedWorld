@@ -1,5 +1,6 @@
 # PolishedWorld — Crafting Progression & Tools Decomposition
 
+> **Rev 2 · 2026-07-10** — Component A (tool-modifier flip) and Component B (shared durability) complete: `typeclasses/durable.py::DurableObject` (condition/apply_wear/is_broken/condition_line) landed; `ClothingWithBuffs(DurableObject, ContribClothing)` inherits it. Alt A locked — `condition_line()` is helper/examine-only, no player-`look` injection until wear is live (Component D). Corrected the B.1 test hint (below). Next: Component C (Tool bootstrap), fresh chat.
 > **Rev 1 · 2026-07-10** — first version header. Decomposes roadmap Stage 2 (Crafting progression & tools) into two threads (skill→capability, tools) plus a bootstrap chain. Locks D1–D4 this session: shared quality-band helper (superior = crit-tier), hybrid skill-gate, shared `condition` durability axis across clothing+tools, and corrected tool-modifier semantics (present=baseline / absent=penalty) with primitive stone/stick tools as bootstrap. Flags two source discrepancies: waterskin's dead `>=125` branch and the `condition` vs `durability` naming split.
 > **Canonical:** `docs/PolishedWorld_Crafting_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
@@ -127,7 +128,7 @@ En sanningskälla för wear-axeln, som både clothing och tools ärver.
 - **Goal:** En mixin som äger `condition` (0–100), `apply_wear`, `is_broken` och en enhetlig examine-rad.
 - **Dependencies:** `evennia.AttributeProperty`; ny modul `typeclasses/durable.py`.
 - **Implementation:** `class DurableObject:` med `condition = AttributeProperty(default=100, autocreate=True)`; `apply_wear(self, amount)` → `self.condition = max(0, self.condition - amount)`, returnera nya värdet, logga vid brott; `is_broken` property (`self.condition <= 0`); en `get_display_name`/`return_appearance`-hook eller hjälpmetod `condition_line()` som ger t.ex. `Condition: 72%`. Ingen wear-*trigger* här (den bor i clothing-scriptet resp. receptet).
-- **Testing:** `@py` `obj = create.create_object("typeclasses.tools.Tool", key="test")` (efter C) — eller en tillfällig subklass — och verifiera `apply_wear(30)` → 70, `apply_wear(80)` → 0 + `is_broken` True.
+- **Testing:** en *importerbar* host krävs — en shell/`exec`-definierad subklass faller tyst till `DefaultObject` (§11.17), så `create_object(cls)` misslyckas dolt. Scratch-modul `typeclasses/_scratch.py` (`class DurableScratch(DurableObject, DefaultObject): pass`; radera efteråt, committa aldrig), sedan `evennia shell`: `from evennia import create_object; o = create_object("typeclasses._scratch.DurableScratch", key="t"); print(o.condition, o.apply_wear(30), o.is_broken, o.apply_wear(80), o.is_broken, o.condition_line()); o.delete()` → `100 70 False 0 True Condition: 0%`. (apply_wear/is_broken landar även funktionellt i B.2 via en spawnad garment-host.)
 - **Commit:** `feat(durability): add DurableObject mixin (condition, apply_wear, is_broken)`
 
 ### Task B.2 — Refaktorera `ClothingWithBuffs` onto the mixin

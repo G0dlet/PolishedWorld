@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 6 · 2026-07-10** — Crafting Progression Component B (shared durability): §10.1 AttributeProperty-on-a-mixin (init_evennia_properties walks full __mro__ → autocreate fires on the host; MRO gives the mixin's descriptor precedence, no migration), §11.17 exec/shell-defined throwaway typeclasses fall silently to DefaultObject, §11.18 ContribClothing.wear stores wearstyle *as* db.worn (pass True for style-less wear).
 > **Rev 5 · 2026-07-10** — Skill-improvement Session C: §3.5 `desc()`-reads-`.value` corollary — tier-lookup på permanent nivå måste ske på råa `.current`-ints via `tier_for`, inte `skill.desc()`.
 > **Rev 4 · 2026-07-06** — Stage-1 skill-improvement session: §3.5 CounterTrait setter-clamps addendum, §6.2 cooldown real-time-seconds note, §11.16 `evennia shell` interactive-console paste gotcha.
 > **Canonical:** `docs/PolishedWorld_Evennia_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
@@ -820,6 +821,12 @@ char.desc = "A new desc."     # write — auto-persists
 ```
  
 Compared to `self.db.desc`: identical persistence, cleaner syntax, IDE-friendly (typecheckers can see it), and supports defaults declaratively.
+
+### 10.1 AttributeProperty on a *mixin* (shared durability foundation)
+
+An `AttributeProperty` can live on a plain, non-typeclass mixin and still autocreate on the host at object-creation. `evennia/typeclasses/models.py::init_evennia_properties()` walks the **entire `type(self).__mro__`** and collects every `AttributeProperty` in `vars(base)` for *each* base — including a bare `class Mixin:` that never touched the typeclass metaclass — then `getattr`s each once so `autocreate=True` fires. The descriptor becomes db-backed only through a real host (one whose instances have an `.attributes` handler); a bare `Mixin()` has none, so test the mixin through a host, never a bare instance (§11.17).
+
+This is the mechanism behind `typeclasses/durable.py::DurableObject` (`condition`, `apply_wear`, `is_broken`, `condition_line`), inherited by `ClothingWithBuffs(DurableObject, ContribClothing)` and, later, `Tool(DurableObject, Object)`. MRO order `(Mixin, ContribBase)` puts the mixin **first**, so its descriptor takes precedence while the base's methods (clothing's `wear`/`remove`) resolve unchanged. A default identical to a previously-local `AttributeProperty` (here `condition=100`) means **no migration** of already-spawned objects. Django/Evennia allow a non-model mixin ahead of a model base; the most-derived metaclass (`TypeclassBase`) is selected automatically.
  
 ---
  
@@ -1015,6 +1022,16 @@ inte ett kodfel.
 Skild från §3.5:s `@py`-not (rad-isolerat namespace). Tumregel för stat-/loop-tester: en fysisk
 rad per statement, eller `exec` en sträng.
 
+### 11.17 `exec`/shell-defined throwaway typeclasses fall silently to `DefaultObject`
+
+Evennia resolves a typeclass by **importable dotted path**, not by class identity. A class defined inside `exec("""...""")` or the `evennia shell` `InteractiveConsole` has `__module__` = `builtins`/`__console__` — no importable path — so `create_object(ThatClass, ...)` cannot re-import it and falls back **silently** to `settings.BASE_OBJECT_TYPECLASS` (`DefaultObject`) per §11.12. The object then lacks any `AttributeProperty` the throwaway declared, surfacing later as `AttributeError: 'DefaultObject' object has no attribute '<field>'`.
+
+Fix: to functionally test a mixin/typeclass in the shell, put a real host in an **importable scratch module** (`typeclasses/_scratch.py`, delete after, never commit) and `create_object("typeclasses._scratch.HostClass", ...)` by path. (Also: the flat API exposes `create_object`, not a `create` module — `from evennia import create_object`, not `from evennia import create`.)
+
+### 11.18 `ContribClothing.wear` stores `wearstyle` *as* `db.worn`
+
+`wear(self, wearer, wearstyle, quiet=False)` does `self.db.worn = wearstyle` verbatim, and `get_worn_clothes` (hence `world/thermal.worn_warmth`) filters on truthy `db.worn`. So `wear(wearer, "")` sets `db.worn = ""` (falsy) and the garment reads as **un-worn** — contributes 0 warmth, absent from worn listings. For style-less wearing pass `True` (the contrib's documented sentinel: "just the name will be shown"); reserve a non-empty string for an actual wear-style suffix. Bites any code that calls `wear` programmatically (tests, scripts, NPC dressing).
+
 ### 12.1 What produces `ball-1` / `ball-2`
 
 When a search returns >1 match, Evennia routes the result through the pluggable hook named by `SEARCH_AT_RESULT` (default `evennia.utils.utils.at_search_result`). For a multimatch it prints a `More than one match...` header, then one line per match rendered by `SEARCH_MULTIMATCH_TEMPLATE`. The *input* syntax the player types to disambiguate is defined by `SEARCH_MULTIMATCH_REGEX` (§11.6 shows this regex from the crafting side — here is the full trio):
@@ -1110,6 +1127,7 @@ Roadmap cross-ref: backlog item *"Search / disambiguation UX + item identity"*.
 | Crafting | `evennia.contrib.game_systems.crafting` | Planned (post-MVP, 320 recipes) |
 | Clothing | `evennia.contrib.game_systems.clothing` | Planned (post-MVP) |
 | AttributeProperty | `evennia.typeclasses.attributes` (built-in) | Use throughout |
+| DurableObject mixin (`condition`/`apply_wear`/`is_broken`/`condition_line`) | `typeclasses/durable.py` (project) | Stage 2 Component B, complete |
 | Search multimatch UX | settings `SEARCH_MULTIMATCH_*` / `SEARCH_AT_RESULT` | Backlog — item-identity + optional reskin (§12) |
  
 ---
