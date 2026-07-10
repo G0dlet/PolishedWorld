@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 3 · 2026-07-10** — indexed the Stage 2 crafting-progression decomposition (tactical, feature-task altitude).
 > **Rev 2 · 2026-07-02** — added GameGold design, GameGold economy, and core-instructions docs to the index (moved out of the project-knowledge-only list).
 > **Canonical:** `docs/README.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
@@ -44,6 +45,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Strategic roadmap | strategic (epics / milestones) | `docs/roadmap.md` |
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
+| Crafting progression decomposition | tactical (feature tasks) | `docs/PolishedWorld_Crafting_Progression_Decomposition.md` |
 | Crafting docs | tactical | `docs/crafting/` |
 | GameGold design | design (crypto spec) | `docs/GameGold_Design.md` |
 | GameGold economy | design (economy) | `docs/PolishedWorld_GameGold_Economy.md` |
