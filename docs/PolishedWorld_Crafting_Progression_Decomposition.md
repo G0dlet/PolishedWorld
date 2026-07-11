@@ -1,5 +1,6 @@
 # PolishedWorld — Crafting Progression & Tools Decomposition
 
+> **Rev 6 · 2026-07-11** — Component E **complete & in-game-verified**. E.1: new `world/crafting_quality.py` owns `quality_band()` + `band_alias(band, key)` (single source of truth; `superior = quality > 100`). E.2: `WaterskinRecipe` reads the band, killing the dead `>=125` branch — superior 6/12 · serviceable 5/10 · poor 4/6 · shoddy 3/3, superior gains a `superior waterskin` alias. E.3: `LinenShirtRecipe`/`LeatherBootsRecipe` gain `_finalize_item` via a shared **module-level** `_apply_garment_quality()` helper (a plain function, NOT a subclass — dodges `_load_recipes()` phantom registration) mapping band → start-`condition` 100/90/70/50 + superior alias. Capability tables (`_WATERSKIN_STATS_BY_BAND`, `GARMENT_CONDITION_BY_BAND`) live in the recipe layer; `crafting_quality` owns only classification + alias. Corrected §3's stale max-quality figure (**112 → 110**: post-A-flip no positive modifier survives) and documented the intentional hollow-critical edge (crit_score 0 → quality 100 → serviceable). Next: Component F (skill-gate).
 > **Rev 5 · 2026-07-10** — Component D **complete & in-game-verified**. D.4 (repair convergence): `CmdRepair` gate broadened `ClothingWithBuffs` → `DurableObject` (tools + garments); materials data-driven via `target.db.repair_materials or REPAIR_MATERIALS` (`stone_knife` → stick+fibre, `bone_needle` → bone; garments keep cloth+twine); copy neutralised to mend/restore. D.5: `STONE_KNIFE` condition 40, `BONE_NEEDLE` 30 — and the §10.1 prototype-key-vs-autocreate override is now **verified** (spawn → 40/30, prototype value wins). The source→sink→repair loop is closed end-to-end. Next: Component E (quality → capability).
 > **Rev 4 · 2026-07-10** — Component D (tool wear sink) underway: §9 reconciled and split D.1→D.5. D.1 (per-use wear read from `self.inputs`, not `validated_tools`), D.2 (broken tool = absent/improvised, **not** deleted — supersedes Rev 3's `delete()`), and D.3 (colour-banded `condition_line` shown on `look` for tools *and* garments) complete & in-game-verified. D.4 (repair convergence — `CmdRepair` broadened to `DurableObject`, data-driven `db.repair_materials`) and D.5 (bootstrap start-condition tuning + prototype-override verify) remain. Tool-repair promoted from §13 backlog into D.4.
 > **Rev 3 · 2026-07-10** — Component C (Tool bootstrap) complete & in-game-verified: `typeclasses/tools.py::Tool(DurableObject, Object)` (condition=100 free via MRO-walk); `stone`/`stick` primitives + `stone_outcrop`/`stick_deadfall` nodes; `StoneKnifeRecipe` (`["stone","stick","fiber"]` → distinct `stone_knife`, `tool_tag=None`); `bone` part in the rabbit harvest-template (`skill=craft`, `difficulty=0`, `yield_divisor=4`, `max_stage=SKELETON`) + `BONE` primitive; `BoneNeedleRecipe` (`["bone"]` → distinct `bone_needle`, `tool_tag=None`). Zero-to-tool loop playtested both ways (forage→stone knife, hunt→bone→bone needle). Locked distinct bootstrap-tool prototypes (not reused `knife`/`needle`) + raw-fibre binding. Verified live: `_tool_modifier` returns 0 for `tool_tag=None` before the penalty path; base has no `min_skill` (Component F adds it); `CmdHarvest` iterates template parts dynamically. Next: Component D (tool wear sink), fresh chat.
@@ -8,7 +9,7 @@
 > **Canonical:** `docs/PolishedWorld_Crafting_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/crafting-progression`
-**Status:** Components A, B, C, D complete & in-game-verified on `feature/crafting-progression`; E (quality → capability) is next.
+**Status:** Components A–E complete & in-game-verified on `feature/crafting-progression`; F (skill-gate) is next.
 **Philosophy:** skynda långsamt — korrigera verktygssemantiken och lägg den gemensamma `condition`-axeln innan primitiva verktyg och kvalitet byggs ovanpå.
 
 ---
@@ -60,7 +61,7 @@ Hämtade och lästa mot `main` denna session (raw.githubusercontent.com/G0dlet/P
 
 **Diskrepanser att fixa i denna stage:**
 
-1. **Waterskinens `>=125`-gren är död kod.** Med MVP:s skill-cap 100 är max `target` = 100 + tool 20 = 120 → `crit_score = 12` → max quality = **112**. Tröskeln 125 nås aldrig. Fixas i E via band-helpern (superior = quality > 100).
+1. **Waterskinens `>=125`-gren är död kod.** ✅ *Fixad i E.2 (Rev 6).* Efter A-flippen finns ingen positiv modifierare kvar (verktyg present = 0 baseline; `tool_bonus` reserverat för G), så max `target` = skill-cap 100 → `crit_score = 10` → max quality = **110** (inte 112 — den siffran antog det gamla +20-verktyget). Tröskeln 125 nåddes aldrig; band-helpern (`superior = quality > 100`) ersätter de råa trösklarna. **Avsiktlig edge:** en critical vid modifierad skill 0–9 har `crit_score = 0` → quality exakt 100 → bandas `serviceable`, inte `superior`. Det är capability-banding — bandet rapporterar föremålet (quality 100 = success-kapabilitet), inte tärningen; varje realistisk crafter (modifierad skill ≥ 10) får superior på crit ändå.
 2. **Namn-gaffel `condition` vs `durability`.** Clothing/repair/thermal använder `condition` (0–100, lastbärande på tre ställen); waterskin använder `durability` (refill-count). D3 standardiserar på `condition`; waterskins `durability` lämnas som backlog-avvikare.
 
 ---
@@ -219,7 +220,7 @@ Verktyg nöts per genomförd craft; ett brutet verktyg räknas som frånvarande 
 
 ---
 
-## 10. Component E — Quality → capability (D1)
+## 10. Component E — Quality → capability (D1) ✅   *(complete & in-game-verified)*
 
 En sanningskälla för kvalitetsband; gör Stage 1:s siffror kännbara på output.
 
@@ -227,7 +228,7 @@ En sanningskälla för kvalitetsband; gör Stage 1:s siffror kännbara på outpu
 - **Goal:** En pure `quality_band(quality)` som all `_finalize_item`-logik läser.
 - **Dependencies:** ingen (ren funktion); används av recepten.
 - **Implementation:** `QUALITY_BANDS`-tabell + `quality_band(quality) -> str` med gränser: `superior` (> 100), `serviceable` (100), `poor` (50–99), `shoddy` (< 50). Ev. `band_label`/`band_alias(key, band)` för `a superior <key>`. Ren, unit-testbar.
-- **Testing:** `evennia shell`: `quality_band(112)=="superior"`, `quality_band(100)=="serviceable"`, `quality_band(50)=="poor"`, `quality_band(25)=="shoddy"`.
+- **Testing:** `evennia shell`: `quality_band(110)=="superior"`, `quality_band(100)=="serviceable"`, `quality_band(50)=="poor"`, `quality_band(25)=="shoddy"`; `band_alias("superior","waterskin")=="superior waterskin"`, `band_alias("poor","waterskin") is None`.
 - **Commit:** `feat(crafting): add quality_band helper as single source of quality tiers`
 
 ### Task E.2 — Fixa `WaterskinRecipe._finalize_item`
