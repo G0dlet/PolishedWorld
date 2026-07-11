@@ -35,6 +35,34 @@ _WATERSKIN_STATS_BY_BAND = {   # band -> (max_charges, durability-in-refills)
 }
 
 
+GARMENT_CONDITION_BY_BAND = {  # band -> start condition on the 0-100 wear axis
+    SUPERIOR: 100,
+    SERVICEABLE: 90,
+    POOR: 70,
+    SHODDY: 50,
+}
+
+
+def _apply_garment_quality(obj):
+    """Shared garment _finalize_item body: quality -> start condition + alias.
+
+    A plain module-level function, NOT a CraftingRecipe subclass, so Evennia's
+    _load_recipes() (which registers only issubclass(CraftingRecipeBase) classes
+    *defined* in this module) never picks it up as a phantom recipe. Called from
+    each garment recipe so linen shirt / leather boots share one
+    quality->condition mapping instead of duplicating branches.
+
+    Writing obj.db.condition overrides the DurableObject autocreate default
+    (100); the write lands on the very Attribute apply_wear / is_broken /
+    condition_line read back, so a shoddy garment is born already half-worn.
+    """
+    band = quality_band(obj.db.quality)
+    obj.db.condition = GARMENT_CONDITION_BY_BAND[band]
+    alias = band_alias(band, obj.key)
+    if alias:
+        obj.aliases.add(alias)
+
+
 class TwineRecipe(MongooseCraftRecipe):
     """Twist three plant fibres into a length of twine."""
 
@@ -97,8 +125,11 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     tool_tag = "needle"                    # OPTIONAL: needle eases stitching (+20); improvised -20
     craft_cooldown = 40
 
-    # NOTE: no _finalize_item override yet. db.quality is stamped by the base; a
-    # future durability/wear task will read it (deferred sink, per the C.1 plan).
+    def _finalize_item(self, obj, outcome):
+        # E.3: quality -> garment start-condition (+ superior alias) via the
+        # shared helper. Reads obj.db.quality stamped by the base; superior
+        # starts pristine (100), shoddy already worn-in (50).
+        _apply_garment_quality(obj)
 
 
 class LeatherBootsRecipe(MongooseCraftRecipe):
@@ -109,8 +140,11 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     output_prototypes = ["leather_boots"]        # existing Component B prototype
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (+20); improvised -20
     craft_cooldown = 40                          # mirrors linen shirt
-    # No _finalize_item: db.quality is stamped by the base; the H6 durability/wear
-    # task will read it. Same deferred-sink stance as LinenShirtRecipe.
+
+    def _finalize_item(self, obj, outcome):
+        # E.3: same shared quality -> start-condition + superior alias as the
+        # linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
 
 
 class StoneKnifeRecipe(MongooseCraftRecipe):
