@@ -54,6 +54,14 @@ class MongooseCraftRecipe(CraftingRecipe):
                                           # consume; orthogonal to the tool modifier
                                           # (the roll) and Stage 3's knowledge-gate.
 
+    # Stage 3 knowledge-gate declaration (Component A.2). Mirrors min_skill's
+    # "0 = ungated default" shape: False = common/ungated (a fresh character
+    # can craft it), True = must be LEARNED first (see the known-recipe set on
+    # Character). DECLARATION ONLY -- the enforcing gate lives in Component B;
+    # this attribute just tells that gate which recipes to care about.
+    # Orthogonal to min_skill (a skill floor) and the tool modifier (the roll).
+    requires_knowledge = False
+
     # Optional tool: NOT a required tool_tag (so the craft is always possible),
     # but its ABSENCE penalises the skill check. A recipe's tool_tag is the tool
     # it is designed around, so *having* it is the baseline (modifier 0), not a
