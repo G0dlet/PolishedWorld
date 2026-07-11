@@ -22,6 +22,20 @@ from django.conf import settings
 from evennia.utils import search
 
 
+# Tag category under which a Character's learned (known) crafting recipes live.
+# Stage 3 / Component A. The known-recipe set is TAG-based, NOT an
+# AttributeProperty set (§2 lock), for three reasons:
+#   1. Queryable -- we can later find *who* knows recipe X with a tag search,
+#      which an Attribute-stored set cannot do efficiently.
+#   2. No mutable-default sharing trap -- there is no per-class list/dict that
+#      could accidentally be shared across instances.
+#   3. Case-insensitive round-trip -- the TagHandler lowercases keys on both
+#      write and read, so callers need not normalise.
+# We store the canonical *recipe name* (MongooseCraftRecipe.name, the recipe-
+# registry key, e.g. "cloth" or "linen shirt"), never a prototype_key.
+KNOWN_RECIPE_CATEGORY = "known_recipe"
+
+
 class Character(ObjectParent, ClothedCharacter):
     """
     PolishedWorld character with Mongoose Legend integration.
@@ -650,6 +664,72 @@ class Character(ObjectParent, ClothedCharacter):
             lines.append(f"Your {label} reaches a new tier: |y{new_tier}|n.")
 
         return "\n".join(lines)
+
+    # --- Recipe knowledge (Stage 3, Component A) ---
+    # A per-character set of *known* crafting recipes, stored as Tags under
+    # KNOWN_RECIPE_CATEGORY (see module top for why tags beat an
+    # AttributeProperty set). This is storage + query ONLY -- the gate that
+    # turns "does this character know recipe X?" into a craft allow/deny lives
+    # in Component B. B/C/D all read through these three helpers, so the
+    # storage shape can change later without touching call sites.
+
+    def knows_recipe(self, name):
+        """
+        Return True if this character has learned the recipe `name`.
+
+        Args:
+            name (str): the canonical recipe-registry name
+                (MongooseCraftRecipe.name, e.g. "cloth" or "linen shirt"),
+                NOT a prototype_key. Case is irrelevant -- the TagHandler
+                lowercases keys on both write and read.
+
+        Returns:
+            bool: True if the recipe tag is present on this character.
+        """
+        return self.tags.has(name, category=KNOWN_RECIPE_CATEGORY)
+
+    def learn_recipe(self, name):
+        """
+        Teach this character the recipe `name`, idempotently.
+
+        We check knows_recipe() FIRST and only add the tag if it is new. That
+        lets call sites (a `learn` command, reading a scroll) distinguish the
+        two outcomes from the return value -- "You study the scroll and learn
+        to weave cloth." vs. "You already know this." -- WITHOUT wasting the
+        scroll / materials on a recipe the character already has.
+
+        tags.add is itself idempotent at the DB level (a matching key+category
+        is re-used, never duplicated), so the guard exists purely to produce
+        the return signal, not to prevent duplicate rows.
+
+        Args:
+            name (str): canonical recipe-registry name (see knows_recipe).
+
+        Returns:
+            bool: True if newly learned this call, False if already known.
+
+        Multiplayer note: this is a read-then-write on the tag set. Evennia's
+        Twisted reactor is single-threaded and does not preempt a command
+        mid-call, so two near-simultaneous learn attempts serialise safely;
+        the worst case is the second seeing knows_recipe() True and returning
+        False -- exactly the intended "already known" outcome.
+        """
+        if self.knows_recipe(name):
+            return False
+        self.tags.add(name, category=KNOWN_RECIPE_CATEGORY)
+        return True
+
+    def known_recipes(self):
+        """
+        Return the list of recipe names this character has learned.
+
+        Returns:
+            list[str]: canonical recipe names (lowercased by the TagHandler),
+                always a list -- empty when nothing is known. Order is
+                unspecified (tag/cache order); presentation-layer callers that
+                need determinism should sort there.
+        """
+        return self.tags.get(category=KNOWN_RECIPE_CATEGORY, return_list=True)
 
     # --- Rest / fatigue recovery ---
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
