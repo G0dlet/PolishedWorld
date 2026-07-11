@@ -46,6 +46,12 @@ class MongooseCraftRecipe(CraftingRecipe):
     skill_name = "craft"                  # which Character.skills entry to roll
     craft_cooldown = 30                   # realtime seconds, per-recipe
     consume_policy = "raw"                # see module docstring
+    min_skill = 0                         # Component F: HARD skill floor (effective
+                                          # Craft %) required to *attempt* this recipe.
+                                          # 0 = ungated (default); advanced recipes
+                                          # override (F.2). Enforced in pre_craft BEFORE
+                                          # consume; orthogonal to the tool modifier
+                                          # (the roll) and Stage 3's knowledge-gate.
 
     # Optional tool: NOT a required tool_tag (so the craft is always possible),
     # but its ABSENCE penalises the skill check. A recipe's tool_tag is the tool
@@ -183,6 +189,21 @@ class MongooseCraftRecipe(CraftingRecipe):
         # Contrib input validation (materials/tools). Raises CraftingValidationError
         # on bad inputs; the base craft() catches it and skips do_craft.
         super().pre_craft(**kwargs)
+
+        # Skill-gate (Component F.1). A HARD floor: advanced recipes set min_skill;
+        # a crafter below it is refused HERE -- after inputs are valid, before the
+        # cooldown gate and before any consume. We raise before do_craft, so rolled
+        # stays False and post_craft consumes nothing. Reads EFFECTIVE skill
+        # (_skill_value() = counter .value = current + mod), so a temporary buff can
+        # lift someone over the bar -- intended: the gate asks "are you good enough
+        # to *attempt* this right now". Deliberately does NOT apply the tool modifier:
+        # that penalty shifts the ROLL in do_craft ("how well"), not the gate ("may
+        # you try"), so a skilled but tool-less crafter passes here and then rolls at
+        # -20. Orthogonal to Stage 3's knowledge-gate. min_skill defaults to 0
+        # (ungated), so trivial survival recipes are never blocked.
+        if self._skill_value() < self.min_skill:
+            self.msg(f"Your Craft is too unskilled (need {self.min_skill}%).")
+            raise CraftingError(f"{self.name} requires Craft {self.min_skill}%.")
 
         # Cooldown gate. Only reached once inputs are valid. Abort WITHOUT
         # consuming (we raise before do_craft; rolled stays False).
