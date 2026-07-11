@@ -1,5 +1,6 @@
 # PolishedWorld — Crafting Progression & Tools Decomposition
 
+> **Rev 7 · 2026-07-11** — Component F **complete & in-game-verified**. F.1: `MongooseCraftRecipe.min_skill = 0` (default = ungated) + a HARD gate in `pre_craft`, placed *after* the contrib input-validation and *before* the cooldown gate — an under-skilled craft raises `CraftingError` with `rolled=False`, so `post_craft` consumes nothing. The gate reads EFFECTIVE skill (`_skill_value()` = counter `.value` = current + mod); verified live, a +20 craft mod lifted `current=0` to effective 20 (blocked at min 30) while `current≥` threshold passed — a buff/mod can legitimately lift someone over the bar (design nuance **a** confirmed). The tool modifier is deliberately NOT applied at the gate: it shifts the roll in `do_craft` ("how well"), not the gate ("may you try"). F.2: only `LeatherBootsRecipe` gated (`min_skill = 30`, conservative — rebalanced vs Legend later); every other recipe inherits the ungated default, so the survival bootstrap loop never locks. Three orthogonal gates now distinct in code: knowledge (Stage 3), skill (this gate + Stage 1 improvement + E's quality scaling), capability (tools/G). Next: Component G (superior-tool scaling).
 > **Rev 6 · 2026-07-11** — Component E **complete & in-game-verified**. E.1: new `world/crafting_quality.py` owns `quality_band()` + `band_alias(band, key)` (single source of truth; `superior = quality > 100`). E.2: `WaterskinRecipe` reads the band, killing the dead `>=125` branch — superior 6/12 · serviceable 5/10 · poor 4/6 · shoddy 3/3, superior gains a `superior waterskin` alias. E.3: `LinenShirtRecipe`/`LeatherBootsRecipe` gain `_finalize_item` via a shared **module-level** `_apply_garment_quality()` helper (a plain function, NOT a subclass — dodges `_load_recipes()` phantom registration) mapping band → start-`condition` 100/90/70/50 + superior alias. Capability tables (`_WATERSKIN_STATS_BY_BAND`, `GARMENT_CONDITION_BY_BAND`) live in the recipe layer; `crafting_quality` owns only classification + alias. Corrected §3's stale max-quality figure (**112 → 110**: post-A-flip no positive modifier survives) and documented the intentional hollow-critical edge (crit_score 0 → quality 100 → serviceable). Next: Component F (skill-gate).
 > **Rev 5 · 2026-07-10** — Component D **complete & in-game-verified**. D.4 (repair convergence): `CmdRepair` gate broadened `ClothingWithBuffs` → `DurableObject` (tools + garments); materials data-driven via `target.db.repair_materials or REPAIR_MATERIALS` (`stone_knife` → stick+fibre, `bone_needle` → bone; garments keep cloth+twine); copy neutralised to mend/restore. D.5: `STONE_KNIFE` condition 40, `BONE_NEEDLE` 30 — and the §10.1 prototype-key-vs-autocreate override is now **verified** (spawn → 40/30, prototype value wins). The source→sink→repair loop is closed end-to-end. Next: Component E (quality → capability).
 > **Rev 4 · 2026-07-10** — Component D (tool wear sink) underway: §9 reconciled and split D.1→D.5. D.1 (per-use wear read from `self.inputs`, not `validated_tools`), D.2 (broken tool = absent/improvised, **not** deleted — supersedes Rev 3's `delete()`), and D.3 (colour-banded `condition_line` shown on `look` for tools *and* garments) complete & in-game-verified. D.4 (repair convergence — `CmdRepair` broadened to `DurableObject`, data-driven `db.repair_materials`) and D.5 (bootstrap start-condition tuning + prototype-override verify) remain. Tool-repair promoted from §13 backlog into D.4.
@@ -9,7 +10,7 @@
 > **Canonical:** `docs/PolishedWorld_Crafting_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/crafting-progression`
-**Status:** Components A–E complete & in-game-verified on `feature/crafting-progression`; F (skill-gate) is next.
+**Status:** Components A–F complete & in-game-verified on `feature/crafting-progression`; G (superior-tool scaling) is next.
 **Philosophy:** skynda långsamt — korrigera verktygssemantiken och lägg den gemensamma `condition`-axeln innan primitiva verktyg och kvalitet byggs ovanpå.
 
 ---
@@ -247,23 +248,23 @@ En sanningskälla för kvalitetsband; gör Stage 1:s siffror kännbara på outpu
 
 ---
 
-## 11. Component F — Skill-gate (D2)
+## 11. Component F — Skill-gate (D2) ✅   *(complete & in-game-verified)*
 
 Hård tröskel enbart på avancerade recept; ortogonal mot Stage 3:s knowledge-gate.
 
-### Task F.1 — `min_skill`-gate i `pre_craft`
+### Task F.1 — `min_skill`-gate i `pre_craft` ✅
 - **Goal:** Recept kan kräva en craft-tröskel; under den avbryts före consume med tydligt meddelande.
 - **Dependencies:** `world/crafting_base.py` (`pre_craft`, `_skill_value`, `CraftingError`).
-- **Implementation:** Klassattr `min_skill = 0`. I `pre_craft`, efter contrib-validering men **före** cooldown-gaten och consume: om `self._skill_value() < self.min_skill` → `self.msg("Your Craft is too unskilled (need {min_skill}%).")` + `raise CraftingError(...)`. `rolled` förblir False → inget consume.
+- **Implementation:** Klassattr `min_skill = 0` (på `MongooseCraftRecipe`). I `pre_craft`, efter `super().pre_craft()` (contrib-validering) men **före** cooldown-gaten och consume: om `self._skill_value() < self.min_skill` → `self.msg(f"Your Craft is too unskilled (need {self.min_skill}%).")` + `raise CraftingError(f"{self.name} requires Craft {self.min_skill}%.")`. `rolled` förblir False → `post_craft` consumar inget.
 - **Testing:** `@py` sätt `min_skill` högt på ett testrecept; craft under tröskel → meddelande, inga material förbrukade; höj skill → craft går igenom.
-- **Commit:** `feat(crafting): add min_skill gate enforced before consume`
+- **Commit:** `feat(crafting): add min_skill gate enforced before consume` ✅
 
-### Task F.2 — Sätt `min_skill` på avancerade recept
+### Task F.2 — Sätt `min_skill` på avancerade recept ✅
 - **Goal:** Trösklar på tröskelrecepten (t.ex. leather boots); triviala förblir ogated.
 - **Dependencies:** F.1, `world/recipes.py`.
 - **Implementation:** Sätt `min_skill` på utvalda recept (boots, framtida armor); twine/cloth/stone knife = 0. Balans-tuning deferras ("yes to balance later"); välj konservativa startvärden.
 - **Testing:** In-game: låg-skill-karaktär ser meddelandet på boots men kan fortfarande crafta twine.
-- **Commit:** `feat(recipes): gate advanced recipes behind min_skill thresholds`
+- **Commit:** `feat(recipes): gate advanced recipes behind min_skill thresholds` ✅
 
 ---
 
