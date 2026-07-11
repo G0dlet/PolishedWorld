@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 13 · 2026-07-11** — New §11.19 (verified live): `TagHandler` key normalisation (`add`/`get`/`has` lower-case + strip; internal spaces kept), `add()` DB-level idempotency, and `get(category=…, return_list=True)` → list-of-key-strings (`[]` when empty) / `has(single_key)` → `bool`. Underpins the Stage 3 Component A known-recipe set (`Character.knows_recipe`/`learn_recipe`/`known_recipes`).
 > **Rev 12 · 2026-07-11** — Doc hygiene: §8.8's "is wearing nothing" backlog candidate trimmed to a pointer at `docs/BACKLOG.md` (the technical finding stays; only the backlog note moved). No other change.
 > **Rev 11 · 2026-07-11** — Crafting Progression Component G (superior-tool scaling), verified live: §8.7 updated — `_tool_modifier` now has a **superior branch** reading the tool's OWN `db.quality` (stamped by `do_craft` on every output, tools included, *before* `_finalize_item`), banded via `quality_band`: `superior` (>100) → `+tool_bonus` (10), plain present → 0, absent/broken → penalty; **`db.quality` is `None`-guarded** (an uncrafted/admin tool like the metal `KNIFE` has no quality stamp → short-circuits to baseline 0 before banding, else `quality_band(None)` raises). §8.7 `CmdRepair` gap CLOSED — `_tool_modifier(caller, target)` is generalised per target via `target.db.repair_tool_tag` (unset → needle default; `""` → no tool; verified the spawner stores an empty-string top-level prototype key faithfully, so the `""` sentinel is reliable), target excluded from the search, broken tools skipped. §8.9 max-quality note **110 → 111** (a superior tool's +10 with `skillcheck` never clamping `target`). **Stage 2 closed.**
 > **Rev 10 · 2026-07-11** — Crafting Progression Component E (quality → capability): new §8.9 (verified live) — a shared `_finalize_item` body must be a **plain module-level function**, not a `CraftingRecipe` subclass, or `_load_recipes()` registers it as a phantom recipe; `_finalize_item` runs in `do_craft` after `obj.db.quality`/`crafted_by` are stamped and before `obj.location = crafter`, so writing `obj.db.condition` there overrides the `DurableObject` autocreate default; the craft quality scale is discrete (`{25, 50, 100, 100+crit_score}`, max **110** post-A-flip) with `superior = quality > 100`; and to force a tier in tests, monkeypatch **`world.crafting_base.skill_check`** (the bound name), not `world.skillcheck.skill_check`.
@@ -984,8 +985,6 @@ fractionally, sum, and round **once** at the end. Rounding per item first makes 
 worn-1 garments at 49% both round to 0 → total 0, when the true stacked value is
 round(0.98)=1. `world/thermal.py::worn_warmth` follows this. Distinct from
 "sum-then-scale", which is wrong because the scale (condition) is per item.
-
----
  
 ### 11.12 Typeclass compile failure → silent `DefaultObject` fallback
 
@@ -1031,12 +1030,6 @@ matches = search.search_object(getattr(settings, "DEFAULT_RESPAWN_DBREF", None))
 dest = matches[0] if matches else (self.home or self.location)
 ```
 
-## 12. Search multimatch & disambiguation UX
-
-*(Verified against live Evennia `main`, 2026-07-01. §11.6 covers the search-*resolution* mechanic — exact-first, then fuzzy — and the crafting-ingredient angle; this section covers the multimatch *UX*: why `ball-1`/`ball-2` appears and the three ways to tune it.)*
-
-The default multimatch prompt is **intentional and fully tunable**. It's a *symptom* of two objects sharing an identical key, so the best fix is usually to make multimatch rare rather than to prettify the number (see §12.5).
-
 ### 11.16 `evennia shell` interactive-console paste-fälla
 
 `evennia shell` är en vanlig Python `InteractiveConsole` (`code`/`codeop`). Att klistra in ett
@@ -1062,6 +1055,24 @@ Fix: to functionally test a mixin/typeclass in the shell, put a real host in an 
 ### 11.18 `ContribClothing.wear` stores `wearstyle` *as* `db.worn`
 
 `wear(self, wearer, wearstyle, quiet=False)` does `self.db.worn = wearstyle` verbatim, and `get_worn_clothes` (hence `world/thermal.worn_warmth`) filters on truthy `db.worn`. So `wear(wearer, "")` sets `db.worn = ""` (falsy) and the garment reads as **un-worn** — contributes 0 warmth, absent from worn listings. For style-less wearing pass `True` (the contrib's documented sentinel: "just the name will be shown"); reserve a non-empty string for an actual wear-style suffix. Bites any code that calls `wear` programmatically (tests, scripts, NPC dressing).
+
+### 11.19 `TagHandler` normalises keys and category-queries (known-recipe set, Component A)
+
+*(Verified live against Evennia `main`, 2026-07-11 — `evennia/typeclasses/tags.py`.)* The Stage 3 known-recipe set stores recipe names as Tags on the `Character` under a category. Three non-obvious behaviours:
+
+- **Keys are normalised on write AND read** — `add()` does `str(key).strip().lower()` (and `_getcache`/`has`/`get` lower-case identically). Leading/trailing space is stripped but **internal** space is kept, so `"linen shirt"` survives. Net: storage is case-insensitive and round-trips cleanly, but the *stored* form is always lower-case. Store the canonical recipe-registry name (`MongooseCraftRecipe.name`), never a `prototype_key`.
+- **`add()` is idempotent at the DB level** — a matching key+category re-uses the existing Tag, never duplicates. A `learn_recipe` guard (`if knows_recipe(): return False`) is therefore only for the *return signal* ("already knew it"), not to prevent duplicate rows.
+- **`get(category=X, return_list=True)` returns a list of key strings** — with `key=None` it takes the category branch (`_getcache`: `key = … if key else None`) and returns every tag key in that category as `to_str(tag.db_key)`, or `[]` when empty. `has(single_key, category=X)` returns a plain `bool` (a single match unwraps). Exactly what `known_recipes()`/`knows_recipe()` rely on.
+
+Multiplayer: a `learn` is a read-then-write on the tag set, but Evennia's single-threaded reactor serialises commands, so concurrent learns can't race — worst case the second sees the tag present and returns `False`.
+
+---
+
+## 12. Search multimatch & disambiguation UX
+
+*(Verified against live Evennia `main`, 2026-07-01. §11.6 covers the search-*resolution* mechanic — exact-first, then fuzzy — and the crafting-ingredient angle; this section covers the multimatch *UX*: why `ball-1`/`ball-2` appears and the three ways to tune it.)*
+
+The default multimatch prompt is **intentional and fully tunable**. It's a *symptom* of two objects sharing an identical key, so the best fix is usually to make multimatch rare rather than to prettify the number (see §12.5).
 
 ### 12.1 What produces `ball-1` / `ball-2`
 
