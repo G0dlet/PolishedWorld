@@ -225,6 +225,30 @@ class MongooseCraftRecipe(CraftingRecipe):
         # on bad inputs; the base craft() catches it and skips do_craft.
         super().pre_craft(**kwargs)
 
+        # Knowledge-gate (Component B.1) -- Stage 3's THIRD orthogonal gate and the
+        # authoritative backstop for EVERY code path that reaches craft() (the
+        # command, barter-craft, scripts). Placed after input validation and BEFORE
+        # the skill-gate: "can you make this at all?" is asked before "are you
+        # skilled enough?". requires_knowledge (Component A.2) marks the advanced
+        # recipes; the common survival/tool recipes inherit False and skip this
+        # branch entirely, so the gate only ever fires on learnable recipes.
+        #
+        # The getattr guard mirrors this module's defensive crafter-access (cf.
+        # _skill_value / cooldowns / attempt_skill_improvement): the world layer
+        # never assumes crafter is a Character, so a crafter that lacks the
+        # knows_recipe helper cannot "know" an advanced recipe and is refused --
+        # the safe default for a knowledge-gated good. The check is read-only
+        # (tags.has), so there is nothing to consume and no race under the
+        # single-threaded reactor. We raise before do_craft -> rolled stays False
+        # -> post_craft consumes nothing. self.name is the canonical registry name,
+        # matching the key learn_recipe/knows_recipe store on the Character.
+        if self.requires_knowledge and not (
+            getattr(self.crafter, "knows_recipe", None)
+            and self.crafter.knows_recipe(self.name)
+        ):
+            self.msg("You don't know how to make that.")
+            raise CraftingError(f"{self.name}: recipe unknown to crafter.")
+
         # Skill-gate (Component F.1). A HARD floor: advanced recipes set min_skill;
         # a crafter below it is refused HERE -- after inputs are valid, before the
         # cooldown gate and before any consume. We raise before do_craft, so rolled
