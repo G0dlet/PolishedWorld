@@ -11,6 +11,28 @@ not picked up as a phantom recipe.
 """
 
 from world.crafting_base import MongooseCraftRecipe
+from world.crafting_base import MongooseCraftRecipe
+from world.crafting_quality import (
+    quality_band,
+    band_alias,
+    SUPERIOR,
+    SERVICEABLE,
+    POOR,
+    SHODDY,
+)
+
+
+# --- Quality-band capability tables (Component E) --------------------------
+# Recipes read a BAND (world/crafting_quality.quality_band), never a raw quality
+# number. Each table says what a band MEANS for one item type; the band
+# classification itself lives in crafting_quality (single source of truth).
+
+_WATERSKIN_STATS_BY_BAND = {   # band -> (max_charges, durability-in-refills)
+    SUPERIOR: (6, 12),
+    SERVICEABLE: (5, 10),
+    POOR: (4, 6),
+    SHODDY: (3, 3),
+}
 
 
 class TwineRecipe(MongooseCraftRecipe):
@@ -33,17 +55,17 @@ class WaterskinRecipe(MongooseCraftRecipe):
     craft_cooldown = 45                    # more involved than twine
 
     def _finalize_item(self, obj, outcome):
-        quality = obj.db.quality
-        # Mongoose Legend Item Quality bands -> capacity + lifespan (in refills).
-        if quality >= 125:                              # superior (critical + bonus)
-            obj.db.max_charges, obj.db.durability = 6, 12
-        elif quality >= 100:                            # serviceable (success)
-            obj.db.max_charges, obj.db.durability = 5, 10
-        elif quality >= 50:                             # poor (failure)
-            obj.db.max_charges, obj.db.durability = 4, 6
-        else:                                           # shoddy (fumble, q25)
-            obj.db.max_charges, obj.db.durability = 3, 3
+        # Quality -> capacity (draughts) + durability (lifespan in refills),
+        # classified through the shared band helper so this recipe never
+        # hard-codes a raw threshold. This replaces the old >=125 branch, which
+        # was DEAD: max craft quality is 110 (skill cap 100 -> crit_score 10), so
+        # no craft ever reached 125 and every critical fell into serviceable.
+        band = quality_band(obj.db.quality)
+        obj.db.max_charges, obj.db.durability = _WATERSKIN_STATS_BY_BAND[band]
         obj.db.charges = 0                              # crafted empty regardless
+        alias = band_alias(band, obj.key)              # "superior waterskin" only
+        if alias:
+            obj.aliases.add(alias)                              # crafted empty regardless
 
 
 class ClothRecipe(MongooseCraftRecipe):
