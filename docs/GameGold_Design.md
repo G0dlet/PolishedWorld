@@ -1,7 +1,10 @@
 # GameGold - PolishedWorld Cryptocurrency Design
 
+> **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc.
 > **Rev 1 · 2026-07-02** — first versioned copy; platform migrated Komodo Smartchain → blackcoin-more fork (Bitcoin Core 26.x, PoSV3).
 > **Canonical:** `docs/GameGold_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+>
+> **Read first:** this document assumes the principles in `PolishedWorld_Economic_Philosophy.md`. Reading order: Philosophy → GameGold_Economy → GameGold_Design.
 
 ## Overview
 

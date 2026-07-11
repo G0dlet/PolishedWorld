@@ -1,7 +1,10 @@
 # PolishedWorld - GameGold & Economy Design
 
+> **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc; corrected Temple-Faucet rewards from Gold to Copper (were 200–400× too high) and aligned the implementation sketch; removed the "admin gold (except events)" carve-out so Gold Creation matches the single-mint-point principle; clarified CurrencyHandler.add() as a mint-only primitive.
 > **Rev 1 · 2026-07-02** — first versioned copy; platform migrated to blackcoin-more fork (PoSV3); added Node Security & Staking Infrastructure section (node-role separation + cold-staking deferred).
 > **Canonical:** `docs/PolishedWorld_GameGold_Economy.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+>
+> **Read first:** this document assumes the principles in `PolishedWorld_Economic_Philosophy.md`. Reading order: Philosophy → GameGold_Economy → GameGold_Design.
 
 ## GameGold Cryptocurrency
 
@@ -36,10 +39,10 @@
 **Minimum Exchange**: 10 Gold (prevents micro-transaction spam)
 
 ### Key Principle: Gold Creation
-**Gold can ONLY be created via cryptocurrency exchange.**
+**Gold can ONLY be created via cryptocurrency exchange. No exceptions.**
 - No NPC gold rewards
 - No quest gold
-- No admin gold spawning (except special events)
+- No admin gold spawning — not even for events
 - All gold circulates between players
 
 ---
@@ -70,13 +73,13 @@ Addresses the cold-start problem for new players without requiring crypto purcha
 - Gateway for new players to earn initial currency
 
 ### Tasks & Rewards
-| Task | Gold Reward | Cooldown |
-|------|-------------|----------|
-| Sweep floors | 1 | 1 hour |
-| Fetch water | 2 | 1 hour |
-| Organize books | 3 | 2 hours |
-| Light candles | 1 | 1 hour |
-| Clean altar | 2 | 2 hours |
+| Task | Copper Reward | Cooldown |
+|------|---------------|----------|
+| Sweep floors | 25 | 1 hour |
+| Fetch water | 35 | 1 hour |
+| Organize books | 50 | 2 hours |
+| Light candles | 25 | 1 hour |
+| Clean altar | 35 | 2 hours |
 
 ### Design Goals
 - **Low rewards** - Supplement, not primary income
@@ -87,31 +90,31 @@ Addresses the cold-start problem for new players without requiring crypto purcha
 ### Implementation Sketch
 ```python
 class TempleFaucet:
-    """Provides small gold amounts for simple tasks."""
-    
+    """Provides small copper amounts for simple tasks."""
+
     TASKS = {
-        'sweep_floor': {'gold': 1, 'cooldown': 3600},
-        'fetch_water': {'gold': 2, 'cooldown': 3600},
-        'organize_books': {'gold': 3, 'cooldown': 7200},
+        'sweep_floor': {'copper': 25, 'cooldown': 3600},
+        'fetch_water': {'copper': 35, 'cooldown': 3600},
+        'organize_books': {'copper': 50, 'cooldown': 7200},
     }
-    
+
     def complete_task(self, character, task_name):
-        """Award gold for completing temple task."""
+        """Award copper for completing a temple task."""
         task = self.TASKS.get(task_name)
         if not task:
             return False
-            
+
         # Check cooldown
         cooldown_key = f"faucet_{task_name}"
         if character.cooldowns.get(cooldown_key):
             return False
-        
-        # Award gold
-        character.currency.add('gold', task['gold'], source='faucet')
-        
+
+        # Award copper
+        character.currency.add('copper', task['copper'], source='faucet')
+
         # Set cooldown
         character.cooldowns.add(cooldown_key, task['cooldown'])
-        
+
         return True
 ```
 
@@ -197,15 +200,21 @@ class CurrencyHandler:
         'copper': 1       # Base unit
     }
     
-    def add(self, character, denomination, amount, source="gameplay"):
+    def add(self, character, denomination, amount, source="crypto_exchange"):
         """
-        Add currency to character.
-        
+        Mint currency onto a character. This is a CREATION primitive and must
+        only be called for legitimate mint sources. Player-to-player movement
+        (trade, barter, rent) is a transfer with a matching decrement and does
+        NOT go through add() — it belongs in a separate transfer path.
+
         Args:
             character: Character receiving currency
             denomination: 'gold', 'silver', or 'copper'
             amount: Amount to add
-            source: "gameplay", "crypto_exchange", "faucet", "admin"
+            source: "crypto_exchange" (the sole mint point) or "faucet"
+                (temple redistribution of exchange-minted gold). "admin" is
+                permitted only as an audited, exceptional bug-correction tag —
+                never as a normal economic source.
         """
         if amount < 0:
             return False
