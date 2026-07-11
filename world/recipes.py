@@ -140,6 +140,11 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     output_prototypes = ["leather_boots"]        # existing Component B prototype
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_cooldown = 40                          # mirrors linen shirt
+    min_skill = 30                               # Component F.2: HARD floor. Boots sit above
+                                                 # the survival tier (hide->leather->boots), so
+                                                 # a developing crafter must show competence to
+                                                 # attempt them. Conservative; rebalanced vs
+                                                 # Legend later. All other recipes stay ungated (0).
 
     def _finalize_item(self, obj, outcome):
         # E.3: same shared quality -> start-condition + superior alias as the
