@@ -19,6 +19,7 @@ from evennia.utils import logger
 
 from commands.command import Command
 from world.skillcheck import skill_check, CRITICAL, FUMBLE
+from world.crafting_quality import quality_band, SUPERIOR
 from world.thermal import apply_thermal_stress
 from typeclasses.durable import DurableObject
 
@@ -32,13 +33,21 @@ REPAIR_COOLDOWN = 40
 # category, verified against world/recipes.py.
 REPAIR_MATERIALS = ("cloth", "twine")
 
-# Craft-tool modifier, mirroring MongooseCraftRecipe. A needle is the expected
-# tool, so having it is the baseline (0), not a bonus; bare-handed stitching is
-# penalised (not blocked, so a new player is never locked out). Only a superior
-# needle would grant a positive modifier (Component G).
-NEEDLE_BONUS = 20        # RESERVED (Component G): positive modifier for a superior
-                         # needle. A plain present needle is baseline (0), unused now.
-IMPROVISED_PENALTY = -20
+# Craft-tool modifier, mirroring MongooseCraftRecipe. The expected repair tool
+# (a needle, for garments) is the baseline (0), not a bonus; working without it
+# is penalised (not blocked, so a new player is never locked out). A *superior*
+# tool grants a positive modifier (Component G), matching the craft side.
+#
+# Which tool a target expects is data-driven (Task G.2), parallel to
+# db.repair_materials: target.db.repair_tool_tag names the crafting_tool tag-key
+# whose presence eases the repair. UNSET (None) -> the garment default below (a
+# needle), so existing garments need no prototype change. An item that needs NO
+# tool sets it to "" explicitly (e.g. a stone knife: re-hafting is bare-handed),
+# which the spawner stores faithfully and _tool_modifier reads as "no tool -> 0".
+DEFAULT_REPAIR_TOOL = "needle"   # tag-key used when a target sets no repair_tool_tag
+SUPERIOR_TOOL_BONUS = 10         # positive modifier a SUPERIOR repair tool grants,
+                                 # matching MongooseCraftRecipe.tool_bonus (+10).
+IMPROVISED_PENALTY = -20         # penalty when the expected tool is absent/broken.
 
 # Condition change by result tier (locked this session). Critical fully renews;
 # success is a solid patch; failure wastes materials for no gain; a fumble
@@ -124,7 +133,7 @@ class CmdRepair(Command):
         # collect-roll-consume sequence atomic against any concurrent repair.
         trait = caller.skills.get("craft")
         skill_value = trait.value if trait else 0     # counter .value = current + mod
-        outcome = skill_check(skill_value, self._tool_modifier(caller))
+        outcome = skill_check(skill_value, self._tool_modifier(caller, target))
         result = outcome["result"]
 
         for obj in materials:
@@ -212,13 +221,46 @@ class CmdRepair(Command):
         return claimed
 
     @staticmethod
-    def _tool_modifier(caller):
-        """0 if the expected needle is carried (baseline), else improvised penalty.
+    def _tool_modifier(caller, target):
+        """Repair-tool modifier for the Craft check, mirroring the craft side.
 
-        Mirrors MongooseCraftRecipe._tool_modifier: having the tool the work is
-        designed around is normal, not a bonus; lacking it is the penalty.
+        Which tool eases a repair is data-driven per target (Task G.2), parallel
+        to db.repair_materials:
+
+            target.db.repair_tool_tag UNSET (None) -> DEFAULT_REPAIR_TOOL (needle)
+                -- garments need no prototype change and keep the old behaviour.
+            target.db.repair_tool_tag == ""        -> no tool: modifier always 0
+                -- e.g. a stone knife (re-hafting is bare-handed); this is what
+                fixes the old garment-centric bug, where carrying a needle wrongly
+                shifted a *stone knife* repair.
+            target.db.repair_tool_tag == "<tag>"   -> that crafting_tool tag-key.
+
+        Then, mirroring MongooseCraftRecipe._tool_modifier:
+
+            superior tool carried  -> +SUPERIOR_TOOL_BONUS  (quality > 100)
+            plain tool carried     -> 0  (baseline; the expected tool)
+            tool absent/broken     -> IMPROVISED_PENALTY
+
+        The target is excluded from the tool search (obj is not target), so an
+        item never counts as its own repair tool. A broken tool is skipped
+        (is_broken guard) -- broken counts as absent, consistent with the craft
+        side's _used_tool(). db.quality is guarded for None (an uncrafted/admin
+        tool is a plain baseline tool).
         """
+        tag = target.db.repair_tool_tag
+        if tag is None:
+            tag = DEFAULT_REPAIR_TOOL       # unset -> garment default (a needle)
+        if not tag:
+            return 0                         # explicit "" -> this item needs no tool
+
         for obj in caller.contents:
-            if obj.tags.has("needle", category="crafting_tool"):
-                return 0  # baseline: the expected needle is normal, not a bonus
-        return IMPROVISED_PENALTY
+            if (
+                obj is not target
+                and obj.tags.has(tag, category="crafting_tool")
+                and not getattr(obj, "is_broken", False)
+            ):
+                quality = obj.db.quality
+                if quality is not None and quality_band(quality) == SUPERIOR:
+                    return SUPERIOR_TOOL_BONUS   # superior tool -> positive modifier
+                return 0                          # plain present tool -> baseline
+        return IMPROVISED_PENALTY                 # expected tool absent/broken

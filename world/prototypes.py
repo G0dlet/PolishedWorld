@@ -297,6 +297,11 @@ STONE_KNIFE = {
     # the flake to a fresh stick with plant fibre. Tag-keys: STICK ("stick") +
     # PLANT_FIBER ("fiber"). Overrides CmdRepair's cloth/twine default.
     "repair_materials": ("stick", "fiber"),
+    # Data-driven repair TOOL (G.2): re-hafting is bare-handed, so no tool eases
+    # it -- "" means "no tool needed", read by CmdRepair._tool_modifier as a flat
+    # 0 (no bonus, no penalty). This also stops a carried needle from wrongly
+    # shifting a stone-knife repair (the old garment-centric bug).
+    "repair_tool_tag": "",
     # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
     # DurableObject's autocreate-100. Metal KNIFE stays pristine (no override).
     "condition": 40,
@@ -378,6 +383,10 @@ BONE_NEEDLE = {
     # Data-driven repair (D.4): re-grind the point from a fresh bone splinter.
     # Single-material by design (balance-tunable later); tag-key BONE ("bone").
     "repair_materials": ("bone",),
+    # Data-driven repair TOOL (G.2): re-grinding the point is bare-handed, so no
+    # tool eases it -- "" = "no tool needed" (flat 0 in CmdRepair._tool_modifier),
+    # and a carried needle can't wrongly shift a bone-needle repair.
+    "repair_tool_tag": "",
     # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
     # DurableObject's autocreate-100. Metal NEEDLE stays pristine (no override).
     "condition": 30,
