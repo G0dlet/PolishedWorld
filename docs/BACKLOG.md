@@ -1,5 +1,9 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 4 · 2026-07-11** — Added *`CmdCraftGated` recipe-resolver duplication*
+> (tech-debt) under Crafting & Tools — a UX-layer duplicate of the crafting
+> contrib's private recipe matcher, backstopped by pre_craft (Recipe Knowledge
+> decomp §7 / Task B.2).
 > **Rev 3 · 2026-07-11** — Added *Duplicate `MongooseCraftRecipe` import in
 > recipes.py* (tech-debt) under Crafting & Tools, flagged during Stage 3
 > Component A source-verification.
@@ -114,6 +118,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** None hard; fold into the next `recipes.py` touch, or a standalone
   `chore(recipes): remove duplicate import`.
 - **Origin:** Stage 3 Component A source-verification (2026-07-11).
+- **Status:** OPEN
+
+### `CmdCraftGated` recipe-resolver duplication
+- **What:** `commands/crafting_commands.py::_resolve_recipe` re-implements the
+  contrib's fuzzy match (exact → `startswith` → `in`, unique) and reads the
+  private `_RECIPE_CLASSES` / `_load_recipes` from the crafting contrib.
+- **Why deferred:** The contrib exposes no public recipe-resolver API; `pre_craft`
+  (B.1) is the authoritative backstop if this duplicate drifts, so the ~5 lines
+  are an accepted UX-only convenience, not a correctness dependency.
+- **Trigger:** The crafting contrib stabilising a public resolver API (or its
+  private matcher changing under us).
+- **Origin:** Recipe Knowledge decomp §7, Task B.2.
 - **Status:** OPEN
 
 ---
