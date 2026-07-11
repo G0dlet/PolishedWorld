@@ -1,5 +1,6 @@
 # PolishedWorld — Hunting & Harvesting Decomposition
 
+> **Rev 2 · 2026-07-11** — Doc hygiene (origin-trim): the two post-H7 backlog notes (per-item decay, full container support) migrated to the consolidated `docs/BACKLOG.md` and trimmed here to one-line pointers. The inline `DeathWeakness`→`fatigue_rate` note stays in H7.3c (it has a scheduled in-task home). No code change.
 > **Rev 1 · 2026-07-05** — first version header; H7 (Player Death & Corpse) implemented & committed on `feature/hunting` (H7.1/H7.2/H7.3a/3b/3c); resolved the staty-vs-död and soulbound open questions; added per-item-decay and full-container-support backlog notes.
 > **Canonical:** `docs/PolishedWorld_Hunting_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
@@ -436,8 +437,8 @@ som inte straffar). Identiska ingredienser kräver multimatch-syntax `name-N`
 - **Wear-takt:** Legend räknar veckor; vid 4× speltid måste tickerns rate kännas rättvis, inte tjatig.
 - **Staty vs död (H7.1):** ~~dö-och-logga-ut / logout-medan-tickern-dödar~~ **LÖST:** survival-tickern är session-enumererad (bara online-karaktärer) → en utloggad staty kan inte dö av survival. Login-routing till respawn behövs först med H7.4 (dying-state) eller framtida offline-dödsvektorer.
 - **Soulbound (H7.1):** ~~ska något överleva döden?~~ **LÖST (v1):** allt icke-`soulbound`-taggat droppar; `soulbound`-taggen hoppas över. Inga soulbound-items finns än — dörren står öppen för att tagga basala plagg/verktyg senare om loss-frustration blir problem.
-- **Per-item decay (backlog, post-H7):** items försvinner idag TILLSAMMANS med PlayerCorpse vid expiry (en raderingspunkt, H7.3a). Framtida förfining: egna oberoende decay-timers så items ligger kvar som loot-hög efter att liket ruttnat bort och bryts ner var för sig (läder före stål). Centraliserad radering gör detta additivt.
-- **Full container-support (backlog, post-H7):** H7.3b lade medvetet bara till `CmdContainerGet` (inte `ContainerCmdSet`-bunten, som skulle ersätta `look` och krocka med extended_rooms `CmdExtendedRoomLook`). Framtida task när väskor/kistor finns: `CmdPut` + generell `ContribContainer`-förvaring; `CmdContainerLook` troligen permanent överhoppad (extended_room äger `look`).
+- **Per-item decay (backlog, post-H7):** → migrerat till `docs/BACKLOG.md` ("Per-item corpse decay"). Kort: items raderas idag TILLSAMMANS med `PlayerCorpse` vid expiry (H7.3a); framtida oberoende decay-timers gör dem till en kvarliggande loot-hög (läder före stål). Centraliserad radering gör det additivt.
+- **Full container-support (backlog, post-H7):** → migrerat till `docs/BACKLOG.md` ("Full container support"). Kort: H7.3b lade medvetet bara till `CmdContainerGet` (inte `ContainerCmdSet`, som skulle krocka med extended_rooms `look`); framtida `CmdPut` + generell `ContribContainer` när väskor/kistor finns.
 - **PvP-policy:** behöver beslutas innan combat introduceras, men inte nu — död-loopen byggs under survival-only-död först.
 ---
  

@@ -1,5 +1,12 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 2 · 2026-07-11** — Origin-trim pass. Added the hunt-independent needle
+> primitive (a Stage 2 §13 item missed in the Rev 1 seed). Removed *Search /
+> disambiguation UX* — it is already richly homed in the always-read `roadmap.md`
+> §backlog, so listing it here would only duplicate it (see scope note below).
+> Corrected two origins (`look`-injection and GameGold explorer originate from
+> working memory, not a written doc line). Migrated items trimmed to pointers in
+> their origin decomps (crafting §13 Rev 9, hunting Rev 2, Evennia Ref §8.8 Rev 12).
 > **Rev 1 · 2026-07-11** — Initial consolidated backlog. Seeded from the Stage 2
 > crafting decomposition §13, the hunting/H7 decomposition backlog, the Evennia
 > Reference §8.8 note, and the Component G "not in scope" deferrals.
@@ -14,7 +21,11 @@ decomposition's §Backlog once that decomposition closes and stops being read.
 
 **This is not the roadmap.** Strategic epics and future stages live in
 `roadmap.md` (its backlog + decision log). This file is for the small stuff that
-has no stage of its own.
+has no stage of its own. **Items already safely homed in the always-read
+`roadmap.md` are intentionally excluded** — duplicating them here would recreate
+the very drift this file exists to prevent. Only items that would otherwise be
+*orphaned* (buried in a closing decomp, or living only in working memory) belong
+here.
 
 **One item, one home.** When an item lands here it is trimmed from its origin
 doc to a one-line pointer (`→ see BACKLOG.md`). A feature-internal deferral that
@@ -82,6 +93,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Crafting Progression decomp §3 (name-fork note) + §13.
 - **Status:** OPEN
 
+### Hunt-independent needle primitive
+- **What:** A gatherable needle primitive (e.g. a `thorn`/`stick` needle) so the
+  needle bootstrap doesn't require a hunt (bone needle → bone → a kill).
+- **Why deferred:** The bone needle covers the bootstrap today; a forage-only
+  path is a convenience/robustness refinement, not a gap.
+- **Trigger:** None hard; do if the hunt-gated needle proves a friction point for
+  new players.
+- **Origin:** Crafting Progression decomp §13.
+- **Status:** OPEN
+
 ---
 
 ## Death & Corpses
@@ -142,7 +163,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `return_appearance`, but a general `look`-injection for arbitrary items was
   scoped out.
 - **Trigger:** None hard.
-- **Origin:** Crafting Progression decomp (D.3) backlog.
+- **Origin:** Working memory (Component D.3 era) — never had a written doc entry;
+  this is now its first written home.
 - **Status:** OPEN
 
 ### Suppress "is wearing nothing" on a bare garment
@@ -153,16 +175,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Evennia Reference §8.8.
 - **Status:** OPEN
 
-### Search / disambiguation UX + item identity
-- **What:** Two-layer fix for identical-key multimatch — (1) individuate crafted
-  items with adjectives/aliases so `steel dagger` resolves singly (rides on
-  quality/recipe work), (2) stack truly-identical consumables into one
-  quantity-bearing object. Residual: reskin/interactive multimatch prompt.
-- **Why deferred:** Not its own epic — a cross-cutting concern to fold in as
-  crafting/consumables mature.
-- **Trigger:** Crafting/consumables maturity (Stage 3 alias work helps).
-- **Origin:** roadmap.md backlog + Evennia Reference §12.
-- **Status:** OPEN
+> **Not listed here:** *Search / disambiguation UX + item identity* — already a
+> written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
+> work). It has a safe home in an always-read doc, so per the scope note it is not
+> duplicated here.
 
 ---
 
@@ -174,5 +190,6 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Why deferred:** Part of the much-later GameGold epic; no chain deployment to
   explore yet.
 - **Trigger:** GameGold epic (post-mainnet).
-- **Origin:** GameGold design doc + roadmap.md (Stage 8).
+- **Origin:** Working memory / GameGold design context — not written in any doc
+  (roadmap Stage 8 names GameGold but not the explorer); this is its only home.
 - **Status:** BLOCKED (GameGold not yet deployed)
