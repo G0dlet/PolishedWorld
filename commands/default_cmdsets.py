@@ -24,6 +24,7 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
+from commands.crafting_commands import CmdCraftGated
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -75,6 +76,12 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdHarvest())
 
         self.add(CraftingCmdSet)
+        # CmdCraftGated (key="craft") is added AFTER CraftingCmdSet so it
+        # overrides the contrib's stock CmdCraft in the merged set: an unknown
+        # advanced recipe is rejected before ingredient search (Component B.2).
+        # pre_craft (B.1) stays the authoritative backstop for craft() callers
+        # that bypass this command (barter-craft, scripts).
+        self.add(CmdCraftGated())
         self.add(CmdRepair())
 
         self.add(CmdPWTrade())
