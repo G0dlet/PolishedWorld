@@ -1,5 +1,8 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 3 · 2026-07-11** — Added *Duplicate `MongooseCraftRecipe` import in
+> recipes.py* (tech-debt) under Crafting & Tools, flagged during Stage 3
+> Component A source-verification.
 > **Rev 2 · 2026-07-11** — Origin-trim pass. Added the hunt-independent needle
 > primitive (a Stage 2 §13 item missed in the Rev 1 seed). Removed *Search /
 > disambiguation UX* — it is already richly homed in the always-read `roadmap.md`
@@ -101,6 +104,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** None hard; do if the hunt-gated needle proves a friction point for
   new players.
 - **Origin:** Crafting Progression decomp §13.
+- **Status:** OPEN
+
+### Duplicate `MongooseCraftRecipe` import in `recipes.py`
+- **What:** `world/recipes.py` imports `MongooseCraftRecipe` twice on adjacent
+  lines at the top of the file. Remove the redundant second import.
+- **Why deferred:** Pure hygiene; harmless (a re-import is a no-op) and outside
+  the scope of the Stage 3 Component A commits it was spotted during.
+- **Trigger:** None hard; fold into the next `recipes.py` touch, or a standalone
+  `chore(recipes): remove duplicate import`.
+- **Origin:** Stage 3 Component A source-verification (2026-07-11).
 - **Status:** OPEN
 
 ---
