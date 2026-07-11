@@ -79,6 +79,14 @@ HARVEST_TEMPLATES = {
             "max_stage": STALE,        # soft part: gone once ROTTING
             "prototype": "raw_hide",
         },
+        "bone": {
+            "skill": "craft",
+            "difficulty": 0,           # Normal: prising a clean bone free
+            "yield_divisor": 4,        # SIZ 4 -> 1 bone; scarcer than hide
+            "max_stage": SKELETON,     # HARD part: survives to a bare skeleton,
+                                       # long after meat/hide have rotted away
+            "prototype": "bone",
+        },
     },
 }
 

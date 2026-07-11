@@ -175,6 +175,71 @@ GOURD_VINE = {
     "yield_prototype": "raw_gourd",    # must equal RAW_GOURD's prototype_key
 }
 
+# --- Bootstrap primitives: stone & stick (gathered) + their nodes ---
+# The zero-to-tool loop's raw inputs. STONE + STICK (+ fibre) feed the ungated
+# StoneKnifeRecipe (C.3); STONE also anchors future toolmaking. Same shape as
+# PLANT_FIBER/FIBER_PLANT: a crafting_material item, and a ResourceNode whose
+# yield_prototype equals the material's prototype_key. Nodes are discovered by
+# `forage` automatically (ResourceNode + yield_prototype, not a water source).
+
+STONE = {
+    "prototype_key": "stone",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "stone",
+    "aliases": ["rock"],
+    "desc": (
+        "A fist-sized stone, hard and angular. Struck against another, a shard "
+        "could be knapped off to take a rough cutting edge."
+    ),
+    # Matched by tag-key "stone" within the crafting_material category, exactly
+    # as PLANT_FIBER uses "fiber".
+    "tags": [("stone", "crafting_material")],
+}
+
+STICK = {
+    "prototype_key": "stick",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "stick",
+    "aliases": ["branch"],
+    "desc": (
+        "A straight length of dry wood, snapped free of a deadfall. Sound "
+        "enough to serve as a handle or haft."
+    ),
+    "tags": [("stick", "crafting_material")],
+}
+
+STONE_OUTCROP = {
+    "prototype_key": "stone_outcrop",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "rocky outcrop",
+    "aliases": ["outcrop", "rocks"],
+    "desc": (
+        "A shelf of weathered rock breaking through the soil, loose stones "
+        "scattered at its foot for the taking."
+    ),
+    "resource_type": "stones",
+    "max_yield": 4,
+    "regen_interval": 3600,          # game-seconds/stone; quarried, slower than fibre
+    "available": 4,
+    "yield_prototype": "stone",      # must equal STONE's prototype_key
+}
+
+STICK_DEADFALL = {
+    "prototype_key": "stick_deadfall",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "fallen branches",
+    "aliases": ["deadfall", "branches", "sticks"],
+    "desc": (
+        "A tangle of dead branches and dry twigs, heaped where a limb came "
+        "down. Easy pickings for handles and hafts."
+    ),
+    "resource_type": "sticks",
+    "max_yield": 6,
+    "regen_interval": 1800,          # game-seconds/stick; abundant, like fibre
+    "available": 6,
+    "yield_prototype": "stick",      # must equal STICK's prototype_key
+}
+
 TWINE = {
     "prototype_key": "twine",
     "typeclass": "typeclasses.objects.Object",
@@ -200,11 +265,46 @@ WATERSKIN = {
 
 KNIFE = {
     "prototype_key": "knife",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.tools.Tool",
     "key": "knife",
     "aliases": ["blade"],
     "desc": "A simple bladed knife, handy for shaping and cutting.",
     "tags": [("knife", "crafting_tool")],
+}
+
+# --- Bootstrap tool: crude stone knife (crafted, C.3) ---
+# The zero-to-tool loop's OUTPUT: a knapped stone flake lashed to a haft. A real
+# Tool typeclass (so it owns `condition` for free via DurableObject), tagged
+# ("knife", "crafting_tool") -- the SAME tool-key as the metal KNIFE, so it
+# satisfies every recipe that wants a knife (waterskin, leather). DISTINCT from
+# KNIFE (locked decision a): a named, world-flavoured crude tool and a target for
+# Component D wear balance, while start `condition` stays at the DurableObject
+# default (100) -- start-condition tuning is deferred to when wear is live.
+STONE_KNIFE = {
+    "prototype_key": "stone_knife",
+    "typeclass": "typeclasses.tools.Tool",
+    "key": "stone knife",
+    # NOT "knife"/"blade": individuated so it never multimatches the metal KNIFE
+    # (key "knife", alias "blade"). Tool-matching is by TAG, not name, so this
+    # alias choice costs nothing downstream.
+    "aliases": ["stone blade"],
+    "desc": (
+        "A crude knife: a sharp-knapped stone flake lashed to a short wooden "
+        "haft with plant fibre. Rough, but it holds an edge well enough to work."
+    ),
+    "tags": [("knife", "crafting_tool")],
+    # Data-driven repair (D.4): a stone knife is re-hafted, not patched -- re-lash
+    # the flake to a fresh stick with plant fibre. Tag-keys: STICK ("stick") +
+    # PLANT_FIBER ("fiber"). Overrides CmdRepair's cloth/twine default.
+    "repair_materials": ("stick", "fiber"),
+    # Data-driven repair TOOL (G.2): re-hafting is bare-handed, so no tool eases
+    # it -- "" means "no tool needed", read by CmdRepair._tool_modifier as a flat
+    # 0 (no bonus, no penalty). This also stops a carried needle from wrongly
+    # shifting a stone-knife repair (the old garment-centric bug).
+    "repair_tool_tag": "",
+    # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
+    # DurableObject's autocreate-100. Metal KNIFE stays pristine (no override).
+    "condition": 40,
 }
 
 RABBIT = {
@@ -249,7 +349,7 @@ CLOTH = {
 
 NEEDLE = {
     "prototype_key": "needle",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.tools.Tool",
     "key": "sewing needle",
     "aliases": ["needle"],
     "desc": "A slender needle for stitching cloth. Handy, but not strictly needed.",
@@ -257,6 +357,39 @@ NEEDLE = {
     # never consumed. Its own crafting source (bone/bronze) is a future task; the
     # garment recipe works WITHOUT it at a -20 improvised penalty until then.
     "tags": [("needle", "crafting_tool")],
+}
+
+# --- Bootstrap tool: bone needle (crafted from harvested bone, C.4) ---
+# The tailoring bootstrap's OUTPUT, deliberately hunting-linked: its only input
+# is `bone`, harvested from a corpse (C.4 harvest part). A real Tool (owns
+# `condition` via DurableObject), tagged ("needle","crafting_tool") -- the SAME
+# tool-key as the plain NEEDLE, so it satisfies every recipe that wants a needle
+# (linen shirt, leather boots). DISTINCT from NEEDLE (parity with stone_knife):
+# a crude, world-flavoured tool and a Component D wear target, while NEEDLE stays
+# as a future bronze/metal needle. Start `condition` autocreates to 100.
+BONE_NEEDLE = {
+    "prototype_key": "bone_needle",
+    "typeclass": "typeclasses.tools.Tool",
+    "key": "bone needle",
+    # NOT a bare "needle" alias: individuated so it never multimatches the plain
+    # NEEDLE (alias "needle"). Tool-matching is by TAG, not name, so this costs
+    # nothing downstream.
+    "aliases": ["bone pin"],
+    "desc": (
+        "A crude needle ground from a splinter of bone, its eye bored by hand. "
+        "Rough at the point, but it draws thread through cloth well enough."
+    ),
+    "tags": [("needle", "crafting_tool")],
+    # Data-driven repair (D.4): re-grind the point from a fresh bone splinter.
+    # Single-material by design (balance-tunable later); tag-key BONE ("bone").
+    "repair_materials": ("bone",),
+    # Data-driven repair TOOL (G.2): re-grinding the point is bare-handed, so no
+    # tool eases it -- "" = "no tool needed" (flat 0 in CmdRepair._tool_modifier),
+    # and a carried needle can't wrongly shift a bone-needle repair.
+    "repair_tool_tag": "",
+    # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
+    # DurableObject's autocreate-100. Metal NEEDLE stays pristine (no override).
+    "condition": 30,
 }
 
 # --- Clothing: starter garments (warmth + clothing_type) ---
@@ -357,6 +490,20 @@ RAW_HIDE = {
     # crafting_material tag-key "raw_hide" is what the H5 tanning recipe lists in
     # consumable_tags. Same convention as PLANT_FIBER's "fiber" and CLOTH's "cloth".
     "tags": [("raw_hide", "crafting_material")],
+}
+
+BONE = {
+    "prototype_key": "bone",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "bone",
+    "aliases": ["small bone"],
+    "desc": (
+        "A slender, clean-picked bone, hard and pale. Ground to a point and "
+        "eyed, it could serve as a crude sewing needle."
+    ),
+    # crafting_material tag-key "bone" -> BoneNeedleRecipe consumable_tags.
+    # Same convention as RAW_HIDE's "raw_hide" and PLANT_FIBER's "fiber".
+    "tags": [("bone", "crafting_material")],
 }
 
 LEATHER = {

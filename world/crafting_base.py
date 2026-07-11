@@ -36,6 +36,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 
 from world.skillcheck import skill_check
+from world.crafting_quality import quality_band, SUPERIOR
 
 
 class MongooseCraftRecipe(CraftingRecipe):
@@ -46,17 +47,34 @@ class MongooseCraftRecipe(CraftingRecipe):
     skill_name = "craft"                  # which Character.skills entry to roll
     craft_cooldown = 30                   # realtime seconds, per-recipe
     consume_policy = "raw"                # see module docstring
+    min_skill = 0                         # Component F: HARD skill floor (effective
+                                          # Craft %) required to *attempt* this recipe.
+                                          # 0 = ungated (default); advanced recipes
+                                          # override (F.2). Enforced in pre_craft BEFORE
+                                          # consume; orthogonal to the tool modifier
+                                          # (the roll) and Stage 3's knowledge-gate.
 
     # Optional tool: NOT a required tool_tag (so the craft is always possible),
-    # but its presence shifts the skill check. Pass it in-game via `using <tool>`.
+    # but its ABSENCE penalises the skill check. A recipe's tool_tag is the tool
+    # it is designed around, so *having* it is the baseline (modifier 0), not a
+    # bonus; only a *superior* tool grants a positive modifier (Component G).
     tool_tag = None                       # e.g. "knife"; None = no tool interaction
-    tool_bonus = 20                       # circumstance bonus when the tool is present
-    improvised_penalty = -20              # penalty when absent. Arms of Legend RAW is
-                                          # -40 for improvised tools; softened for MVP.
+    tool_bonus = 10                       # Component G: positive modifier a *superior* tool
+                                          # (quality > 100) grants on the craft check. A plain
+                                          # present tool stays baseline (0); only a critical-
+                                          # crafted tool reaches this. +10 keeps the quality
+                                          # ceiling drift measured (new max = 111).
+    improvised_penalty = -20              # penalty when the tool is absent. Arms of Legend
+                                          # RAW is -40 for improvised tools; softened for MVP.
 
     # We allow extra/optional tools through validation so an optional tool can be
     # supplied without the contrib rejecting it as an unexpected input.
     exact_tools = False
+
+    # Tool-wear sink (Component D). A completed craft nicks the used tool's
+    # condition by this much (Task D.1). Overridable per recipe; a fumble-scaled
+    # variant (tool_wear_on_fumble) is deferred to a later balance pass (§13).
+    tool_wear = 5
 
     # Result-tier -> base quality (Mongoose Legend Item Quality bands). A critical
     # adds the critical score on top (Legend core: bonus == modified skill // 10).
@@ -87,16 +105,74 @@ class MongooseCraftRecipe(CraftingRecipe):
         trait = skills.get(self.skill_name) if skills else None
         return trait.value if trait else 0
 
+    def _used_tool(self):
+        """The supplied *usable* tool matching this recipe's tool_tag, or None.
+
+        Single source of truth for "which input is the tool": _tool_modifier
+        (the check modifier) and the D.1 wear sink both read this, so they can
+        never disagree about which object is the tool.
+
+        Scans self.inputs -- NOT self.validated_tools. A MongooseCraftRecipe
+        declares its tool through our own optional `tool_tag`, never the
+        contrib's required `tool_tags`; the contrib's validation therefore
+        leaves validated_tools EMPTY. self.inputs is where the actually-supplied
+        tool reliably lives, so we scan it here (the old _tool_modifier body).
+
+        A BROKEN tool (condition 0, Task D.2) is treated as NOT PRESENT: it is
+        skipped here, so _tool_modifier falls to improvised_penalty and the wear
+        sink finds nothing to nick. getattr-guarded because a non-durable tool
+        (a future station/furnace) has no is_broken and is never "broken".
+        """
+        if not self.tool_tag:
+            return None
+        for obj in self.inputs:
+            if (
+                obj
+                and hasattr(obj, "tags")
+                and obj.tags.has(self.tool_tag, category=self.tool_tag_category)
+                and not getattr(obj, "is_broken", False)
+            ):
+                return obj
+        return None
+
     def _tool_modifier(self):
-        """+bonus if the optional tool was supplied, penalty if not; 0 if no tool used."""
+        """Tool modifier for the craft check (RAW-aligned, Arms of Legend).
+
+        The recipe's tool_tag is the tool the craft is *designed around*, so
+        having it is the baseline (0), not a bonus -- lacking it is what shifts
+        the check. The one way ABOVE baseline is a *superior* tool (Component G):
+        a tool crafted at the critical tier (quality > 100) grants +tool_bonus,
+        reintroducing the positive modifier the Component A flip removed.
+
+            no tool_tag            -> 0             (recipe needs no tool)
+            superior tool present  -> +tool_bonus   (quality > 100)
+            plain tool present     -> 0             (baseline; the expected tool)
+            tool absent/improvised -> improvised_penalty
+
+        The superior tier is read from the tool's OWN db.quality -- which do_craft
+        already stamped on it when it was crafted (every output, tools included, is
+        stamped before _finalize_item). So no separate "is this superior" flag is
+        needed: the number that made it superior lives on the object, and this is a
+        pure read (no race conditions under the serial reactor).
+
+        db.quality guard: a tool that was NOT crafted (spawned/admin-made, e.g. the
+        metal knife prototype, which has no craft recipe yet) carries
+        db.quality = None. quality_band(None) would raise, and such a tool is a
+        plain baseline tool anyway, so None short-circuits to 0 before banding.
+
+        A broken tool never reaches the superior/baseline branch: _used_tool()
+        skips is_broken tools, so a broken *superior* tool returns None here and
+        falls to improvised_penalty -- broken counts as absent, by design.
+        """
         if not self.tool_tag:
             return 0
-        for obj in self.inputs:
-            if obj and hasattr(obj, "tags") and obj.tags.has(
-                self.tool_tag, category=self.tool_tag_category
-            ):
-                return self.tool_bonus
-        return self.improvised_penalty
+        tool = self._used_tool()
+        if tool is None:
+            return self.improvised_penalty          # absent or broken -> penalty
+        quality = tool.db.quality
+        if quality is not None and quality_band(quality) == SUPERIOR:
+            return self.tool_bonus                   # superior tool -> positive modifier
+        return 0                                      # plain present tool -> baseline
 
     def _quality_for(self, outcome):
         """Map a skill_check outcome to a stamped quality value."""
@@ -135,10 +211,26 @@ class MongooseCraftRecipe(CraftingRecipe):
         self.rolled = False
         self.skill_outcome = None
         self.improvement_result = None
+        self.tool_broke = None
 
         # Contrib input validation (materials/tools). Raises CraftingValidationError
         # on bad inputs; the base craft() catches it and skips do_craft.
         super().pre_craft(**kwargs)
+
+        # Skill-gate (Component F.1). A HARD floor: advanced recipes set min_skill;
+        # a crafter below it is refused HERE -- after inputs are valid, before the
+        # cooldown gate and before any consume. We raise before do_craft, so rolled
+        # stays False and post_craft consumes nothing. Reads EFFECTIVE skill
+        # (_skill_value() = counter .value = current + mod), so a temporary buff can
+        # lift someone over the bar -- intended: the gate asks "are you good enough
+        # to *attempt* this right now". Deliberately does NOT apply the tool modifier:
+        # that penalty shifts the ROLL in do_craft ("how well"), not the gate ("may
+        # you try"), so a skilled but tool-less crafter passes here and then rolls at
+        # -20. Orthogonal to Stage 3's knowledge-gate. min_skill defaults to 0
+        # (ungated), so trivial survival recipes are never blocked.
+        if self._skill_value() < self.min_skill:
+            self.msg(f"Your Craft is too unskilled (need {self.min_skill}%).")
+            raise CraftingError(f"{self.name} requires Craft {self.min_skill}%.")
 
         # Cooldown gate. Only reached once inputs are valid. Abort WITHOUT
         # consuming (we raise before do_craft; rolled stays False).
@@ -159,6 +251,24 @@ class MongooseCraftRecipe(CraftingRecipe):
         cooldowns = getattr(self.crafter, "cooldowns", None)
         if cooldowns:
             cooldowns.add(self._cooldown_key, self.craft_cooldown)
+
+        # Tool-wear sink (Component D.1). A *completed* attempt wears the used
+        # tool. Placed here -- after rolled=True and the cooldown add, before the
+        # produce/consume branch -- so wear ties to a real craft and never to a
+        # cooldown-abort or invalid-input bail (both raise before do_craft runs).
+        # _used_tool() reads self.inputs (validated_tools is empty for our
+        # optional-tool recipes; see its docstring) and nicks the tool, never a
+        # consumable. hasattr-guarded: a future station/furnace could carry the
+        # tool tag without being a DurableObject, and only wearable tools wear.
+        tool = self._used_tool()
+        if tool is not None and hasattr(tool, "apply_wear"):
+            # _used_tool() only returns a NON-broken tool, so any drop to 0 here
+            # is this craft breaking it. Capture the display name now for the
+            # post_craft notice; the tool is NOT deleted (Task D.2 reconcile of
+            # decomposition §9 D.1's delete()) -- it lingers broken so it counts
+            # as absent next craft and can still be repaired (Task D.4).
+            if tool.apply_wear(self.tool_wear) <= 0:
+                self.tool_broke = tool.get_display_name(looker=self.crafter)
 
         # On-use skill improvement (Component B.3). Gated inside
         # attempt_skill_improvement (success + cooldown); a failed check simply
@@ -211,6 +321,14 @@ class MongooseCraftRecipe(CraftingRecipe):
             text = feedback(self.improvement_result)
             if text:
                 self.msg(text)
+
+        # Tool-break notice (Component D.2). Emitted after the craft-result line
+        # and any improvement feedback, so the beat reads "you make X / your
+        # skill improves / your tool breaks". Set in do_craft only when this
+        # craft wore the tool down to 0; the tool persists (no delete) as an
+        # absent/improvised tool until repaired (Task D.4).
+        if self.tool_broke:
+            self.msg(f"Your {self.tool_broke} finally gives out and breaks apart.")
 
         if self._should_consume(tier):
             for obj in self.validated_consumables:

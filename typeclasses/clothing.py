@@ -18,22 +18,26 @@ will live without wiring them into any mechanic yet.
 from evennia import AttributeProperty
 from evennia.contrib.game_systems.clothing.clothing import ContribClothing
 
+from typeclasses.durable import DurableObject
 from world.thermal import apply_thermal_stress
 
 
-class ClothingWithBuffs(ContribClothing):
+class ClothingWithBuffs(DurableObject, ContribClothing):
     """
-    Wearable garment with a thermal `warmth` rating.
+    Wearable garment with a thermal `warmth` rating and a shared wear axis.
+
+    condition (0-100) is inherited from DurableObject: the mixin owns the
+    Attribute (default 100), apply_wear/is_broken, and condition_line(). Effective
+    warmth is still scaled by condition/100 in thermal.worn_warmth, so a worn-out
+    garment insulates less. MRO is (DurableObject, ContribClothing) so
+    DurableObject's condition descriptor takes precedence while ContribClothing's
+    wear/remove resolve unchanged; the default 100 matches the old local
+    AttributeProperty, so no already-spawned garment needs migrating.
 
     warmth: insulation this piece contributes, read by thermal.worn_warmth via
         db.warmth. autocreate=True so every garment has a real db.warmth
         Attribute (default 0, visible in `examine`) even before a prototype
         overrides it.
-
-    condition: 0-100 wear state. Effective warmth is scaled by condition/100 in
-        thermal.worn_warmth, so a worn-out garment insulates less. autocreate=True
-        for the same reason as warmth -- every garment owns a real db.condition
-        the GarmentWearScript (H6.2) can decrement and `examine` can show.
 
     Reserved (autocreate=False -- no db Attribute, no `examine` entry until a
     system assigns them):
@@ -43,7 +47,6 @@ class ClothingWithBuffs(ContribClothing):
     """
 
     warmth = AttributeProperty(default=0, autocreate=True)
-    condition = AttributeProperty(default=100, autocreate=True)
 
     rain_protection = AttributeProperty(default=0, autocreate=False)
     armor_points = AttributeProperty(default=0, autocreate=False)
