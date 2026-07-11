@@ -1,10 +1,11 @@
 # PolishedWorld — Recipe Knowledge & Discovery Decomposition
 
+> **Rev 2 · 2026-07-11** — Component A (foundation) complete & in-game-verified on `feature/recipe-knowledge`: A.1 (tag-based known-recipe set on `Character` — module const `KNOWN_RECIPE_CATEGORY` + `knows_recipe`/`learn_recipe`/`known_recipes` helpers) and A.2 (`requires_knowledge` class-attr on `MongooseCraftRecipe`, `True` on the four learnable recipes, common four inherit `False`) shipped. Status pointer advanced to Component B.
 > **Rev 1 · 2026-07-11** — first version. Decomposes roadmap Stage 3 (Recipe Knowledge & Discovery) into nine components: the knowledge foundation (per-character known-set + `requires_knowledge` recipe flag), the dual knowledge-gate (`pre_craft` backstop + `CmdCraft` early-reject), a `recipes` discovery surface, and six knowledge *sources* — profession-grants at chargen, reverse-engineering, scroll, perishable book, player-teaching, and a thin world-loot seed. Locks the four roadmap sub-decisions — **(a)** consumable scroll, **(b)** primitive-common baseline via a recipe flag, **(c)** profession-grants + thin world-loot seed, **(d)** know-it + `min_skill` gate (Teaching *skill* is **not** a gate — deferred to BACKLOG as an amplifier) — plus three session additions: a **perishable book** (multi-recipe `DurableObject`, worn per study, no repair), the **`recipes`** discovery command, and **reverse-engineering** (destructive + Craft-roll). Source-verified against `main`: the `pre_craft` gate slot, `_RECIPE_CLASSES` fuzzy match, `DurableObject` API, and — flagged — three discrepancies (stock `craft` lists nothing; `do_craft` does **not** stamp the recipe name; the Legend Craft-teacher gate is p.72–73, not the p.70–71 cited in roadmap/decomp).
 > **Canonical:** `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/recipe-knowledge` (green from `main` — Stage 2 merged via PR #12).
-**Status:** design locked; decomposition ready. Component A next, fresh chat.
+**Status:** design locked; Component A (foundation) complete & in-game-verified on `feature/recipe-knowledge`. Component B (dual knowledge-gate) next, fresh chat.
 **Philosophy:** skynda långsamt — bygg *gaten* först (known-set + gate testbara isolerat med manuell tag-add) och lägg *källorna* därefter i beroende-ordning, så varje kanal verifieras separat: "lär via X → nu craftbart".
 
 ---
