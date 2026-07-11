@@ -79,7 +79,7 @@ class WaterskinRecipe(MongooseCraftRecipe):
     name = "waterskin"
     consumable_tags = ["gourd", "twine"]   # consumed
     output_prototypes = ["waterskin"]
-    tool_tag = "knife"                     # OPTIONAL: knife shapes the gourd (+20); improvised -20
+    tool_tag = "knife"                     # OPTIONAL: knife shapes the gourd (baseline 0); improvised -20
     craft_cooldown = 45                    # more involved than twine
 
     def _finalize_item(self, obj, outcome):
@@ -112,7 +112,7 @@ class LeatherRecipe(MongooseCraftRecipe):
     name = "leather"                              # recipe-registry name (≠ prototype_key, separate namespace)
     consumable_tags = ["raw_hide", "raw_hide"]    # two hides per piece, matched by tag-key
     output_prototypes = ["leather"]               # the new H5.1 prototype
-    tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (+20); absent = -20
+    tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (baseline 0); absent = -20
     craft_cooldown = 45                           # involved work (soak/scrape/tan); overrides base 30
 
 
@@ -122,7 +122,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     name = "linen shirt"
     consumable_tags = ["cloth", "cloth"]   # two bolts per shirt
     output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
-    tool_tag = "needle"                    # OPTIONAL: needle eases stitching (+20); improvised -20
+    tool_tag = "needle"                    # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_cooldown = 40
 
     def _finalize_item(self, obj, outcome):
@@ -138,7 +138,7 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     name = "leather boots"                       # space, mirroring "linen shirt"
     consumable_tags = ["leather", "leather"]     # two pieces per pair
     output_prototypes = ["leather_boots"]        # existing Component B prototype
-    tool_tag = "needle"                          # OPTIONAL: needle eases stitching (+20); improvised -20
+    tool_tag = "needle"                          # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_cooldown = 40                          # mirrors linen shirt
 
     def _finalize_item(self, obj, outcome):
