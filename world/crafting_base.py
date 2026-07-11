@@ -36,6 +36,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 
 from world.skillcheck import skill_check
+from world.crafting_quality import quality_band, SUPERIOR
 
 
 class MongooseCraftRecipe(CraftingRecipe):
@@ -58,9 +59,11 @@ class MongooseCraftRecipe(CraftingRecipe):
     # it is designed around, so *having* it is the baseline (modifier 0), not a
     # bonus; only a *superior* tool grants a positive modifier (Component G).
     tool_tag = None                       # e.g. "knife"; None = no tool interaction
-    tool_bonus = 20                       # RESERVED (Component G): the positive modifier
-                                          # a *superior* tool will grant. A plain present
-                                          # tool is baseline (0), so this is unused for now.
+    tool_bonus = 10                       # Component G: positive modifier a *superior* tool
+                                          # (quality > 100) grants on the craft check. A plain
+                                          # present tool stays baseline (0); only a critical-
+                                          # crafted tool reaches this. +10 keeps the quality
+                                          # ceiling drift measured (new max = 111).
     improvised_penalty = -20              # penalty when the tool is absent. Arms of Legend
                                           # RAW is -40 for improvised tools; softened for MVP.
 
@@ -137,15 +140,39 @@ class MongooseCraftRecipe(CraftingRecipe):
 
         The recipe's tool_tag is the tool the craft is *designed around*, so
         having it is the baseline (0), not a bonus -- lacking it is what shifts
-        the check. The only way above baseline is a *superior* tool (Component G).
+        the check. The one way ABOVE baseline is a *superior* tool (Component G):
+        a tool crafted at the critical tier (quality > 100) grants +tool_bonus,
+        reintroducing the positive modifier the Component A flip removed.
 
-            no tool_tag            -> 0  (recipe needs no tool)
-            tool present           -> 0  (baseline; the expected tool)
+            no tool_tag            -> 0             (recipe needs no tool)
+            superior tool present  -> +tool_bonus   (quality > 100)
+            plain tool present     -> 0             (baseline; the expected tool)
             tool absent/improvised -> improvised_penalty
+
+        The superior tier is read from the tool's OWN db.quality -- which do_craft
+        already stamped on it when it was crafted (every output, tools included, is
+        stamped before _finalize_item). So no separate "is this superior" flag is
+        needed: the number that made it superior lives on the object, and this is a
+        pure read (no race conditions under the serial reactor).
+
+        db.quality guard: a tool that was NOT crafted (spawned/admin-made, e.g. the
+        metal knife prototype, which has no craft recipe yet) carries
+        db.quality = None. quality_band(None) would raise, and such a tool is a
+        plain baseline tool anyway, so None short-circuits to 0 before banding.
+
+        A broken tool never reaches the superior/baseline branch: _used_tool()
+        skips is_broken tools, so a broken *superior* tool returns None here and
+        falls to improvised_penalty -- broken counts as absent, by design.
         """
         if not self.tool_tag:
             return 0
-        return 0 if self._used_tool() is not None else self.improvised_penalty
+        tool = self._used_tool()
+        if tool is None:
+            return self.improvised_penalty          # absent or broken -> penalty
+        quality = tool.db.quality
+        if quality is not None and quality_band(quality) == SUPERIOR:
+            return self.tool_bonus                   # superior tool -> positive modifier
+        return 0                                      # plain present tool -> baseline
 
     def _quality_for(self, outcome):
         """Map a skill_check outcome to a stamped quality value."""

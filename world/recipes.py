@@ -63,6 +63,27 @@ def _apply_garment_quality(obj):
         obj.aliases.add(alias)
 
 
+def _apply_tool_quality(obj):
+    """Shared tool _finalize_item body: superior alias only (no condition table).
+
+    A plain module-level function, NOT a CraftingRecipe subclass, so Evennia's
+    _load_recipes() never registers it as a phantom recipe (same reason as
+    _apply_garment_quality).
+
+    Unlike garments, a tool's start condition is PROTOTYPE-driven (STONE_KNIFE 40,
+    BONE_NEEDLE 30 -- the D.5 wear tuning), so this deliberately does NOT touch
+    obj.db.condition. Quality is already stamped on the tool by do_craft; all this
+    adds is the individuating "superior <key>" alias, so a player can target the
+    good tool in a pile and it reads as superior at a glance. The +tool_bonus a
+    superior tool grants when USED is read live from db.quality by
+    MongooseCraftRecipe._tool_modifier -- never from this alias.
+    """
+    band = quality_band(obj.db.quality)
+    alias = band_alias(band, obj.key)
+    if alias:
+        obj.aliases.add(alias)
+
+
 class TwineRecipe(MongooseCraftRecipe):
     """Twist three plant fibres into a length of twine."""
 
@@ -172,10 +193,18 @@ class StoneKnifeRecipe(MongooseCraftRecipe):
     tool_tag = None
     craft_cooldown = 30                 # base default; a first-tool assembly
 
-    # No _finalize_item: db.quality is stamped by the base for Component E to read
-    # later. consume_policy inherits "raw" -> every attempt yields a knife (quality
-    # scales with the roll), so a new player never loses gathered materials to a
-    # bad roll and is never left tool-less.
+    # consume_policy inherits "raw" -> every attempt yields a knife (quality scales
+    # with the roll), so a new player never loses gathered materials to a bad roll
+    # and is never left tool-less.
+
+    def _finalize_item(self, obj, outcome):
+        # Component G: a superior stone knife (critical craft, quality > 100) gains
+        # a "superior stone knife" alias so it's targetable and reads as superior.
+        # db.quality is already stamped by the base; the +tool_bonus it grants when
+        # USED as a tool is read live from that quality by _tool_modifier, not from
+        # this alias. No db.condition write -- start condition stays prototype-driven
+        # (40, D.5).
+        _apply_tool_quality(obj)
 
 
 class BoneNeedleRecipe(MongooseCraftRecipe):
@@ -195,8 +224,15 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
     tool_tag = None
     craft_cooldown = 30                 # small, fiddly assembly; mirrors stone knife
 
-    # No _finalize_item: db.quality is stamped by the base for Component E to read.
     # consume_policy inherits "raw" -> a hunt is never wasted on a bad roll.
+
+    def _finalize_item(self, obj, outcome):
+        # Component G: a superior bone needle (critical craft, quality > 100) gains a
+        # "superior bone needle" alias -- same rationale as the stone knife. db.quality
+        # is stamped by the base; the +tool_bonus it grants when USED is read live from
+        # it by _tool_modifier. No db.condition write (start condition prototype-driven,
+        # 30, D.5).
+        _apply_tool_quality(obj)
     
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)
