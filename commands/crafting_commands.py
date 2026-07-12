@@ -10,6 +10,7 @@ reaches craft() (this command, barter-craft, scripts), so if this early reject
 is ever bypassed the backstop still consumes nothing.
 """
 
+from evennia import Command
 from evennia.contrib.game_systems.crafting.crafting import (
     CmdCraft,
     _load_recipes,
@@ -76,3 +77,92 @@ class CmdCraftGated(CmdCraft):
                 return
 
         super().func()
+
+
+class CmdRecipes(Command):
+    """
+    List the recipes you can craft.
+
+    Usage:
+      recipes
+
+    Shows the common recipes everyone can make plus any advanced recipes
+    you have personally learned. A skill note (needs Craft N%) marks recipes
+    with a hard skill floor. If the world holds crafts you have not yet
+    learned, a faint hint says so -- but not what they are. Seek them out.
+    """
+
+    key = "recipes"
+    aliases = ["recipe"]
+    locks = "cmd:all()"
+    help_category = "Crafting"
+
+    # Tuning flag (Component C.1). Default off preserves the mystery: the hint
+    # tells the player advanced crafts EXIST without leaking how many remain.
+    # Flip to True during playtest/balance to surface the exact hidden count.
+    SHOW_HIDDEN_COUNT = False
+
+    def func(self):
+        caller = self.caller
+
+        # Populate the contrib's module-level registry (idempotent -- it only
+        # loads once and caches; read-only here so no multiplayer race on the
+        # single-threaded reactor). We iterate the *classes*, reading class
+        # attributes (name / requires_knowledge / min_skill) -- no instances.
+        _load_recipes()
+
+        common = []
+        known = []
+        hidden = 0
+
+        for cls in _RECIPE_CLASSES.values():
+            # Defensive skip of the abstract base sentinel. It should never be
+            # in the registry -- callables_from_module filters imports by
+            # __module__, and our shared helpers are plain functions rather
+            # than MongooseCraftRecipe subclasses -- but this keeps the list
+            # honest if a future local helper-subclass ever leaks in.
+            name = getattr(cls, "name", "")
+            if not name or name == "mongoose craft base":
+                continue
+
+            if not getattr(cls, "requires_knowledge", False):
+                common.append(cls)
+            elif getattr(caller, "knows_recipe", None) and caller.knows_recipe(name):
+                known.append(cls)
+            else:
+                # Advanced + not learned (or -- defensively -- a caller with no
+                # knows_recipe helper, which never happens for a puppeted
+                # Character): counted, never named.
+                hidden += 1
+
+        # known_recipes()/registry order is unspecified; sort for a stable,
+        # scannable display (mirrors CmdSkills sorting its keys).
+        common.sort(key=lambda c: c.name)
+        known.sort(key=lambda c: c.name)
+
+        lines = ["\n|wRecipes you can craft:|n", "|g" + "=" * 50 + "|n"]
+
+        if not common and not known:
+            lines.append("  You know no recipes yet.")
+        else:
+            for label, bucket in (("Common", common), ("Known", known)):
+                if not bucket:
+                    continue
+                lines.append(f"  |w{label}|n")
+                for cls in bucket:
+                    floor = getattr(cls, "min_skill", 0) or 0
+                    note = f" |x(needs Craft {floor}%)|n" if floor > 0 else ""
+                    lines.append(f"    |y{cls.name}|n{note}")
+
+        lines.append("|g" + "=" * 50 + "|n")
+
+        if hidden > 0:
+            if self.SHOW_HIDDEN_COUNT:
+                plural = "craft" if hidden == 1 else "crafts"
+                lines.append(
+                    f"|xWhispers speak of {hidden} {plural} beyond your knowing.|n"
+                )
+            else:
+                lines.append("|xWhispers speak of crafts beyond your knowing.|n")
+
+        caller.msg("\n".join(lines))

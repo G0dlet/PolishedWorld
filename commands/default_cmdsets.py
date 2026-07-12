@@ -24,7 +24,7 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
-from commands.crafting_commands import CmdCraftGated
+from commands.crafting_commands import CmdCraftGated, CmdRecipes
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -82,6 +82,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # pre_craft (B.1) stays the authoritative backstop for craft() callers
         # that bypass this command (barter-craft, scripts).
         self.add(CmdCraftGated())
+        # CmdRecipes (key="recipes", alias "recipe") -- discovery surface for
+        # Stage 3 (Component C.1): solves that stock `craft` lists nothing.
+        # Unique key/alias, so no collision with look/ExtendedRoomCmdSet
+        # (the H7.3b lesson). Read-only; no state added.
+        self.add(CmdRecipes())
         self.add(CmdRepair())
 
         self.add(CmdPWTrade())
