@@ -10,6 +10,8 @@ reaches craft() (this command, barter-craft, scripts), so if this early reject
 is ever bypassed the backstop still consumes nothing.
 """
 
+from collections import Counter
+
 from evennia import Command
 from evennia.contrib.game_systems.crafting.crafting import (
     CmdCraft,
@@ -81,15 +83,17 @@ class CmdCraftGated(CmdCraft):
 
 class CmdRecipes(Command):
     """
-    List the recipes you can craft.
+    List the recipes you can craft, or inspect one in detail.
 
     Usage:
-      recipes
+      recipes            - list common + learned recipes (hint if more exist)
+      recipes <name>     - show one recipe's ingredients, tool and skill floor
 
-    Shows the common recipes everyone can make plus any advanced recipes
-    you have personally learned. A skill note (needs Craft N%) marks recipes
-    with a hard skill floor. If the world holds crafts you have not yet
-    learned, a faint hint says so -- but not what they are. Seek them out.
+    The bare list shows the common recipes everyone can make plus any advanced
+    recipes you have personally learned. `recipes <name>` details a recipe you
+    can see: its ingredients, whether a tool helps, any skill floor, and what it
+    produces. Recipes you have not learned stay hidden -- their ingredients are
+    part of what you learn, buy, or are taught.
     """
 
     key = "recipes"
@@ -98,17 +102,27 @@ class CmdRecipes(Command):
     help_category = "Crafting"
 
     # Tuning flag (Component C.1). Default off preserves the mystery: the hint
-    # tells the player advanced crafts EXIST without leaking how many remain.
-    # Flip to True during playtest/balance to surface the exact hidden count.
+    # says advanced crafts EXIST without leaking how many remain. Flip to True
+    # during playtest/balance to surface the exact hidden count.
     SHOW_HIDDEN_COUNT = False
 
     def func(self):
+        # `recipes` -> overview; `recipes <name>` -> one recipe's detail.
+        # base Command leaves self.args raw (unstripped, unsplit), so normalise
+        # here. Empty after strip -> list mode.
+        name = self.args.strip().lower()
+        if name:
+            self._show_detail(name)
+        else:
+            self._show_list()
+
+    # --- overview ------------------------------------------------------------
+    def _show_list(self):
         caller = self.caller
 
-        # Populate the contrib's module-level registry (idempotent -- it only
-        # loads once and caches; read-only here so no multiplayer race on the
-        # single-threaded reactor). We iterate the *classes*, reading class
-        # attributes (name / requires_knowledge / min_skill) -- no instances.
+        # Populate the contrib's module-level registry (idempotent; loads once
+        # and caches). Read-only iteration over the *classes* -- no instances,
+        # no state -- so no multiplayer race on the single-threaded reactor.
         _load_recipes()
 
         common = []
@@ -117,26 +131,23 @@ class CmdRecipes(Command):
 
         for cls in _RECIPE_CLASSES.values():
             # Defensive skip of the abstract base sentinel. It should never be
-            # in the registry -- callables_from_module filters imports by
-            # __module__, and our shared helpers are plain functions rather
-            # than MongooseCraftRecipe subclasses -- but this keeps the list
-            # honest if a future local helper-subclass ever leaks in.
-            name = getattr(cls, "name", "")
-            if not name or name == "mongoose craft base":
+            # in the registry (callables_from_module filters imports by
+            # __module__, and our shared helpers are plain functions, not
+            # MongooseCraftRecipe subclasses), but this keeps the list honest
+            # if a future local helper-subclass ever leaks in.
+            rname = getattr(cls, "name", "")
+            if not rname or rname == "mongoose craft base":
                 continue
 
             if not getattr(cls, "requires_knowledge", False):
                 common.append(cls)
-            elif getattr(caller, "knows_recipe", None) and caller.knows_recipe(name):
+            elif getattr(caller, "knows_recipe", None) and caller.knows_recipe(rname):
                 known.append(cls)
             else:
-                # Advanced + not learned (or -- defensively -- a caller with no
-                # knows_recipe helper, which never happens for a puppeted
-                # Character): counted, never named.
                 hidden += 1
 
-        # known_recipes()/registry order is unspecified; sort for a stable,
-        # scannable display (mirrors CmdSkills sorting its keys).
+        # Registry order is unspecified; sort for a stable, scannable display
+        # (mirrors CmdSkills sorting its keys).
         common.sort(key=lambda c: c.name)
         known.sort(key=lambda c: c.name)
 
@@ -155,6 +166,7 @@ class CmdRecipes(Command):
                     lines.append(f"    |y{cls.name}|n{note}")
 
         lines.append("|g" + "=" * 50 + "|n")
+        lines.append("|xTip: 'recipes <name>' shows what a recipe needs.|n")
 
         if hidden > 0:
             if self.SHOW_HIDDEN_COUNT:
@@ -165,4 +177,78 @@ class CmdRecipes(Command):
             else:
                 lines.append("|xWhispers speak of crafts beyond your knowing.|n")
 
+        caller.msg("\n".join(lines))
+
+    # --- detail --------------------------------------------------------------
+    def _show_detail(self, name):
+        caller = self.caller
+
+        # _resolve_recipe (defined at module level, B.2) calls _load_recipes()
+        # itself and mirrors the contrib's fuzzy match (exact -> startswith ->
+        # unique substring). Returns the class or None.
+        cls = _resolve_recipe(name)
+
+        # Visibility gate -- mirror the list exactly. A recipe is visible if it
+        # is common (ungated) or one this caller has learned. An advanced recipe
+        # the caller has NOT learned is refused: we never reveal its ingredients,
+        # because those are what the learn/buy/teach economy trades in.
+        #
+        # We DO name it in the refusal so a player who heard of it from a teacher
+        # gets a clear nudge toward learning it. For zero existence-leak instead,
+        # replace this branch's message with the "No recipe matches" one below.
+        if cls is not None:
+            rname = getattr(cls, "name", "")
+            advanced = getattr(cls, "requires_knowledge", False)
+            knows = (
+                bool(getattr(caller, "knows_recipe", None))
+                and caller.knows_recipe(rname)
+            )
+            if advanced and not knows:
+                caller.msg(
+                    f"You don't know the recipe for '{rname}'. "
+                    "Seek someone who does."
+                )
+                return
+        else:
+            caller.msg(f"No recipe matches '{name}'.")
+            return
+
+        # Ingredients: consumable_tags is a flat list where duplicates encode
+        # quantity (["fiber","fiber","fiber"] -> 3x fiber). Counter preserves
+        # first-seen order (py3.7+), so display order matches declaration order.
+        tags = list(getattr(cls, "consumable_tags", []) or [])
+        if tags:
+            counts = Counter(tags)
+            needs = ", ".join(f"{qty}x {tag}" for tag, qty in counts.items())
+        else:
+            needs = "nothing"
+
+        # Tool: a single optional tag or None. Tools are never hard-required --
+        # absence only costs the -20 improvised modifier -- so we say "optional".
+        tool_tag = getattr(cls, "tool_tag", None)
+        tool = (
+            f"{tool_tag} (optional; improvising takes a penalty)"
+            if tool_tag
+            else "none needed"
+        )
+
+        floor = getattr(cls, "min_skill", 0) or 0
+        skill = f"Craft {floor}% minimum" if floor > 0 else "no minimum"
+
+        # Output: output_prototypes holds prototype KEYS, not display names.
+        # Prettify the key (underscores -> spaces) for now; resolving the
+        # prototype's real key/desc and correct article/pluralisation (e.g.
+        # "a pair of leather boots") is deferred -> docs/BACKLOG.md.
+        outputs = list(getattr(cls, "output_prototypes", []) or [])
+        produced = ", ".join(o.replace("_", " ") for o in outputs) if outputs else "something"
+
+        lines = [
+            f"\n|w{cls.name.title()}|n",
+            "|g" + "=" * 50 + "|n",
+            f"  |wNeeds:|n   {needs}",
+            f"  |wTool:|n    {tool}",
+            f"  |wSkill:|n   {skill}",
+            f"  |wOutput:|n  {produced}",
+            "|g" + "=" * 50 + "|n",
+        ]
         caller.msg("\n".join(lines))
