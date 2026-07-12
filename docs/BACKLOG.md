@@ -1,5 +1,10 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 5 · 2026-07-11** — Added *`recipes <name>` output name is a prettified
+> prototype key* (polish) under Crafting & Tools — the C.2 detail view (Recipe
+> Knowledge decomp §8) shows `output_prototypes` keys with underscores swapped
+> for spaces; resolving the prototype's real key/desc and correct
+> article/pluralisation ("a pair of leather boots") is deferred.
 > **Rev 4 · 2026-07-11** — Added *`CmdCraftGated` recipe-resolver duplication*
 > (tech-debt) under Crafting & Tools — a UX-layer duplicate of the crafting
 > contrib's private recipe matcher, backstopped by pre_craft (Recipe Knowledge
@@ -130,6 +135,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The crafting contrib stabilising a public resolver API (or its
   private matcher changing under us).
 - **Origin:** Recipe Knowledge decomp §7, Task B.2.
+- **Status:** OPEN
+
+### `recipes <name>` output name is a prettified prototype key
+- **What:** `commands/crafting_commands.py::CmdRecipes._show_detail` renders each
+  `output_prototypes` entry by swapping `_`→space (e.g. `leather_boots` →
+  "leather boots"). It does not resolve the prototype's real `key`/`desc`, nor
+  apply a correct article/pluralisation ("a pair of leather boots").
+- **Why deferred:** Resolving prototypes is a separate verification surface
+  (`evennia.prototypes`) and article/plural rules are per-item; the prettified
+  key is legible and correct enough for discovery. Cosmetic only.
+- **Trigger:** Any pass that adds prototype display-name resolution, or the first
+  recipe whose prototype key reads badly when prettified.
+- **Origin:** Recipe Knowledge decomp §8, Task C.2.
 - **Status:** OPEN
 
 ---
