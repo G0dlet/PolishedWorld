@@ -1,12 +1,13 @@
 # PolishedWorld — Recipe Knowledge & Discovery Decomposition
 
+> **Rev 4 · 2026-07-11** — Component C (`recipes` discovery surface) complete & in-game-verified on `feature/recipe-knowledge`, split into two atomic tasks: **C.1** (`CmdRecipes`, `key="recipes"`/alias `recipe`) renders Common + learned ("Known") recipes with an alphabetised, base-sentinel-skipped listing and a vague "hidden crafts" hint (exact count behind `SHOW_HIDDEN_COUNT`, default off, to preserve mystery); **C.2** (`recipes <name>`) details a *visible* recipe's ingredients (`consumable_tags` duplicate-collapsed to `Nx tag`), optional tool, skill floor and output, reusing B.2's `_resolve_recipe` and gated by the same visibility partition as the list — an advanced recipe the caller has not learned is refused *by name* (a teach/learn nudge) without leaking its ingredients. Wiring added once (C.1) after `CraftingCmdSet`; unique key/alias avoids the `look`/`ExtendedRoomCmdSet` collision (H7.3b lesson). BACKLOG Rev 5 logged the `recipes <name>` output-name prettify deferral. Status pointer advanced to Component D.
 > **Rev 3 · 2026-07-11** — Component B (dual knowledge-gate) complete & in-game-verified on `feature/recipe-knowledge`: B.1 (`requires_knowledge` gate in `MongooseCraftRecipe.pre_craft`, placed after input validation and before the skill-gate, defensive `knows_recipe` getattr guard, raises before any consume) and B.2 (`CmdCraftGated(CmdCraft)` in new `commands/crafting_commands.py`, early-rejecting unknown advanced recipes before ingredient search; wired after `CraftingCmdSet` so it overrides the stock `craft`). Verified in-game: unknown `cloth` blocked with materials intact → `learn_recipe("cloth")` → crafts; common `twine` bypasses the gate. BACKLOG Rev 4 logged the `CmdCraftGated` resolver-duplication tech-debt. Status pointer advanced to Component C.
 > **Rev 2 · 2026-07-11** — Component A (foundation) complete & in-game-verified on `feature/recipe-knowledge`: A.1 (tag-based known-recipe set on `Character` — module const `KNOWN_RECIPE_CATEGORY` + `knows_recipe`/`learn_recipe`/`known_recipes` helpers) and A.2 (`requires_knowledge` class-attr on `MongooseCraftRecipe`, `True` on the four learnable recipes, common four inherit `False`) shipped. Status pointer advanced to Component B.
 > **Rev 1 · 2026-07-11** — first version. Decomposes roadmap Stage 3 (Recipe Knowledge & Discovery) into nine components: the knowledge foundation (per-character known-set + `requires_knowledge` recipe flag), the dual knowledge-gate (`pre_craft` backstop + `CmdCraft` early-reject), a `recipes` discovery surface, and six knowledge *sources* — profession-grants at chargen, reverse-engineering, scroll, perishable book, player-teaching, and a thin world-loot seed. Locks the four roadmap sub-decisions — **(a)** consumable scroll, **(b)** primitive-common baseline via a recipe flag, **(c)** profession-grants + thin world-loot seed, **(d)** know-it + `min_skill` gate (Teaching *skill* is **not** a gate — deferred to BACKLOG as an amplifier) — plus three session additions: a **perishable book** (multi-recipe `DurableObject`, worn per study, no repair), the **`recipes`** discovery command, and **reverse-engineering** (destructive + Craft-roll). Source-verified against `main`: the `pre_craft` gate slot, `_RECIPE_CLASSES` fuzzy match, `DurableObject` API, and — flagged — three discrepancies (stock `craft` lists nothing; `do_craft` does **not** stamp the recipe name; the Legend Craft-teacher gate is p.72–73, not the p.70–71 cited in roadmap/decomp).
 > **Canonical:** `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/recipe-knowledge` (green from `main` — Stage 2 merged via PR #12).
-**Status:** design locked; Components A–B complete & in-game-verified on `feature/recipe-knowledge`. Component C (`recipes` discovery surface) next, fresh chat.
+**Status:** design locked; Components A–C complete & in-game-verified on `feature/recipe-knowledge`. Component D (profession-grants at chargen) next, fresh chat.
 **Philosophy:** skynda långsamt — bygg *gaten* först (known-set + gate testbara isolerat med manuell tag-add) och lägg *källorna* därefter i beroende-ordning, så varje kanal verifieras separat: "lär via X → nu craftbart".
 
 ---
@@ -138,14 +139,23 @@ Den ortogonala tredje gaten. `pre_craft` är sanningen; `CmdCraft`-subklassen ä
 
 ## 8. Component C — `recipes` discovery-yta
 
-Legibility: vad du kan, med en hint att mer finns. Löser att stock `craft` inte listar något.
+Legibility: vad du kan, med en hint att mer finns. Löser att stock `craft` inte listar något. C.1 *listar*; C.2 *detaljerar* ett synligt recept.
 
-### Task C.1 — `CmdRecipes`
-- **Goal:** Spela­ren ser sina *kända* recept + *common*-recepten, med en vag hint om dolda.
+### Task C.1 — `CmdRecipes` (overview)
+- **Goal:** Spelaren ser sina *kända* recept + *common*-recepten, med en vag hint om dolda.
 - **Dependencies:** A.1, A.2, `_RECIPE_CLASSES`.
-- **Implementation:** `commands/crafting_commands.py::CmdRecipes` (`key="recipes"`, `aliases=["recipe"]`, lås `cmd:all()`). Kör `_load_recipes()`, iterera `_RECIPE_CLASSES.values()`: `not requires_knowledge` → hink "Common"; annars `caller.knows_recipe(cls.name)` → hink "Known"; annars → räkna som "hidden" (visas ej). Rendera Common + Known grupperat (namn, ev. `min_skill`-not). Om `hidden > 0`: en vag hint utan exakt lista, t.ex. `|xWhispers speak of crafts beyond your knowing.|n` (bevara mysteriet — visa ev. antal bakom en tuning-flagga, default av). Färgkoder via Evennia-parser (`|_`/`|/`, aldrig rå `|` i ev. ASCII).
-- **Testing:** `@py` färsk karaktär → `recipes` visar de fyra common + hint; `me.learn_recipe("cloth")` + `@reload` → cloth flyttar till "Known"; `.replace("|","!")` i ett `me.msg`-eko för att inspektera råa färgkoder.
+- **Implementation:** `commands/crafting_commands.py::CmdRecipes` (`key="recipes"`, `aliases=["recipe"]`, lås `cmd:all()`). Kör `_load_recipes()`, iterera `_RECIPE_CLASSES.values()` (skip:a defensivt bas-sentinel `"mongoose craft base"`): `not requires_knowledge` → hink "Common"; annars `caller.knows_recipe(cls.name)` → "Known"; annars → räkna som "hidden". Rendera Common + Known alfabetiskt (namn, ev. `min_skill`-not). `hidden > 0` → vag hint `|xWhispers speak of crafts beyond your knowing.|n`; exakt antal bakom klassattr `SHOW_HIDDEN_COUNT` (default `False`). Färgkoder via Evennia-parser, aldrig rå `|`.
+- **Testing:** `@reload` en gång efter patch; känt-set läses live per anrop (ingen reload mellan `learn_recipe`/`tags.clear` och nästa `recipes`). Färsk karaktär → fyra common + hint; `learn_recipe("cloth")` → cloth i "Known", hint kvar; `learn_recipe("leather boots")` → `(needs Craft 30%)`-not; alla fyra lärda → hint borta; alias `recipe`; `SHOW_HIDDEN_COUNT=True` → antal (singular/plural); `.replace("|","!")`-eko för råa färgkoder.
 - **Commit:** `feat(discovery): add recipes command listing known and common recipes`
+
+### Task C.2 — `recipes <name>` (detail)
+- **Goal:** Spelaren ser ett *synligt* recepts ingredienser (med antal), tool, skill-floor och output.
+- **Dependencies:** C.1; B.2 (`_resolve_recipe`); A.1 (`knows_recipe`).
+- **Implementation:** Utöka `CmdRecipes.func` till dispatch på `self.args` (rå → `.strip().lower()`; tomt → `_show_list`, annars `_show_detail`). `_show_detail` löser via `_resolve_recipe` och **synlighets-gätar** som listan: `cls is None` → `No recipe matches '<name>'.`; avancerat + ej lärt → `You don't know the recipe for '<name>'. Seek someone who does.` (namnger receptet som teach/learn-nudge, läcker *inte* ingredienser). `consumable_tags`-dubletter → `Counter` → `Nx tag`; `tool_tag None` → "none needed", annars "<tool> (optional; …penalty)"; `min_skill` → "Craft N% minimum"/"no minimum"; `output_prototypes` = prototyp-*nycklar*, prettify `_`→mellanslag. En `Tip: 'recipes <name>' …`-rad tillkommer i overview.
+- **Testing:** `recipes waterskin` (1x gourd/1x twine, knife optional); `recipes twine` (3x fiber, none needed); `recipes cloth` färsk → refusal utan ingredienser; `recipes leather` (exact, avancerat, ej lärt) → refusal; `learn_recipe("leather boots")` → `recipes leather boots` (2x leather, needle, Craft 30% minimum); fuzzy `recipes water`/`recipes needle`; tvetydigt `recipes le` → No recipe matches; `recipes glesch` → No recipe matches.
+- **Commit:** `feat(discovery): detail a recipe's ingredients and tools via 'recipes <name>'`
+
+**Status pointer:** Component C complete (C.1 + C.2). **Component D next.**
 
 ---
 
