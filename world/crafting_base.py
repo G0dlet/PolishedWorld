@@ -322,6 +322,13 @@ class MongooseCraftRecipe(CraftingRecipe):
         for obj in result:
             obj.db.quality = quality
             obj.db.crafted_by = self.crafter.key
+            # Stamp the recipe name so reverse-engineering (Component E.2) knows
+            # what this item teaches. self.name is the canonical registry name
+            # (the same key knows_recipe/learn_recipe use). Only player-crafted
+            # output carries it: spawned/loot/admin items leave db.recipe None,
+            # so disassemble bites only on crafted goods (the design intent, and
+            # it also seeds the BACKLOG maker's-mark).
+            obj.db.recipe = self.name
             self._finalize_item(obj, outcome)
             # Self-contained: place the result in the crafter's inventory. The
             # `craft` command would also do this; setting location is idempotent.
