@@ -6,6 +6,8 @@ Commands for viewing character stats, skills, and vital status.
 
 from evennia import Command
 
+from world.professions import PROFESSIONS, grant_profession
+
 
 class CmdStatus(Command):
     """
@@ -283,3 +285,81 @@ class CmdSheet(Command):
         msg += "\n" + "|w" + "=" * 60 + "|n"
         
         self.caller.msg(msg)
+
+
+class CmdChooseProfession(Command):
+    """
+    Choose your starting profession
+
+    Usage:
+        profession
+        profession <name>
+
+    With no argument, lists the professions you can choose and the advanced
+    recipes each one teaches. With a name, commits you to that trade and
+    teaches you its recipes.
+
+    Choosing a profession is a ONE-TIME decision: once chosen it cannot be
+    changed. It grants recipe *knowledge* only -- it does not alter your
+    characteristics or skills, and how well you craft still depends on your
+    Craft skill. You can always learn other recipes later by being taught
+    them or by studying a scroll.
+    """
+
+    key = "profession"
+    aliases = ["professions"]
+    locks = "cmd:all()"
+    help_category = "Character"
+
+    def func(self):
+        caller = self.caller
+        chosen = caller.db.profession
+        arg = self.args.strip().lower()
+
+        # No argument -> show current choice (if any) and the available list.
+        if not arg:
+            msg = "\n|wProfessions:|n\n"
+            msg += "|g" + "=" * 40 + "|n\n"
+            if chosen:
+                msg += f"  You follow the |y{chosen}|n's craft.\n\n"
+            else:
+                msg += "  You have not yet chosen a profession.\n\n"
+            for pkey in sorted(PROFESSIONS):
+                recipes = ", ".join(PROFESSIONS[pkey])
+                msg += f"  |y{pkey}|n: {recipes}\n"
+            msg += "|g" + "=" * 40 + "|n"
+            if not chosen:
+                msg += "\nType |wprofession <name>|n to commit to one. The choice is permanent."
+            caller.msg(msg)
+            return
+
+        # Already chosen -> refuse. This sentinel is the idempotency guard: it
+        # makes the grant a once-per-character event, safe across @reload and
+        # re-puppet (this command is B's only grant path).
+        if chosen:
+            caller.msg(
+                f"You have already taken up the |y{chosen}|n's craft; "
+                "a profession is chosen only once. Type |wprofession|n to review it."
+            )
+            return
+
+        # Unknown key -> reject by name, listing the valid choices.
+        if arg not in PROFESSIONS:
+            valid = ", ".join(sorted(PROFESSIONS))
+            caller.msg(f"There is no '|y{arg}|n' profession. Choose one of: {valid}.")
+            return
+
+        # Commit: seed the recipes FIRST, then stamp the sentinel LAST, so a
+        # failure mid-grant leaves the character retry-able (unset sentinel)
+        # rather than committed-but-untaught. grant_profession is idempotent.
+        learned = grant_profession(caller, arg)
+        caller.db.profession = arg
+        if learned:
+            caller.msg(
+                f"You take up the |y{arg}|n's craft. "
+                f"You now know how to make: {', '.join(learned)}."
+            )
+        else:
+            caller.msg(
+                f"You take up the |y{arg}|n's craft. You already knew its recipes."
+            )
