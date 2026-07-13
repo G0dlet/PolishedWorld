@@ -1,5 +1,6 @@
 # PolishedWorld — Recipe Knowledge & Discovery Decomposition
 
+> **Rev 5 · 2026-07-13** — Component D (profession-grants, the first knowledge *source*) complete & in-game-verified on `feature/recipe-knowledge`, two atomic tasks: **D.1** (`world/professions.py` — pure-data `PROFESSIONS` map of four small, overlapping recipe bundles + `grant_profession(character, key)`, idempotent via `learn_recipe`, unknown key → no-op + `evennia.utils.logger` warning) and **D.2** (`CmdChooseProfession` — `profession`/`professions`, a one-time free choice guarded by a `db.profession` sentinel; grants recipe *knowledge* only). Design locked against Legend RAW: professions are **free choice** (Legend gates on Cultural Background, never a characteristic minimum — a weak character can still be a smith, just lower Craft), and Component D models only the Advanced-Skill-access half; the Common-Skill-bonus half and Cultural-Background gating are deferred (BACKLOG Rev 6, new *Professions & Chargen* section, both BLOCKED on a real chargen). No `at_object_creation` change and no `character_migrations` backfill needed — a *choice* cannot be backfilled; existing characters simply gain the command. Status pointer advanced to Component E.
 > **Rev 4 · 2026-07-11** — Component C (`recipes` discovery surface) complete & in-game-verified on `feature/recipe-knowledge`, split into two atomic tasks: **C.1** (`CmdRecipes`, `key="recipes"`/alias `recipe`) renders Common + learned ("Known") recipes with an alphabetised, base-sentinel-skipped listing and a vague "hidden crafts" hint (exact count behind `SHOW_HIDDEN_COUNT`, default off, to preserve mystery); **C.2** (`recipes <name>`) details a *visible* recipe's ingredients (`consumable_tags` duplicate-collapsed to `Nx tag`), optional tool, skill floor and output, reusing B.2's `_resolve_recipe` and gated by the same visibility partition as the list — an advanced recipe the caller has not learned is refused *by name* (a teach/learn nudge) without leaking its ingredients. Wiring added once (C.1) after `CraftingCmdSet`; unique key/alias avoids the `look`/`ExtendedRoomCmdSet` collision (H7.3b lesson). BACKLOG Rev 5 logged the `recipes <name>` output-name prettify deferral. Status pointer advanced to Component D.
 > **Rev 3 · 2026-07-11** — Component B (dual knowledge-gate) complete & in-game-verified on `feature/recipe-knowledge`: B.1 (`requires_knowledge` gate in `MongooseCraftRecipe.pre_craft`, placed after input validation and before the skill-gate, defensive `knows_recipe` getattr guard, raises before any consume) and B.2 (`CmdCraftGated(CmdCraft)` in new `commands/crafting_commands.py`, early-rejecting unknown advanced recipes before ingredient search; wired after `CraftingCmdSet` so it overrides the stock `craft`). Verified in-game: unknown `cloth` blocked with materials intact → `learn_recipe("cloth")` → crafts; common `twine` bypasses the gate. BACKLOG Rev 4 logged the `CmdCraftGated` resolver-duplication tech-debt. Status pointer advanced to Component C.
 > **Rev 2 · 2026-07-11** — Component A (foundation) complete & in-game-verified on `feature/recipe-knowledge`: A.1 (tag-based known-recipe set on `Character` — module const `KNOWN_RECIPE_CATEGORY` + `knows_recipe`/`learn_recipe`/`known_recipes` helpers) and A.2 (`requires_knowledge` class-attr on `MongooseCraftRecipe`, `True` on the four learnable recipes, common four inherit `False`) shipped. Status pointer advanced to Component B.
@@ -7,7 +8,7 @@
 > **Canonical:** `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 **Feature branch:** `feature/recipe-knowledge` (green from `main` — Stage 2 merged via PR #12).
-**Status:** design locked; Components A–C complete & in-game-verified on `feature/recipe-knowledge`. Component D (profession-grants at chargen) next, fresh chat.
+**Status:** design locked; Components A–D complete & in-game-verified on `feature/recipe-knowledge`. Component E (recipe-stamp + reverse-engineering) next, fresh chat.
 **Philosophy:** skynda långsamt — bygg *gaten* först (known-set + gate testbara isolerat med manuell tag-add) och lägg *källorna* därefter i beroende-ordning, så varje kanal verifieras separat: "lär via X → nu craftbart".
 
 ---
@@ -155,8 +156,6 @@ Legibility: vad du kan, med en hint att mer finns. Löser att stock `craft` inte
 - **Testing:** `recipes waterskin` (1x gourd/1x twine, knife optional); `recipes twine` (3x fiber, none needed); `recipes cloth` färsk → refusal utan ingredienser; `recipes leather` (exact, avancerat, ej lärt) → refusal; `learn_recipe("leather boots")` → `recipes leather boots` (2x leather, needle, Craft 30% minimum); fuzzy `recipes water`/`recipes needle`; tvetydigt `recipes le` → No recipe matches; `recipes glesch` → No recipe matches.
 - **Commit:** `feat(discovery): detail a recipe's ingredients and tools via 'recipes <name>'`
 
-**Status pointer:** Component C complete (C.1 + C.2). **Component D next.**
-
 ---
 
 ## 9. Component D — Profession-grants vid chargen  *(population seed)*
@@ -178,6 +177,8 @@ Seedar avancerad kunskap in i spelarbasen så teach/scroll-ekonomin lever från 
 - **Implementation:** Beroende på vad live-flödet visar: ett menysteg som väljer profession, ELLER (MVP-fallback) ett `db.profession`-default + grant i chargen-hooken, ELLER ett engångs-`CmdChooseProfession` tillgängligt tidigt. Idempotent (kör grant en gång; guarda mot re-grant vid `@reload`/re-puppet). Håll det till kunskaps-grant — ingen stat-påverkan. Synka ev. med `world/character_migrations.py`-mönstret så backfill av befintliga karaktärer är möjlig (parallellt med `HUNTING_SKILL_DEFAULTS`-noten).
 - **Testing:** Skapa en ny testkaraktär via det verkliga flödet → `known_recipes()` innehåller buntens recept; befintlig karaktär opåverkad tills backfill körs.
 - **Commit:** `feat(chargen): grant a starting profession's recipes at character creation`
+
+**Status pointer:** Component D complete (D.1 + D.2). **Component E next.**
 
 ---
 
