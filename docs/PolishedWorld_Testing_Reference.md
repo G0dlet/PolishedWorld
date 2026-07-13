@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 2 · 2026-07-13** — Added the lambda-scope `me` gotcha (§3) and a manual-stamp harness note for cooldown isolation (§7), both from Stage 3 Component E.2 disassemble testing.
 > **Rev 1 · 2026-07-12** — First committed version. Consolidates the hard-won in-game `@py` testing conventions accumulated through Stage 2–3: one-shot vs interactive console, the `;` client-split gotcha + list-literal idiom, the no-comprehensions rule, reload vs live-data semantics, raw-colour inspection, state-reset idioms, and the `py_compile` fallback diagnostic. Supersedes the informal project-knowledge quick-ref for testing workflow; domain quick-ref tables (calendar/currency/survival) stay in their own docs.
 > **Canonical:** `docs/PolishedWorld_Testing_Reference.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
@@ -36,7 +37,16 @@ Portable, client-agnostic workarounds:
   @py setattr(__import__("commands.crafting_commands", fromlist=["CmdRecipes"]).CmdRecipes, "SHOW_HIDDEN_COUNT", True)
   ```
 
-## 3. No comprehensions / generators in one-shot `@py`
+## 3. No comprehensions / generators in one-shot `@py`, and no free `me` in a lambda
+
+A bare `me`/`self`/`here` inside a **lambda body** in one-shot `@py` → `NameError:
+name 'me' is not defined`. They're injected as eval **locals**, and a lambda's
+free variables resolve against its `__globals__`, not the eval locals — so the
+lambda can't see them. Fixes: bind the object with a walrus in a plain list
+literal (everything stays top-level), e.g.
+`@py me.msg(str([(o:=spawn("x")[0]).move_to(me), setattr(o.db,"k","v"), o.db.k]))`,
+or pass `me` as a lambda **parameter** (`(lambda o, m: o.move_to(m))(obj, me)`).
+A lambda that references only its own parameter is fine.
 
 Comprehensions and generator expressions have their own scope and fail under `py`'s exec context. Use list *literals* (`[a, b, c]` — fine), explicit loops in the **interactive console**, or `evennia shell` for anything statistical/looping.
 
@@ -68,6 +78,11 @@ Confirm a render contains only intended colour codes (no stray raw `|`) by echoi
 - Known-recipe set: `@py me.tags.clear(category="known_recipe")`
 - Inventory (loop → interactive console): `for o in list(me.contents): o.delete()`
 - Deterministic cooldown abort: `@py me.cooldowns.add("craft:<name>", 9999)`
+- Cooldown **isolation** (e.g. testing a command's own cooldown gate): don't build
+  the test item via a craft helper that calls `me.cooldowns.clear()` — that wipes
+  the very cooldown under test. Instead spawn + hand-stamp the item
+  (`spawn("cloth")[0]` → `o.db.recipe = "cloth"`) so no craft pipeline and no
+  blanket `clear()` is involved. (Cost us Component E.2's Test F once.)
 - Retrieve a tagged test object between calls: `search_tag(key)[0]`
 
 ## 8. Diagnostic — silent `DefaultObject` fallback
