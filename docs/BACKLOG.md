@@ -1,6 +1,13 @@
 # PolishedWorld — Consolidated Backlog
 
-> **Rev 6 · 2026-07-12** — Added a new *Professions & Chargen* section with two
+> **Rev 7 · 2026-07-13** — Stage 3 Component E close-out. Added *`DISASSEMBLE_COOLDOWN`
+> tuning* under Crafting & Tools (the conservative 300s constant, no playtest data
+> yet). Extended *`CmdCraftGated` recipe-resolver duplication*: `CmdDisassemble`
+> (E.2) is a second consumer of the contrib's private `_RECIPE_CLASSES` — an exact
+> `.get(name)` this time, not the fuzzy matcher — so both live under one entry.
+> Noted the E.1 `obj.db.recipe` stamp now provides the recipe half of the
+> maker's-mark identity.
+> **Rev 6 · 2026-07-12** — Added a new *Professions & Chargen* section two
 > Stage 3 Component D deferrals from the Legend profession analysis: *Profession
 > Common-Skill bonuses (Legend's other half)* and *Cultural-Background gating of
 > professions*. Both BLOCKED on a real chargen / Cultural Background system;
@@ -93,10 +100,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Crafting Progression decomp §13.
 - **Status:** OPEN
 
+### `DISASSEMBLE_COOLDOWN` tuning
+- **What:** Real-time seconds between reverse-engineering attempts, the named
+  constant `commands/crafting_commands.py::DISASSEMBLE_COOLDOWN` (currently 300).
+- **Why deferred:** Balance-tuning, not a mechanic gap. The disassemble roll is
+  already destructive (the item is consumed win or lose), so the cooldown only
+  paces *attempts*; 300s is a conservative dev value chosen to keep the item
+  channel from undercutting the paid scroll/teach channels, with no playtest data
+  to tune against yet.
+- **Trigger:** Live playtest data on how fast players grind bought goods for
+  recipes.
+- **Origin:** Recipe Knowledge decomp §10, Task E.2.
+- **Status:** OPEN
+
 ### Material / maker's-mark aliases beyond "superior"
 - **What:** Individuating aliases from material and maker ("a steel dagger of
   <smith>") on top of the quality alias.
-- **Why deferred:** Pairs with recipe knowledge (who knows/made what).
+- **Why deferred:** Pairs with recipe knowledge (who knows/made what). The data
+  primitives are now in place: `crafted_by` (the maker) plus the `obj.db.recipe`
+  stamp from E.1 (the recipe) — this entry is the display/alias layer on top.
 - **Trigger:** Stage 3 (Recipe Knowledge & Discovery).
 - **Origin:** Crafting Progression decomp §13; also feeds the disambiguation fix.
 - **Status:** SCHEDULED (Stage 3)
@@ -134,12 +156,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **What:** `commands/crafting_commands.py::_resolve_recipe` re-implements the
   contrib's fuzzy match (exact → `startswith` → `in`, unique) and reads the
   private `_RECIPE_CLASSES` / `_load_recipes` from the crafting contrib.
+  `CmdDisassemble` (E.2) is a second consumer of the same private registry — an
+  exact `_RECIPE_CLASSES.get(name)` on the E.1 recipe stamp, not the fuzzy
+  matcher — so the coupling now has two call sites, both here.
 - **Why deferred:** The contrib exposes no public recipe-resolver API; `pre_craft`
   (B.1) is the authoritative backstop if this duplicate drifts, so the ~5 lines
-  are an accepted UX-only convenience, not a correctness dependency.
+  are an accepted UX-only convenience, not a correctness dependency. E.2's
+  exact-get degrades gracefully (a removed recipe → None → unlearnable, no
+  destroy), so it too tolerates the private matcher changing under us.
 - **Trigger:** The crafting contrib stabilising a public resolver API (or its
   private matcher changing under us).
-- **Origin:** Recipe Knowledge decomp §7, Task B.2.
+- **Origin:** Recipe Knowledge decomp §7 (Task B.2); §10 (Task E.2).
 - **Status:** OPEN
 
 ### `recipes <name>` output name is a prettified prototype key
