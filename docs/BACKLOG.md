@@ -1,5 +1,10 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 6 · 2026-07-12** — Added a new *Professions & Chargen* section with two
+> Stage 3 Component D deferrals from the Legend profession analysis: *Profession
+> Common-Skill bonuses (Legend's other half)* and *Cultural-Background gating of
+> professions*. Both BLOCKED on a real chargen / Cultural Background system;
+> Component D ships knowledge-only, free-choice professions.
 > **Rev 5 · 2026-07-11** — Added *`recipes <name>` output name is a prettified
 > prototype key* (polish) under Crafting & Tools — the C.2 detail view (Recipe
 > Knowledge decomp §8) shows `output_prototypes` keys with underscores swapped
@@ -149,6 +154,38 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   recipe whose prototype key reads badly when prettified.
 - **Origin:** Recipe Knowledge decomp §8, Task C.2.
 - **Status:** OPEN
+
+---
+
+## Professions & Chargen
+
+### Profession Common-Skill bonuses (Legend's other half)
+- **What:** A Legend profession grants two things -- access to Advanced Skills
+  (modelled today as recipe knowledge, Component D) *and* Common-Skill bonuses
+  (e.g. Blacksmith: Brawn +15%, Hammer +10%). Only the knowledge half is built;
+  the skill-bonus half is deferred.
+- **Why deferred:** Stat territory, which Component D deliberately excludes
+  ("knowledge only, no stat bonuses"). Also meaningless while every character
+  has placeholder characteristics -- the bonuses need a real chargen (rolled or
+  allocated characteristics) to sit on.
+- **Trigger:** A real chargen with per-character characteristics.
+- **Origin:** Stage 3 Component D -- Legend profession analysis (Legend.pdf
+  Professions section, verified 2026-07-12).
+- **Status:** BLOCKED (real chargen / characteristic variation)
+
+### Cultural-Background gating of professions
+- **What:** In Legend RAW the only gate on which profession a character may take
+  is Cultural Background (e.g. Alchemist = Civilised only), NOT a characteristic
+  minimum. Component D ships free choice (any character, any profession); a
+  culture-based availability gate is the Legend-authentic future refinement.
+- **Why deferred:** No Cultural Background / chargen system exists yet to gate
+  against, and free choice is both Legend-faithful and the only meaningful option
+  while characteristics are identical placeholders. Explicitly NOT a
+  characteristic-minimum gate -- that would diverge from Legend RAW.
+- **Trigger:** A Cultural Background / chargen system.
+- **Origin:** Stage 3 Component D.2 -- Legend profession analysis (verified
+  2026-07-12).
+- **Status:** BLOCKED (Cultural Background / chargen system)
 
 ---
 
