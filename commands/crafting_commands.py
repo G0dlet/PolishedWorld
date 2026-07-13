@@ -19,6 +19,14 @@ from evennia.contrib.game_systems.crafting.crafting import (
     _RECIPE_CLASSES,
 )
 
+from world.skillcheck import skill_check
+
+# Real-time seconds between reverse-engineering attempts (Component E.2). A
+# conservative dev value: the disassemble roll is already destructive (the item
+# is consumed win or lose), so this only paces the *attempts*, keeping the item
+# channel from undercutting the paid scroll/teach channels. Tune once playtesting
+# shows the real cadence -> docs/BACKLOG.md.
+DISASSEMBLE_COOLDOWN = 300
 
 def _resolve_recipe(name):
     """
@@ -252,3 +260,110 @@ class CmdRecipes(Command):
             "|g" + "=" * 50 + "|n",
         ]
         caller.msg("\n".join(lines))
+
+
+class CmdDisassemble(Command):
+    """
+    Take a crafted item apart to try to learn how it was made.
+
+    Usage:
+      disassemble <item>
+      salvage <item>
+
+    Sacrifice a player-crafted item for a chance to work out its recipe. The
+    item is destroyed whether you succeed or fail, so only take apart things
+    you're willing to lose. Reverse-engineering only bites on player-crafted
+    goods (a bought rival's garment teaches; loot and spawned items do not).
+    Recipes everyone already knows, and ones you've already learned, can't be
+    learned this way -- taking those apart is refused before anything breaks.
+    """
+
+    key = "disassemble"
+    aliases = ["salvage"]
+    locks = "cmd:all()"
+    help_category = "Crafting"
+
+    def func(self):
+        caller = self.caller
+
+        target_name = self.args.strip()
+        if not target_name:
+            caller.msg("Take what apart? (usage: |wdisassemble <item>|n)")
+            return
+
+        # Resolve among what the caller holds or wears; search() messages on a
+        # miss or multimatch, so a falsy return just bails.
+        target = caller.search(target_name, candidates=caller.contents)
+        if not target:
+            return
+
+        # The recipe stamp (Component E.1). Only player-crafted output carries
+        # it; spawned/loot/admin items leave db.recipe None. No stamp -> nothing
+        # to learn, and nothing is destroyed.
+        recipe_name = target.db.recipe
+        if not recipe_name:
+            caller.msg("You can't learn anything by taking this apart.")
+            return
+
+        # Resolve the stamped name to its recipe class by EXACT key: the stamp is
+        # the canonical recipe name (self.name), so no fuzzy match is wanted here
+        # (a prefix collision must not resolve a different recipe). A recipe that
+        # has since been removed/renamed resolves to None -> treat as unlearnable
+        # and DON'T destroy: no reason to burn an item for vanished knowledge.
+        # (Reads the contrib's private registry, the same coupling _resolve_recipe
+        # already carries -- logged in docs/BACKLOG.md.)
+        _load_recipes()
+        cls = _RECIPE_CLASSES.get(recipe_name)
+        if cls is None:
+            caller.msg("You can't learn anything by taking this apart.")
+            return
+
+        # Common (ungated) recipes, or ones already known, teach nothing new.
+        # Refuse BEFORE destroying -- there's no reason to sacrifice the item.
+        # (caller is always a puppeted Character here, so knows_recipe exists.)
+        if not getattr(cls, "requires_knowledge", False) or caller.knows_recipe(recipe_name):
+            caller.msg("You already know how these are made.")
+            return
+
+        # Anti-spam: one attempt per window. Checked only now -- the harmless
+        # guards above never trip it -- and BEFORE any destruction, so a player
+        # on cooldown keeps their item.
+        if not caller.cooldowns.ready("disassemble"):
+            left = caller.cooldowns.time_left("disassemble", use_int=True)
+            caller.msg(
+                f"Your hands are unsteady. Try taking something apart again in {left}s."
+            )
+            return
+
+        # Difficulty scales with the recipe's skill floor: a negative modifier
+        # makes an advanced recipe harder to reverse-engineer. min_skill defaults
+        # to 0 (no penalty) -- read via the repo's getattr-with-default idiom.
+        min_skill = getattr(cls, "min_skill", 0) or 0
+        trait = caller.skills.get("craft")
+        skill_value = trait.value if trait else 0     # counter .value = current + mod
+        outcome = skill_check(skill_value, modifier=-min_skill)
+
+        # Committed: the item is destroyed on every outcome and the cooldown set.
+        # Capture the display name first (get_display_name needs a live object).
+        # The single-threaded reactor makes read-roll-delete atomic against a
+        # concurrent disassemble, and delete() runs exactly once.
+        name = target.get_display_name(caller)
+        target.delete()
+        caller.cooldowns.add("disassemble", DISASSEMBLE_COOLDOWN)
+
+        if outcome["success"]:
+            caller.learn_recipe(recipe_name)
+            caller.msg(
+                f"You take the {name} apart and work out how it was made. "
+                f"You now know the |y{recipe_name}|n recipe."
+            )
+            # Fifth on-use improvement check-site (Component B.3): route the
+            # successful check through the gated path (success + cooldown gates
+            # live inside attempt_skill_improvement). Placed after the result
+            # message so a "your Crafting improves" line reads as the next beat.
+            imp = caller.attempt_skill_improvement("craft", outcome)
+            text = caller._improvement_feedback(imp)
+            if text:
+                caller.msg(text)
+        else:
+            caller.msg("The piece falls apart before you grasp how it was made.")

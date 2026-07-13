@@ -24,7 +24,7 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
-from commands.crafting_commands import CmdCraftGated, CmdRecipes
+from commands.crafting_commands import CmdCraftGated, CmdRecipes, CmdDisassemble
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -88,6 +88,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # Unique key/alias, so no collision with look/ExtendedRoomCmdSet
         # (the H7.3b lesson). Read-only; no state added.
         self.add(CmdRecipes())
+        # CmdDisassemble (key="disassemble", alias "salvage") -- the first item
+        # knowledge channel (Component E.2). Unique key/alias, no collision.
+        # Reverse-engineers player-crafted goods (E.1 stamp); Craft-gated so it
+        # doesn't undercut the paid scroll/teach channels.
+        self.add(CmdDisassemble())
         self.add(CmdRepair())
 
         self.add(CmdPWTrade())
