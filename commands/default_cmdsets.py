@@ -24,7 +24,12 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
-from commands.crafting_commands import CmdCraftGated, CmdRecipes, CmdDisassemble
+from commands.crafting_commands import (
+    CmdCraftGated,
+    CmdRecipes,
+    CmdDisassemble,
+    CmdInscribe,
+)
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -93,6 +98,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # Reverse-engineers player-crafted goods (E.1 stamp); Craft-gated so it
         # doesn't undercut the paid scroll/teach channels.
         self.add(CmdDisassemble())
+        # CmdInscribe (key="inscribe") -- the first *written* knowledge channel
+        # (Component F.1). A master crafter writes a one-use recipe scroll another
+        # player can `learn` from. Unique key -> no ExtendedRoomCmdSet clash.
+        self.add(CmdInscribe())
         self.add(CmdRepair())
 
         self.add(CmdPWTrade())

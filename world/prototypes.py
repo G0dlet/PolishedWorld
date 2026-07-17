@@ -520,3 +520,19 @@ LEATHER = {
     # RAW_HIDE's "raw_hide".
     "tags": [("leather", "crafting_material")],
 }
+
+
+SCROLL = {
+    "prototype_key": "scroll",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "recipe scroll",
+    "aliases": ["scroll"],
+    "desc": (
+        "A blank scroll of woven cloth. Inscribed with a recipe, it can teach "
+        "that craft to whoever studies it -- once."
+    ),
+    # No crafting_material tag: a scroll is a finished knowledge-carrier consumed
+    # by `learn` (Component F.2), not an ingredient for any recipe. The recipe it
+    # teaches is stamped onto the spawned instance by `inscribe`
+    # (obj.db.recipe = <name>), NOT baked into the prototype.
+}

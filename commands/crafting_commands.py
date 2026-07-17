@@ -20,6 +20,10 @@ from evennia.contrib.game_systems.crafting.crafting import (
 )
 
 from world.skillcheck import skill_check
+from evennia.prototypes.spawner import spawn
+from evennia.utils import logger
+
+from world.knowledge import _can_transmit
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
 # conservative dev value: the disassemble roll is already destructive (the item
@@ -27,6 +31,18 @@ from world.skillcheck import skill_check
 # channel from undercutting the paid scroll/teach channels. Tune once playtesting
 # shows the real cadence -> docs/BACKLOG.md.
 DISASSEMBLE_COOLDOWN = 300
+
+# Real-time seconds between inscribe attempts (Component F.1). Conservative dev
+# value; the material cost (a bolt of cloth) is the real economic throttle, so
+# this only stops scroll-spam. Tune once playtesting shows the cadence ->
+# docs/BACKLOG.md.
+INSCRIBE_COOLDOWN = 60
+
+# crafting_material tag-key consumed as the scroll's writing surface. MVP reuse
+# of the existing (EXISTS) cloth material -- a woven/linen scroll -- rather than a
+# new hide-derived parchment primitive, which would pull in the unbuilt tanning
+# chain (leather is DECISION-status). Parchment deferred -> docs/BACKLOG.md.
+INSCRIBE_MATERIAL_TAG = "cloth"
 
 def _resolve_recipe(name):
     """
@@ -367,3 +383,107 @@ class CmdDisassemble(Command):
                 caller.msg(text)
         else:
             caller.msg("The piece falls apart before you grasp how it was made.")
+
+
+class CmdInscribe(Command):
+    """
+    Write a recipe you have mastered onto a scroll for another crafter.
+
+    Usage:
+      inscribe <recipe>
+
+    Set a recipe you know well down as a one-use scroll. Another player can
+    `learn` from the scroll to gain the recipe permanently -- the scroll is
+    consumed in the reading. Writing one costs a bolt of cloth to inscribe on.
+
+    You can only inscribe an advanced recipe you have learned AND are skilled
+    enough to have mastered; the survival basics everyone already knows aren't
+    worth writing down.
+    """
+
+    key = "inscribe"
+    locks = "cmd:all()"
+    help_category = "Crafting"
+
+    def func(self):
+        caller = self.caller
+
+        recipe_input = self.args.strip()
+        if not recipe_input:
+            caller.msg("Inscribe which recipe? (usage: |winscribe <recipe>|n)")
+            return
+
+        # Resolve the typed name the same fuzzy way craft/recipes do (exact ->
+        # prefix -> substring), so a prefix works. None -> no such recipe at all.
+        cls = _resolve_recipe(recipe_input)
+        if cls is None:
+            caller.msg("You don't know of any recipe by that name.")
+            return
+        recipe_name = cls.name
+
+        # Common (ungated) recipes are knowledge everyone already has -- nothing
+        # to transmit. Distinct message from the mastery guard below.
+        if not getattr(cls, "requires_knowledge", False):
+            caller.msg("Everyone already knows this. There's nothing to inscribe.")
+            return
+
+        # Shared mastery gate (F/G/H): must KNOW it and meet its permanent-skill
+        # floor. Collapses "haven't learned it" and "not skilled enough" into one
+        # message on purpose -- both mean "you haven't mastered this".
+        if not _can_transmit(caller, recipe_name):
+            caller.msg("You can't inscribe a recipe you haven't mastered.")
+            return
+
+        # Anti-spam: checked only after the harmless guards, and BEFORE any
+        # material is spent, so a player on cooldown keeps their cloth.
+        if not caller.cooldowns.ready("inscribe"):
+            left = caller.cooldowns.time_left("inscribe", use_int=True)
+            caller.msg(
+                f"Your hand is still cramped from the last one. Try again in {left}s."
+            )
+            return
+
+        # Writing material: one inventory item carrying the crafting_material tag
+        # we use as a writing surface (cloth by default). Matched by tag, the same
+        # way the crafting contrib matches consumables -- robust to key/alias drift.
+        material = next(
+            (
+                obj
+                for obj in caller.contents
+                if obj.tags.has(INSCRIBE_MATERIAL_TAG, category="crafting_material")
+            ),
+            None,
+        )
+        if material is None:
+            caller.msg(
+                f"You need a bolt of {INSCRIBE_MATERIAL_TAG} to inscribe a scroll on."
+            )
+            return
+
+        # Commit. Spawn the scroll FIRST; consume the material only once the
+        # scroll exists, so a spawn failure never eats the cloth. spawn/move_to/
+        # delete run under the single-threaded reactor -> atomic against a
+        # concurrent inscribe, and delete() runs exactly once.
+        try:
+            scroll = spawn("scroll")[0]
+        except Exception:
+            logger.log_trace()
+            caller.msg("The inscription smears and fails; nothing is lost.")
+            return
+
+        material.delete()
+        scroll.db.recipe = recipe_name
+        # Individuate the instance so several scrolls are distinguishable in an
+        # inventory and by `learn scroll of <recipe>`.
+        scroll.key = f"scroll of {recipe_name}"
+        scroll.db.desc = (
+            f"A scroll of woven cloth, closely inscribed with the craft-notes for "
+            f"the |y{recipe_name}|n recipe. Studying it would teach how the work "
+            f"is done."
+        )
+        scroll.move_to(caller, quiet=True)
+
+        caller.cooldowns.add("inscribe", INSCRIBE_COOLDOWN)
+        caller.msg(
+            f"You carefully inscribe the |y{recipe_name}|n recipe onto a scroll."
+        )
