@@ -435,15 +435,10 @@ class CmdInscribe(Command):
             return
 
         material.delete()
-        scroll.db.recipe = recipe_name
-        # Individuate the instance so several scrolls are distinguishable in an
-        # inventory and by `learn scroll of <recipe>`.
-        scroll.key = f"scroll of {recipe_name}"
-        scroll.db.desc = (
-            f"A scroll of woven cloth, closely inscribed with the craft-notes for "
-            f"the |y{recipe_name}|n recipe. Studying it would teach how the work "
-            f"is done."
-        )
+        # stamp() owns the scroll's identity (recipe + searchable key); flavour
+        # and the readable detail render live from the stamp in the Scroll
+        # typeclass (F.4), so we set nothing else here.
+        scroll.stamp(recipe_name)
         scroll.move_to(caller, quiet=True)
 
         caller.cooldowns.add("inscribe", INSCRIBE_COOLDOWN)

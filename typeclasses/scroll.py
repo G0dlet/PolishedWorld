@@ -1,26 +1,30 @@
 """
-Scroll typeclass (Stage 3, Component F.3).
+Scroll typeclass (Stage 3, Components F.3 + F.4).
 
-A recipe scroll you can READ without consuming it. `inscribe` (F.1) stamps the
-recipe name onto the instance (db.recipe); `learn` (F.2) consumes it to teach
-that recipe. This adds the third verb -- `look` -- so a player can inspect what
-a scroll teaches, and what it will demand of them, BEFORE deciding to study or
-trade it.
+A recipe scroll you can READ without consuming it. `inscribe` (F.1) stamps a
+recipe onto the instance; `learn` (F.2) consumes it to teach that recipe; `look`
+(F.3) shows what it teaches. F.4 moves the scroll's IDENTITY here too: its name,
+its flavour, and its readable detail all derive from one stamp (db.recipe), so
+every scroll is self-describing no matter how it was created.
 
-Why a typeclass override rather than a `read` command or a baked-in desc:
+Why identity lives on the typeclass, not in CmdInscribe:
 
-* get_display_desc hangs the detail off the existing `look`, exactly as
-  DurableObject hangs its condition line there -- one consistent surface where
-  players inspect things, no new command, no ExtendedRoom `look` clash.
-* It renders LIVE from the recipe registry, so a scroll written today still
-  shows correct ingredients if the recipe is retuned later. Baking the detail
-  into db.desc at inscribe-time would freeze stale numbers.
+* One source of truth. inscribe, future book-seeding (G), and test spawns all
+  call stamp(), so a scroll can never end up stamped-but-unnamed (the "all
+  scrolls read 'recipe scroll' until you look" confusion) or named-but-blank.
+* The key must be a REAL stored key, not a dynamic get_display_name: the barter
+  contrib lists and matches trade offers by obj.key (barter.py list()/offer
+  matching), so a dynamic display name would leave the trade window showing a
+  generic "recipe scroll". stamp() therefore sets .key.
+* Flavour and detail render LIVE from the stamp (not a baked db.desc), so a
+  retuned recipe shows correct numbers, and a blank scroll reads "blank" while a
+  stamped one reads "inscribed" -- from the same code, every creation path.
 
-No visibility gate here, on purpose: to read a scroll you must hold it, and if
-you hold it you could already `learn` it for free -- reading is strictly weaker
-than the access you already have, so possession IS the gate. Resolution and
-rendering live in world.knowledge, so this typeclass never touches the crafting
-contrib's private recipe registry.
+No visibility gate on `look`: to read a scroll you must hold it, and if you hold
+it you could already `learn` it for free -- reading is strictly weaker than the
+access you already have, so possession IS the gate. Resolution and rendering
+live in world.knowledge, so this typeclass never touches the crafting contrib's
+private recipe registry.
 """
 
 from typeclasses.objects import Object
@@ -28,20 +32,40 @@ from world.knowledge import render_recipe_detail_by_name
 
 
 class Scroll(Object):
-    """A one-use recipe scroll: readable on `look`, consumed by `learn`."""
+    """A one-use recipe scroll: named/described by its stamp, consumed by `learn`."""
+
+    def stamp(self, recipe_name):
+        """Give this scroll its identity: what it teaches, and a distinct key.
+
+        Sets the recipe stamp AND a real, searchable key ("scroll of <recipe>")
+        in one place. Called by inscribe and by any other creation path (seeds,
+        tests) so identity never depends on the command. The key is stored (not
+        a dynamic display name) because barter matches and lists offers by
+        obj.key; a dynamic name would show a generic scroll in the trade window.
+
+        Args:
+            recipe_name (str): the canonical recipe name to inscribe.
+        """
+        self.db.recipe = recipe_name
+        self.key = f"scroll of {recipe_name}"
 
     def get_display_desc(self, looker, **kwargs):
-        """Append the inscribed recipe's detail block to the scroll's desc.
+        """Render flavour + recipe detail from the stamp (F.4).
 
-        super() yields the flavour desc -- the blank-scroll text from the
-        prototype, or the per-recipe line `inscribe` writes onto db.desc.
-        render_recipe_detail_by_name adds the Needs/Tool/Skill/Output block when
-        the scroll carries a recipe stamp that still exists in the registry; a
-        blank scroll or a dangling stamp returns None, so `look` simply shows the
-        base desc and never errors.
+        Flavour now derives from db.recipe rather than a baked db.desc, so it is
+        correct for every creation path: a blank scroll (no stamp) reads
+        "blank", a stamped one reads "inscribed". render_recipe_detail_by_name
+        appends the Needs/Tool/Skill/Output block when the recipe still resolves;
+        a dangling stamp (recipe removed) shows flavour only and never errors on
+        `look`.
         """
-        base = super().get_display_desc(looker, **kwargs)
-        detail = render_recipe_detail_by_name(self.db.recipe)
-        if not detail:
-            return base
-        return f"{base}\n{detail}" if base else detail
+        recipe_name = self.db.recipe
+        if not recipe_name:
+            return "A blank scroll of woven cloth, waiting to be inscribed."
+
+        flavour = (
+            "A scroll of woven cloth, closely inscribed with craft-notes. "
+            "Studying it would teach how the work is done."
+        )
+        detail = render_recipe_detail_by_name(recipe_name)
+        return f"{flavour}\n{detail}" if detail else flavour
