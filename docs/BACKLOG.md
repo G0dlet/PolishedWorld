@@ -1,5 +1,12 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 9 · 2026-07-18** — Stage 3 Component G.1 (perishable `Book` typeclass).
+> Added one *UX & Item Identity* deferral: *per-recipe `min_skill`/detail on
+> book & scroll `look`/`evaluate`* — the "show buyers craftability, not just
+> contents" refinement; MVP Alpha ships names + condition only. No new Crafting
+> deferral from G.1 itself; the barter `evaluate`→`get_display_desc` fix that
+> surfaced alongside it is a completed hardening (shipped on
+> `feature/recipe-knowledge`), not a backlog item.
 > **Rev 8 · 2026-07-18** — Stage 3 Component F close-out (scroll — the first *written*
 > knowledge channel, F.1–F.4). Added three Crafting & Tools deferrals: *`INSCRIBE_COOLDOWN`
 > tuning* (conservative 60s, no playtest data), *parchment writing material* (the
@@ -345,6 +352,24 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** None hard.
 - **Origin:** Evennia Reference §8.8.
 - **Status:** OPEN
+
+### Per-recipe `min_skill` / detail on book & scroll `look`/`evaluate`
+- **What:** Show each held recipe's `min_skill` (and optionally its full detail
+  block) when a knowledge carrier is inspected, so a buyer can judge whether they
+  could ever craft what a book/scroll teaches — not just its name and condition.
+- **Why deferred:** MVP Alpha already gives buyers the two decisive signals —
+  *which* recipes (stamped key + `status` list + names in `get_display_desc`) and
+  *how worn* the item is (condition) — and craftability stays discoverable by
+  attempting to `learn`/craft. Adding skill/detail now would couple the `Book`
+  typeclass to recipe internals for a refinement, not a blocker.
+- **Trigger:** Playtest signal that buyers misjudge books (pay for recipes above
+  their skill), or books routinely carrying recipes far beyond a typical buyer.
+- **Origin:** Component G.1 (Rev 9) — the "val C-half" surfaced while deciding
+  what `look`/`evaluate` should reveal; deferred by decision.
+- **Status:** OPEN — when built, route the lookup through a `world/knowledge.py`
+  helper (a names→summary renderer), NOT direct `_RECIPE_CLASSES` access, so
+  `Book`/`Scroll` never become registry consumers (mirrors
+  `render_recipe_detail_by_name`, keeping the coupling in one module).
 
 > **Not listed here:** *Search / disambiguation UX + item identity* — already a
 > written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
