@@ -1,5 +1,16 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 8 · 2026-07-18** — Stage 3 Component F close-out (scroll — the first *written*
+> knowledge channel, F.1–F.4). Added three Crafting & Tools deferrals: *`INSCRIBE_COOLDOWN`
+> tuning* (conservative 60s, no playtest data), *parchment writing material* (the
+> hide-derived surface deferred from F.1a, BLOCKED on the tanning chain), and *blank
+> scroll as a craftable intermediate* (F.4 follow-up, same design axis as parchment).
+> Extended *`CmdCraftGated` recipe-resolver duplication* to its full four call sites —
+> `_can_transmit` (F.1) and `CmdLearn` (F.2) both read `_RECIPE_CLASSES`, and
+> `render_recipe_detail_by_name` (F.3) deliberately keeps that read inside
+> `world/knowledge.py` so the `Scroll` typeclass never becomes a fifth consumer.
+> Extended the *`recipes <name>` prettify* entry: the renderer is now shared
+> (`render_recipe_detail`) by `recipes <name>` and `look <scroll>`, so one fix lands both.
 > **Rev 7 · 2026-07-13** — Stage 3 Component E close-out. Added *`DISASSEMBLE_COOLDOWN`
 > tuning* under Crafting & Tools (the conservative 300s constant, no playtest data
 > yet). Extended *`CmdCraftGated` recipe-resolver duplication*: `CmdDisassemble`
@@ -108,9 +119,51 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   paces *attempts*; 300s is a conservative dev value chosen to keep the item
   channel from undercutting the paid scroll/teach channels, with no playtest data
   to tune against yet.
-- **Trigger:** Live playtest data on how fast players grind bought goods for
+- - **Trigger:** Live playtest data on how fast players grind bought goods for
   recipes.
 - **Origin:** Recipe Knowledge decomp §10, Task E.2.
+- **Status:** OPEN
+
+### `INSCRIBE_COOLDOWN` tuning
+- **What:** Real-time seconds between `inscribe` attempts, the named constant
+  `commands/crafting_commands.py::INSCRIBE_COOLDOWN` (currently 60).
+- **Why deferred:** Balance-tuning, not a mechanic gap. `inscribe` already costs a
+  bolt of cloth per scroll, so the material is the real economic throttle and the
+  cooldown only stops scroll-spam; 60s is a conservative dev value (lighter than
+  disassemble's 300, since inscribe is the *intended* paid channel), no playtest
+  data yet.
+- **Trigger:** Live playtest data on scroll production/trade cadence.
+- **Origin:** Recipe Knowledge decomp §11, Task F.1.
+- **Status:** OPEN
+
+### Parchment writing material (hide-derived writing surface)
+- **What:** A dedicated `parchment` primitive as the scroll's writing surface,
+  tanned/derived from hide (tying the hunting economy into the knowledge economy),
+  instead of F.1's MVP reuse of `cloth`.
+- **Why deferred:** Parchment-from-hide needs a tanning chain that does not exist:
+  `leather` is DECISION-status (unbuilt) and `raw_hide` is an orphan until tanning
+  lands, so building parchment now drags in half an unbuilt economy chain. F.1
+  reuses `cloth` (EXISTS, a plausible woven writing surface) so the scroll channel
+  ships without blocking on tanning.
+- **Trigger:** The tanning chain landing (leather / DECISION #2 resolved), decided
+  *together with* the blank-scroll entry below — both answer the same question
+  ("what is the physical writing surface, and is it a crafted good?").
+- **Origin:** Recipe Knowledge decomp §11, Task F.1 (choice (a), locked to cloth).
+- **Status:** BLOCKED (tanning chain)
+
+### Blank scroll as a craftable intermediate
+- **What:** Make the writing surface its own craftable good:
+  `cloth → blank scroll (craft) → inscribe → scroll of <recipe>`. `inscribe` would
+  then simply `stamp()` a held blank scroll (F.4 already provides `stamp()`) — no
+  prototype spawn, no material search inside the command.
+- **Why deferred:** An economy-depth refinement, not a correctness gap: the scroll
+  loop works today (inscribe spawns + consumes cloth directly). Adding a tradeable
+  intermediate before players want to *trade* blank scrolls builds depth ahead of
+  demand. Low-risk to defer — inserting a craft step later needs no migration of
+  existing "scroll of <recipe>" items.
+- **Trigger:** Player demand to trade blank writing surfaces, or the parchment
+  decision above — same design axis, decide the two together.
+- **Origin:** Working memory — Component F.4 follow-up (deferred by decision).
 - **Status:** OPEN
 
 ### Material / maker's-mark aliases beyond "superior"
@@ -153,12 +206,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Status:** OPEN
 
 ### `CmdCraftGated` recipe-resolver duplication
-- **What:** `commands/crafting_commands.py::_resolve_recipe` re-implements the
+- - **What:** `commands/crafting_commands.py::_resolve_recipe` re-implements the
   contrib's fuzzy match (exact → `startswith` → `in`, unique) and reads the
-  private `_RECIPE_CLASSES` / `_load_recipes` from the crafting contrib.
-  `CmdDisassemble` (E.2) is a second consumer of the same private registry — an
-  exact `_RECIPE_CLASSES.get(name)` on the E.1 recipe stamp, not the fuzzy
-  matcher — so the coupling now has two call sites, both here.
+  private `_RECIPE_CLASSES` / `_load_recipes` from the crafting contrib. There are
+  now four call sites reading that private registry: `_resolve_recipe` (B.2, fuzzy)
+  and `CmdDisassemble` (E.2, exact `.get` on the E.1 stamp) in
+  `crafting_commands.py`, plus `_can_transmit` (F.1) and `CmdLearn` (F.2, exact
+  `.get` on a scroll stamp) in `world/knowledge.py` / `crafting_commands.py`. F.3's
+  `render_recipe_detail_by_name` deliberately keeps its resolve *inside*
+  `world/knowledge.py` (already a consumer via `_can_transmit`) so the `Scroll`
+  typeclass renders `look` detail without touching the registry — the count stays at
+  these four modules, not five.
 - **Why deferred:** The contrib exposes no public recipe-resolver API; `pre_craft`
   (B.1) is the authoritative backstop if this duplicate drifts, so the ~5 lines
   are an accepted UX-only convenience, not a correctness dependency. E.2's
@@ -170,10 +228,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Status:** OPEN
 
 ### `recipes <name>` output name is a prettified prototype key
-- **What:** `commands/crafting_commands.py::CmdRecipes._show_detail` renders each
+- - **What:** `world/knowledge.py::render_recipe_detail` renders each
   `output_prototypes` entry by swapping `_`→space (e.g. `leather_boots` →
   "leather boots"). It does not resolve the prototype's real `key`/`desc`, nor
-  apply a correct article/pluralisation ("a pair of leather boots").
+  apply a correct article/pluralisation ("a pair of leather boots"). As of F.3 this
+  renderer is shared by `recipes <name>` (C.2) and `look <scroll>` (the `Scroll`
+  typeclass), so one fix corrects both surfaces.
 - **Why deferred:** Resolving prototypes is a separate verification surface
   (`evennia.prototypes`) and article/plural rules are per-item; the prettified
   key is legible and correct enough for discovery. Cosmetic only.
