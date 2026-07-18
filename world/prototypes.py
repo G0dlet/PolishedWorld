@@ -524,7 +524,10 @@ LEATHER = {
 
 SCROLL = {
     "prototype_key": "scroll",
-    "typeclass": "typeclasses.objects.Object",
+    # F.3: Scroll subclass adds a readable recipe-detail block on `look` (via
+    # get_display_desc). inscribe still spawns "scroll" and stamps db.recipe; the
+    # instance is now a Scroll, so looking at it shows what it teaches.
+    "typeclass": "typeclasses.scroll.Scroll",
     "key": "recipe scroll",
     "aliases": ["scroll"],
     "desc": (

@@ -10,8 +10,6 @@ reaches craft() (this command, barter-craft, scripts), so if this early reject
 is ever bypassed the backstop still consumes nothing.
 """
 
-from collections import Counter
-
 from evennia import Command
 from evennia.contrib.game_systems.crafting.crafting import (
     CmdCraft,
@@ -23,7 +21,7 @@ from world.skillcheck import skill_check
 from evennia.prototypes.spawner import spawn
 from evennia.utils import logger
 
-from world.knowledge import _can_transmit
+from world.knowledge import _can_transmit, render_recipe_detail
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
 # conservative dev value: the disassemble roll is already destructive (the item
@@ -237,45 +235,10 @@ class CmdRecipes(Command):
             caller.msg(f"No recipe matches '{name}'.")
             return
 
-        # Ingredients: consumable_tags is a flat list where duplicates encode
-        # quantity (["fiber","fiber","fiber"] -> 3x fiber). Counter preserves
-        # first-seen order (py3.7+), so display order matches declaration order.
-        tags = list(getattr(cls, "consumable_tags", []) or [])
-        if tags:
-            counts = Counter(tags)
-            needs = ", ".join(f"{qty}x {tag}" for tag, qty in counts.items())
-        else:
-            needs = "nothing"
-
-        # Tool: a single optional tag or None. Tools are never hard-required --
-        # absence only costs the -20 improvised modifier -- so we say "optional".
-        tool_tag = getattr(cls, "tool_tag", None)
-        tool = (
-            f"{tool_tag} (optional; improvising takes a penalty)"
-            if tool_tag
-            else "none needed"
-        )
-
-        floor = getattr(cls, "min_skill", 0) or 0
-        skill = f"Craft {floor}% minimum" if floor > 0 else "no minimum"
-
-        # Output: output_prototypes holds prototype KEYS, not display names.
-        # Prettify the key (underscores -> spaces) for now; resolving the
-        # prototype's real key/desc and correct article/pluralisation (e.g.
-        # "a pair of leather boots") is deferred -> docs/BACKLOG.md.
-        outputs = list(getattr(cls, "output_prototypes", []) or [])
-        produced = ", ".join(o.replace("_", " ") for o in outputs) if outputs else "something"
-
-        lines = [
-            f"\n|w{cls.name.title()}|n",
-            "|g" + "=" * 50 + "|n",
-            f"  |wNeeds:|n   {needs}",
-            f"  |wTool:|n    {tool}",
-            f"  |wSkill:|n   {skill}",
-            f"  |wOutput:|n  {produced}",
-            "|g" + "=" * 50 + "|n",
-        ]
-        caller.msg("\n".join(lines))
+        # Presentation extracted to world.knowledge.render_recipe_detail (F.3)
+        # so `recipes <name>` and `look <scroll>` render from one place. The
+        # visibility gate above stays here -- it is command policy, not layout.
+        caller.msg(render_recipe_detail(cls))
 
 
 class CmdDisassemble(Command):

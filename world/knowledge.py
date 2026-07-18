@@ -32,6 +32,8 @@ the THIRD consumer of that registry -- logged as the one shared entry in
 docs/BACKLOG.md, not a new one.
 """
 
+from collections import Counter
+
 from evennia.contrib.game_systems.crafting.crafting import (
     _load_recipes,
     _RECIPE_CLASSES,
@@ -81,3 +83,94 @@ def _can_transmit(char, recipe_name):
     trait = char.skills.get("craft")
     skill_current = trait.current if trait else 0
     return skill_current >= min_skill
+
+
+def render_recipe_detail(cls):
+    """
+    Render a resolved recipe class as its Needs/Tool/Skill/Output detail block.
+
+    Pure presentation: takes an already-resolved recipe CLASS and returns the
+    coloured multi-line string, performing NO visibility check. The caller
+    decides who may see it -- CmdRecipes (C.2) gates on known/common, a Scroll
+    (F.3) gates on physical possession. Sharing one renderer keeps the `recipes`
+    detail view and the `look <scroll>` view from ever drifting apart.
+
+    Args:
+        cls (type): a MongooseCraftRecipe subclass (already resolved by the
+            caller, e.g. via _resolve_recipe or an exact registry get).
+
+    Returns:
+        str: the formatted, Evennia-coloured detail block. The leading newline
+            is intentional -- it spaces the block off from a command prompt or a
+            preceding description line.
+    """
+    # Ingredients: consumable_tags is a flat list where duplicates encode
+    # quantity (["fiber","fiber","fiber"] -> 3x fiber). Counter preserves
+    # first-seen order (py3.7+), so display order matches declaration order.
+    tags = list(getattr(cls, "consumable_tags", []) or [])
+    if tags:
+        counts = Counter(tags)
+        needs = ", ".join(f"{qty}x {tag}" for tag, qty in counts.items())
+    else:
+        needs = "nothing"
+
+    # Tool: a single optional tag or None. Tools are never hard-required --
+    # absence only costs the -20 improvised modifier -- so we say "optional".
+    tool_tag = getattr(cls, "tool_tag", None)
+    tool = (
+        f"{tool_tag} (optional; improvising takes a penalty)"
+        if tool_tag
+        else "none needed"
+    )
+
+    floor = getattr(cls, "min_skill", 0) or 0
+    skill = f"Craft {floor}% minimum" if floor > 0 else "no minimum"
+
+    # Output: output_prototypes holds prototype KEYS, not display names.
+    # Prettify the key (underscores -> spaces) for now; resolving the
+    # prototype's real key/desc and correct article/pluralisation (e.g.
+    # "a pair of leather boots") is deferred -> docs/BACKLOG.md.
+    outputs = list(getattr(cls, "output_prototypes", []) or [])
+    produced = ", ".join(o.replace("_", " ") for o in outputs) if outputs else "something"
+
+    lines = [
+        f"\n|w{cls.name.title()}|n",
+        "|g" + "=" * 50 + "|n",
+        f"  |wNeeds:|n   {needs}",
+        f"  |wTool:|n    {tool}",
+        f"  |wSkill:|n   {skill}",
+        f"  |wOutput:|n  {produced}",
+        "|g" + "=" * 50 + "|n",
+    ]
+    return "\n".join(lines)
+
+
+def render_recipe_detail_by_name(recipe_name):
+    """
+    Resolve a canonical recipe name and render its detail block, or None.
+
+    A name-taking wrapper around render_recipe_detail that keeps ALL access to
+    the contrib's private _RECIPE_CLASSES registry inside this module. The Scroll
+    typeclass (F.3) holds only a stamped name (obj.db.recipe), not a class; by
+    resolving here it calls this and never touches the registry itself, so the
+    scroll does not become yet another registry consumer (the coupling is logged
+    once in docs/BACKLOG.md).
+
+    Exact-key resolve: the caller passes a canonical stamp (written by inscribe),
+    not user input, so no fuzzy match is wanted -- a prefix collision must not
+    mis-resolve. A blank, unknown, or since-removed name returns None so the
+    caller can fall back to showing just the base description.
+
+    Args:
+        recipe_name (str | None): the canonical recipe name, or a falsy value.
+
+    Returns:
+        str | None: the detail block, or None if there is nothing to render.
+    """
+    if not recipe_name:
+        return None
+    _load_recipes()
+    cls = _RECIPE_CLASSES.get(recipe_name)
+    if cls is None:
+        return None
+    return render_recipe_detail(cls)
