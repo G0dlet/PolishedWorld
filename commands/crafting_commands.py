@@ -487,3 +487,97 @@ class CmdInscribe(Command):
         caller.msg(
             f"You carefully inscribe the |y{recipe_name}|n recipe onto a scroll."
         )
+
+
+class CmdLearn(Command):
+    """
+    Study an inscribed scroll and learn the recipe written on it.
+
+    Usage:
+      learn <scroll>
+      learn from <scroll>
+
+    Read the craft-notes on a scroll closely enough to keep them. The recipe
+    becomes yours permanently and the scroll is used up in the studying, so a
+    scroll passes knowledge to exactly one person.
+
+    Learning a recipe is not the same as being able to make it: an advanced
+    recipe may also demand a level of Craft you have yet to reach. Look at a
+    scroll before you study it to see what it asks of you.
+    """
+
+    key = "learn"
+    locks = "cmd:all()"
+    help_category = "Crafting"
+
+    def func(self):
+        caller = self.caller
+
+        target_name = self.args.strip()
+        # Accept the natural-language form too: `learn from <scroll>`.
+        if target_name.lower().startswith("from "):
+            target_name = target_name[5:].strip()
+
+        if not target_name:
+            caller.msg("Study what? (usage: |wlearn <scroll>|n)")
+            return
+
+        # Resolve among what the caller holds -- you must have the scroll in hand
+        # to study it. search() messages on a miss or multimatch, so a falsy
+        # return just bails.
+        target = caller.search(target_name, candidates=caller.contents)
+        if not target:
+            return
+
+        # The recipe stamp. Written by `inscribe` (F.1) onto the scroll instance;
+        # a blank/uninscribed scroll leaves it None. Nothing is consumed here.
+        # (Component G.3 extends this command to books, which carry MANY recipes;
+        # that lands as a branch here -- read the book's recipe list, pick one,
+        # wear the book instead of deleting it. The single-recipe scroll path
+        # below stays as-is.)
+        recipe_name = target.db.recipe
+        if not recipe_name:
+            caller.msg("There's nothing to learn from that.")
+            return
+
+        # Resolve the stamped name by EXACT key: the stamp is the canonical recipe
+        # name (self.name), so no fuzzy match is wanted (a prefix collision must
+        # not resolve a different recipe). A recipe since removed/renamed resolves
+        # to None -> nothing to learn, and the scroll is NOT consumed: no reason to
+        # burn it for vanished knowledge. (Reads the contrib's private registry --
+        # the same coupling _resolve_recipe and CmdDisassemble already carry,
+        # logged in docs/BACKLOG.md.)
+        _load_recipes()
+        cls = _RECIPE_CLASSES.get(recipe_name)
+        if cls is None:
+            caller.msg("There's nothing to learn from that.")
+            return
+
+        # Common (ungated) recipes are knowledge everyone already has. `inscribe`
+        # refuses to write one, so this only bites on a hand-stamped or seeded
+        # scroll -- but the guard is what keeps the known-set's invariant intact:
+        # it holds ADVANCED recipes only, so tagging a common one here would
+        # double-list it in `recipes`. Refuse BEFORE learn_recipe tags anything,
+        # and don't consume.
+        if not getattr(cls, "requires_knowledge", False):
+            caller.msg("Everyone already knows this. There's nothing to learn.")
+            return
+
+        # learn_recipe is the single chokepoint and returns False when the recipe
+        # was ALREADY known -- that signal is exactly why we can be kind here and
+        # leave the scroll intact for someone who can still use it. Read-then-write
+        # on the tag set, serialised safely by the single-threaded reactor.
+        if not caller.learn_recipe(recipe_name):
+            caller.msg("You already know this recipe. You set the scroll aside, unread.")
+            return
+
+        # Committed: the knowledge is tagged, so the scroll is spent. Capture the
+        # display name first (get_display_name needs a live object); delete() runs
+        # exactly once, atomically against a concurrent learn.
+        name = target.get_display_name(caller)
+        target.delete()
+
+        caller.msg(
+            f"You study the {name} and commit the |y{recipe_name}|n recipe to "
+            "memory. Its work done, the scroll crumbles away."
+        )

@@ -29,6 +29,7 @@ from commands.crafting_commands import (
     CmdRecipes,
     CmdDisassemble,
     CmdInscribe,
+    CmdLearn,
 )
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
@@ -102,6 +103,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # (Component F.1). A master crafter writes a one-use recipe scroll another
         # player can `learn` from. Unique key -> no ExtendedRoomCmdSet clash.
         self.add(CmdInscribe())
+        # CmdLearn (key="learn") -- closes the scroll channel (Component F.2):
+        # study a scroll to gain its recipe permanently, consuming the scroll.
+        # Extended to books in G.3. Unique key -> no clash.
+        self.add(CmdLearn())
         self.add(CmdRepair())
 
         self.add(CmdPWTrade())
