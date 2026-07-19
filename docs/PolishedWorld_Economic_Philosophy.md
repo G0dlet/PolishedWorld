@@ -1,5 +1,6 @@
 # PolishedWorld - Economic Philosophy
 
+> **Rev 2 · 2026-07-19** — corrected Principle 5: Gold has exactly ONE permanent exit (exchange back to GameGold), matching Principle 4's single burn point. Removed the erroneous "unlooted corpse decay destroys Gold" claim — currency never weathers; on death it drops to the room and persists until looted or exchanged. Dropped the in-world "deflationary pressure" line that depended on that false sink.
 > **Rev 1 · 2026-07-11** — first version; defines the long-term economic philosophy and the principles the economy must never compromise. Sits above the two economy design docs and gives them their *why*.
 >
 > **Canonical:** `docs/PolishedWorld_Economic_Philosophy.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -77,12 +78,11 @@ A single mint point is what makes the whole economy auditable and keeps it hones
 
 Most things people call "gold sinks" — food, repairs, rent, fuel — do **not** destroy Gold. They move it. The crafter who repairs your sword receives your Gold; the temple that collects your rent pays it back out as faucet work. Every apparent sink is another player's income, and the Gold keeps circulating.
 
-Gold leaves the game permanently in only two ways:
+Gold leaves the game permanently in only **one** way:
 
-- **Exchanged back to GameGold** — it returns to being crypto (intentional, reversible).
-- **An unlooted corpse decays in the wilderness** — the one true, permanent in-game loss.
+- **Exchanged back to GameGold** — it returns to being crypto (intentional, reversible). This is the single true burn, matching the single mint point in Principle 4.
 
-This is deliberate. It creates real risk in carrying wealth, a gentle deflationary pressure, and even room for "treasure hunting" — without any authored money-printing or money-burning.
+Gold never decays. When a character dies, their Gold drops to the room with the rest of their belongings — but unlike goods, currency does **not** weather away. It simply waits there until another player picks it up. So carrying wealth still holds real risk (you can lose it to whoever finds your remains) and there is still room for "treasure hunting" — but that Gold is *transferred*, never destroyed. The total Gold in existence changes only at the exchange.
 
 ### 6. The cold start is solved without buying crypto
 
