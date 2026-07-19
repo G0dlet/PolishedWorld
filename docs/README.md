@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 4 · 2026-07-19** — indexed the System Map and Source/Sink Ledger (structural / cross-system altitude).
 > **Rev 3 · 2026-07-10** — indexed the Stage 2 crafting-progression decomposition (tactical, feature-task altitude).
 > **Rev 2 · 2026-07-02** — added GameGold design, GameGold economy, and core-instructions docs to the index (moved out of the project-knowledge-only list).
 > **Canonical:** `docs/README.md` @ G0dlet/PolishedWorld — git wins. If this project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
@@ -43,6 +44,8 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Doc | Altitude | Canonical path |
 |---|---|---|
 | Strategic roadmap | strategic (epics / milestones) | `docs/roadmap.md` |
+| System map | structural (how built systems connect) | `docs/PolishedWorld_System_Map.md` |
+| Source/sink ledger | structural (economy pillar-1 audit) | `docs/PolishedWorld_SourceSink_Ledger.md` |
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
 | Crafting progression decomposition | tactical (feature tasks) | `docs/PolishedWorld_Crafting_Progression_Decomposition.md` |
