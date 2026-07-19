@@ -526,3 +526,53 @@ def referenceable_materials():
 def orphan_materials():
     """EXISTS materials with no sink yet (consumable dead-ends to resolve)."""
     return [k for k, d in MATERIALS.items() if d["status"] == EXISTS and not d["sinks"]]
+
+
+def render_ledger():
+    """
+    Render the material source/sink ledger as plain text, grouped by status.
+
+    Pure string builder -- no I/O, no Evennia import -- so the module stays
+    standalone-importable and this stays unit-testable. The CLI (__main__)
+    prints it; the ledger doc pastes that output as a clearly-generated
+    snapshot, so the snapshot can never drift from the registry (it IS the
+    registry, rendered).
+    """
+    lines = []
+    order = [
+        (EXISTS, "committed & live -- generators may reference"),
+        (DATA, "ratified, buildable now, not yet committed"),
+        (BLOCKED, "needs an unbuilt system/station (see blocked_on)"),
+        (DECISION, "gated on an open design decision"),
+    ]
+    for status, gloss in order:
+        keys = sorted(by_status(status))
+        lines.append(f"{status.upper()} ({len(keys)}) -- {gloss}")
+        for k in keys:
+            blocked = MATERIALS[k].get("blocked_on") or ""
+            suffix = f"   [blocked_on: {blocked}]" if blocked else ""
+            lines.append(f"  {k}{suffix}")
+        lines.append("")
+    orphans = sorted(orphan_materials())
+    lines.append(f"ORPHANS ({len(orphans)}) -- EXISTS but no sink (economic dead-ends):")
+    lines.append("  " + (", ".join(orphans) if orphans else "(none)"))
+    return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m world.material_registry",
+        description="Inspect the crafting-material registry.",
+    )
+    parser.add_argument(
+        "--ledger",
+        action="store_true",
+        help="print the source/sink ledger snapshot (status groups + orphans)",
+    )
+    args = parser.parse_args()
+    if args.ledger:
+        print(render_ledger())
+    else:
+        parser.print_help()
