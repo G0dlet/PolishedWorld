@@ -29,6 +29,7 @@ from commands.crafting_commands import (
     CmdRecipes,
     CmdDisassemble,
     CmdInscribe,
+    CmdScribe,
     CmdLearn,
 )
 from world.barter import CmdPWTrade
@@ -103,6 +104,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # (Component F.1). A master crafter writes a one-use recipe scroll another
         # player can `learn` from. Unique key -> no ExtendedRoomCmdSet clash.
         self.add(CmdInscribe())
+        # CmdScribe (key="scribe") -- the *bulk* written channel (Component G.2):
+        # a professional crafter binds several mastered recipes into a perishable
+        # book others `learn ... from`. Unique key -> no ExtendedRoomCmdSet clash.
+        self.add(CmdScribe())
         # CmdLearn (key="learn") -- closes the scroll channel (Component F.2):
         # study a scroll to gain its recipe permanently, consuming the scroll.
         # Extended to books in G.3. Unique key -> no clash.

@@ -42,6 +42,59 @@ INSCRIBE_COOLDOWN = 60
 # chain (leather is DECISION-status). Parchment deferred -> docs/BACKLOG.md.
 INSCRIBE_MATERIAL_TAG = "cloth"
 
+# --- Component G.2: book scribing -------------------------------------------
+
+# Real-time seconds between scribe attempts (Component G.2). Conservative dev
+# value: double INSCRIBE_COOLDOWN, since a book is the bulk, higher-value channel
+# and should not be spun out as fast as a one-use scroll. The material cost
+# (cloth x2 + twine) is the real economic throttle; this only stops book-spam.
+# Tune once playtesting shows the cadence -> docs/BACKLOG.md.
+SCRIBE_COOLDOWN = 120
+
+# crafting_material tag-keys consumed to bind a book (Component G.2). Duplicates
+# encode quantity, the same flat-list convention MongooseCraftRecipe.consumable_tags
+# uses: two bolts of cloth for the pages, one length of twine to bind them. MVP
+# reuse of EXISTS materials -- a hide-derived parchment/leather cover was the
+# decomposition's first shape but pulls in the unbuilt tanning chain (leather is
+# DECISION-status, parchment BLOCKED), so it is deferred -> docs/BACKLOG.md.
+SCRIBE_MATERIAL_TAGS = ["cloth", "cloth", "twine"]
+
+# Human-readable "2x cloth, 1x twine" for the shortfall message, computed once
+# from SCRIBE_MATERIAL_TAGS so the message can never drift from the real cost.
+# dict.fromkeys preserves first-seen order and de-dupes; .count gives the qty.
+_SCRIBE_MATERIAL_NEEDED = ", ".join(
+    f"{SCRIBE_MATERIAL_TAGS.count(t)}x {t}" for t in dict.fromkeys(SCRIBE_MATERIAL_TAGS)
+)
+
+# Flat permanent-Craft floor to scribe a BOOK, ON TOP of the per-recipe
+# _can_transmit gate (Component G.2). A book is the bulk, durable knowledge-carrier,
+# so authoring one asks a "professional" standing (Legend p.72-73, professional >=
+# 50%) in addition to mastering each recipe it holds. Read as permanent .current
+# (like _can_transmit), NOT effective .value: a fleeting buff must not confer the
+# standing to author a lasting book. Tune -> docs/BACKLOG.md.
+SCRIBE_MIN_CRAFT = 50
+
+# Result-tier -> book START-condition (Component G.2). Mirrors the craft pipeline's
+# QUALITY_BY_TIER shape (world/crafting_base.py) -- a critical adds crit_score on
+# top -- but tuned as a WEAR axis, not item quality: success sits at 80 (not 100)
+# so a critical's superior binding (100 + crit_score, the only tier reaching
+# pristine-or-above) is a visible reward that buys extra studies before the book
+# crumbles. The four values map cleanly onto DurableObject's condition colour bands
+# (green > 66, yellow 33-66, red < 33), so `look` reads the binding quality at a
+# glance. Tuning -> docs/BACKLOG.md.
+SCRIBE_CONDITION_BY_TIER = {"critical": 100, "success": 80, "failure": 50, "fumble": 25}
+
+# Per-tier flavour for a completed scribe, echoing how well the binding went (which
+# is exactly what the start-condition encodes). Mirrors crafting_base's
+# RESULT_MESSAGES in spirit -- feedback the player can feel.
+SCRIBE_TIER_FLAVOUR = {
+    "critical": "The binding is superb -- it will bear many readings.",
+    "success": "It is soundly bound.",
+    "failure": "The binding is rough; it will not last many readings.",
+    "fumble": "The binding is shoddy -- it may barely survive a reading or two.",
+}
+
+
 def _resolve_recipe(name):
     """
     Resolve a recipe *class* from a (lowercased) name the same way the contrib's
@@ -445,6 +498,158 @@ class CmdInscribe(Command):
         caller.msg(
             f"You carefully inscribe the |y{recipe_name}|n recipe onto a scroll."
         )
+
+
+class CmdScribe(Command):
+    """
+    Compile several recipes you have mastered into a book for other crafters.
+
+    Usage:
+      scribe <recipe>, <recipe>[, ...]
+      scribe book of <recipe>, <recipe>[, ...]
+
+    Bind a set of recipes you know well into a single book. Another player can
+    `learn <recipe> from <book>` to gain a recipe permanently -- each study wears
+    the book down a little, and it finally crumbles once it is used up. A book is
+    the bulk, durable sibling of the one-use scroll: it holds MANY recipes and
+    teaches MANY readers.
+
+    You can only scribe advanced recipes you have learned AND are skilled enough
+    to have mastered, and binding a book asks a professional's hand. It costs two
+    bolts of cloth for the pages and a length of twine to bind them.
+    """
+
+    key = "scribe"
+    locks = "cmd:all()"
+    help_category = "Crafting"
+
+    def func(self):
+        caller = self.caller
+
+        raw = self.args.strip()
+        if not raw:
+            caller.msg("Scribe which recipes? (usage: |wscribe <recipe>, <recipe>|n)")
+            return
+
+        # Accept the decomposition's documented `scribe book of <list>` form too.
+        # stamp() owns the "book of " key prefix, so the user need only name the
+        # recipes; stripping an optional leading "book of " keeps the longer
+        # phrasing working, mirroring CmdLearn accepting `learn from <scroll>`.
+        if raw.lower().startswith("book of "):
+            raw = raw[8:].strip()
+
+        # Parse the comma-separated list; drop empties so a trailing/double comma
+        # does not create a blank entry.
+        typed = [part.strip() for part in raw.split(",") if part.strip()]
+        if not typed:
+            caller.msg("Scribe which recipes? (usage: |wscribe <recipe>, <recipe>|n)")
+            return
+
+        # Resolve + validate EVERY entry before consuming anything, so one bad name
+        # costs no material. Preserve author order and DE-DUPLICATE (a book listing
+        # the same recipe twice is nonsense and would double it in the key).
+        recipe_names = []
+        for name in typed:
+            cls = _resolve_recipe(name)
+            if cls is None:
+                caller.msg(f"You don't know of any recipe called '{name}'.")
+                return
+            # Common (ungated) recipes are knowledge everyone already has -- nothing
+            # to bind into a book. Same distinction inscribe draws.
+            if not getattr(cls, "requires_knowledge", False):
+                caller.msg(
+                    f"Everyone already knows |w{cls.name}|n -- there's nothing to scribe there."
+                )
+                return
+            # Per-recipe mastery gate (shared with inscribe/teach): you must KNOW
+            # each recipe and meet its permanent-skill floor to write it down.
+            if not _can_transmit(caller, cls.name):
+                caller.msg(f"You can't scribe |w{cls.name}|n -- you haven't mastered it.")
+                return
+            if cls.name not in recipe_names:
+                recipe_names.append(cls.name)
+
+        # Book-specific floor ON TOP of the per-recipe gate. Read permanent .current
+        # (not effective .value), like _can_transmit: a fleeting buff must not confer
+        # the standing to author a lasting book.
+        trait = caller.skills.get("craft")
+        craft_current = trait.current if trait else 0
+        if craft_current < SCRIBE_MIN_CRAFT:
+            caller.msg(
+                f"Binding a book asks a steadier hand -- you need Craft "
+                f"{SCRIBE_MIN_CRAFT}% to scribe one."
+            )
+            return
+
+        # Anti-spam: after the harmless guards and BEFORE any material is spent, so
+        # a player on cooldown keeps their cloth and twine.
+        if not caller.cooldowns.ready("scribe"):
+            left = caller.cooldowns.time_left("scribe", use_int=True)
+            caller.msg(
+                f"Your hand is still cramped from the last binding. Try again in {left}s."
+            )
+            return
+
+        # Gather writing materials by tag (robust to key/alias drift, like inscribe
+        # and the crafting contrib). Duplicates in SCRIBE_MATERIAL_TAGS encode
+        # quantity, so we claim a DISTINCT object per required instance. Check ALL
+        # are present BEFORE consuming ANY: the single-threaded reactor makes this
+        # gather-then-consume atomic against a concurrent scribe -- no dupe, no
+        # partial loss.
+        to_consume = []
+        for tag in SCRIBE_MATERIAL_TAGS:
+            material = next(
+                (
+                    obj
+                    for obj in caller.contents
+                    if obj.tags.has(tag, category="crafting_material")
+                    and obj not in to_consume
+                ),
+                None,
+            )
+            if material is None:
+                caller.msg(f"You need {_SCRIBE_MATERIAL_NEEDED} to scribe a book.")
+                return
+            to_consume.append(material)
+
+        # Roll the author's Craft to set the book's start-condition. Effective skill
+        # (.value = current + mod), mirroring do_craft: a tool/situational buff can
+        # lift the binding's QUALITY even though the .current gate above governs
+        # PERMISSION. No tool modifier -- there is no scribing implement in the MVP
+        # (a quill/pen tool is a future addition), so the roll is unmodified.
+        skill_value = trait.value if trait else 0
+        outcome = skill_check(skill_value)
+        tier = outcome["result"]
+        condition = SCRIBE_CONDITION_BY_TIER.get(tier, 50)
+        if tier == "critical":
+            condition += outcome["crit_score"]
+
+        # Commit. Spawn the book FIRST; consume materials only once it exists, so a
+        # spawn failure eats nothing. spawn/delete/stamp/move_to all run under the
+        # single-threaded reactor -> atomic against a concurrent scribe, and each
+        # delete() runs exactly once.
+        try:
+            book = spawn("book")[0]
+        except Exception:
+            logger.log_trace()
+            caller.msg("The binding falls apart in your hands; nothing is lost.")
+            return
+
+        for material in to_consume:
+            material.delete()
+
+        # stamp() owns the book's identity (recipe list + searchable key); the
+        # start-condition is scribe's to set (G.1 deliberately left it unset), so we
+        # set it AFTER stamp. condition is a raw-int AttributeProperty -- assign it
+        # directly (NOT .current).
+        book.stamp(recipe_names)
+        book.condition = condition
+        book.move_to(caller, quiet=True)
+
+        caller.cooldowns.add("scribe", SCRIBE_COOLDOWN)
+        listed = ", ".join(recipe_names)
+        tail = SCRIBE_TIER_FLAVOUR.get(tier, "")
+        caller.msg(f"You bind a book of |y{listed}|n. {tail}".rstrip())
 
 
 class CmdLearn(Command):
