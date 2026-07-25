@@ -94,6 +94,16 @@ SCRIBE_TIER_FLAVOUR = {
     "fumble": "The binding is shoddy -- it may barely survive a reading or two.",
 }
 
+# Wear points a single study spends from a book's condition (Component G.3). Flat
+# per-lesson cost: the book's start-condition (set by scribe's roll) decides HOW
+# MANY readers it can teach, and each study chips a fixed amount off. At 20, a
+# soundly-bound book (success, condition 80) teaches 4 readers, a rough one
+# (failure, 50) teaches 3, a shoddy one (fumble, 25) teaches 2, and a superior one
+# (critical, 100+) teaches 5+ -- always more than a scroll's single reader, scaling
+# with the binding quality. Conservative dev value (start stingy, loosen if
+# playtest wants wider spread); tune -> docs/BACKLOG.md.
+BOOK_WEAR_PER_STUDY = 20
+
 
 def _resolve_recipe(name):
     """
@@ -654,19 +664,21 @@ class CmdScribe(Command):
 
 class CmdLearn(Command):
     """
-    Study an inscribed scroll and learn the recipe written on it.
+    Study inscribed knowledge and learn the recipe(s) written in it.
 
     Usage:
       learn <scroll>
       learn from <scroll>
+      learn <recipe> from <book>
 
-    Read the craft-notes on a scroll closely enough to keep them. The recipe
-    becomes yours permanently and the scroll is used up in the studying, so a
-    scroll passes knowledge to exactly one person.
+    A scroll carries one recipe and is used up in the studying, passing its
+    knowledge to exactly one person. A book carries many recipes and wears down a
+    little with each study, teaching several readers before its binding finally
+    gives out -- name which recipe you want with `learn <recipe> from <book>`.
 
-    Learning a recipe is not the same as being able to make it: an advanced
-    recipe may also demand a level of Craft you have yet to reach. Look at a
-    scroll before you study it to see what it asks of you.
+    Learning a recipe is not the same as being able to make it: an advanced recipe
+    may also demand a level of Craft you have yet to reach. Look at a scroll or
+    book before you study it to see what it holds.
     """
 
     key = "learn"
@@ -676,28 +688,54 @@ class CmdLearn(Command):
     def func(self):
         caller = self.caller
 
-        target_name = self.args.strip()
-        # Accept the natural-language form too: `learn from <scroll>`.
-        if target_name.lower().startswith("from "):
-            target_name = target_name[5:].strip()
-
-        if not target_name:
-            caller.msg("Study what? (usage: |wlearn <scroll>|n)")
+        raw = self.args.strip()
+        if not raw:
+            caller.msg(
+                "Study what? (usage: |wlearn <scroll>|n, or |wlearn <recipe> from <book>|n)"
+            )
             return
 
-        # Resolve among what the caller holds -- you must have the scroll in hand
-        # to study it. search() messages on a miss or multimatch, so a falsy
-        # return just bails.
+        # Two syntaxes share this command:
+        #   scroll:  `learn <scroll>` / `learn from <scroll>`   (F.2/F.3, unchanged)
+        #   book:    `learn <recipe> from <book>`               (G.3)
+        # A book holds MANY recipes, so the book form names WHICH recipe BEFORE
+        # "from". The scroll's `learn from <scroll>` has nothing before "from", so
+        # we distinguish on "is there text to the LEFT of a ' from ' separator".
+        recipe_request = None
+        if " from " in raw:
+            left, _, right = raw.partition(" from ")
+            if left.strip():
+                recipe_request = left.strip()
+                target_name = right.strip()
+            else:
+                target_name = right.strip()
+        else:
+            target_name = raw
+            if target_name.lower().startswith("from "):
+                target_name = target_name[5:].strip()
+
+        if not target_name:
+            caller.msg(
+                "Study what? (usage: |wlearn <scroll>|n, or |wlearn <recipe> from <book>|n)"
+            )
+            return
+
+        # Must have the carrier in hand to study it. search() messages on a miss or
+        # multimatch, so a falsy return just bails.
         target = caller.search(target_name, candidates=caller.contents)
         if not target:
             return
 
+        # A book carries db.recipes (a LIST, G.1); a scroll carries db.recipe (a
+        # single name) and leaves db.recipes None. Branch on that: the book path is
+        # G.3, the scroll path below is F.2/F.3 verbatim.
+        book_recipes = target.db.recipes
+        if book_recipes is not None:
+            self._learn_from_book(caller, target, book_recipes, recipe_request)
+            return
+
         # The recipe stamp. Written by `inscribe` (F.1) onto the scroll instance;
         # a blank/uninscribed scroll leaves it None. Nothing is consumed here.
-        # (Component G.3 extends this command to books, which carry MANY recipes;
-        # that lands as a branch here -- read the book's recipe list, pick one,
-        # wear the book instead of deleting it. The single-recipe scroll path
-        # below stays as-is.)
         recipe_name = target.db.recipe
         if not recipe_name:
             caller.msg("There's nothing to learn from that.")
@@ -744,3 +782,79 @@ class CmdLearn(Command):
             f"You study the {name} and commit the |y{recipe_name}|n recipe to "
             "memory. Its work done, the scroll crumbles away."
         )
+
+    def _learn_from_book(self, caller, book, book_recipes, recipe_request):
+        """Study one recipe out of a multi-recipe book (Component G.3).
+
+        The reader names WHICH recipe (`learn <recipe> from <book>`). On a
+        successful study the recipe becomes theirs and the book wears down by
+        BOOK_WEAR_PER_STUDY; the study that spends the last of the binding still
+        COMPLETES (the reader keeps the recipe) and only THEN does the book crumble
+        -- the locked complete-then-crumble rule, so no empty husk lingers. A
+        recipe the reader already knows, or one the book does not hold, wears
+        nothing.
+        """
+        if recipe_request is None:
+            held = ", ".join(book_recipes) if book_recipes else "nothing"
+            caller.msg(
+                "Which recipe? (usage: |wlearn <recipe> from <book>|n). "
+                f"That book holds: {held}."
+            )
+            return
+
+        # Match the request against the book's contents. Case-insensitive: recipe
+        # names are canonical-lowercase, but a reader may type any case.
+        wanted = recipe_request.lower()
+        match = next((r for r in book_recipes if r.lower() == wanted), None)
+        if match is None:
+            held = ", ".join(book_recipes) if book_recipes else "nothing"
+            caller.msg(
+                f"That book doesn't hold a |w{recipe_request}|n recipe. It holds: {held}."
+            )
+            return
+
+        # Resolve the canonical class by EXACT key (same discipline as the scroll
+        # path). A recipe removed/renamed since the book was scribed resolves to
+        # None -> nothing to learn, and the book is NOT worn: no reason to spend a
+        # study on vanished knowledge.
+        _load_recipes()
+        cls = _RECIPE_CLASSES.get(match)
+        if cls is None:
+            caller.msg("There's nothing to learn from that.")
+            return
+
+        # Books are only scribed from advanced recipes (scribe enforces
+        # requires_knowledge), so this only bites a hand-stamped/seeded book -- but
+        # it keeps the known-set's "advanced only" invariant. Refuse before tagging,
+        # and don't wear.
+        if not getattr(cls, "requires_knowledge", False):
+            caller.msg("Everyone already knows this. There's nothing to learn.")
+            return
+
+        # Already known -> be kind, wear nothing, leave the book for the next reader
+        # (parity with the scroll's "set aside, unread").
+        if not caller.learn_recipe(match):
+            caller.msg(
+                "You already know this recipe. You leaf past it, leaving the book untouched."
+            )
+            return
+
+        # Committed: the lesson took, so it costs the binding one study. Capture the
+        # display name while the book is live, wear it, then decide survival. Per
+        # complete-then-crumble the reader KEEPS the recipe regardless; we only
+        # decide whether the book survives. apply_wear floors at 0 and logs the
+        # break; is_broken reads condition <= 0. delete() runs exactly once, atomic
+        # against a concurrent study on the single-threaded reactor.
+        name = book.get_display_name(caller)
+        book.apply_wear(BOOK_WEAR_PER_STUDY)
+        if book.is_broken:
+            book.delete()
+            caller.msg(
+                f"You study the {name} and commit the |y{match}|n recipe to memory. "
+                "The worn binding gives out as you close it, and the book crumbles away."
+            )
+        else:
+            caller.msg(
+                f"You study the |y{match}|n recipe from the {name}, committing it to "
+                "memory. The book is more thumbed for it."
+            )
