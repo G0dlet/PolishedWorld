@@ -1,5 +1,14 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 10 · 2026-07-25** — Stage 3 Component G close-out (book — perishable bulk
+> transfer, G.1–G.3). Added three *Crafting & Tools* deferrals: *book-channel tuning
+> constants* (`SCRIBE_MIN_CRAFT` / `SCRIBE_COOLDOWN` / `SCRIBE_CONDITION_BY_TIER` /
+> `BOOK_WEAR_PER_STUDY` — one balance axis, since start-condition ÷ wear IS
+> readers-per-book), *scribe's band→condition bypasses `quality_band`* (a deliberate
+> consistency divergence, logged rather than refactored), and *book repair
+> ("rebind")* — moved into its canonical home here, having lived only as a decomp
+> §15 anchor. Extended the existing *parchment* entry with G.2's book-cover case
+> instead of duplicating it (same tanning-chain blocker, same design axis).
 > **Rev 9 · 2026-07-18** — Stage 3 Component G.1 (perishable `Book` typeclass).
 > Added one *UX & Item Identity* deferral: *per-recipe `min_skill`/detail on
 > book & scroll `look`/`evaluate`* — the "show buyers craftability, not just
@@ -146,7 +155,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ### Parchment writing material (hide-derived writing surface)
 - **What:** A dedicated `parchment` primitive as the scroll's writing surface,
   tanned/derived from hide (tying the hunting economy into the knowledge economy),
-  instead of F.1's MVP reuse of `cloth`.
+  instead of F.1's MVP reuse of `cloth`. G.2 extends the same question to the
+  *book*: the decomposition's first shape was `parchment×N` pages plus a `leather`
+  cover bound with `twine`, shipped instead as `SCRIBE_MATERIAL_TAGS = cloth×2 +
+  twine`. Both carriers should adopt the hide-derived surface together.
 - **Why deferred:** Parchment-from-hide needs a tanning chain that does not exist:
   `leather` is DECISION-status (unbuilt) and `raw_hide` is an orphan until tanning
   lands, so building parchment now drags in half an unbuilt economy chain. F.1
@@ -155,7 +167,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The tanning chain landing (leather / DECISION #2 resolved), decided
   *together with* the blank-scroll entry below — both answer the same question
   ("what is the physical writing surface, and is it a crafted good?").
-- **Origin:** Recipe Knowledge decomp §11, Task F.1 (choice (a), locked to cloth).
+- **Origin:** Recipe Knowledge decomp §11, Task F.1 (choice (a), locked to cloth);
+  §12, Task G.2 (choice (b), book bound from cloth×2 + twine).
 - **Status:** BLOCKED (tanning chain)
 
 ### Blank scroll as a craftable intermediate
@@ -247,6 +260,52 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Any pass that adds prototype display-name resolution, or the first
   recipe whose prototype key reads badly when prettified.
 - **Origin:** Recipe Knowledge decomp §8, Task C.2.
+- **Status:** OPEN
+
+### Book-channel tuning (`SCRIBE_*` + `BOOK_WEAR_PER_STUDY`)
+- **What:** The four named constants in `commands/crafting_commands.py` governing how
+  fast books spread knowledge: `SCRIBE_MIN_CRAFT` (50), `SCRIBE_COOLDOWN` (120),
+  `SCRIBE_CONDITION_BY_TIER` (`{critical: 100 + crit_score, success: 80, failure: 50,
+  fumble: 25}`) and `BOOK_WEAR_PER_STUDY` (20).
+- **Why deferred:** Balance-tuning, not a mechanic gap, and deliberately ONE entry:
+  start-condition ÷ wear IS readers-per-book (currently 2 / 3 / 4 / 5+ by binding
+  quality), so tuning any one constant in isolation moves the same emergent number.
+  All four are conservative dev values — the material cost (cloth×2 + twine) is the
+  real economic throttle, and no playtest data exists on how widely a single book
+  should seed a recipe.
+- **Trigger:** Live data on book production/trade cadence, or recipes spreading
+  visibly faster/slower than the scroll and teach channels.
+- **Origin:** Recipe Knowledge decomp §12, Tasks G.2 & G.3.
+- **Status:** OPEN
+
+### Scribe's band→condition bypasses `quality_band`
+- **What:** `SCRIBE_CONDITION_BY_TIER` maps a `skill_check` result tier straight to a
+  start-condition, where the house pattern routes tier → `QUALITY_BY_TIER` →
+  `crafting_quality.quality_band()` → a band→condition table (E.3's
+  `_apply_garment_quality` / `GARMENT_CONDITION_BY_BAND`).
+- **Why deferred:** Deliberate, not an oversight. `scribe` is a standalone Command,
+  not a `MongooseCraftRecipe`: it never computes a `quality` number and stamps no
+  `db.quality`, so routing through `quality_band()` would mean synthesising a quality
+  purely to classify it back into a condition. The four values are tuned directly
+  against `DurableObject`'s colour bands instead. Cost of the divergence: if the
+  quality bands are ever retuned, scribe will not follow, and books cannot gain a
+  "superior" alias the way tools and waterskins do.
+- **Trigger:** Retuning the quality bands, or wanting a `superior book of <recipes>`
+  alias — either makes unification worth its indirection.
+- **Origin:** Recipe Knowledge decomp §12, Task G.2 (locked band→condition choice).
+- **Status:** OPEN
+
+### Book repair ("rebind")
+- **What:** Let a worn book be repaired/rebound rather than crumbling away, the way
+  `CmdRepair` restores tools and garments.
+- **Why deferred:** Excluded from Component G *on purpose*, to keep the sink clean.
+  A book is the bulk knowledge-carrier; if it can be rebound indefinitely, one
+  well-scribed book seeds a recipe to the whole server and the channel stops costing
+  anything. Complete-then-crumble (G.3) makes the book a genuine consumable. Repair
+  would also need its own material + skill story (rebinding ≠ patching leather).
+- **Trigger:** Playtest showing books crumble faster than the economy can replace
+  them, or a deliberate decision to soften the knowledge sink.
+- **Origin:** Recipe Knowledge decomp §12, Task G.3 (and §15 anchor).
 - **Status:** OPEN
 
 ---
