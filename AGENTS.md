@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 2 · 2026-07-26** — added §0A (unit-test scope: `tests/` only, green-test guard); added `tests/` to the §0 write-scope.
 > **Rev 1 · 2026-07-01** — added §9 (documentation version-header convention).
 > **Canonical:** `AGENTS.md` @ G0dlet/PolishedWorld — git wins.
 
@@ -16,10 +17,13 @@ Read this whole file before writing anything.
 
 ## 0. SCOPE — read this first
 
-### You MAY edit only these data files:
+### You MAY edit only these files:
 - `world/prototypes.py` — item / creature / resource-node prototypes (data dicts)
 - `world/recipes.py` — one-line `MongooseCraftRecipe` subclasses (data only)
 - `world/harvest_templates.py` — the `HARVEST_TEMPLATES` data dict
+- `tests/` — unit-test modules (`tests/test_*.py`), under the strict rules in §0A.
+  You may CREATE new test modules and edit ones you created. You may NOT touch a
+  test module hand-written by Claude/Adam unless explicitly asked.
 
 ### You MUST NOT, under any circumstances:
 - Create or edit any file under `typeclasses/` (Creature, Corpse, Food, Drink,
@@ -41,6 +45,74 @@ This is a design/code change, not data. Leaving it out — needs Claude/Adam.
 ```
 
 The human will get the missing piece implemented, then ask you to add the data.
+
+---
+
+## 0A. Writing unit tests (`tests/` only)
+
+A second, separate job: replicating unit-test coverage across the codebase. This
+is code, not data, so it carries its own hard rules. The production-code boundary
+in §0 is UNCHANGED — writing a test NEVER licenses editing the thing under test.
+Tests may *reference* (import) anything in `world/`, `commands/`, `typeclasses/`;
+they may not *edit* it.
+
+### The template is the law
+`tests/test_knowledge.py` is the **golden reference**. Copy its shape for every
+new test module — do not invent a different style:
+- Use the **lightest base class** that works: `EvenniaTestCase` for pure
+  functions with no db; `EvenniaTest` when you need `.char1`/rooms/objects;
+  `EvenniaCommandTest` when you drive a Command through `.call()`.
+- **Pin the typeclass** you depend on (`character_typeclass =
+  "typeclasses.characters.Character"`), don't trust a settings default.
+- If you define `setUp`, call `super().setUp()` — the base class builds fixtures.
+- For commands, assert the **message AND the side-effect** (object created /
+  consumed, tag added), never just the text.
+- Keep the **WHY comments**. A test nobody understands is a test nobody trusts.
+
+### Test behaviour, not implementation — read the same attribute the code reads
+Assert what the code should DO, not a restatement of how it does it. Critically:
+if the production code reads `trait.current`, the test asserts against `.current`
+— **never** `.value` (and vice-versa). Asserting the wrong attribute bakes a bug
+in as "expected behaviour" and is worse than no test. Where a design choice
+hinges on one attribute (e.g. `world/knowledge.py`'s current-not-value rule),
+write the test that FAILS if someone swaps it.
+
+### Green before commit — non-negotiable
+Run the suite with the game's own settings and paste the result line:
+
+```
+evennia test --settings settings.py .
+```
+
+The `--settings settings.py` flag is mandatory — without it the runner uses
+Evennia defaults, the custom Character typeclass never loads, and every test
+errors. A red or errored suite is **never** committed.
+
+### Same integrity discipline as §1 rule 3
+Every method, attribute, Command, prototype or recipe a test references must
+exist in the **actual repo file** — confirm by `grep`, not from an example you
+were shown. A test that calls a method that isn't there is a broken commit, the
+same as a recipe outputting a missing prototype.
+
+### When a test can't be written cleanly — STOP and FLAG
+If code looks buggy, or can't be tested without a fixture/behaviour that doesn't
+exist, do NOT edit `world/`, `commands/`, `typeclasses/`, or `server/` to make it
+pass, and do NOT invent a workaround:
+
+```
+FLAG: cannot test "<thing>" — <needs X that doesn't exist / code looks buggy>.
+This is a code/design change, not a test. Needs Claude/Adam.
+```
+
+### Constraints
+- **`tests/` is the only writable location for test code.** Never drop a
+  `test_*.py` inside `world/`, `commands/`, etc.
+- **No new test dependencies.** Use `evennia.utils.test_resources` and stdlib
+  `unittest` asserts only.
+- For a Command that emits several `.msg()` calls, join the expected fragments
+  with the `||` separator in `.call(msg=...)` — see the template's note.
+- **Commit convention:** `test(<area>): <what>`, e.g.
+  `test(knowledge): cover the inscribe/learn scroll channel`.
 
 ---
 
