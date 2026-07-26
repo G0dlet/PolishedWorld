@@ -1,5 +1,15 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 12 · 2026-07-26** — Stage 3 close-out. **Component I (thin world-loot scroll
+> seed) deferred here in full** rather than built — the decomp named it a defer-candidate
+> if world-content plumbing wasn't ready, and it isn't (`world/batch_cmds.ev` is untouched
+> Evennia boilerplate). The entry carries the profession-coverage analysis, the sharpened
+> trigger (risk is highest at LOW player counts, so the trigger is *before the first real
+> player cohort*, not "when the world is big"), and the design decisions that would
+> otherwise be lost. Also added the *unit-test coverage initiative* under a new
+> **Tooling & Process** section: `tests/test_knowledge.py` was drafted in an earlier
+> session but is not in the repo on either branch, and `AGENTS.md` §0 never gained the
+> `tests/` scope entry — logged honestly rather than left in working memory.
 > **Rev 11 · 2026-07-26** — Stage 3 Component H close-out (teaching — synkron
 > transfer med samtycke, H.1). Added two *Crafting & Tools* entries: *teach-channel
 > tuning* (`TEACH_TIMEOUT` / `TEACH_COOLDOWN` — one axis, and the entry carries the
@@ -357,6 +367,60 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Recipe Knowledge decomp §2 (d) + §15 anchor; Legend p.72–73.
 - **Status:** BLOCKED (on a real chargen/skill system — see *Professions & Chargen*)
 
+### World-loot scroll seed (Stage 3 Component I — the knowledge safety valve)
+
+- **What:** A small, deterministic supply of stamped recipe scrolls placed in the world,
+  so an advanced recipe cannot become permanently unreachable when no online player holds
+  the profession that grants it. Decomp §2 (c) named it the safety valve for the
+  profession-grant bootstrap; §14 specified it as Task I.1. **Deferred in full at Stage 3
+  close-out — Stage 3 shipped Components A–H, not A–I.**
+- **Why deferred:** Three reasons, in order of weight.
+  1. **The failure mode requires players, and there are none.** Profession-grant is the
+     only bootstrap source (reverse-engineering needs a crafted item, and scroll/book/teach
+     all need a sender who already knows the recipe), so a coverage gap is real — but it
+     cannot occur with an empty server.
+  2. **The valve is already operable manually.** An admin can place a correctly stamped
+     scroll in one line
+     (`@py ... spawn("scroll")[0] ... .stamp("linen shirt") ... .move_to(...)`, see
+     Testing Reference §7). I.1 would add *automation and determinism*, not capability, so
+     deferring costs almost nothing today.
+  3. **There is no world to seed into.** `world/batch_cmds.ev` is untouched Evennia
+     boilerplate — zero build commands. Choosing a seed location, cadence and respawn
+     policy against a world that doesn't exist is guesswork that would need redoing.
+- **Trigger:** ⚠️ **Before the first cohort of real players logs in** — *not* "when the
+  world is large". The risk runs the other way: with few players the profession bundles
+  are unlikely to be fully covered, so exposure is **highest** at low player counts and
+  falls as the population grows. Treat this as a launch-blocker checklist item, not a
+  someday-item.
+- **Exposure at time of writing (recompute before implementing):** coverage is uneven
+  across the four advanced recipes —
+
+  | Recipe | Granted by | Exposure |
+  |---|---|---|
+  | `cloth` | weaver, generalist | 2 — robust |
+  | `leather` | tanner, generalist | 2 — robust |
+  | `linen shirt` | **weaver only** | **1 — exposed** |
+  | `leather boots` | **cobbler only** | **1 — exposed** |
+
+  So a seed needs to cover `linen shirt` and `leather boots`, not all four. `leather boots`
+  is doubly exposed: single grantor, plus `min_skill = 30`, plus a dependency on
+  tanner/generalist leather. ⚠️ **This table is an artefact of the current 4-recipe /
+  4-profession vertical slice.** When the recipe catalogue grows the coverage maths changes
+  completely — recompute against `world/professions.py` and `world/recipes.py` at
+  implementation time rather than trusting this snapshot.
+- **Design decisions to preserve (so the future build is short):**
+  - Go through `Scroll.stamp(recipe_name)` — it owns identity and sets both `db.recipe` and
+    a real stored `key` (barter matches on `obj.key`). Never hand-set `db.recipe`.
+  - Only `requires_knowledge = True` recipes can be seeded; `learn` refuses common ones.
+  - **Idempotency is required** — re-running the seed must not double the scrolls. Tag the
+    seeded objects, or flag the room.
+  - **Decide one-shot vs respawn explicitly.** A seeded scroll is *consumed* by `learn`, so
+    without replenishment the valve fires exactly once, ever. That has to be a decision, not
+    an accident.
+  - No loot-table infrastructure — the goal is the valve, not a drop system.
+- **Origin:** Recipe Knowledge decomp §14 (Task I.1) + §2 (c).
+- **Status:** BLOCKED (on world content existing, and on a real player base)
+
 ---
 
 ## Professions & Chargen
@@ -483,6 +547,32 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 > written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
 > work). It has a safe home in an always-read doc, so per the scope note it is not
 > duplicated here.
+
+---
+
+## Tooling & Process
+
+### Unit-test coverage initiative (`tests/` + OpenCode replication)
+
+- **What:** A committed `tests/` package running under
+  `evennia test --settings settings.py .`, seeded by a heavily-commented reference suite for
+  `world/knowledge.py` intended as a golden template OpenCode replicates across the other
+  modules, plus an `AGENTS.md` §0 scope entry permitting OpenCode to write under `tests/`
+  **only**, gated on a green run before commit.
+- **Why deferred:** Honest status, not a plan: a 21-test reference suite and a
+  `tests/__init__.py` marker were drafted in an earlier session, but **neither is in the
+  repo** — both return 404 on `main` and on `feature/recipe-knowledge` — and `AGENTS.md` §0
+  still scopes OpenCode to `world/prototypes.py`, `world/recipes.py` and
+  `world/harvest_templates.py` with no `tests/` entry. The work exists only in a closed
+  chat. Logging it here beats leaving it in working memory, which is exactly how the
+  original draft got lost.
+- **Trigger:** Any of — a regression that in-game `@py` testing would not have caught;
+  onboarding a second contributor; or the crafting-catalogue expansion, where bulk
+  OpenCode-generated data makes a green-test guard genuinely load-bearing.
+- **Note:** The `AGENTS.md` scope entry is a **prerequisite**, not a follow-up — without it
+  OpenCode has no permission to write the files it is meant to replicate.
+- **Origin:** Unit-test coverage session (pre-Component G); rediscovered at Stage 3 close-out.
+- **Status:** OPEN
 
 ---
 
