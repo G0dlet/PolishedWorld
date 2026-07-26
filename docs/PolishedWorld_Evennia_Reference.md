@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 14 · 2026-07-26** — New §11.20 (verified live against Evennia `main` — `commands/cmdset.py`, `cmdsethandler.py`, `commands/command.py`): a duplicate command key across two cmdsets at **equal priority** is *silently deleted*, not shadowed, and the survivor is the **already-merged (lower) set**, not the one added last — the opposite of the natural intuition. `Command.__eq__` matches on key+alias **intersection** and `__hash__` on key alone, so an alias overlap is enough. Worked example: a global `accept` in `CharacterCmdSet` would erase barter's `CmdAccept` (and our `CmdPWAccept` ownership backstop) for the whole trade session. §11.14's `look`/`ExtendedRoomCmdSet` collision is the same lesson's first instance; cross-referenced. Drove Stage 3 H.1's decision to extend `learn` rather than key a new `accept`.
 > **Rev 13 · 2026-07-11** — New §11.19 (verified live): `TagHandler` key normalisation (`add`/`get`/`has` lower-case + strip; internal spaces kept), `add()` DB-level idempotency, and `get(category=…, return_list=True)` → list-of-key-strings (`[]` when empty) / `has(single_key)` → `bool`. Underpins the Stage 3 Component A known-recipe set (`Character.knows_recipe`/`learn_recipe`/`known_recipes`).
 > **Rev 12 · 2026-07-11** — Doc hygiene: §8.8's "is wearing nothing" backlog candidate trimmed to a pointer at `docs/BACKLOG.md` (the technical finding stays; only the backlog note moved). No other change.
 > **Rev 11 · 2026-07-11** — Crafting Progression Component G (superior-tool scaling), verified live: §8.7 updated — `_tool_modifier` now has a **superior branch** reading the tool's OWN `db.quality` (stamped by `do_craft` on every output, tools included, *before* `_finalize_item`), banded via `quality_band`: `superior` (>100) → `+tool_bonus` (10), plain present → 0, absent/broken → penalty; **`db.quality` is `None`-guarded** (an uncrafted/admin tool like the metal `KNIFE` has no quality stamp → short-circuits to baseline 0 before banding, else `quality_band(None)` raises). §8.7 `CmdRepair` gap CLOSED — `_tool_modifier(caller, target)` is generalised per target via `target.db.repair_tool_tag` (unset → needle default; `""` → no tool; verified the spawner stores an empty-string top-level prototype key faithfully, so the `""` sentinel is reliable), target excluded from the search, broken tools skipped. §8.9 max-quality note **110 → 111** (a superior tool's +10 with `skillcheck` never clamping `target`). **Stage 2 closed.**
@@ -1017,7 +1018,9 @@ Consequence for containers: `look <container>` shows what's inside for free — 
   are **not** re-exported from the package `__init__.py` (same pattern as `CraftingCmdSet`).
 - ⚠️ `ContainerCmdSet` bundles `CmdContainerLook`, which replaces `look` and **collides** with
   extended_room's `CmdExtendedRoomLook` (seasonal descriptions). With extended_room in use, add
-  the individual commands you need (e.g. just `CmdContainerGet`), not the bundle.
+  the individual commands you need (e.g. just `CmdContainerGet`), not the bundle. The *mechanism*
+  behind this collision — duplicate keys are deleted rather than shadowed, and the lower set wins
+  ties — is written up in §11.20.
 
 ### 11.15 `search_object()` resolves `#dbref` strings
 
@@ -1065,6 +1068,21 @@ Fix: to functionally test a mixin/typeclass in the shell, put a real host in an 
 - **`get(category=X, return_list=True)` returns a list of key strings** — with `key=None` it takes the category branch (`_getcache`: `key = … if key else None`) and returns every tag key in that category as `to_str(tag.db_key)`, or `[]` when empty. `has(single_key, category=X)` returns a plain `bool` (a single match unwraps). Exactly what `known_recipes()`/`knows_recipe()` rely on.
 
 Multiplayer: a `learn` is a read-then-write on the tag set, but Evennia's single-threaded reactor serialises commands, so concurrent learns can't race — worst case the second sees the tag present and returns `False`.
+
+### 11.20 ⚠️ Duplicate command keys are *deleted*, not shadowed — and the lower set wins ties
+
+*(Verified live against Evennia `main`, 2026-07-26 — `evennia/commands/cmdset.py`, `cmdsethandler.py`, `commands/command.py`.)* Two cmdsets carrying the same command key do **not** produce a multimatch or a polite override. One command disappears, and which one is counter-intuitive.
+
+- **Equality is by key+alias intersection.** `Command.__eq__` returns `self._matchset.intersection(cmd._matchset)` where `_matchset = {key} | set(aliases)`, and `__hash__` is `hash(self.key)`. Two commands that share *only an alias* compare equal. So collisions are wider than the key alone suggests.
+- **Union merge drops the incoming duplicate.** `CmdSet._union` does `existing_commands = set(cmdset_a.commands)` then extends with `[cmd for cmd in cmdset_b if cmd not in existing_commands]` — anything already present is never added.
+- **On a priority tie, `cmdset_a` is the *already-merged* set.** `cmdsethandler.update()` folds the stack bottom-up with `new_current = cmdset + new_current`, and `__add__` takes the `self.priority <= cmdset_a.priority` branch on a tie, passing the accumulated set as `cmdset_a`. Net: **the set lower in the stack keeps its command; the one added later loses it.** Adding a cmdset at runtime does *not* let it override a same-keyed command at equal priority.
+- Both `default_cmds.CharacterCmdSet` and contrib cmdsets such as barter's `CmdsetTrade` are `priority = 0`, so this tie is the default case, not an edge case.
+
+**Worked example (why H.1 did not key an `accept`):** barter's bare `accept` (alias `agree`) lives in `CmdsetTrade`, added to both parties at trade start. A global `accept` in our `CharacterCmdSet` sits *lower* in the stack, so it would win the tie and barter's `CmdAccept` — including our `CmdPWAccept` stale-offer backstop (§7.5, `world/barter.py`) — would simply not exist during a trade. Note barter itself avoids owning a global `accept` for its *invite* handshake, using `trade <person> accept` instead: same verb, accept as an argument.
+
+**Rule for this project:** every new command gets a key and aliases verified unique against the default `CharacterCmdSet` *and* every contrib cmdset we merge, including ones added at runtime. When a second command genuinely needs to answer an existing verb, extend the command that already owns the key (H.1 extended `learn` to a third carrier) rather than adding a second holder of it. Raising `priority` to "win" only inverts the casualty.
+
+**Related:** §11.14 (`ContainerCmdSet`'s `CmdContainerLook` vs `extended_room`'s `look`) is the first instance of this lesson, caught empirically before the mechanism was understood.
 
 ---
 
