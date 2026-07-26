@@ -1,5 +1,14 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 11 · 2026-07-26** — Stage 3 Component H close-out (teaching — synkron
+> transfer med samtycke, H.1). Added two *Crafting & Tools* entries: *teach-channel
+> tuning* (`TEACH_TIMEOUT` / `TEACH_COOLDOWN` — one axis, and the entry carries the
+> `TEACH_COOLDOWN >= TEACH_TIMEOUT` invariant that makes "one student at a time"
+> structural), and *Teaching skill as an amplifier* — moved into its canonical home
+> here, having lived only as a decomp §15 anchor since Rev 1. The two entries are
+> deliberately cross-referenced: any future "more simultaneous students" amplifier
+> must be read against the invariant, since raising it silently is what would break
+> the one-offer guarantee.
 > **Rev 10 · 2026-07-25** — Stage 3 Component G close-out (book — perishable bulk
 > transfer, G.1–G.3). Added three *Crafting & Tools* deferrals: *book-channel tuning
 > constants* (`SCRIBE_MIN_CRAFT` / `SCRIBE_COOLDOWN` / `SCRIBE_CONDITION_BY_TIER` /
@@ -307,6 +316,46 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   them, or a deliberate decision to soften the knowledge sink.
 - **Origin:** Recipe Knowledge decomp §12, Task G.3 (and §15 anchor).
 - **Status:** OPEN
+
+### Teach-channel tuning (`TEACH_TIMEOUT` / `TEACH_COOLDOWN`)
+- **What:** The two named constants in `commands/crafting_commands.py` pacing the live
+  knowledge channel: `TEACH_TIMEOUT` (60s, how long a pending offer stays answerable)
+  and `TEACH_COOLDOWN` (120s, between teaching *offers*).
+- **Why deferred:** Conservative dev values, and deliberately ONE entry because the
+  two are not independent. **Invariant: `TEACH_COOLDOWN >= TEACH_TIMEOUT`.** That
+  relationship is what makes the MVP "one student at a time" rule structural rather
+  than bookkeeping — an old offer has always lapsed before a teacher may send a new
+  one, so there is never more than one live offer per teacher and no second copy of
+  the state to keep in sync. Tuning either constant in isolation can silently break
+  that guarantee. Teaching is otherwise entirely free (no material, no roll), so the
+  cooldown is the whole economic and social throttle, and it is spent at OFFER time
+  because the unsolicited message is the only thing `teach` can push at an unwilling
+  player.
+- **Trigger:** Playtest data on how fast recipes should spread person-to-person
+  relative to the scroll and book channels, or offer-spam complaints.
+- **Origin:** Recipe Knowledge decomp §13, Task H.1.
+- **Status:** OPEN
+
+### Teaching skill as an amplifier (never a gate)
+- **What:** Use Legend's Teaching skill (INT+CHA) as a *bonus* on the knowledge
+  channels — shorter `teach` cooldown, more simultaneous students, or lower book
+  wear per study. Never as a permission gate.
+- **Why deferred:** Locked at decomp §2 (d): the transmission gate is *know it +
+  meet `min_skill`* only. Legend (p.72–73) treats Teaching as something that makes
+  instruction better, not something that makes it possible — a competent smith with
+  no Teaching skill can still show an apprentice how it is done. Adding it as a gate
+  would also mean a second skill to raise before a player can participate in the
+  knowledge economy at all, which cuts against the cold-start story professions and
+  the world-loot seed exist to solve.
+- **Trigger:** A chargen/skill pass that makes Teaching a real, raisable skill, plus
+  a reason to differentiate teachers beyond "knows it well enough".
+- **Note:** A "more simultaneous students" amplifier interacts directly with the
+  *Teach-channel tuning* entry above — one live offer per teacher is currently
+  guaranteed by `TEACH_COOLDOWN >= TEACH_TIMEOUT`, not by an explicit check, so
+  multi-student teaching needs real per-teacher offer state rather than just a
+  shortened cooldown.
+- **Origin:** Recipe Knowledge decomp §2 (d) + §15 anchor; Legend p.72–73.
+- **Status:** BLOCKED (on a real chargen/skill system — see *Professions & Chargen*)
 
 ---
 
