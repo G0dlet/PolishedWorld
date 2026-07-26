@@ -1,5 +1,7 @@
 # PolishedWorld — In-game Currency Decomposition (Stage 4)
 
+> **Rev 2 · 2026-07-26** — §5 reconciled against reality. The §11.20 correction has landed on `main` (Reference **Rev 15**, commit `386fba9f`) together with the Recipe-Knowledge **Rev 11** follow-up, so those two items move from *pending* to *done*. **§11.14 is now re-verified** rather than deferred: the collision is real, but its mechanism is `CmdSet.add()`'s dedup-then-append inside `at_cmdset_creation`, not `_union` — same direction (later wins), different code path, and a *permanent* deletion rather than a merge-scoped one. Reference §11.14 was updated in the same commit. No design decision changes; Components A–F untouched.
+
 > **Rev 1 · 2026-07-26** — first version. Decomposes Stage 4 (In-game Currency) into Components A–F. Locks four design decisions ahead of any code: the **Treasury pattern** for the mint point (the faucet transfers, never mints — Principle 4 stands unbroken), the **wallet-as-integer** representation (a single Copper `int`; denominations are rendering, not storage), **wallet retained on death** in Stage 4 with `CoinPile` materialisation deferred to Stage 5, and a **mint/burn-only transaction log** whose integrity guarantee is a recomputed invariant rather than a per-transfer trail. Command surface kept minimal (`wallet`, `pay`, `work`, `@economy`), with `offer` extended rather than re-keyed. Carries a **correction to Evennia Reference §11.20**: the runtime merge in `cmdhandler.get_and_merge_cmdsets()` gives the tie to the *later-merged* set, not the earlier one — so a runtime cmdset such as barter's `CmdsetTrade` correctly overrides a same-keyed command in `CharacterCmdSet`, and there is no `status` collision to fix.
 > **Canonical:** `docs/PolishedWorld_Currency_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -286,19 +288,25 @@ default cmdset for the duration, and hands the key back when it is removed.
 
 Consequences beyond this stage, handled in Component F.1:
 
-- **§11.20 is corrected** — this is a reference-doc lesson that steers design
-  decisions, so it should land as a **standalone commit on `main` before**
-  currency work begins, not buried in a Stage 4 doc commit.
-- **Stage 3 H.1's premise did not hold.** Declining to key an `accept` was
+- ✅ **§11.20 is corrected** — landed as a standalone commit on `main` before any
+  currency work, per the reasoning below: a reference-doc lesson that steers
+  design decisions should not be buried in a Stage 4 doc commit. Reference
+  **Rev 15**, commit `386fba9f`.
+- ✅ **Stage 3 H.1's premise did not hold.** Declining to key an `accept` was
   justified by §11.20. Under the correct rule, a global `accept` would have lost
   to barter's inside a trade and worked outside it — no breakage either way.
-  Extending `learn` remains the better UX, so nothing needs rebuilding; only the
-  stated reasoning in that decomp is wrong.
-- **§11.14 (containers `look`) is NOT re-verified here.** That collision was
-  observed empirically, but its mechanism is `CmdSet.add()` merging a cmdset
-  *into the same set* during `at_cmdset_creation` — a different code path from
-  the runtime merge. It needs its own verification; do not assume this
-  correction explains it.
+  Extending `learn` remains the better UX, so nothing needed rebuilding; only the
+  stated reasoning was wrong. Corrected in Recipe-Knowledge **Rev 11**, and in
+  the `CmdTeach` comment in `commands/default_cmdsets.py`.
+- ✅ **§11.14 (containers `look`) re-verified independently.** The collision is
+  real — both `CmdContainerLook` and `CmdExtendedRoomLook` inherit `key = "look"`
+  from `default_cmds.CmdLook` — but the mechanism is **not** the merge operator.
+  `self.add(SomeCmdSet)` inside `at_cmdset_creation` is not a merge: `CmdSet.add()`
+  copies the other set's *commands* in, removing any equal command already present
+  before appending ("later added commands will simply replace existing ones").
+  Same direction as §11.20 (later wins), different code path, and a **permanent**
+  deletion for the life of the cmdset rather than one scoped to a runtime set's
+  presence. Reference §11.14 updated in the same commit.
 
 **Practical rule this leaves for Stage 4:** claiming a key that a runtime contrib
 cmdset also uses is survivable, but only when the two meanings are genuinely
