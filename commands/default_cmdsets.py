@@ -24,6 +24,15 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
+from commands.crafting_commands import (
+    CmdCraftGated,
+    CmdRecipes,
+    CmdDisassemble,
+    CmdInscribe,
+    CmdScribe,
+    CmdTeach,
+    CmdLearn,
+)
 from world.barter import CmdPWTrade
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -59,6 +68,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(character_commands.CmdSkills())
         self.add(character_commands.CmdSheet())
         self.add(character_commands.CmdProgress())
+        self.add(character_commands.CmdChooseProfession())
 
         # Extended Room commands for seasonal/time-based room descriptions
         self.add(extended_room.ExtendedRoomCmdSet)
@@ -75,6 +85,46 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdHarvest())
 
         self.add(CraftingCmdSet)
+        # CmdCraftGated (key="craft") is added AFTER CraftingCmdSet so it
+        # overrides the contrib's stock CmdCraft in the merged set: an unknown
+        # advanced recipe is rejected before ingredient search (Component B.2).
+        # pre_craft (B.1) stays the authoritative backstop for craft() callers
+        # that bypass this command (barter-craft, scripts).
+        self.add(CmdCraftGated())
+        # CmdRecipes (key="recipes", alias "recipe") -- discovery surface for
+        # Stage 3 (Component C.1): solves that stock `craft` lists nothing.
+        # Unique key/alias, so no collision with look/ExtendedRoomCmdSet
+        # (the H7.3b lesson). Read-only; no state added.
+        self.add(CmdRecipes())
+        # CmdDisassemble (key="disassemble", alias "salvage") -- the first item
+        # knowledge channel (Component E.2). Unique key/alias, no collision.
+        # Reverse-engineers player-crafted goods (E.1 stamp); Craft-gated so it
+        # doesn't undercut the paid scroll/teach channels.
+        self.add(CmdDisassemble())
+        # CmdInscribe (key="inscribe") -- the first *written* knowledge channel
+        # (Component F.1). A master crafter writes a one-use recipe scroll another
+        # player can `learn` from. Unique key -> no ExtendedRoomCmdSet clash.
+        self.add(CmdInscribe())
+        # CmdScribe (key="scribe") -- the *bulk* written channel (Component G.2):
+        # a professional crafter binds several mastered recipes into a perishable
+        # book others `learn ... from`. Unique key -> no ExtendedRoomCmdSet clash.
+        self.add(CmdScribe())
+        # CmdTeach (key="teach") -- the LIVE knowledge channel (Component H.1):
+        # offer a mastered recipe to another player in the room; they accept with
+        # `learn <recipe> from <teacher>`. Unique key -- verified against the
+        # default CharacterCmdSet and every contrib cmdset we merge in, and
+        # deliberately NOT keyed `accept`: barter's CmdAccept lives in
+        # CmdsetTrade, which is added at the same priority (0) as this set, and
+        # Evennia's Union merge drops the LATER set's same-keyed command on a
+        # priority tie -- a global `accept` here would silently disable accepting
+        # inside a trade. (The H7.3b look/ExtendedRoomCmdSet lesson, again.)
+        self.add(CmdTeach())
+        # CmdLearn (key="learn") -- closes the scroll channel (Component F.2):
+        # study a scroll to gain its recipe permanently, consuming the scroll.
+        # Extended to books in G.3 and to live teachers in H.1: `learn` is the
+        # student's verb for every knowledge carrier, so the teach handshake needs
+        # no new key at all.
+        self.add(CmdLearn())
         self.add(CmdRepair())
 
         self.add(CmdPWTrade())

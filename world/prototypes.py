@@ -520,3 +520,41 @@ LEATHER = {
     # RAW_HIDE's "raw_hide".
     "tags": [("leather", "crafting_material")],
 }
+
+
+SCROLL = {
+    "prototype_key": "scroll",
+    # F.3: Scroll subclass adds a readable recipe-detail block on `look` (via
+    # get_display_desc). inscribe still spawns "scroll" and stamps db.recipe; the
+    # instance is now a Scroll, so looking at it shows what it teaches.
+    "typeclass": "typeclasses.scroll.Scroll",
+    "key": "recipe scroll",
+    "aliases": ["scroll"],
+    "desc": (
+        "A blank scroll of woven cloth. Inscribed with a recipe, it can teach "
+        "that craft to whoever studies it -- once."
+    ),
+    # No crafting_material tag: a scroll is a finished knowledge-carrier consumed
+    # by `learn` (Component F.2), not an ingredient for any recipe. The recipe it
+    # teaches is stamped onto the spawned instance by `inscribe`
+    # (obj.db.recipe = <name>), NOT baked into the prototype.
+}
+
+BOOK = {
+    "prototype_key": "book",
+    # G.1: Book(DurableObject, Object) -- carries a `condition` wear axis and a
+    # list of recipes (db.recipes). `scribe` (G.2) spawns "book", stamps the
+    # recipe list + a barter-searchable key, and sets the start condition from
+    # the author's craft outcome; `learn ... from <book>` (G.3) wears it down.
+    "typeclass": "typeclasses.books.Book",
+    "key": "recipe book",
+    "aliases": ["book"],
+    "desc": (
+        "A blank book of bound cloth pages. Scribed with recipes, it can teach "
+        "those crafts to whoever studies it -- each reading wears it a little."
+    ),
+    # No crafting_material tag and no baked db.recipes/condition: a book is a
+    # finished knowledge-carrier, not an ingredient. Its recipe list and start
+    # condition are stamped/set onto the spawned instance by `scribe` (G.2),
+    # NOT baked into the prototype -- the same split the SCROLL prototype uses.
+}

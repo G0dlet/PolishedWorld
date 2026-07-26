@@ -20,6 +20,7 @@ from evennia.contrib.game_systems.barter.barter import (
     CmdTrade as CmdBaseTrade,
     CmdOffer as CmdBaseOffer,
     CmdAccept as CmdBaseAccept,
+    CmdEvaluate as CmdBaseEvaluate,
     TradeHandler as BaseTradeHandler,
     TradeTimeout as BaseTradeTimeout,
 )
@@ -195,10 +196,59 @@ class CmdPWAccept(CmdBaseAccept):
         return super().func()
 
 
+class CmdPWEvaluate(CmdBaseEvaluate):
+    """
+    Evaluate command that shows an offered item's LIVE description.
+
+    Upstream CmdEvaluate.func ends with `caller.msg(offer.db.desc)` -- the
+    static desc Attribute -- bypassing get_display_desc. So an item whose real,
+    player-facing description is rendered dynamically shows its stale prototype
+    desc in a trade instead. It bites hardest on the Stage 3 knowledge carriers:
+    a stamped scroll evaluates as "a blank scroll" and a scribed book as "a
+    blank book", hiding the very recipes -- and, for the perishable book, the
+    CONDITION -- a buyer needs to value the offer. In a player-driven economy the
+    trade window must show what `look` shows.
+
+    We reproduce upstream's index/name resolution unchanged and only swap the
+    final render to get_display_desc(caller) -- the same dynamic path look and
+    inventory use -- with a db.desc fallback for objects that don't override it.
+    """
+
+    def func(self):
+        caller = self.caller
+        if not self.args:
+            caller.msg("Usage: evaluate <offered object>")
+            return
+        # Accept a 1-based index too, exactly as upstream does (the offer list in
+        # `status` is 1-based).
+        try:
+            self.args = int(self.args) - 1
+        except Exception:
+            pass
+
+        offer = self.tradehandler.search(self.args)
+        if not offer:
+            caller.msg("No offer matching '%s' was found." % self.args)
+            return
+
+        # Live, player-facing description -- the same get_display_desc that look
+        # and inventory use -- so a stamped scroll/book shows its real recipes and
+        # current condition, not the prototype's "blank" desc. Fallback to the
+        # static desc for any object without a meaningful override.
+        caller.msg(
+            offer.get_display_desc(caller)
+            or offer.db.desc
+            or "You see nothing special."
+        )
+
+
 # CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
 # `TradeTimeout` from this contrib module's globals at call time. Reassigning
 # it here transparently makes the unmodified func start OUR corrected script.
+# CmdsetTrade.at_cmdset_creation resolves CmdOffer/CmdAccept/CmdEvaluate the same
+# way at trade-start, so swapping these globals injects our corrected commands.
 barter_module.TradeTimeout = PWTradeTimeout
 barter_module.TradeHandler = PWTradeHandler
 barter_module.CmdOffer = CmdPWOffer
 barter_module.CmdAccept = CmdPWAccept
+barter_module.CmdEvaluate = CmdPWEvaluate

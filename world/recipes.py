@@ -8,6 +8,16 @@ to inherit Legend skill resolution, quality, tool modifiers and the cooldown sin
 NOTE: MongooseCraftRecipe is imported, not defined here. callables_from_module()
 only registers classes whose __module__ is this module, so the imported base is
 not picked up as a phantom recipe.
+
+Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
+  common / ungated (inherit requires_knowledge = False) -- survival & tool recipes
+    a fresh character can always make: twine, waterskin, stone knife, bone needle.
+  learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
+    character must LEARN before crafting: cloth, leather, linen shirt, leather boots.
+  Rationale: survival/tools stay ungated so no one can be locked out of staying
+  alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
+  economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
+  the enforcing gate lives in Component B.
 """
 
 from world.crafting_base import MongooseCraftRecipe
@@ -121,6 +131,7 @@ class ClothRecipe(MongooseCraftRecipe):
     """Weave plant fibres into a bolt of plain cloth."""
 
     name = "cloth"
+    requires_knowledge = True                       # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres per bolt
     output_prototypes = ["cloth"]
     tool_tag = None                                 # handwoven; no tool benefit
@@ -131,6 +142,7 @@ class LeatherRecipe(MongooseCraftRecipe):
     """Tan two raw hides into a piece of workable leather."""
 
     name = "leather"                              # recipe-registry name (≠ prototype_key, separate namespace)
+    requires_knowledge = True                     # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["raw_hide", "raw_hide"]    # two hides per piece, matched by tag-key
     output_prototypes = ["leather"]               # the new H5.1 prototype
     tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (baseline 0); absent = -20
@@ -141,6 +153,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     """Cut and stitch cloth into a linen shirt (undershirt layer)."""
 
     name = "linen shirt"
+    requires_knowledge = True              # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["cloth", "cloth"]   # two bolts per shirt
     output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
     tool_tag = "needle"                    # OPTIONAL: needle eases stitching (baseline 0); improvised -20
@@ -157,6 +170,7 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     """Stitch two pieces of leather into a pair of sturdy boots."""
 
     name = "leather boots"                       # space, mirroring "linen shirt"
+    requires_knowledge = True                    # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["leather", "leather"]     # two pieces per pair
     output_prototypes = ["leather_boots"]        # existing Component B prototype
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (baseline 0); improvised -20
