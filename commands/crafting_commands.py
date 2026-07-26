@@ -10,6 +10,15 @@ reaches craft() (this command, barter-craft, scripts), so if this early reject
 is ever bypassed the backstop still consumes nothing.
 """
 
+# Stdlib time, NOT world/gametime_utils: the teach-offer window (H.1) is a
+# real-time window, like every cooldown in this module. gametime_utils is the
+# source of truth for *in-game* time -- world processes that tick on their own
+# (node regen, corpse decay, seasons) -- whereas this measures how long a human
+# player has to answer. The cooldowns contrib itself is hardcoded to time.time(),
+# so mixing clocks here would put TEACH_TIMEOUT and TEACH_COOLDOWN in different
+# units and quietly make their documented invariant false.
+import time
+
 from evennia import Command
 from evennia.contrib.game_systems.crafting.crafting import (
     CmdCraft,
@@ -103,6 +112,29 @@ SCRIBE_TIER_FLAVOUR = {
 # with the binding quality. Conservative dev value (start stingy, loosen if
 # playtest wants wider spread); tune -> docs/BACKLOG.md.
 BOOK_WEAR_PER_STUDY = 20
+
+# --- Component H.1: live teaching -------------------------------------------
+
+# Real-time seconds a pending `teach` offer stays answerable (Component H.1).
+# Short on purpose: an offer is a person standing in front of you saying "want me
+# to show you?", not a contract. Deliberately in the same ballpark as the barter
+# contrib's TRADE_TIMEOUT invite window, which is the same kind of two-party
+# handshake. Tune -> docs/BACKLOG.md.
+TEACH_TIMEOUT = 60
+
+# Real-time seconds between teaching OFFERS (Component H.1). Teaching is free --
+# no material, no roll -- so the cooldown is the whole economic and social
+# throttle, and it is spent when the offer is SENT rather than when the lesson
+# completes: an unsolicited offer is the only thing `teach` can push at an
+# unwilling stranger, so that is what has to be rate-limited.
+#
+# INVARIANT: TEACH_COOLDOWN >= TEACH_TIMEOUT. That is what makes "one student at
+# a time" (the MVP lock) structural rather than bookkeeping -- an old offer has
+# always lapsed before a teacher may make a new one, so there is never more than
+# one live offer per teacher and no second copy of the state to keep in sync.
+# Preserve this relationship when tuning. Matches SCRIBE_COOLDOWN's cadence: a
+# lesson is the bulk-transfer channel's live sibling. Tune -> docs/BACKLOG.md.
+TEACH_COOLDOWN = 120
 
 
 def _resolve_recipe(name):
@@ -662,23 +694,139 @@ class CmdScribe(Command):
         caller.msg(f"You bind a book of |y{listed}|n. {tail}".rstrip())
 
 
+class CmdTeach(Command):
+    """
+    Offer to teach a recipe you have mastered to another crafter.
+
+    Usage:
+      teach <recipe> to <player>
+
+    Pass a recipe on face to face. A lesson costs nothing but time -- no
+    materials, no roll -- but the other person has to be in the room with you
+    and has to agree: they answer with `learn <recipe> from <you>` before the
+    offer lapses. Nobody can have knowledge pushed on them.
+
+    You can only teach an advanced recipe you have learned AND are skilled
+    enough to have mastered; the survival basics everyone already knows aren't
+    worth a lesson.
+    """
+
+    key = "teach"
+    locks = "cmd:all()"
+    help_category = "Crafting"
+
+    def func(self):
+        caller = self.caller
+
+        raw = self.args.strip()
+        if not raw:
+            caller.msg("Teach what, to whom? (usage: |wteach <recipe> to <player>|n)")
+            return
+
+        # rpartition, not partition: split on the LAST " to ", so a multi-word
+        # recipe could contain the separator without eating the student's name.
+        recipe_input, sep, student_name = raw.rpartition(" to ")
+        recipe_input, student_name = recipe_input.strip(), student_name.strip()
+        if not sep or not recipe_input or not student_name:
+            caller.msg("Teach what, to whom? (usage: |wteach <recipe> to <player>|n)")
+            return
+
+        # Resolve the typed name the same fuzzy way craft/recipes/inscribe do
+        # (exact -> prefix -> substring). None -> no such recipe at all.
+        cls = _resolve_recipe(recipe_input)
+        if cls is None:
+            caller.msg("You don't know of any recipe by that name.")
+            return
+        recipe_name = cls.name
+
+        # Common (ungated) recipes are knowledge everyone already has -- there is
+        # no lesson to give. Same distinction inscribe and scribe draw.
+        if not getattr(cls, "requires_knowledge", False):
+            caller.msg("Everyone already knows this. There's nothing to teach.")
+            return
+
+        # Shared mastery gate (F/G/H): must KNOW it and meet its permanent-skill
+        # floor. NOTE the Teaching *skill* is deliberately NOT consulted -- Legend
+        # p.72-73 treats Teaching as an amplifier, never a gate (decomposition
+        # section 2(d)); a Teaching bonus is deferred -> docs/BACKLOG.md.
+        if not _can_transmit(caller, recipe_name):
+            caller.msg("You can't teach a recipe you haven't mastered.")
+            return
+
+        # Same-room requirement, enforced implicitly: Object.search defaults to
+        # location.contents + self.contents, so a target in another room simply
+        # is not found (and search emits its own miss/multimatch message).
+        student = caller.search(student_name)
+        if not student:
+            return
+        if student == caller:
+            caller.msg("You know it well enough already.")
+            return
+        # A teachable target is a *played* character: has_account is truthy only
+        # while a session is connected, and learn_recipe is the Character-side
+        # knowledge chokepoint. Together they reject objects, NPCs and idle
+        # unpuppeted bodies with one honest message.
+        if not (student.has_account and hasattr(student, "learn_recipe")):
+            caller.msg(
+                f"{student.get_display_name(caller)} isn't someone you can teach."
+            )
+            return
+
+        # We deliberately do NOT check whether the student already knows the
+        # recipe here. Their known-set is their own business -- probing it via
+        # teach would turn the command into a "who knows what" scanner, which is
+        # real intelligence in a knowledge economy. They find out at accept time.
+
+        # Anti-spam, checked before the offer is sent: an unsolicited offer is the
+        # only thing `teach` can push at a stranger, so the cooldown has to gate
+        # the OFFER, not the completed lesson.
+        if not caller.cooldowns.ready("teach"):
+            left = caller.cooldowns.time_left("teach", use_int=True)
+            caller.msg(f"You've only just finished a lesson. Try again in {left}s.")
+            return
+
+        # Commit the offer. It lives on the STUDENT (they are the one who must
+        # answer, so the accept path finds it in O(1) on self) and in ndb, not db:
+        # a pending offer is session state and must not survive a reload, the same
+        # reason barter keeps its handler on ndb.tradehandler. A fresh offer simply
+        # overwrites any older one to the same student.
+        student.ndb.pending_teach = (caller, recipe_name, time.time() + TEACH_TIMEOUT)
+
+        # The cooldown lands here, and since TEACH_COOLDOWN >= TEACH_TIMEOUT a
+        # teacher structurally has at most ONE live offer out at a time -- the MVP
+        # "one student at a time" rule, with no second copy of the state to keep
+        # in sync.
+        caller.cooldowns.add("teach", TEACH_COOLDOWN)
+
+        caller.msg(
+            f"You offer to teach {student.get_display_name(caller)} the "
+            f"|y{recipe_name}|n recipe. They have {TEACH_TIMEOUT}s to take you up on it."
+        )
+        student.msg(
+            f"{caller.get_display_name(student)} offers to teach you the "
+            f"|y{recipe_name}|n recipe. Answer with "
+            f"|wlearn {recipe_name} from {caller.key}|n within {TEACH_TIMEOUT}s."
+        )
+
+
 class CmdLearn(Command):
     """
-    Study inscribed knowledge and learn the recipe(s) written in it.
+    Study inscribed knowledge, or take a lesson, and learn a recipe.
 
     Usage:
       learn <scroll>
       learn from <scroll>
       learn <recipe> from <book>
+      learn <recipe> from <teacher>
 
     A scroll carries one recipe and is used up in the studying, passing its
     knowledge to exactly one person. A book carries many recipes and wears down a
     little with each study, teaching several readers before its binding finally
     gives out -- name which recipe you want with `learn <recipe> from <book>`.
 
-    Learning a recipe is not the same as being able to make it: an advanced recipe
-    may also demand a level of Craft you have yet to reach. Look at a scroll or
-    book before you study it to see what it holds.
+    A living teacher is the third source: once someone has offered to `teach` you
+    something, this is how you accept. The offer lapses quickly, and both of you
+    must still be in the same room when you take it up.
     """
 
     key = "learn"
@@ -718,6 +866,15 @@ class CmdLearn(Command):
             caller.msg(
                 "Study what? (usage: |wlearn <scroll>|n, or |wlearn <recipe> from <book>|n)"
             )
+            return
+
+        # A living teacher is the third knowledge carrier (H.1), and the only one
+        # that is not an object in the student's hands. Check for a pending offer
+        # BEFORE the carrier search below, which is inventory-scoped and would
+        # emit its own "could not find" for a teacher standing in the room.
+        # Returns True only when the input really was a teaching handshake, so a
+        # `learn cloth from tome` still finds the book while an offer is pending.
+        if self._learn_from_teacher(caller, recipe_request, target_name):
             return
 
         # Must have the carrier in hand to study it. search() messages on a miss or
@@ -782,6 +939,116 @@ class CmdLearn(Command):
             f"You study the {name} and commit the |y{recipe_name}|n recipe to "
             "memory. Its work done, the scroll crumbles away."
         )
+
+    def _learn_from_teacher(self, caller, recipe_request, target_name):
+        """Accept a pending `teach` offer from a live teacher (Component H.1).
+
+        The offer was parked on THIS character by CmdTeach as
+        ndb.pending_teach = (teacher, recipe_name, expires_at). Accepting it is
+        the student's half of the consent handshake: knowledge only ever moves
+        because both parties typed something.
+
+        Everything CmdTeach checked when the offer went out is re-checked here,
+        because the world moved in between -- this is the barter finish() lesson
+        (world/barter.py): a handshake that validates only at offer time will
+        happily complete against a teacher who has since walked out of the room.
+
+        Args:
+            caller (Character): the student, i.e. the one accepting.
+            recipe_request (str | None): text left of " from ", or None for the
+                `learn from <teacher>` form.
+            target_name (str): text right of " from " -- who/what to study.
+
+        Returns:
+            bool: True if the input was handled as a teaching handshake (taught,
+                or refused with a message). False to fall through to the
+                scroll/book carrier search.
+        """
+        pending = caller.ndb.pending_teach
+        if not pending:
+            return False
+
+        teacher, recipe_name, expires_at = pending
+
+        # A deleted teacher leaves a dangling reference that cannot be name-matched
+        # at all. Drop the offer and fall through rather than raising on it.
+        if not teacher or not teacher.pk:
+            caller.ndb.pending_teach = None
+            return False
+
+        # Does the typed name actually mean the teacher? Let the engine's own
+        # matcher decide, over a single candidate and quietly, so a non-match says
+        # nothing and simply falls through to the scroll/book path.
+        if not caller.search(target_name, candidates=[teacher], quiet=True):
+            return False
+
+        # Backstop re-validation. Lapsed, teacher gone from the room, or teacher
+        # logged out -> the lesson quietly does not happen. We still tell the
+        # STUDENT, who just typed a command and is owed an answer; what we do not
+        # do is announce anything to the room or half-apply the transfer.
+        if (
+            time.time() > expires_at
+            or teacher.location != caller.location
+            or not teacher.has_account
+        ):
+            caller.ndb.pending_teach = None
+            caller.msg("That lesson has lapsed.")
+            return True
+
+        # `learn from <teacher>` (no recipe named) takes the one thing on offer.
+        # Naming a DIFFERENT recipe is a typo, not a second offer -- say so rather
+        # than silently teaching something else.
+        if recipe_request and recipe_request.lower() != recipe_name.lower():
+            caller.msg(
+                f"{teacher.get_display_name(caller)} offered to teach you "
+                f"|w{recipe_name}|n, not |w{recipe_request}|n."
+            )
+            return True
+
+        # Resolve the offered name by EXACT key (same discipline as the scroll and
+        # book paths -- it is a canonical name, never user input). A recipe removed
+        # or turned common since the offer went out is no longer transmissible, and
+        # the common-guard is what keeps the known-set's "advanced recipes only"
+        # invariant intact.
+        _load_recipes()
+        cls = _RECIPE_CLASSES.get(recipe_name)
+        if cls is None or not getattr(cls, "requires_knowledge", False):
+            caller.ndb.pending_teach = None
+            caller.msg("There's nothing to learn there.")
+            return True
+
+        # The teacher must STILL be qualified to pass this on -- the same shared
+        # gate CmdTeach applied, re-run against the live teacher (permanent
+        # .current inside _can_transmit, never buffed .value).
+        if not _can_transmit(teacher, recipe_name):
+            caller.ndb.pending_teach = None
+            caller.msg(f"{teacher.get_display_name(caller)} can't teach you that.")
+            return True
+
+        # The offer has now been answered either way, so retire it BEFORE the
+        # transfer: that makes a second accept a no-op instead of a re-run, and on
+        # the single-threaded reactor no other command can interleave between this
+        # clear and the tag write below.
+        caller.ndb.pending_teach = None
+
+        # learn_recipe is the single chokepoint and returns False when the recipe
+        # was ALREADY known. Nothing is consumed by a lesson, so an already-known
+        # recipe costs nobody anything -- we just say so to both sides.
+        if not caller.learn_recipe(recipe_name):
+            caller.msg("You already know this recipe. The lesson is a pleasant one anyway.")
+            teacher.msg(
+                f"{caller.get_display_name(teacher)} already knows |y{recipe_name}|n."
+            )
+            return True
+
+        caller.msg(
+            f"{teacher.get_display_name(caller)} walks you through the "
+            f"|y{recipe_name}|n recipe until it sticks. You have learned it."
+        )
+        teacher.msg(
+            f"You teach {caller.get_display_name(teacher)} the |y{recipe_name}|n recipe."
+        )
+        return True
 
     def _learn_from_book(self, caller, book, book_recipes, recipe_request):
         """Study one recipe out of a multi-recipe book (Component G.3).
