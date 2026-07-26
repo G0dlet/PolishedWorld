@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 5 · 2026-07-26** — index testing reference, backlog and recipe-knowledge decomp.
 > **Rev 4 · 2026-07-19** — indexed the System Map and Source/Sink Ledger (structural / cross-system altitude).
 > **Rev 3 · 2026-07-10** — indexed the Stage 2 crafting-progression decomposition (tactical, feature-task altitude).
 > **Rev 2 · 2026-07-02** — added GameGold design, GameGold economy, and core-instructions docs to the index (moved out of the project-knowledge-only list).
