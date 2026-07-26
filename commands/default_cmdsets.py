@@ -112,12 +112,15 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # CmdTeach (key="teach") -- the LIVE knowledge channel (Component H.1):
         # offer a mastered recipe to another player in the room; they accept with
         # `learn <recipe> from <teacher>`. Unique key -- verified against the
-        # default CharacterCmdSet and every contrib cmdset we merge in, and
-        # deliberately NOT keyed `accept`: barter's CmdAccept lives in
-        # CmdsetTrade, which is added at the same priority (0) as this set, and
-        # Evennia's Union merge drops the LATER set's same-keyed command on a
-        # priority tie -- a global `accept` here would silently disable accepting
-        # inside a trade. (The H7.3b look/ExtendedRoomCmdSet lesson, again.)
+        # default CharacterCmdSet and every contrib cmdset we merge in.
+        # Deliberately NOT keyed `accept`, but the reason is UX, not mechanics:
+        # `learn` is the student's verb for every knowledge carrier (scroll, book,
+        # teacher), so a second verb would split one concept across two keys.
+        # The mechanical argument that used to stand here was wrong -- on a
+        # priority tie the LATER-merged cmdset wins, so a global `accept` would
+        # have lost to barter's CmdAccept *inside* a trade and worked outside it,
+        # not erased it. See Evennia Reference §11.20 (Rev 15) and the
+        # Recipe-Knowledge decomp Rev 11.
         self.add(CmdTeach())
         # CmdLearn (key="learn") -- closes the scroll channel (Component F.2):
         # study a scroll to gain its recipe permanently, consuming the scroll.
