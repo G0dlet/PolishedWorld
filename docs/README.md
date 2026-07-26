@@ -47,6 +47,9 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | System map | structural (how built systems connect) | `docs/PolishedWorld_System_Map.md` |
 | Source/sink ledger | structural (economy pillar-1 audit) | `docs/PolishedWorld_SourceSink_Ledger.md` |
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
+| Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
+| Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
+| Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
 | Crafting progression decomposition | tactical (feature tasks) | `docs/PolishedWorld_Crafting_Progression_Decomposition.md` |
 | Crafting docs | tactical | `docs/crafting/` |
@@ -55,6 +58,6 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Agent scope & schemas | governance | `AGENTS.md` |
 | Core instructions | governance (project meta) | `docs/PolishedWorld_Core_Instructions.md` |
 
-*(Docs still living only in project knowledge — testing reference, functional-decomposition
-methodology, Mongoose Legend notes, code standards, creature-harvesting
-design — get a header and move here as they're next touched.)*
+*(Docs still living only in project knowledge — functional-decomposition methodology,
+Mongoose Legend notes, code standards, creature-harvesting design — get a header and
+move here as they're next touched.)*
