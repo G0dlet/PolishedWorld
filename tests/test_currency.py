@@ -563,3 +563,124 @@ class TestTransfer(LedgerIsolationMixin, EvenniaTest):
         self.char2.currency.burn(150, reason="crypto_exchange")
         held = self.char1.currency.value + self.char2.currency.value
         self.assertEqual(held, economy_log.net_issued())
+
+
+class TestAudit(LedgerIsolationMixin, EvenniaTest):
+    """
+    A.3 -- the invariant that carries the economy's integrity.
+
+    ⚠️ Wallet state leaks between tests for the same reason ledger state does:
+    .char1/.char2 are rebuilt per test, but any OTHER object that acquired a
+    wallet is not necessarily gone, and audit() enumerates the whole database
+    rather than a fixture list. Every test here therefore asserts on deltas and
+    on the invariant rather than on absolute totals wherever it can.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_empty_economy_balances(self):
+        # The trivial case, and the one that holds after every development
+        # database reset: nothing minted, nothing held, delta 0.
+        result = economy_log.audit()
+        self.assertEqual(result["expected"], 0)
+        self.assertTrue(result["ok"])
+
+    def test_mint_alone_balances(self):
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.assertTrue(economy_log.audit()["ok"])
+
+    def test_transfer_does_not_disturb_the_invariant(self):
+        # The decomposition's stated scenario: mint 500, transfer 200, delta 0.
+        # This is what licenses S4-4 -- transfers can go unlogged precisely
+        # because they cannot move the left-hand side.
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.char1.currency.transfer_to(self.char2, 200)
+        self.assertEqual(economy_log.audit()["delta"], 0)
+
+    def test_burn_does_not_disturb_the_invariant(self):
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.char1.currency.burn(200, reason="crypto_exchange")
+        result = economy_log.audit()
+        self.assertEqual(result["delta"], 0)
+        self.assertTrue(result["ok"])
+
+    def test_corrupted_wallet_is_detected(self):
+        # ⭐ THE point of having an invariant rather than a transaction log.
+        # Nothing here is logged, nothing is malformed, every ledger entry is
+        # perfectly consistent -- and the audit still catches it, because it
+        # recomputes both sides instead of trusting a record of intent.
+        # Written with a direct attribute write on purpose: this simulates the
+        # bug or console mistake that S4-R2 exists to prevent, and it is the one
+        # place in the test suite allowed to bypass the handler.
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.char1.attributes.add("wallet", 999_999)
+
+        result = economy_log.audit()
+        self.assertFalse(result["ok"])
+        self.assertNotEqual(result["delta"], 0)
+
+    def test_missing_money_is_detected_too(self):
+        # The opposite direction. A negative delta means minted money vanished
+        # -- easy to overlook if the check were written as "held > expected".
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.char1.attributes.add("wallet", 100)
+
+        result = economy_log.audit()
+        self.assertFalse(result["ok"])
+        self.assertLess(result["delta"], 0)
+
+    def test_non_integer_wallet_is_flagged_not_crashed(self):
+        # A string wallet must neither crash the audit nor be silently coerced
+        # away. It is excluded from the sum and named in `corrupt`, so the
+        # report can point at the exact object.
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.char1.attributes.add("wallet", "500")
+
+        result = economy_log.audit()
+        self.assertIn(self.char1.dbref, result["corrupt"])
+        self.assertFalse(result["ok"])
+
+    def test_boolean_wallet_is_flagged(self):
+        # bool subclasses int, so an unguarded isinstance check would accept
+        # True as 1 and skew the sum by a single Copper -- the hardest kind of
+        # drift to trace back to its cause.
+        self.char1.attributes.add("wallet", True)
+        self.assertIn(self.char1.dbref, economy_log.audit()["corrupt"])
+
+    def test_wallets_are_enumerated_by_attribute_not_typeclass(self):
+        # Guards the D9 deviation. .obj1 is a plain Object, not a Character;
+        # a typeclass-based enumeration would miss it entirely and report a
+        # phantom mismatch. This is the Treasury's situation in C.1, and any
+        # future wallet-holder's.
+        self.obj1.attributes.add("wallet", 250)
+        result = economy_log.audit()
+        self.assertGreaterEqual(result["wallet_sum"], 250)
+        self.assertFalse(result["ok"])  # 250 exists that was never minted
+
+    def test_untouched_characters_are_absent_from_the_count(self):
+        # Consequence of D6: no wallet Attribute exists until first mutation,
+        # so characters who have never handled money are not enumerated at all.
+        before = economy_log.audit()["wallet_count"]
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.assertEqual(economy_log.audit()["wallet_count"], before + 1)
+
+    def test_treasury_is_none_before_component_c(self):
+        # Reported as None, never as 0. None means "not separately
+        # identifiable"; 0 would be a claim about a Treasury that exists.
+        self.assertIsNone(economy_log.audit()["treasury"])
+
+    def test_report_renders_and_names_the_failure(self):
+        # audit_report() is what an admin actually reads, so a mismatch must be
+        # unmistakable in the text, not just in the dict.
+        self.char1.currency.add(500, source="crypto_exchange")
+        self.assertIn("OK", economy_log.audit_report())
+
+        self.char1.attributes.add("wallet", 999_999)
+        report = economy_log.audit_report()
+        self.assertIn("MISMATCH", report)
+        self.assertIn("was ever minted", report)
+
+    def test_report_carries_no_colour_codes(self):
+        # Same reason as format_copper (D2): this string goes into logs as
+        # readily as onto a screen. C.2 adds colour at the command layer.
+        self.assertNotIn("|", economy_log.audit_report())
