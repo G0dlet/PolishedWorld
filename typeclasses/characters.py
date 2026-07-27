@@ -17,6 +17,7 @@ from evennia import create_object, AttributeProperty
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 from world.improvement import improvement_roll, tier_for
+from world.currency import CurrencyHandler
 
 from django.conf import settings
 from evennia.utils import search
@@ -126,6 +127,26 @@ class Character(ObjectParent, ClothedCharacter):
     @lazy_property
     def cooldowns(self):
         return CooldownHandler(self, db_attribute="cooldowns")
+
+    @lazy_property
+    def currency(self):
+        """
+        Wallet handler: a single int Attribute denominated in Copper (S4-2).
+
+        Note what is NOT here: no matching `self.currency...` call in
+        at_object_creation, and no AttributeProperty declaration. Both are
+        deliberate. The handler reads its Attribute with default=0, so a
+        character who has never touched money simply has none and the Attribute
+        is not created until the first mutation. That means existing characters
+        need no backfill -- and because nothing writes a starting value, the
+        TraitHandler.add(force=True) shape of trap (Evennia Reference 3.5)
+        cannot clobber a live balance here.
+
+        It also means there is no `char.wallet = 500` shortcut for anything
+        outside world/currency.py to reach for, which is how S4-R2 is enforced
+        by construction rather than by review.
+        """
+        return CurrencyHandler(self, db_attribute="wallet")
 
     def at_object_creation(self):
         """

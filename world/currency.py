@@ -1,10 +1,13 @@
 """
 Currency denomination maths, parsing and rendering (Stage 4, Component A.1).
 
-A dependency-free module: no Evennia import, no database, no typeclass. Every
-function here is pure, which is why the whole of A.1 can be tested with the
-lightest test base class (`EvenniaTestCase`) and why the wallet handler (A.2,
-same module) can lean on it without any layering problem.
+The functions in the first half are pure -- no database, no typeclass -- which
+is why they are testable with the lightest base class (`EvenniaTestCase`). The
+`CurrencyHandler` in the second half (A.2) is the stateful part: it owns the
+wallet Attribute and is the ONLY thing in the codebase that writes it (S4-R2).
+Keeping both in one module is deliberate: the handler is meaningless without
+the denomination rules, and splitting them would put the invariant's two halves
+in two files.
 
 THE ONE IDEA
 ------------
@@ -51,6 +54,8 @@ tokens, so the attached single-denomination form ("50c") is rejected too. That
 keeps the rule explainable in one sentence, and both forms belong to the same
 future feature.
 """
+
+from world import economy_log
 
 # --------------------------------------------------------------------------
 # Constants
@@ -298,3 +303,294 @@ def parse_amount(text):
         return None
 
     return int(number_token) * value
+
+
+# --------------------------------------------------------------------------
+# Wallet handler (A.2)
+# --------------------------------------------------------------------------
+#
+# THE MINT/TRANSFER SEPARATION (decomposition S4-1)
+# -------------------------------------------------
+# Money can only enter the world through the crypto-exchange path. The design
+# guard for that is not a comment or a review habit -- it is that creating money
+# and moving money are two structurally different methods:
+#
+#   add()         -- CREATES money. Validates its source against MINT_SOURCES,
+#                    writes a ledger entry, and is expected to have exactly ONE
+#                    caller in the whole codebase (the bootstrap tranche, C.1).
+#   transfer_to() -- MOVES money. Never calls add(). Cannot change the total
+#                    amount in the world even if it is buggy, because it
+#                    decrements one wallet by exactly what it increments the
+#                    other by.
+#   burn()        -- DESTROYS money. The Stage 8 exchange-back consumer. Built
+#                    now so the ledger is complete from its first entry.
+#
+# The temple faucet (Component D) is the reason this matters in practice: it
+# looks like it hands out money, and the whole point is that it does not -- it
+# calls transfer_to() from the Treasury. A faucet that could mint would be an
+# unbounded money supply, and the failure would be invisible until inflation
+# made it obvious. Hence the load-bearing test: add(source="faucet") raises.
+
+
+MINT_SOURCES = frozenset({"crypto_exchange", "admin_correction"})
+
+# Symmetric with MINT_SOURCES on purpose. An unvalidated free-text burn reason
+# would let the ledger fill with tags nobody recognises while the invariant
+# still balances perfectly -- audit() green, and no way to answer "why did
+# 40,000 Copper disappear in March".
+BURN_REASONS = frozenset({"crypto_exchange", "admin_correction"})
+
+
+class CurrencyHandler:
+    """
+    Per-object wallet, stored as a single int Attribute denominated in Copper.
+
+    Wired onto Character via `@lazy_property` in the same way as
+    `stats`/`traits`/`skills`/`cooldowns`, and onto the Treasury the same way in
+    C.1 -- the Treasury is not a special case, it is just an object that happens
+    to hold a lot.
+
+    NO ATTRIBUTE IS DECLARED ANYWHERE FOR THIS
+    ------------------------------------------
+    Deliberate (D6). There is no `AttributeProperty` on Character and no
+    `at_object_creation` initialisation, which means there is no tempting
+    `char.wallet = 500` shortcut for anything outside this module to reach for.
+    S4-R2 ("no code outside world/currency.py writes the wallet") is enforced by
+    there being no other way in, rather than by review vigilance.
+
+    It also removes a whole class of bug rather than guarding against it. The
+    handler reads the Attribute with `default=0`, so a character who has never
+    touched money simply has none, and the Attribute is not created until the
+    first mutation. Existing characters therefore need **no backfill** -- and
+    since there is no backfill, the `TraitHandler.add(force=True)` shape of trap
+    the decomposition warns about (Evennia Reference 3.5) cannot occur here:
+    there is nothing that could clobber a live balance because there is nothing
+    that writes a starting value.
+
+    ERROR CONVENTION (D7)
+    ---------------------
+    `False` means exactly one thing: **insufficient funds**. Everything else --
+    a target with no wallet, a non-int amount, paying yourself, an unrecognised
+    mint source -- raises, because those are bugs in the calling code and not
+    conditions a player can be in. If they returned `False` too, a typo in a
+    command would be indistinguishable from poverty, and `pay` would tell a rich
+    player they were broke.
+
+    Note that `add()` returns the new balance rather than a bool: it has no
+    expected-failure mode at all. Do not "fix" that to a bool for symmetry --
+    and equally, do not write `if wallet.burn(...)` expecting a balance, since a
+    balance of 0 is falsy and perfectly valid.
+    """
+
+    def __init__(self, obj, db_attribute="wallet"):
+        """
+        Args:
+            obj (Object): the object whose wallet this is.
+            db_attribute (str): Attribute key for the balance. Matches the
+                `CooldownHandler(self, db_attribute="cooldowns")` house style.
+        """
+        self.obj = obj
+        self._db_attribute = db_attribute
+
+    # -- reading -----------------------------------------------------------
+
+    @property
+    def value(self):
+        """
+        Current balance in Copper.
+
+        Returns:
+            int: the balance; 0 if the Attribute has never been written.
+        """
+        # `or 0` covers an Attribute explicitly set to None, which .get()'s
+        # default does not catch -- it only fires when the key is absent.
+        return self.obj.attributes.get(self._db_attribute, default=0) or 0
+
+    def can_afford(self, amount):
+        """
+        Whether this wallet holds at least `amount`.
+
+        ⚠️ S4-R1: this is a *read*. Never call it, await something, and then
+        debit -- the balance can change in between. Inside `transfer_to()` the
+        check and the debit are one unbroken synchronous sequence, which is the
+        only reason it is safe there. Commands may call this to decide what to
+        *say*; they must not use it to decide that a later debit will succeed.
+
+        Args:
+            amount (int): amount in Copper.
+
+        Returns:
+            bool: True if the balance covers `amount`.
+        """
+        self._require_positive(amount)
+        return self.value >= amount
+
+    def format(self):
+        """
+        The balance rendered for display, e.g. "1 Gold, 2 Silver".
+
+        Returns:
+            str: uncoloured (D2); commands apply their own markup.
+        """
+        return format_copper(self.value)
+
+    # -- internal ----------------------------------------------------------
+
+    def _set(self, amount):
+        """
+        Write the balance. The ONLY place the wallet Attribute is written.
+
+        Private by convention and by intent: every public method funnels through
+        here, so there is exactly one line in the codebase that can change a
+        balance, and it is trivially auditable.
+        """
+        self.obj.attributes.add(self._db_attribute, amount)
+
+    @staticmethod
+    def _require_positive(amount):
+        """
+        Reject anything that is not a positive int.
+
+        `bool` is excluded explicitly because it subclasses `int` -- without
+        this, `transfer_to(target, True)` would move one Copper.
+        """
+        if isinstance(amount, bool) or not isinstance(amount, int):
+            raise TypeError(f"amount must be an int, got {type(amount).__name__}: {amount!r}")
+        if amount <= 0:
+            raise ValueError(f"amount must be positive, got {amount}")
+
+    # -- mint / burn primitives -------------------------------------------
+
+    def add(self, amount, source):
+        """
+        MINT: create new money into this wallet. Expects exactly one caller.
+
+        `source` is mandatory and positional-free on purpose -- writing
+        `wallet.add(500)` is a TypeError, so money cannot be created by someone
+        who was thinking of a generic "add to balance" helper.
+
+        Args:
+            amount (int): positive amount in Copper to create.
+            source (str): must be in `MINT_SOURCES`.
+
+        Returns:
+            int: the new balance.
+
+        Raises:
+            TypeError: if `amount` is not an int.
+            ValueError: if `amount` is not positive, or `source` is not a
+                recognised mint source.
+        """
+        self._require_positive(amount)
+
+        if source not in MINT_SOURCES:
+            # The message names the design rule rather than just the constant,
+            # because the person hitting this is usually about to argue with it.
+            raise ValueError(
+                f"Invalid mint source {source!r}. Gold enters the world only via the "
+                f"exchange path; valid sources are {sorted(MINT_SOURCES)}. "
+                f"To move existing money (faucet, wages, payment), use transfer_to()."
+            )
+
+        # Ledger BEFORE mutation: if recording fails, no money is created. The
+        # invariant is only trustworthy if this ordering never inverts.
+        economy_log.append(economy_log.KIND_MINT, amount, source, recipient=self.obj)
+
+        new_balance = self.value + amount
+        self._set(new_balance)
+        return new_balance
+
+    def burn(self, amount, reason):
+        """
+        BURN: destroy money from this wallet. The Stage 8 exchange-back path.
+
+        Args:
+            amount (int): positive amount in Copper to destroy.
+            reason (str): must be in `BURN_REASONS`.
+
+        Returns:
+            bool: False if the balance does not cover `amount` (nothing is
+                mutated and nothing is logged); True on success.
+
+        Raises:
+            TypeError: if `amount` is not an int.
+            ValueError: if `amount` is not positive, or `reason` is not a
+                recognised burn reason.
+        """
+        self._require_positive(amount)
+
+        if reason not in BURN_REASONS:
+            raise ValueError(
+                f"Invalid burn reason {reason!r}; valid reasons are {sorted(BURN_REASONS)}."
+            )
+
+        current = self.value
+        if current < amount:
+            return False
+
+        economy_log.append(economy_log.KIND_BURN, amount, reason, recipient=self.obj)
+
+        self._set(current - amount)
+        return True
+
+    # -- transfer ----------------------------------------------------------
+
+    def transfer_to(self, target, amount, reason=None):
+        """
+        Move money from this wallet to another. Cannot create or destroy money.
+
+        ⚠️ S4-R1 -- THE critical sequence of this stage. The balance read, the
+        sufficiency check, the debit and the credit happen with no yield point
+        between them. Evennia's reactor is single-threaded, so an unbroken
+        synchronous block cannot be interleaved with another command: two
+        players spending the same coin in the same tick is impossible *because*
+        of this property, not because of a lock. Introducing a `yield`, a
+        `utils.delay`, or a deferred call anywhere between the check and the
+        credit reopens the duplication window for the entire economy.
+
+        Deliberately NOT logged (S4-4): transfers are the normal business of the
+        game, and the invariant -- not a transaction log -- is what proves
+        nothing was created. `reason` is accepted for call-site readability and
+        for future use; it is not persisted today.
+
+        Args:
+            target (Object): recipient. Must have a `currency` handler.
+            amount (int): positive amount in Copper.
+            reason (str, optional): free-text label, not persisted.
+
+        Returns:
+            bool: False if this wallet cannot cover `amount` -- and in that case
+                NEITHER wallet is touched. True on success.
+
+        Raises:
+            TypeError: if `amount` is not an int, or `target` has no wallet.
+            ValueError: if `amount` is not positive, or `target` is self.
+        """
+        self._require_positive(amount)
+
+        if target is self.obj:
+            # Not a runtime condition anyone can be in -- a self-payment is
+            # always a caller bug or unvalidated input. Returning False would
+            # conflate it with poverty (D7). B.2 catches `pay ... to me` first
+            # and says something friendly; this is the backstop.
+            raise ValueError("Cannot transfer currency to self.")
+
+        target_wallet = getattr(target, "currency", None)
+        if not isinstance(target_wallet, CurrencyHandler):
+            raise TypeError(
+                f"{target!r} has no currency handler; cannot receive a transfer."
+            )
+
+        # ---- BEGIN ATOMIC SECTION -- no yields past this line ----
+        current = self.value
+        if current < amount:
+            return False
+
+        self._set(current - amount)
+        target_wallet._set(target_wallet.value + amount)
+        # ---- END ATOMIC SECTION ----
+
+        return True
+
+    def __repr__(self):
+        return f"<CurrencyHandler({self.obj}): {self.value} copper>"

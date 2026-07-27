@@ -33,11 +33,14 @@ template) even though this particular module would survive without it.
         tests.test_currency.TestSplitDenominations.test_round_trip_is_exact
 """
 
-from evennia.utils.test_resources import EvenniaTestCase
+from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
+from world import economy_log
 from world.currency import (
     COPPER_PER_GOLD,
     COPPER_PER_SILVER,
+    MINT_SOURCES,
+    CurrencyHandler,
     format_copper,
     parse_amount,
     split_denominations,
@@ -262,3 +265,301 @@ class TestParseAmount(EvenniaTestCase):
         ):
             with self.subTest(text=text):
                 self.assertEqual(format_copper(parse_amount(text)), rendered)
+
+
+class LedgerIsolationMixin:
+    """
+    Reset the global ledger before every test.
+
+    ⚠️ THE gotcha for this whole component. The ledger is a *global* Script, so
+    unlike .char1/.room1 it is not rebuilt per test -- entries and running
+    totals leak from one test into the next, and `total_minted()` assertions
+    start passing or failing depending on test execution order. Same class of
+    problem as the cooldown bleed in Testing Reference section 7, and it fails
+    just as confusingly.
+
+    Attributes are cleared rather than the Script deleted: GLOBAL_SCRIPTS would
+    happily re-create it, but deleting and re-creating a Script per test is far
+    slower than zeroing three Attributes.
+    """
+
+    def setUp(self):
+        super().setUp()
+        ledger = economy_log.get_ledger()
+        ledger.db.entries = []
+        ledger.db.minted = 0
+        ledger.db.burned = 0
+
+
+class TestEconomyLog(LedgerIsolationMixin, EvenniaTest):
+    """
+    The ledger primitive: append, running totals, repair.
+
+    EvenniaTest rather than EvenniaTestCase because a global Script needs a
+    database. `.char1` is used only as a recipient for entry provenance.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_ledger_starts_empty(self):
+        self.assertEqual(economy_log.total_minted(), 0)
+        self.assertEqual(economy_log.total_burned(), 0)
+        self.assertEqual(economy_log.net_issued(), 0)
+
+    def test_append_mint_updates_running_total(self):
+        economy_log.append(economy_log.KIND_MINT, 500, "crypto_exchange", recipient=self.char1)
+        self.assertEqual(economy_log.total_minted(), 500)
+        self.assertEqual(economy_log.total_burned(), 0)
+        self.assertEqual(economy_log.net_issued(), 500)
+
+    def test_append_burn_subtracts_from_net(self):
+        economy_log.append(economy_log.KIND_MINT, 500, "crypto_exchange", recipient=self.char1)
+        economy_log.append(economy_log.KIND_BURN, 200, "crypto_exchange", recipient=self.char1)
+        self.assertEqual(economy_log.total_burned(), 200)
+        self.assertEqual(economy_log.net_issued(), 300)
+
+    def test_burns_are_stored_as_positive_amounts(self):
+        # Storing burns negative would let a sign error in append() cancel a
+        # sign error in total_burned() and still balance -- a bug that hides
+        # itself. Positive amounts plus an explicit kind cannot do that.
+        economy_log.append(economy_log.KIND_BURN, 200, "crypto_exchange")
+        self.assertEqual(economy_log.entries()[0]["amount"], 200)
+
+    def test_entry_records_recipient_key_and_dbref(self):
+        # The dbref identifies the object exactly; the key stays readable after
+        # that object is deleted.
+        economy_log.append(economy_log.KIND_MINT, 500, "crypto_exchange", recipient=self.char1)
+        entry = economy_log.entries()[0]
+        self.assertEqual(entry["recipient_key"], self.char1.key)
+        self.assertEqual(entry["recipient_dbref"], self.char1.dbref)
+
+    def test_recipient_is_optional(self):
+        economy_log.append(economy_log.KIND_MINT, 500, "crypto_exchange")
+        entry = economy_log.entries()[0]
+        self.assertIsNone(entry["recipient_key"])
+        self.assertIsNone(entry["recipient_dbref"])
+
+    def test_bad_kind_is_rejected(self):
+        with self.assertRaises(ValueError):
+            economy_log.append("adjustment", 500, "crypto_exchange")
+
+    def test_non_positive_amount_is_rejected(self):
+        with self.assertRaises(ValueError):
+            economy_log.append(economy_log.KIND_MINT, 0, "crypto_exchange")
+        with self.assertRaises(ValueError):
+            economy_log.append(economy_log.KIND_MINT, -500, "crypto_exchange")
+
+    def test_entries_can_be_filtered_and_limited(self):
+        economy_log.append(economy_log.KIND_MINT, 100, "crypto_exchange")
+        economy_log.append(economy_log.KIND_BURN, 50, "crypto_exchange")
+        economy_log.append(economy_log.KIND_MINT, 200, "crypto_exchange")
+        self.assertEqual(len(economy_log.entries()), 3)
+        self.assertEqual(len(economy_log.entries(kind=economy_log.KIND_MINT)), 2)
+        self.assertEqual(economy_log.entries(limit=1)[0]["amount"], 200)
+
+    def test_entries_are_copies_not_live_references(self):
+        # Callers get plain dicts, not Evennia's _SaverDict, so a caller
+        # mutating the result cannot write back into the ledger.
+        economy_log.append(economy_log.KIND_MINT, 100, "crypto_exchange")
+        got = economy_log.entries()[0]
+        got["amount"] = 999_999
+        self.assertEqual(economy_log.entries()[0]["amount"], 100)
+
+    def test_recompute_totals_repairs_drift(self):
+        # Simulates the failure this repair path exists for: totals and entries
+        # disagreeing after an exception between the two writes, or a hand-edited
+        # Attribute. audit() (A.3) is what would tell you to run it.
+        economy_log.append(economy_log.KIND_MINT, 500, "crypto_exchange")
+        economy_log.get_ledger().db.minted = 99_999
+        economy_log.recompute_totals()
+        self.assertEqual(economy_log.total_minted(), 500)
+
+
+class TestCurrencyHandlerBasics(LedgerIsolationMixin, EvenniaTest):
+    """Reading and rendering a wallet."""
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_new_character_has_no_wallet_attribute_but_reads_zero(self):
+        # D6, and the reason no backfill is needed anywhere: a character who has
+        # never touched money simply has none, and the Attribute is not created
+        # until the first mutation. Nothing exists that could clobber a live
+        # balance, so the force=True shape of trap (Reference 3.5) cannot occur.
+        self.assertIsNone(self.char1.attributes.get("wallet"))
+        self.assertEqual(self.char1.currency.value, 0)
+
+    def test_handler_is_wired_and_stable(self):
+        # lazy_property caches, so this must be the same handler each access --
+        # otherwise anything holding a reference would go stale.
+        self.assertIs(self.char1.currency, self.char1.currency)
+        self.assertIsInstance(self.char1.currency, CurrencyHandler)
+
+    def test_format_renders_the_balance(self):
+        self.char1.currency.add(10_203, source="admin_correction")
+        self.assertEqual(self.char1.currency.format(), "1 Gold, 2 Silver, 3 Copper")
+
+    def test_empty_wallet_formats_as_nothing(self):
+        self.assertEqual(self.char1.currency.format(), "nothing")
+
+    def test_can_afford(self):
+        self.char1.currency.add(500, source="admin_correction")
+        self.assertTrue(self.char1.currency.can_afford(500))
+        self.assertTrue(self.char1.currency.can_afford(499))
+        self.assertFalse(self.char1.currency.can_afford(501))
+
+
+class TestMintSeparation(LedgerIsolationMixin, EvenniaTest):
+    """
+    S4-1. The structural guarantee that money enters the world only one way.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_faucet_cannot_mint(self):
+        # ⭐ THE load-bearing test of Stage 4. The temple faucet (Component D)
+        # looks like it hands out money and must not be able to create any --
+        # it transfers from the Treasury. If this test ever goes green for the
+        # wrong reason, the game has an unbounded money supply and nobody finds
+        # out until inflation makes it obvious.
+        with self.assertRaises(ValueError):
+            self.char1.currency.add(500, source="faucet")
+
+    def test_no_money_is_created_by_a_rejected_mint(self):
+        with self.assertRaises(ValueError):
+            self.char1.currency.add(500, source="faucet")
+        self.assertEqual(self.char1.currency.value, 0)
+        self.assertEqual(economy_log.total_minted(), 0)
+
+    def test_source_is_mandatory(self):
+        # `wallet.add(500)` must not be a working call -- someone reaching for a
+        # generic "add to balance" helper should hit a TypeError, not mint.
+        with self.assertRaises(TypeError):
+            self.char1.currency.add(500)
+
+    def test_valid_sources_mint_and_log(self):
+        for source in sorted(MINT_SOURCES):
+            with self.subTest(source=source):
+                before = economy_log.total_minted()
+                self.char1.currency.add(100, source=source)
+                self.assertEqual(economy_log.total_minted(), before + 100)
+
+    def test_add_returns_the_new_balance(self):
+        # Not a bool: add() has no expected-failure mode. Documented so nobody
+        # "fixes" it for symmetry with transfer_to.
+        self.assertEqual(self.char1.currency.add(500, source="admin_correction"), 500)
+        self.assertEqual(self.char1.currency.add(300, source="admin_correction"), 800)
+
+    def test_non_positive_mint_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.char1.currency.add(0, source="admin_correction")
+        with self.assertRaises(ValueError):
+            self.char1.currency.add(-500, source="admin_correction")
+
+    def test_bool_amount_is_rejected(self):
+        # bool subclasses int; without the explicit guard this would mint 1.
+        with self.assertRaises(TypeError):
+            self.char1.currency.add(True, source="admin_correction")
+
+
+class TestBurn(LedgerIsolationMixin, EvenniaTest):
+    """The Stage 8 exchange-back primitive, built now so the ledger is whole."""
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_burn_removes_money_and_logs_it(self):
+        self.char1.currency.add(500, source="admin_correction")
+        self.assertTrue(self.char1.currency.burn(200, reason="crypto_exchange"))
+        self.assertEqual(self.char1.currency.value, 300)
+        self.assertEqual(economy_log.total_burned(), 200)
+
+    def test_burn_beyond_balance_returns_false_and_changes_nothing(self):
+        self.char1.currency.add(500, source="admin_correction")
+        self.assertFalse(self.char1.currency.burn(501, reason="crypto_exchange"))
+        self.assertEqual(self.char1.currency.value, 500)
+        self.assertEqual(economy_log.total_burned(), 0)
+
+    def test_unknown_reason_is_rejected(self):
+        self.char1.currency.add(500, source="admin_correction")
+        with self.assertRaises(ValueError):
+            self.char1.currency.burn(100, reason="sink")
+        self.assertEqual(self.char1.currency.value, 500)
+
+
+class TestTransfer(LedgerIsolationMixin, EvenniaTest):
+    """
+    S4-R1 and S4-4. Transfers move money and cannot change how much exists.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def setUp(self):
+        super().setUp()
+        self.char1.currency.add(1_000, source="admin_correction")
+
+    def test_transfer_conserves_the_total(self):
+        # The property that makes transfer_to safe to use everywhere: even a
+        # buggy transfer cannot change how much money exists in the world.
+        before = self.char1.currency.value + self.char2.currency.value
+        self.assertTrue(self.char1.currency.transfer_to(self.char2, 400))
+        after = self.char1.currency.value + self.char2.currency.value
+        self.assertEqual(before, after)
+        self.assertEqual(self.char1.currency.value, 600)
+        self.assertEqual(self.char2.currency.value, 400)
+
+    def test_insufficient_funds_returns_false_and_moves_nothing(self):
+        # Partial mutation here would be the duplication/destruction bug for the
+        # whole economy, so both wallets are asserted, not just the payer's.
+        self.assertFalse(self.char1.currency.transfer_to(self.char2, 1_001))
+        self.assertEqual(self.char1.currency.value, 1_000)
+        self.assertEqual(self.char2.currency.value, 0)
+
+    def test_exact_balance_transfers(self):
+        # Boundary: >= not >, so spending everything must succeed.
+        self.assertTrue(self.char1.currency.transfer_to(self.char2, 1_000))
+        self.assertEqual(self.char1.currency.value, 0)
+
+    def test_transfers_are_not_logged(self):
+        # S4-4. Transfers are the normal business of the game; logging them
+        # would grow without bound for no diagnostic gain. The invariant, not a
+        # transaction log, is what proves nothing was created.
+        before = len(economy_log.entries())
+        self.char1.currency.transfer_to(self.char2, 400)
+        self.assertEqual(len(economy_log.entries()), before)
+
+    def test_transfer_never_mints(self):
+        # Guards the structural separation from the other direction: if
+        # transfer_to were ever "simplified" to call add() on the recipient,
+        # every payment in the game would create money and this catches it.
+        before = economy_log.total_minted()
+        self.char1.currency.transfer_to(self.char2, 400)
+        self.assertEqual(economy_log.total_minted(), before)
+
+    def test_self_transfer_raises(self):
+        # Raises rather than returning False so it cannot be mistaken for
+        # poverty (D7). B.2 catches `pay ... to me` first with a friendly
+        # message; this is the backstop.
+        with self.assertRaises(ValueError):
+            self.char1.currency.transfer_to(self.char1, 100)
+        self.assertEqual(self.char1.currency.value, 1_000)
+
+    def test_target_without_a_wallet_raises(self):
+        # .obj1 is a plain Object with no currency handler. A caller bug, not a
+        # player condition.
+        with self.assertRaises(TypeError):
+            self.char1.currency.transfer_to(self.obj1, 100)
+        self.assertEqual(self.char1.currency.value, 1_000)
+
+    def test_non_positive_amount_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.char1.currency.transfer_to(self.char2, 0)
+        with self.assertRaises(ValueError):
+            self.char1.currency.transfer_to(self.char2, -100)
+
+    def test_invariant_holds_across_mint_transfer_and_burn(self):
+        # A miniature of the A.3 audit: everything the two characters hold must
+        # equal everything the ledger says was issued. This is the assertion
+        # audit() generalises to the whole world.
+        self.char1.currency.transfer_to(self.char2, 400)
+        self.char2.currency.burn(150, reason="crypto_exchange")
+        held = self.char1.currency.value + self.char2.currency.value
+        self.assertEqual(held, economy_log.net_issued())
