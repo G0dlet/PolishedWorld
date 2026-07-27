@@ -112,6 +112,14 @@ GLOBAL_SCRIPTS = {
         "start_delay": False,
         "desc": "Maintains creature populations in spawn-flagged rooms",
     },
+    # Currency mint/burn ledger (Stage 4). Deliberately has NO interval: this is
+    # persistent world-level storage, not a ticker. Registered here so it is
+    # auto-created on first start and re-created after any database reset.
+    "economy_ledger": {
+        "typeclass": "typeclasses.scripts.EconomyLedgerScript",
+        "persistent": True,
+        "desc": "Mint/burn ledger for the currency economy",
+    },
 }
 
 # Crafting contrib: where to look for CraftingRecipe subclasses.

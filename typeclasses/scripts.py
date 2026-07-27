@@ -205,3 +205,40 @@ class CreatureSpawnScript(Script):
         # Direct location set = silent placement (no 'a rabbit arrives' spam every
         # interval). Bypassing move hooks is intentional for ambient spawning.
         spawned[0].location = room
+
+
+class EconomyLedgerScript(Script):
+    """
+    Global mint/burn ledger for the currency economy (Stage 4, A.2).
+
+    Registered via settings.GLOBAL_SCRIPTS, so it is auto-created on first
+    server start and re-created if ever deleted -- including after a full
+    development-database reset, which needs no migration path as a result.
+
+    Has NO interval: this is pure storage, not a ticker. It is a Script only
+    because a global Script is the right home for world-level state that
+    belongs to no object (the WeatherScript precedent above).
+
+    State (persistent Attributes):
+        db.entries (list): append-only mint/burn records. See world/economy_log.py
+            for the entry shape and for why transfers are deliberately absent.
+        db.minted  (int): running total of Copper ever minted.
+        db.burned  (int): running total of Copper ever burned.
+
+    The running totals are NOT redundant with db.entries. An append-only list in
+    an Attribute deserialises wholesale on every access, so deriving totals from
+    it would make the audit invariant -- the frequent reader -- cost O(entries).
+    Only append() touches the list. world/economy_log.recompute_totals() is the
+    repair path if the two ever disagree.
+    """
+
+    def at_script_creation(self):
+        self.key = "economy_ledger"
+        self.desc = "Mint/burn ledger for the currency economy"
+        # persistent comes from GLOBAL_SCRIPTS, which is authoritative; we only
+        # seed initial state here. Guarded so a re-run cannot wipe a live
+        # ledger -- same idempotency rule as every backfill in this project.
+        if self.db.entries is None:
+            self.db.entries = []
+            self.db.minted = 0
+            self.db.burned = 0
