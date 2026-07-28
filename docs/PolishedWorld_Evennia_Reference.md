@@ -1,5 +1,7 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 16 · 2026-07-27** — Three new lessons from Stage 4 Component A, all verified live against a real test database (82 tests green, 2026-07-27): **§11.21** `typeclass_search(cls, include_children=True)` is literally `cls.objects.all_family()`, and `get_by_attribute()` is the better primitive when the question is "everything that has X" rather than "everything that is X"; **§11.22** a `GLOBAL_SCRIPTS` entry with no `interval` is pure persistent world storage, not a ticker, and is auto-recreated after a database reset; **§11.23** an Attribute row does not exist until first write, so a handler reading with `default=` makes backfill unnecessary rather than merely guarded — the structural escape from the §3.5 family of traps.
+
 > **Rev 15 · 2026-07-26** — **§11.20 corrected — the tie-break was inverted.** Rev 14 derived it from `cmdsethandler.update()` (`new_current = cmdset + new_current`, accumulator on the right), whose own docstring disclaims matching runtime. The real runtime merge is `cmdhandler.get_and_merge_cmdsets()`: `tempmergers[prio] = tempmergers[prio] + cmdset` puts the *incoming* set on the right, and `__add__` gives the right operand the tie. `DefaultObject.get_cmdsets()` returns the raw `cmdset_stack`, so a runtime-added set enters as its own entry, after `CharacterCmdSet`. **Correct rule: on a priority tie the LATER-merged cmdset wins**, and hands the key back when removed. Empirically confirmed in game 2026-07-26 — our `CmdStatus` (`status`/`vitals`) and barter's `CmdStatus` (`status`/`offers`/`deal`) coexist, vitals outside a trade, offer table inside. Stage 3 H.1's mechanical premise therefore did not hold (the decision stands on UX grounds; see Recipe-Knowledge Rev 11). §11.14 re-verified independently: its collision is real but goes through `CmdSet.add()`, not `_union` — same direction, different code path, cross-ref corrected.
 
 > **Rev 14 · 2026-07-26** — New §11.20 (verified live against Evennia `main` — `commands/cmdset.py`, `cmdsethandler.py`, `commands/command.py`): a duplicate command key across two cmdsets at **equal priority** is *silently deleted*, not shadowed, and the survivor is the **already-merged (lower) set**, not the one added last — the opposite of the natural intuition. `Command.__eq__` matches on key+alias **intersection** and `__hash__` on key alone, so an alias overlap is enough. Worked example: a global `accept` in `CharacterCmdSet` would erase barter's `CmdAccept` (and our `CmdPWAccept` ownership backstop) for the whole trade session. §11.14's `look`/`ExtendedRoomCmdSet` collision is the same lesson's first instance; cross-referenced. Drove Stage 3 H.1's decision to extend `learn` rather than key a new `accept`.
@@ -1099,6 +1101,108 @@ Multiplayer: a `learn` is a read-then-write on the tag set, but Evennia's single
 **Related:** §11.14 (`ContainerCmdSet`'s `CmdContainerLook` vs `extended_room`'s `look`) is a **different mechanism** with the same direction — `CmdSet.add()`, not `_union`. Read both before assuming either explains the other.
 
 **Meta-lesson (why this section needed correcting):** Rev 14 was written after source verification against Evennia's actual code, and was still wrong — right code, wrong function. Source verification is necessary but not sufficient. For any claim about *runtime* behaviour, prove it in a running game before writing it down as a lesson; here a two-minute `status`-inside-a-trade check would have caught it.
+
+---
+
+### 11.21 Enumerating objects: `typeclass_search` is `all_family`, and often the wrong question
+
+*(Verified against Evennia `main` 2026-07-27 — `evennia/typeclasses/managers.py`.)*
+
+`ObjectDB.objects.typeclass_search(cls, include_children=True)` does exactly one
+thing in that branch: `return typeclass.objects.all_family()`. It is not a
+different or better query than the `Character.objects.all_family()` already used
+in `world/character_migrations.py` — just one more layer. Pick either; do not
+imagine the longer one is doing more.
+
+The more useful point is **which question you are asking.** Typeclass
+enumeration answers *"everything that IS an X"*. When what you actually need is
+*"everything that HAS an X"*, use the Attribute query instead:
+
+```python
+from evennia.objects.models import ObjectDB
+ObjectDB.objects.get_by_attribute(key="wallet")   # one indexed filter on db_key
+```
+
+**Why it matters (Stage 4 A.3).** The currency audit sums every wallet in the
+world. Written as "all Characters" it would have been complete only while
+Characters were the only wallet holders — and the Treasury already is not one.
+The first future wallet-holder (guild bank, shop, Stage 5's purse-keeping
+corpse) would have made the audit under-count and report an invariant failure
+that was really a bug in the audit. A false alarm in the one tool that exists to
+be trusted is worse than no tool. The Attribute query is complete by
+construction, needs no maintenance, and is the cheaper query besides.
+
+**Rule:** when a query exists to be exhaustive over a *capability*, enumerate the
+capability, not the class that currently happens to have it.
+
+---
+
+### 11.22 A `GLOBAL_SCRIPTS` entry with no `interval` is persistent storage, not a ticker
+
+*(Verified live 2026-07-27 — `evennia/utils/containers.py::GlobalScriptContainer`.)*
+
+`interval` is optional. A global Script registered in `settings.GLOBAL_SCRIPTS`
+without one never fires `at_repeat` and simply exists — which makes it the right
+home for world-level state that belongs to no object. The container
+auto-(re)creates anything declared in settings on access, so the Script comes
+back by itself after deletion **or after a full development-database reset**,
+with no migration path to write and nothing to remember to switch on.
+
+```python
+# settings.py
+"economy_ledger": {
+    "typeclass": "typeclasses.scripts.EconomyLedgerScript",
+    "persistent": True,
+    "desc": "Mint/burn ledger for the currency economy",
+},
+```
+
+Server log confirms it: `GLOBAL_SCRIPTS: (Re)creating economy_ledger (...)`.
+
+⚠️ **`at_script_creation` must still be idempotent.** Seed state behind a
+`if self.db.x is None:` guard, exactly like every backfill in this project — an
+unguarded seed would zero a live ledger the first time the Script is recreated
+for any reason.
+
+**Design note:** an append-only list in an Attribute deserialises wholesale on
+every access, so keep any running totals as their own integer Attributes. The
+frequent reader then never touches the list, and only the rare writer pays.
+
+---
+
+### 11.23 An Attribute row does not exist until first write — so design the backfill away
+
+*(Verified live 2026-07-27 — asserted directly in `tests/test_currency.py`.)*
+
+`obj.attributes.get("wallet")` on an object that never wrote one returns `None`,
+and **no Attribute row exists in the database**. Combined with a handler that
+reads through a default:
+
+```python
+return self.obj.attributes.get(self._db_attribute, default=0) or 0
+```
+
+…an object that has never touched the value behaves identically to one holding
+the default, without anything ever having been written for it.
+
+**The consequence is structural, not cosmetic.** §3.5 and
+`world/character_migrations.py` document the recurring trap: state added in
+`at_object_creation` must be backfilled onto existing objects, and the backfill
+must be guarded because `TraitHandler.add()` defaults to `force=True` and will
+happily wipe live progress. Stage 4's wallet has **no** `at_object_creation`
+entry and **no** `AttributeProperty` declaration, so there is no backfill to
+guard and nothing that could clobber a live balance. The trap is not avoided by
+care; it is absent.
+
+A second benefit falls out: with no `AttributeProperty`, there is no
+`char.wallet = 500` shortcut for code outside the owning module to reach for.
+"Only this module writes this state" stops being a review convention and becomes
+a property of the code. Both effects are worth the trade wherever a value has a
+meaningful default and a single owner.
+
+**Trade-off, stated honestly:** you lose the self-documenting declaration on the
+typeclass and the tab-completion that comes with it. For a value with one owner
+and one writer that is a good trade; for ordinary descriptive state it is not.
 
 ---
 
