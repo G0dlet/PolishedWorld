@@ -1,5 +1,7 @@
 # PolishedWorld - GameGold & Economy Design
 
+> **Rev 3 · 2026-07-27** — Reconciles "Gold Creation" with Stage 4's implemented `MINT_SOURCES`. Rev 2 removed the "admin gold (except events)" carve-out to match the single-mint-point principle, and that removal stands — but the shipped whitelist contains `admin_correction` alongside `crypto_exchange`, so the absolute wording needed qualifying before someone read the two documents together and concluded one of them had quietly lost. The distinction is not "admins may create gold sometimes": `admin_correction` repairs the exchange path when a settlement goes wrong, is ledgered identically to any other mint, and shows up in `@economy audit` like any other. It is the same door, used to fix the door. It is **not** a grant mechanism, and no event, reward or compensation may use it.
+
 > **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc; corrected Temple-Faucet rewards from Gold to Copper (were 200–400× too high) and aligned the implementation sketch; removed the "admin gold (except events)" carve-out so Gold Creation matches the single-mint-point principle; clarified CurrencyHandler.add() as a mint-only primitive.
 > **Rev 1 · 2026-07-02** — first versioned copy; platform migrated to blackcoin-more fork (PoSV3); added Node Security & Staking Infrastructure section (node-role separation + cold-staking deferred).
 > **Canonical:** `docs/PolishedWorld_GameGold_Economy.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -39,11 +41,25 @@
 **Minimum Exchange**: 10 Gold (prevents micro-transaction spam)
 
 ### Key Principle: Gold Creation
-**Gold can ONLY be created via cryptocurrency exchange. No exceptions.**
+**Gold can ONLY be created via cryptocurrency exchange.**
 - No NPC gold rewards
 - No quest gold
-- No admin gold spawning — not even for events
+- No admin gold spawning — not for events, not for rewards, not for compensation
 - All gold circulates between players
+
+**The one qualification, and its limits.** Stage 4 ships two mint sources:
+`crypto_exchange` and `admin_correction` (`world/currency.py::MINT_SOURCES`).
+The second is not a second door. It exists to repair the first one — a
+settlement that credited the wrong amount, an exchange that half-completed — and
+it is ledgered identically, counts identically in the audit invariant, and is
+visible in `@economy audit` like every other mint. Anything that is not
+*correcting a specific exchange transaction* is out of scope for it, including
+every use the removed "except for events" carve-out once covered.
+
+Structurally, `CurrencyHandler.add()` is the only way to create gold at all, it
+refuses any source outside that whitelist, and a unit test asserts the refusal.
+Everything else in the game — the temple faucet, wages, payments, trade — moves
+existing gold via `transfer_to()`, which cannot change how much exists.
 
 ---
 
