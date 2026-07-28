@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 13 · 2026-07-27** — Stage 4 Component A close-out. Three new entries: **compact amount input** (`50c`, `2g30s` — one feature, one entry), the **`copper` name collision** between the material registry and the currency denomination (harmless in Stage 4, detonates when `CoinPile` materialises), and **`MINT_SOURCES` / `BURN_REASONS` tuning**. The unit-test coverage initiative is marked **DONE** — its "neither is in the repo" note was written honestly and is now simply out of date: `tests/__init__.py` and `tests/test_knowledge.py` are on `main`, `AGENTS.md` Rev 2 carries §0A, and `tests/test_currency.py` is the second suite built to the template.
+
 > **Rev 12 · 2026-07-26** — Stage 3 close-out. **Component I (thin world-loot scroll
 > seed) deferred here in full** rather than built — the decomp named it a defer-candidate
 > if world-content plumbing wasn't ready, and it isn't (`world/batch_cmds.ev` is untouched
@@ -572,6 +574,64 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Note:** The `AGENTS.md` scope entry is a **prerequisite**, not a follow-up — without it
   OpenCode has no permission to write the files it is meant to replicate.
 - **Origin:** Unit-test coverage session (pre-Component G); rediscovered at Stage 3 close-out.
+- **Status:** **DONE** (2026-07-27). The "neither is in the repo" note above was
+  accurate when written and is now stale: `tests/__init__.py` and
+  `tests/test_knowledge.py` are on `main`, `AGENTS.md` Rev 2 adds §0A and the
+  `tests/` write-scope, and `tests/test_currency.py` (82 tests at Stage 4
+  Component A close) is the second suite built to the golden template. The
+  OpenCode *replication* half has not been exercised yet — that is a task, not a
+  deferral, and lives in the stage plans rather than here. Keep for traceability,
+  prune at the next backlog sweep.
+
+---
+
+## Currency
+
+### Compact amount input (`50c`, `2g30s`)
+- **What:** Let `parse_amount()` accept the attached single-denomination form
+  (`50c`) and the multi-denomination compact form (`2g30s`), in addition to the
+  two-token form (`50 copper`) it accepts today.
+- **Why deferred:** Both are the same feature and neither is needed for a
+  playable currency. The shipped rule is one sentence — *exactly two
+  whitespace-separated tokens, a non-negative integer and a denomination* —
+  which rejects both for the same reason and is explainable to a player in a
+  single error message. A compact parser needs its own grammar, its own
+  ambiguity rules (is `2g30` 30 what?), and its own test surface.
+- **Trigger:** Playtest evidence that typing the denomination is friction —
+  most likely from `pay` in the middle of a live trade.
+- **Origin:** Stage 4 A.1 (`world/currency.py::parse_amount` docstring names the
+  deferral).
+- **Status:** OPEN
+
+### `copper` is both a material and a denomination
+- **What:** `world/material_registry.py` registers `copper` as an INTERMEDIATE
+  material (smelted from `copper_ore`, with `copper_ingot → copper` aliased),
+  and Stage 4 introduces Copper as the base currency denomination.
+- **Why deferred:** Harmless in Stage 4 and cheap to leave alone. The wallet is
+  an `int`, there are no coin objects, and the verbs do not overlap —
+  `pay 5 copper to Bob` never reaches `caller.search()`, while
+  `give copper to Bob` never reaches the currency parser. Renaming either side
+  now would churn the material registry and the recipe data for a collision that
+  does not yet exist.
+- **Trigger:** **Stage 5 kickoff** — the same trigger as the `CoinPile` deferral
+  (S4-3), and for the same reason: the moment coins are real objects, two
+  different things in a room answer to `copper` and `caller.search()` has to
+  disambiguate them. Decide then whether to rename the metal, name the coin
+  distinctly (`copper coin`), or lean on search-multimatch UX (§12 of the
+  Evennia Reference).
+- **Origin:** Stage 4 A.1 review; flagged in session before A.2.
+- **Status:** SCHEDULED (Stage 5, with `CoinPile`)
+
+### `MINT_SOURCES` / `BURN_REASONS` vocabulary
+- **What:** The two whitelists in `world/currency.py`, currently
+  `{"crypto_exchange", "admin_correction"}` each.
+- **Why deferred:** Deliberately minimal. Every entry is a door money can walk
+  through, so the list should grow only against a demonstrated need, never
+  pre-emptively. The symmetry between the two is intentional: an unvalidated
+  free-text burn reason would let the ledger fill with unrecognised tags while
+  the invariant still balanced perfectly.
+- **Trigger:** A real settlement scenario that neither tag describes honestly.
+- **Origin:** Stage 4 A.2 (decision D8).
 - **Status:** OPEN
 
 ---
