@@ -1,5 +1,7 @@
 # PolishedWorld — In-game Currency Decomposition (Stage 4)
 
+> **Rev 3 · 2026-07-27** — **Component A CLOSED** (A.1 `f741f15`, A.2 `e804b7b` + `7e9a815`, A.3 `5c4bf6b`; 82 tests green). Two implementation deviations, both flagged and neither touching a locked decision. **(1) A.2 absorbed the ledger's storage primitive.** A.2's spec required `add()` to write a ledger entry before mutating, but the ledger was scheduled for A.3 — a mint path cannot honour that ordering before the thing it writes to exists, and the gap would have been exactly the half-built state S4-4's invariant exists to catch. The dependency runs the other way round from the component numbering: the ledger needs nothing from the handler, while `audit()` needs both. A.3 kept `audit()`. **(2) A.3 enumerates wallets by Attribute, not by typeclass.** §6/A.3's suggested `typeclass_search(Character, include_children=True)` is correct and verified — and is literally `Character.objects.all_family()` (managers.py delegates to it) — but it enumerates the wrong *concept*: it is complete only while Characters are the only wallet holders, and the Treasury (C.1) already is not one. `ObjectDB.objects.get_by_attribute(key="wallet")` is complete by construction, cheaper (one indexed lookup vs a family scan), and cannot produce the worst failure mode available here — a false invariant alarm in the one tool whose whole value is being trusted. Also recorded: Evennia Reference **Rev 16** §11.21–11.23 for the three reusable lessons. Remaining doc debt unchanged and still due at Component F.
+
 > **Rev 2 · 2026-07-26** — §5 reconciled against reality. The §11.20 correction has landed on `main` (Reference **Rev 15**, commit `386fba9f`) together with the Recipe-Knowledge **Rev 11** follow-up, so those two items move from *pending* to *done*. **§11.14 is now re-verified** rather than deferred: the collision is real, but its mechanism is `CmdSet.add()`'s dedup-then-append inside `at_cmdset_creation`, not `_union` — same direction (later wins), different code path, and a *permanent* deletion rather than a merge-scoped one. Reference §11.14 was updated in the same commit. No design decision changes; Components A–F untouched.
 
 > **Rev 1 · 2026-07-26** — first version. Decomposes Stage 4 (In-game Currency) into Components A–F. Locks four design decisions ahead of any code: the **Treasury pattern** for the mint point (the faucet transfers, never mints — Principle 4 stands unbroken), the **wallet-as-integer** representation (a single Copper `int`; denominations are rendering, not storage), **wallet retained on death** in Stage 4 with `CoinPile` materialisation deferred to Stage 5, and a **mint/burn-only transaction log** whose integrity guarantee is a recomputed invariant rather than a per-transfer trail. Command surface kept minimal (`wallet`, `pay`, `work`, `@economy`), with `offer` extended rather than re-keyed. Carries a **correction to Evennia Reference §11.20**: the runtime merge in `cmdhandler.get_and_merge_cmdsets()` gives the tie to the *later-merged* set, not the earlier one — so a runtime cmdset such as barter's `CmdsetTrade` correctly overrides a same-keyed command in `CharacterCmdSet`, and there is no `status` collision to fix.
@@ -178,7 +180,9 @@ world/currency.py
 
 typeclasses/characters.py     @lazy_property currency  →  CurrencyHandler
 typeclasses/treasury.py       Treasury(DefaultObject), same handler
+typeclasses/scripts.py        EconomyLedgerScript — global, no interval, pure storage
 world/economy_log.py          mint/burn ledger + audit invariant
+                              (registered in settings.GLOBAL_SCRIPTS as "economy_ledger")
 
 commands/currency_commands.py  CmdWallet · CmdPay · CmdEconomy(admin) · CmdWork
 world/barter.py                currency clause on offer + settlement in finish()
@@ -384,11 +388,21 @@ purpose. Every key in the table above is unique against the full inventory.
   deserialises wholesale on every access). Entry shape: timestamp, kind
   (`mint`/`burn`), amount in Copper, source/reason tag, recipient key + dbref.
   `total_minted()`, `total_burned()`, `append(...)`.
-  `audit()` → dict with `wallet_sum`, `treasury`, `expected`, `delta`, `ok`.
-  Enumerate characters with
-  `ObjectDB.objects.typeclass_search("typeclasses.characters.Character", include_children=True)`
-  — **verified live** in `evennia/typeclasses/managers.py`. Audit is an
-  infrequent admin action, so full enumeration is acceptable.
+  `audit()` → dict with `wallet_sum`, `treasury`, `held`, `minted`, `burned`,
+  `expected`, `delta`, `wallet_count`, `corrupt`, `ok`; plus `audit_report()`
+  rendering it as uncoloured text, usable from `@py` before C.2 exists.
+  ~~Enumerate characters with `typeclass_search(...)`~~ — **superseded as built**
+  (Rev 3): wallets are enumerated with
+  `ObjectDB.objects.get_by_attribute(key="wallet")`. Complete by construction
+  rather than by maintenance, since the Treasury and any future wallet-holder is
+  not a Character. Audit is an infrequent admin action, so full enumeration is
+  acceptable either way. **The invariant does not depend on C.1:** the Treasury
+  holds a wallet Attribute like anything else and is already counted;
+  `get_treasury()` is used only to report its balance on its own line, and
+  `treasury` is `None` — never `0` — when there is no Treasury to report.
+  `audit()` reads the Attribute directly, never `CurrencyHandler.value`: the
+  handler is part of what is being audited, and a bug in it must not be able to
+  certify itself healthy.
 - **Testing:** unit — after a mint of 500 and a transfer of 200 between two
   characters, `audit()["delta"] == 0`; after a burn, likewise. Deliberately
   corrupt one wallet directly and assert `ok is False` (this proves the invariant
