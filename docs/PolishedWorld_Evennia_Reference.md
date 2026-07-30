@@ -1,5 +1,7 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 17 · 2026-07-30** — Two new lessons from Stage 4 Component B, both verified live against Evennia 6.1.0 with the suite running in-sandbox (129 tests green, 2026-07-30): **§11.24** in the stock `EvenniaTest` fixture `char2` cannot be puppeted, because its puppet lock is `puppet:pperm(Developer)` while `create_accounts()` grants Developer to `account` only — and the auto-puppet fails the lock **silently**, so every test that needs a *played* second party quietly becomes a refusal test instead; **§11.25** `Object.search()`'s local candidate set is `self.contents + [location] + location.contents`, which both gives same-room scoping for free (a target inside a container is a clean miss) and includes the room object itself, and a `#dbref` makes the search global *before* the `use_dbref` permission check, so room scoping is not airtight against Builder+.
+
 > **Rev 16 · 2026-07-27** — Three new lessons from Stage 4 Component A, all verified live against a real test database (82 tests green, 2026-07-27): **§11.21** `typeclass_search(cls, include_children=True)` is literally `cls.objects.all_family()`, and `get_by_attribute()` is the better primitive when the question is "everything that has X" rather than "everything that is X"; **§11.22** a `GLOBAL_SCRIPTS` entry with no `interval` is pure persistent world storage, not a ticker, and is auto-recreated after a database reset; **§11.23** an Attribute row does not exist until first write, so a handler reading with `default=` makes backfill unnecessary rather than merely guarded — the structural escape from the §3.5 family of traps.
 
 > **Rev 15 · 2026-07-26** — **§11.20 corrected — the tie-break was inverted.** Rev 14 derived it from `cmdsethandler.update()` (`new_current = cmdset + new_current`, accumulator on the right), whose own docstring disclaims matching runtime. The real runtime merge is `cmdhandler.get_and_merge_cmdsets()`: `tempmergers[prio] = tempmergers[prio] + cmdset` puts the *incoming* set on the right, and `__add__` gives the right operand the tie. `DefaultObject.get_cmdsets()` returns the raw `cmdset_stack`, so a runtime-added set enters as its own entry, after `CharacterCmdSet`. **Correct rule: on a priority tie the LATER-merged cmdset wins**, and hands the key back when removed. Empirically confirmed in game 2026-07-26 — our `CmdStatus` (`status`/`vitals`) and barter's `CmdStatus` (`status`/`offers`/`deal`) coexist, vitals outside a trade, offer table inside. Stage 3 H.1's mechanical premise therefore did not hold (the decision stands on UX grounds; see Recipe-Knowledge Rev 11). §11.14 re-verified independently: its collision is real but goes through `CmdSet.add()`, not `_union` — same direction, different code path, cross-ref corrected.
@@ -1203,6 +1205,96 @@ meaningful default and a single owner.
 **Trade-off, stated honestly:** you lose the self-documenting declaration on the
 typeclass and the tab-completion that comes with it. For a value with one owner
 and one writer that is a good trade; for ordinary descriptive state it is not.
+
+---
+
+### 11.24 `EvenniaTest`'s `char2` cannot be puppeted — and it fails silently
+
+*(Verified live 2026-07-30 against Evennia 6.1.0, `evennia/utils/test_resources.py`
+and `evennia/accounts/accounts.py::puppet_object`. Cost one debugging cycle in
+Stage 4 Component B.)*
+
+`EvenniaTestMixin.setup_session()` logs in **only `self.account`**, on sessid 1,
+and `create_accounts()` grants `Developer` to **`self.account` only**. `char2`
+does get `account2` and an `_last_puppet` pointer, so the auto-puppet on login
+*attempts* to run — and then fails, because a Character's puppet lock is
+`puppet:pperm(Developer)`.
+
+The failure mode is the problem. `puppet_object()` does not raise on a lock
+refusal; it calls `self.msg("You don't have permission to puppet …")` and
+`return`s. In a test there is no session to read that message, so nothing
+surfaces. `char2` is simply still a body afterwards.
+
+**Why this bites specifically.** `Object.has_account` is `self.sessions.count()`
+— sessions puppeting *that object*, not sessions logged into its account. So any
+command that requires a played target (`pay`, `teach`, any consent handshake)
+refuses `char2`, and the test that was meant to exercise the happy path passes
+while asserting the refusal branch. Under our statue-logout the symptom is
+legible if you read it: the expected-vs-returned diff says
+`stone statue of Char2 …`, because `get_display_name` is telling the truth about
+an unpuppeted character.
+
+**The fix, and the assertion that keeps it honest:**
+
+```python
+self.account2.permissions.add("Developer")   # mirrors create_accounts() for account1
+# ... portal_connect + login on sessid 2 ...
+if not self.char2.sessions.count():          # do not depend on AUTO_PUPPET_ON_LOGIN
+    self.account2.puppet_object(session2, self.char2)
+self.assertTrue(self.char2.has_account, "...")
+```
+
+The final assert is the load-bearing line. A fixture mixin whose entire job is
+establishing a precondition must fail loudly when it stops establishing it,
+because the alternative is a suite that stays green while testing the wrong
+branch. Tear the session down in `tearDown` — `SESSION_HANDLER` is global, and a
+leaked session makes `char2`'s connected-ness depend on test execution order
+(the same bug class as ledger and cooldown bleed).
+
+Reference implementation: `tests/test_currency_commands.py::SecondSessionMixin`.
+
+---
+
+### 11.25 `Object.search()`'s candidate set — room scoping for free, with two edges
+
+*(Verified live 2026-07-30 against Evennia `main`,
+`evennia/objects/objects.py::get_search_candidates`.)*
+
+With no `location`/`global_search` override, the local candidate set is exactly:
+
+```python
+candidates = self.contents
+if location:
+    candidates = candidates + [location] + location.contents
+```
+
+Three consequences worth knowing before writing a targeted command:
+
+1. **Same-room scoping is free — don't build it.** A target in another room is
+   not a candidate, and `search()` emits its own miss and multimatch messages, so
+   a falsy return is already fully reported to the player. Just `return`.
+2. **A target inside a container in the room is also not a candidate**, because
+   `container.contents` is not included. That resolves as a clean miss rather
+   than a surprise hit — the right answer for vehicles and enterable containers,
+   ahead of having either.
+3. **The room object itself is a candidate.** So `pay 1 copper to <room name>`
+   reaches your command body. Any guard that assumes a Character target
+   (`hasattr(target, "currency")`, `target.has_account`) is load-bearing, not
+   decorative — without it the call falls through to a handler that raises.
+
+**The edge that is not tight:** the dbref branch runs *before* the permission
+check —
+
+```python
+if kwargs.get("global_search") or dbref(searchdata):
+    return None            # None == search everything
+```
+
+— while `use_dbref` is resolved separately from a `perm(Builder)` lockstring. A
+plain player typing `#42` gets a global candidate set but cannot match it as a
+dbref; a Builder+ can, and so can reach across the world. For staff-reachable
+holes this is usually acceptable (they have `@py` already), but state it in a
+comment rather than assuming the scoping is airtight.
 
 ---
 
