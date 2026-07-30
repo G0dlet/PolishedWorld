@@ -24,6 +24,7 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
+from commands.currency_commands import CmdWallet
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -126,6 +127,14 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # no new key at all.
         self.add(CmdLearn())
         self.add(CmdRepair())
+
+        # Currency (Stage 4, Component B). The key is verified free against
+        # the default CharacterCmdSet and every contrib we merge, including
+        # barter's runtime CmdsetTrade (decomposition section 5).
+        # CmdWallet (key="wallet", alias "purse") -- read-only balance. "coins"
+        # is deliberately NOT an alias: when CoinPile lands in Stage 5 it would
+        # read as both a command and an object lying in the room.
+        self.add(CmdWallet())
 
         self.add(CmdPWTrade())
 
