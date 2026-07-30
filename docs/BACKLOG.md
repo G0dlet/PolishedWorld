@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 14 · 2026-07-30** — Stage 4 Component B close-out. Three new entries. **Bank / post office** (Currency) is the deliberate counterpart to a locked *rejection*: `pay` is same-room permanently, because coin is carried on the body and stays with the corpse, so remote payment would cancel the risk that makes carrying a decision — the sanctioned answer to "I don't want to carry this" is a *place* you have to reach. The rejection itself lives in the Currency decomposition, not here; this entry is the feature that replaces it. **`PAY_CONFIRM_THRESHOLD`** (Currency) carries the reasoning for shipping `pay` with no confirmation prompt, and the constraint that any future confirmation must not be a `yield`. ⚠️ **`CoinPile` vs the corpse's atomic delete** (Death & Corpses) is a doc-vs-code conflict found while reading corpse behaviour for B: `PlayerCorpse` destroys all contents at expiry, while Economic Philosophy Rev 2 states currency never weathers and Gold has exactly one permanent exit. Harmless today (no coin objects exist), a silent second burn point the moment `CoinPile` lands.
+
 > **Rev 13 · 2026-07-27** — Stage 4 Component A close-out. Three new entries: **compact amount input** (`50c`, `2g30s` — one feature, one entry), the **`copper` name collision** between the material registry and the currency denomination (harmless in Stage 4, detonates when `CoinPile` materialises), and **`MINT_SOURCES` / `BURN_REASONS` tuning**. The unit-test coverage initiative is marked **DONE** — its "neither is in the repo" note was written honestly and is now simply out of date: `tests/__init__.py` and `tests/test_knowledge.py` are on `main`, `AGENTS.md` Rev 2 carries §0A, and `tests/test_currency.py` is the second suite built to the template.
 
 > **Rev 12 · 2026-07-26** — Stage 3 close-out. **Component I (thin world-loot scroll
@@ -468,6 +470,31 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Hunting / H7 decomposition backlog.
 - **Status:** OPEN
 
+### ⚠️ `CoinPile` vs the corpse's atomic content delete
+- **What:** Decide what happens to coin left on an unlooted corpse that expires.
+  `typeclasses/corpse.py::PlayerCorpse.return_appearance` deletes **every** item
+  inside the body when it passes its recovery window (288 game hours), then
+  deletes the body. Once `CoinPile` materialises in Stage 5 and drops on death,
+  that path destroys currency.
+- **Why deferred:** Harmless today — Stage 4 keeps the wallet on death (S4-3) and
+  no coin objects exist, so nothing currency-shaped can be inside a corpse. It
+  cannot be *resolved* today either, because the object it concerns is not built.
+- **Why it matters, stated plainly:** this is a **doc-vs-code conflict**, not a
+  refinement. `PolishedWorld_Economic_Philosophy.md` Rev 2 states that currency
+  never weathers and that Gold has exactly **one** permanent exit (exchange back
+  to GameGold). An expiring corpse would be a second, unintended and **unlogged**
+  exit — and it would be invisible to `@economy audit`, because a deleted
+  `CoinPile` simply stops appearing in `get_by_attribute("wallet")`, leaving the
+  invariant reporting a discrepancy it cannot explain. Whichever way this is
+  decided, one of the two documents has to change.
+- **Trigger:** **Stage 5 kickoff**, with `CoinPile`. Three candidate resolutions:
+  exempt `CoinPile` from the atomic delete; accept it as an intended sink and
+  amend Economic Philosophy accordingly; or move coin to the room when the body
+  crumbles.
+- **Origin:** Found in Stage 4 B.2 while reading corpse behaviour for the
+  same-room payment rationale (2026-07-30).
+- **Status:** SCHEDULED (Stage 5, with `CoinPile`)
+
 ### `DeathWeakness` debuff → `fatigue_rate`
 - **What:** Point the death-weakness debuff at `fatigue_rate` (its intended
   target) instead of the current `hunger_rate`/`thirst_rate` stand-in (+25%).
@@ -632,6 +659,49 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the invariant still balanced perfectly.
 - **Trigger:** A real settlement scenario that neither tag describes honestly.
 - **Origin:** Stage 4 A.2 (decision D8).
+- **Status:** OPEN
+
+### Bank / post office (coin and gear storage at a place)
+- **What:** A location where a player can deposit coin and equipment and
+  withdraw it later, plus — optionally, and separately — a way to send coin or
+  goods to a player who is elsewhere.
+- **Why deferred:** It is the *replacement* for a mechanic that was deliberately
+  rejected, not a missing convenience. `pay` is same-room permanently (Currency
+  decomposition §6/B.2 and the module docstring of
+  `commands/currency_commands.py` both state the rule and its reasoning): coin is
+  carried on the body and, from Stage 5, stays with the corpse to be looted, so
+  carrying a large sum is a risk the player chooses. A global `pay` would cancel
+  that risk for free — empty your pockets remotely from inside the dungeon and
+  the decision costs nothing. A bank restores the *option* while keeping the
+  cost, because reaching it is a journey that can go wrong. Building it before
+  `CoinPile` exists would mean designing storage against a risk that is not yet
+  implemented.
+- **Trigger:** After Stage 5 (`CoinPile` / death-drop), which is what makes
+  carrying risky in the first place. Player demand for remote settlement is a
+  *secondary* signal and must be answered with this, never by widening `pay`.
+- **Origin:** Stage 4 B.2 design session (2026-07-30); the rejection of remote
+  payment is recorded in the Currency decomposition Rev 4.
+- **Status:** BLOCKED (Stage 5 `CoinPile`)
+
+### `PAY_CONFIRM_THRESHOLD` — confirmation for large payments
+- **What:** An optional threshold above which `pay` asks for confirmation before
+  transferring.
+- **Why deferred:** `pay` ships with **no** confirmation, deliberately. Most of
+  the protection is already structural: D1 requires an explicit denomination, so
+  the dangerous mistake — meaning Silver and typing a bare number — is a syntax
+  error rather than a silent transfer of a hundredth of the intended sum. What
+  remains is socially recoverable, since there are no NPC vendors and a
+  misdirected payment sits in another player's hands rather than being destroyed.
+  Both parties see the amount echoed back through `format_copper`, which is the
+  cheap version of a confirmation. Adding a prompt before anyone has been hurt by
+  its absence is speculative UX.
+- **Trigger:** Playtest evidence of players fat-fingering the *denomination*
+  (`gold` for `silver`), not merely the digits.
+- **Constraint on the fix:** an `ndb` two-step or an explicit `confirm` argument
+  — **never a `yield`**. There is no `yield` anywhere in the codebase, and `pay`
+  is the one command where S4-R1's atomicity rule applies, so it is the worst
+  possible place to introduce the first one.
+- **Origin:** Stage 4 B.2 (considered and rejected in the design session).
 - **Status:** OPEN
 
 ---
