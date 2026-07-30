@@ -22,7 +22,7 @@ from world.garment_wear import wear_all_garments
 
 # Survival depletion ticker interval (seconds).
 # 10s during dev for fast feedback; set to 600 before merging to main.
-SURVIVAL_TICK_INTERVAL = 10   # TODO: 600 before merge
+SURVIVAL_TICK_INTERVAL = 600   # TODO: 600 before merge
 
 # Garment wear ticker interval (seconds). Prod target 10800 = 3 real-hours =
 # 12 game-hours @ TIME_FACTOR 4, giving a common-worn garment ~3.6 game-weeks.

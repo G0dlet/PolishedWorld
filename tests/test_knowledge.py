@@ -191,8 +191,12 @@ class TestInscribeCommand(EvenniaCommandTest):
 
     .call() note for anyone extending this file: `.call(cmd, args, msg=EXPECTED)`
     does a PREFIX match on the ansi-stripped output. If a command emits SEVERAL
-    separate .msg() calls, join the expected pieces with `||` in `msg=`. Our
-    knowledge commands msg exactly once per path, so no `||` appears here.
+    separate .msg() calls to the SAME receiver, join the expected pieces with `|`
+    in `msg=` -- NOT `||`. The runner sets `msg_sep = "|" if noansi else "||"`
+    and `noansi` defaults True (evennia/utils/test_resources.py), so `||` only
+    works if you pass `noansi=False`. Our knowledge commands msg exactly once
+    per path, so no separator appears here. For a command that messages more
+    than one receiver, pass a dict: `msg={obj_a: "...", obj_b: "..."}`.
 
     We assert the MESSAGE *and* the SIDE-EFFECTS (object created / consumed): a
     green message with the wrong world-state is a false pass, and those are the

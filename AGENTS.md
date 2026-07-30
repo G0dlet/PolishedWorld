@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 3 · 2026-07-30** — §0A `.call()` constraint **corrected**: the multi-message separator is `|`, not `||`. `EvenniaCommandTestMixin.call()` sets `msg_sep = "|" if noansi else "||"` and `noansi` defaults **True**, so the documented `||` only applies to the non-default `noansi=False` path — as written the rule pointed at a form that fails under the settings every suite in this repo actually uses. Added the `msg={receiver: expected}` dict form (the only way to assert a two-party command) and a pointer to Evennia Reference §11.24 for the `char2`-cannot-be-puppeted fixture trap, which silently turns a happy-path test into a refusal test.
 > **Rev 2 · 2026-07-26** — added §0A (unit-test scope: `tests/` only, green-test guard); added `tests/` to the §0 write-scope.
 > **Rev 1 · 2026-07-01** — added §9 (documentation version-header convention).
 > **Canonical:** `AGENTS.md` @ G0dlet/PolishedWorld — git wins.
@@ -109,8 +110,21 @@ This is a code/design change, not a test. Needs Claude/Adam.
   `test_*.py` inside `world/`, `commands/`, etc.
 - **No new test dependencies.** Use `evennia.utils.test_resources` and stdlib
   `unittest` asserts only.
-- For a Command that emits several `.msg()` calls, join the expected fragments
-  with the `||` separator in `.call(msg=...)` — see the template's note.
+- For a Command that emits several `.msg()` calls **to the same receiver**, join
+  the expected fragments with `|` in `.call(msg=...)` — **not** `||`. The runner
+  sets `msg_sep = "|" if noansi else "||"` and `noansi` defaults `True`, so `||`
+  is only correct if you explicitly pass `noansi=False`. Verified in
+  `evennia/utils/test_resources.py`.
+- For a command that messages **more than one receiver** (a payment, a trade, a
+  room broadcast), pass a dict: `.call(cmd, args, {obj_a: "...", obj_b: "..."})`.
+  A plain string only ever asserts against one receiver, so a two-party command
+  tested with a string silently leaves half its output unchecked.
+- Matching is `.startswith()` on ansi-stripped output, so an expected string that
+  is a *substring* but not a *prefix* fails. Omit `msg` entirely to skip the
+  assertion and inspect the return value instead.
+- ⚠️ In the stock `EvenniaTest` fixture, `self.char2` **cannot be paid, taught or
+  otherwise treated as a played character** without extra setup — see Evennia
+  Reference §11.24. The failure is silent.
 - **Commit convention:** `test(<area>): <what>`, e.g.
   `test(knowledge): cover the inscribe/learn scroll channel`.
 
