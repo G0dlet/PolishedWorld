@@ -24,7 +24,7 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
-from commands.currency_commands import CmdWallet
+from commands.currency_commands import CmdWallet, CmdPay
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -128,13 +128,19 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdLearn())
         self.add(CmdRepair())
 
-        # Currency (Stage 4, Component B). The key is verified free against
-        # the default CharacterCmdSet and every contrib we merge, including
-        # barter's runtime CmdsetTrade (decomposition section 5).
+        # Currency (Stage 4, Component B). Both keys verified free against the
+        # default CharacterCmdSet and every contrib we merge, including barter's
+        # runtime CmdsetTrade (decomposition section 5).
         # CmdWallet (key="wallet", alias "purse") -- read-only balance. "coins"
         # is deliberately NOT an alias: when CoinPile lands in Stage 5 it would
         # read as both a command and an object lying in the room.
         self.add(CmdWallet())
+        # CmdPay (key="pay") -- the only player-facing way to move coin outside
+        # a trade session. Same-room by design, not by omission (see the module
+        # docstring). Deliberately NOT keyed on `give`, which the default cmdset
+        # owns for objects: coin is an integer, not an object (S4-2), and must
+        # not learn object verbs it cannot honour.
+        self.add(CmdPay())
 
         self.add(CmdPWTrade())
 
