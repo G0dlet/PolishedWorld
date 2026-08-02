@@ -1,5 +1,7 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 18 · 2026-08-02** — One lesson from Stage 4 Component C, verified live against Evennia 6.1.0 with the suite running in-sandbox (184 tests green, 2026-08-02): **§11.26** `EvenniaCommandTestMixin.call()` does **not** run command locks — it goes straight from `at_pre_cmd()` to `func()` with no `access()` check anywhere — so a "this command refuses an unprivileged caller" test written with `.call()` passes **vacuously**, having silently asserted the opposite of what it claims. Permission tests must call `Command.access(caller, "cmd")` directly, which is what the real cmdhandler uses.
+
 > **Rev 17 · 2026-07-30** — Two new lessons from Stage 4 Component B, both verified live against Evennia 6.1.0 with the suite running in-sandbox (129 tests green, 2026-07-30): **§11.24** in the stock `EvenniaTest` fixture `char2` cannot be puppeted, because its puppet lock is `puppet:pperm(Developer)` while `create_accounts()` grants Developer to `account` only — and the auto-puppet fails the lock **silently**, so every test that needs a *played* second party quietly becomes a refusal test instead; **§11.25** `Object.search()`'s local candidate set is `self.contents + [location] + location.contents`, which both gives same-room scoping for free (a target inside a container is a clean miss) and includes the room object itself, and a `#dbref` makes the search global *before* the `use_dbref` permission check, so room scoping is not airtight against Builder+.
 
 > **Rev 16 · 2026-07-27** — Three new lessons from Stage 4 Component A, all verified live against a real test database (82 tests green, 2026-07-27): **§11.21** `typeclass_search(cls, include_children=True)` is literally `cls.objects.all_family()`, and `get_by_attribute()` is the better primitive when the question is "everything that has X" rather than "everything that is X"; **§11.22** a `GLOBAL_SCRIPTS` entry with no `interval` is pure persistent world storage, not a ticker, and is auto-recreated after a database reset; **§11.23** an Attribute row does not exist until first write, so a handler reading with `default=` makes backfill unnecessary rather than merely guarded — the structural escape from the §3.5 family of traps.
@@ -1295,6 +1297,73 @@ plain player typing `#42` gets a global candidate set but cannot match it as a
 dbref; a Builder+ can, and so can reach across the world. For staff-reachable
 holes this is usually acceptable (they have `@py` already), but state it in a
 comment rather than assuming the scoping is airtight.
+
+---
+
+### 11.26 ⚠️ `.call()` does not run command locks — permission tests written with it pass vacuously
+
+*(Verified live 2026-08-02 against `evennia/utils/test_resources.py`; asserted in `tests/test_economy_command.py`.)*
+
+`EvenniaCommandTestMixin.call()` assigns the command's properties and then runs:
+
+```python
+if not cmdobj.at_pre_cmd():
+    ...
+    ret = cmdobj.func()
+```
+
+There is **no `access()` call anywhere in the sequence.** Lock checking lives in
+the cmdhandler, which `.call()` bypasses entirely by constructing and invoking
+the command directly.
+
+The consequence is a test that fails in the most expensive way available — by
+passing:
+
+```python
+# WRONG. This does not test the lock. It never touched the lock.
+def test_plain_character_is_refused(self):
+    self.char2.permissions.remove("Developer")
+    output = self.call(CmdEconomy(), "", caller=self.char2)
+    self.assertIn("refuse", output)      # <- asserts against the command
+                                         #    having RUN, not been refused
+```
+
+`.call()` happily executes the command as `char2`, the command body does not
+consult permissions (that is the lock's job), and the assertion then measures
+whatever the command printed. Written the other way round — `assertNotIn`, or
+asserting an empty return — it passes for the same wrong reason.
+
+The correct form checks the lock the way the cmdhandler does:
+
+```python
+def test_plain_character_is_refused(self):
+    self.char2.permissions.remove("Developer")
+    self.assertFalse(CmdEconomy().access(self.char2, "cmd"))
+
+def test_developer_is_allowed(self):
+    self.assertTrue(CmdEconomy().access(self.char1, "cmd"))
+```
+
+`Command.access(srcobj, access_type="cmd")` delegates to
+`self.lockhandler.check(...)` — the same call the cmdhandler makes — so this
+tests the real thing and needs no fixture beyond a caller.
+
+**Two corollaries worth holding onto.**
+
+First, this is the same shape of trap as §11.24 (`char2` cannot be puppeted): a
+test-harness convenience quietly diverges from the runtime, and the divergence
+surfaces as green. Whenever a test needs to assert that something is *refused*,
+check whether the refusal is enforced by a layer the harness skips.
+
+Second, the inverse is a *feature* and is what makes `.call()` usable at all: a
+Developer-locked command can be exercised from a test without granting
+permissions to the fixture. Just never mistake that convenience for coverage of
+the lock.
+
+⚠️ In-game, remember that a **superuser bypasses every lock**, command locks and
+object locks alike. Verifying `cmd:perm(Developer)` or `get:false()` while logged
+in as the superuser proves nothing; it needs a second, unprivileged character
+(Testing Reference §10 — two *sessions*).
 
 ---
 
