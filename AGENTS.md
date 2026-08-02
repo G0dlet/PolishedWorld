@@ -1,5 +1,7 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 4 · 2026-08-02** — §0A gains the counterpart to Rev 3's separator fix: `.call()` does **not** run command locks, so a test asserting that an unprivileged caller is refused passes *vacuously* — the command simply runs. Permission tests use `Command.access(caller, "cmd")`. Pointer added to Evennia Reference §11.26.
+
 > **Rev 3 · 2026-07-30** — §0A `.call()` constraint **corrected**: the multi-message separator is `|`, not `||`. `EvenniaCommandTestMixin.call()` sets `msg_sep = "|" if noansi else "||"` and `noansi` defaults **True**, so the documented `||` only applies to the non-default `noansi=False` path — as written the rule pointed at a form that fails under the settings every suite in this repo actually uses. Added the `msg={receiver: expected}` dict form (the only way to assert a two-party command) and a pointer to Evennia Reference §11.24 for the `char2`-cannot-be-puppeted fixture trap, which silently turns a happy-path test into a refusal test.
 > **Rev 2 · 2026-07-26** — added §0A (unit-test scope: `tests/` only, green-test guard); added `tests/` to the §0 write-scope.
 > **Rev 1 · 2026-07-01** — added §9 (documentation version-header convention).
@@ -125,6 +127,13 @@ This is a code/design change, not a test. Needs Claude/Adam.
 - ⚠️ In the stock `EvenniaTest` fixture, `self.char2` **cannot be paid, taught or
   otherwise treated as a played character** without extra setup — see Evennia
   Reference §11.24. The failure is silent.
+- ⚠️ **`.call()` does not check command locks.** It runs `at_pre_cmd()` then
+  `func()` with no `access()` call anywhere, so a test that asserts "an
+  unprivileged caller is refused" written with `.call()` passes **vacuously** —
+  the command executes, and the assertion measures its output rather than the
+  refusal. Test the lock the way the cmdhandler does:
+  `self.assertFalse(CmdThing().access(self.char2, "cmd"))`. See Evennia
+  Reference §11.26.
 - **Commit convention:** `test(<area>): <what>`, e.g.
   `test(knowledge): cover the inscribe/learn scroll channel`.
 
