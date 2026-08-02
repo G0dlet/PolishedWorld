@@ -1,5 +1,7 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 19 · 2026-08-02** — One lesson from Stage 4 Component D, verified live against Evennia 6.1.0 with the suite running in-sandbox (256 tests green, 2026-08-02): **§11.27** the identity-marker pattern for cancelling a `utils.delay` from somewhere that never saw the task. A string or task-key flag is **not** sufficient — start an action, abandon it, start the same action again, and the first callback wakes up, recognises the flag value, and completes against the second attempt. A per-attempt `object()` compared with `is` cannot collide. Carries the four constraints that come with it: `ndb` and the delay must be non-persistent *together*; the callback must re-check the world and not only the marker; `has_account` is the "still playing" guard under statue-logout; and the callback belongs at module level so it is testable without a reactor. Also records that a delayed action moving currency must keep its **whole** check-and-commit sequence inside the callback (S4-R1) — a precondition checked before the delay and committed after it reopens a window `duration` seconds wide.
+
 > **Rev 18 · 2026-08-02** — One lesson from Stage 4 Component C, verified live against Evennia 6.1.0 with the suite running in-sandbox (184 tests green, 2026-08-02): **§11.26** `EvenniaCommandTestMixin.call()` does **not** run command locks — it goes straight from `at_pre_cmd()` to `func()` with no `access()` check anywhere — so a "this command refuses an unprivileged caller" test written with `.call()` passes **vacuously**, having silently asserted the opposite of what it claims. Permission tests must call `Command.access(caller, "cmd")` directly, which is what the real cmdhandler uses.
 
 > **Rev 17 · 2026-07-30** — Two new lessons from Stage 4 Component B, both verified live against Evennia 6.1.0 with the suite running in-sandbox (129 tests green, 2026-07-30): **§11.24** in the stock `EvenniaTest` fixture `char2` cannot be puppeted, because its puppet lock is `puppet:pperm(Developer)` while `create_accounts()` grants Developer to `account` only — and the auto-puppet fails the lock **silently**, so every test that needs a *played* second party quietly becomes a refusal test instead; **§11.25** `Object.search()`'s local candidate set is `self.contents + [location] + location.contents`, which both gives same-room scoping for free (a target inside a container is a clean miss) and includes the room object itself, and a `#dbref` makes the search global *before* the `use_dbref` permission check, so room scoping is not airtight against Builder+.
@@ -1364,6 +1366,81 @@ the lock.
 object locks alike. Verifying `cmd:perm(Developer)` or `get:false()` while logged
 in as the superuser proves nothing; it needs a second, unprivileged character
 (Testing Reference §10 — two *sessions*).
+
+---
+
+### 11.27 Cancelling a `utils.delay` you have already scheduled — the identity-marker pattern
+
+*(Verified live 2026-08-02 against Evennia 6.1.0; shipped in
+`commands/work_commands.py`, asserted in `tests/test_work_command.py`.)*
+
+`utils.delay(seconds, callback, *args)` returns a task, but in practice a timed
+*player action* is not cancelled by holding the task object — the cancellation
+usually has to happen somewhere that never saw it (`at_pre_move`, a death hook,
+a second invocation of the same command). The workable pattern is to let the
+callback fire on schedule and **decide for itself whether it is still wanted**.
+
+The naive version stores a flag:
+
+```python
+caller.ndb.working = "sweep"          # start
+...
+if caller.ndb.working != "sweep":     # in the callback
+    return
+```
+
+⚠️ **This is broken, and it is broken in a way that pays out twice.** Start a
+task, abandon it, start the *same* task again: the first callback is still in
+flight, wakes up, finds a flag whose value it recognises, and completes against
+the second attempt. A string cannot distinguish two attempts that share a name.
+
+The fix is an identity token that cannot collide, compared with `is`:
+
+```python
+marker = object()                      # fresh per attempt
+caller.ndb.working = marker
+delay(duration, _finish, caller, task_key, marker)
+
+def _finish(caller, task_key, marker):
+    if not caller.pk or caller.ndb.working is not marker:
+        return                         # cancelled, superseded, or reloaded away
+    caller.ndb.working = None
+    ...
+```
+
+Cancelling from anywhere is then a single assignment — `self.ndb.working = None`
+— with no reference to the task and no import of the command module. The
+`rest`/`at_pre_move` interrupt in `typeclasses/characters.py` uses exactly this.
+
+**Four properties of this arrangement worth knowing before reusing it:**
+
+1. **`ndb` holds arbitrary Python objects by reference.** NAttributes are an
+   in-memory dict on the typeclass instance with no serialisation, so `object()`
+   round-trips by identity. This is precisely why it must not be combined with
+   `delay(..., persistent=True)`: a persistent task is serialised to the
+   database, and it would wake in a process where the marker no longer exists.
+   Keep `ndb` and the delay non-persistent **together**, so a `@reload` kills
+   both and the action is cleanly abandoned rather than half-alive.
+2. **The callback must re-check the world, not just the marker.** A move hook
+   catches walking out; it does not catch teleport, death, or the target object
+   being moved. The marker proves the *attempt* is current; it proves nothing
+   about whether the preconditions still hold.
+3. **`has_account` is the guard for "still actually playing".** Under a
+   statue-logout scheme the body stays in the room, so a callback firing after
+   logout finds a perfectly valid character. `_rest_tick` in `characters.py` has
+   guarded itself this way since Stage 2.
+4. **Make the callback a module-level function, not a closure or a bound
+   method.** It is then directly callable from a test, which is the difference
+   between testing the action and testing the reactor. Read the marker off the
+   object under test rather than fabricating one — a fabricated marker passes
+   even with the identity check deleted.
+
+⚠️ **The race rule interacts with this.** If the delayed action moves currency
+(or anything else with a check-then-commit shape), the *entire* check-and-commit
+sequence must sit **inside** the callback. Checking a precondition before the
+delay and committing after it reopens exactly the window that a single
+synchronous block closes — and the window is `duration` seconds wide. See the
+Currency decomposition's S4-R1.
 
 ---
 
