@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 15 · 2026-08-02** — Stage 4 Component C close-out. Four new entries, all small and all found by running the shipped command rather than by reading it. **Ledger `actor` field** (Currency) is the only one with teeth: the entry shape records who *received* a mint but not who *ordered* it, so the ledger alone cannot answer "which admin minted this" — `@economy` writes the actor to the rotating server log as a stopgap, and the trail exists today, but it is in the wrong place. **Audit holder-count vs wallet-sum inconsistency** (Currency) — the count includes the Treasury while the sum excludes it, so a freshly minted economy reads `Wallets: nothing (1 holder)` where the one holder is the Treasury reported on the next line. **`@economy` log-line direction** (Currency) — burns log `-> treasury #N`, which reads as money going in. **Player → Treasury has no command** (Currency): `pay` refuses the Treasury by design and `donate` was deliberately not claimed, so the Stage 4 exchange-back is admin-mediated; Stage 8's `exchange` owns the direction, recorded so nobody fills the gap speculatively.
+
 > **Rev 14 · 2026-07-30** — Stage 4 Component B close-out. Three new entries. **Bank / post office** (Currency) is the deliberate counterpart to a locked *rejection*: `pay` is same-room permanently, because coin is carried on the body and stays with the corpse, so remote payment would cancel the risk that makes carrying a decision — the sanctioned answer to "I don't want to carry this" is a *place* you have to reach. The rejection itself lives in the Currency decomposition, not here; this entry is the feature that replaces it. **`PAY_CONFIRM_THRESHOLD`** (Currency) carries the reasoning for shipping `pay` with no confirmation prompt, and the constraint that any future confirmation must not be a `yield`. ⚠️ **`CoinPile` vs the corpse's atomic delete** (Death & Corpses) is a doc-vs-code conflict found while reading corpse behaviour for B: `PlayerCorpse` destroys all contents at expiry, while Economic Philosophy Rev 2 states currency never weathers and Gold has exactly one permanent exit. Harmless today (no coin objects exist), a silent second burn point the moment `CoinPile` lands.
 
 > **Rev 13 · 2026-07-27** — Stage 4 Component A close-out. Three new entries: **compact amount input** (`50c`, `2g30s` — one feature, one entry), the **`copper` name collision** between the material registry and the currency denomination (harmless in Stage 4, detonates when `CoinPile` materialises), and **`MINT_SOURCES` / `BURN_REASONS` tuning**. The unit-test coverage initiative is marked **DONE** — its "neither is in the repo" note was written honestly and is now simply out of date: `tests/__init__.py` and `tests/test_knowledge.py` are on `main`, `AGENTS.md` Rev 2 carries §0A, and `tests/test_currency.py` is the second suite built to the template.
@@ -613,6 +615,69 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## Currency
+
+### Ledger `actor` field — record who ordered a mint, not only who received it
+- **What:** Add an `actor_key` / `actor_dbref` pair to the ledger entry shape in
+  `world/economy_log.py::append()`, populated by `@economy mint` / `burn`.
+- **Why deferred:** Changing the entry shape is a Component A change, and it was
+  found mid-Component-C; making it then would have edited the storage primitive
+  after three components had been built and tested against it. The trail is not
+  missing in the meantime — every mint and burn writes a line naming the caller
+  to Evennia's rotating log — it is simply in a file rather than in the record
+  that `@economy audit` reads.
+- **Trigger:** Component F, or the first time anyone asks the ledger a question
+  it cannot answer. Note the ledger is effectively empty before Stage 8 (one
+  bootstrap tranche), so a migration is cheap for exactly as long as that holds.
+- **Origin:** Stage 4 C.2 (noted in the `currency_commands.py` module docstring).
+- **Status:** SCHEDULED (Component F)
+
+---
+
+### `@economy audit` counts the Treasury as a holder but excludes its balance
+- **What:** `audit()` returns `wallet_count` over every wallet holder while
+  `wallet_sum` deliberately excludes the Treasury, so `audit_report()` renders
+  `Wallets: nothing (1 holder)` on a freshly minted economy — the one holder
+  being the Treasury, whose balance is on the line below.
+- **Why deferred:** Cosmetic. The invariant is exact either way and `delta`
+  is unaffected; only the parenthetical is misleading. Fixing it means choosing
+  whether the count follows the sum (excluding the Treasury) or the enumeration
+  (including it), which is a display decision worth making deliberately rather
+  than in passing.
+- **Trigger:** Component F's documentation pass, or the first time it confuses
+  someone reading an audit.
+- **Origin:** Stage 4 C.2 in-game walkthrough, 2026-08-02.
+- **Status:** OPEN
+
+---
+
+### `@economy burn` log line reads as an inbound transfer
+- **What:** Both mint and burn log `-> treasury #N`, which is right for a mint
+  and backwards for a burn.
+- **Why deferred:** One f-string. Bundled here rather than patched alone so the
+  log line is fixed in the same pass as the `actor` field above, which rewrites
+  it anyway.
+- **Trigger:** Whenever the `actor` field lands.
+- **Origin:** Stage 4 C.2 in-game walkthrough, 2026-08-02.
+- **Status:** SCHEDULED (with the `actor` field)
+
+---
+
+### No command moves money from a player INTO the Treasury
+- **What:** There is no `donate`, and `pay` refuses the Treasury (its
+  `has_account` guard, whose comment anticipates exactly this). The Stage 4
+  exchange-back therefore needs an admin to move the coin manually before
+  `@economy burn` destroys it.
+- **Why deferred:** Not an oversight — `donate` was deliberately not claimed
+  (decomposition §5) and `pay`'s refusal is the same guard that stops players
+  paying logged-out bodies. The direction belongs to Stage 8's `exchange`
+  command, which needs the crypto side to exist before it can settle anything.
+  Recorded so that a future session reads "owned by Stage 8" rather than
+  "missing" and builds a stopgap that Stage 8 then has to unpick.
+- **Trigger:** Stage 8 (GameGold exchange).
+- **Origin:** Stage 4 C.2.
+- **Status:** SCHEDULED (Stage 8)
+
+---
 
 ### Compact amount input (`50c`, `2g30s`)
 - **What:** Let `parse_amount()` accept the attached single-denomination form
