@@ -963,7 +963,20 @@ class Character(ObjectParent, ClothedCharacter):
         delay(self.rest_interval, self._rest_tick)   # reschedule
 
     def at_pre_move(self, destination, move_type="move", **kwargs):
-        """Interrupt resting when moving, but allow the move itself."""
+        """Interrupt timed activities when moving, but allow the move itself."""
         if self.ndb.resting:
             self.stop_resting("You get up, interrupting your rest.")
+        if self.ndb.working:
+            # A temple chore in progress (commands/work_commands.py). Clearing
+            # the marker is what cancels it: the pending delay still fires on
+            # schedule, finds the marker gone, and returns without paying.
+            #
+            # This exists for the message, not for the correctness -- the
+            # location re-check in `_finish_task` would refuse the payout
+            # anyway. But refusing it twenty seconds later in silence reads as
+            # the command being broken, and a player who walks out mid-chore
+            # should be told at the moment they do it. Same shape and same
+            # reasoning as the resting interrupt above.
+            self.ndb.working = None
+            self.msg("You break off what you were doing.")
         return super().at_pre_move(destination, move_type=move_type, **kwargs)

@@ -25,6 +25,7 @@ from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
 from commands.currency_commands import CmdWallet, CmdPay, CmdEconomy
+from commands.work_commands import CmdWork
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -147,6 +148,15 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # perm(Builder), which is right for weather and wrong here. Builders
         # build rooms; they do not create money.
         self.add(CmdEconomy())
+        # CmdWork (key="work") -- the temple faucet (Component D.1), the
+        # cold-start answer for a player with nothing and no crypto. Key
+        # verified free against the whole inventory: zero hits for `work` as a
+        # key or alias anywhere in Evennia's default cmdsets, in any contrib we
+        # merge, or in our own commands.
+        #
+        # It pays by TRANSFERRING out of the Treasury and never by minting
+        # (S4-1). `add()` keeps exactly one production caller, CmdEconomy above.
+        self.add(CmdWork())
 
         self.add(CmdPWTrade())
 
