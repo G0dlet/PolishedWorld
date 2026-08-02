@@ -1,5 +1,7 @@
 # PolishedWorld - GameGold & Economy Design
 
+> **Rev 5 · 2026-08-02** — **The Temple-Faucet sketch is marked superseded now that the faucet is shipped** (Stage 4 Component D.1, `commands/work_commands.py`). Rev 4 corrected the sketch's *mint rule*; this Rev addresses what Rev 4 left standing — a sketch that a reader could still mistake for the design. Three divergences are named explicitly: the sketch lists **three** chores while the prose table above it lists **five** (the table is canonical, and the discrepancy was found while reading this document as D's task-table source — the same class of half-finished close-out that Rev 4 was itself fixing); there is **no `TempleFaucet` class**, the faucet being a command with a module-level table and payout function; and the chore **takes time**, with the entire `transfer_to` sequence inside the delayed callback because S4-R1 forbids splitting a check from its commit. The sketch is kept for its comments, with a banner saying to read it for *why* and never for *what*. The wider `CurrencyHandler` sketch remains the superseded per-denomination-dict design and its full rewrite is still **Component F's** work.
+
 > **Rev 4 · 2026-08-02** — **The code sketches are brought into line with the shipped mint rule.** Rev 3 corrected this document's *prose* so that "Gold Creation" matched `MINT_SOURCES`, and left three *sketches* saying the opposite. The Temple-Faucet sketch called `currency.add(..., source='faucet')` — which the shipped `add()` rejects with `ValueError`, and which `tests/test_currency.py` asserts raises, because S4-1 makes the faucet a **transfer** path and `@economy mint` the single production caller of the mint primitive. The `CurrencyHandler.add()` docstring listed `"faucet"` as a valid source, and the economic-metrics sketch broke minted Gold down by a `faucet` bucket that cannot exist by construction. All three are corrected here, and the faucet sketch now shows the Treasury transfer it will actually be. Caught while reading this document as the source of Component D's task table — a reader coming for the table would have found the wrong implementation fifty lines below it. The wider `CurrencyHandler` sketch is still the superseded per-denomination-dict design (S4-2 stores one Copper `int`); it now carries a banner saying so, and its full rewrite remains **Component F's** work.
 
 > **Rev 3 · 2026-07-27** — Reconciles "Gold Creation" with Stage 4's implemented `MINT_SOURCES`. Rev 2 removed the "admin gold (except events)" carve-out to match the single-mint-point principle, and that removal stands — but the shipped whitelist contains `admin_correction` alongside `crypto_exchange`, so the absolute wording needed qualifying before someone read the two documents together and concluded one of them had quietly lost. The distinction is not "admins may create gold sometimes": `admin_correction` repairs the exchange path when a settlement goes wrong, is ledgered identically to any other mint, and shows up in `@economy audit` like any other. It is the same door, used to fix the door. It is **not** a grant mechanism, and no event, reward or compensation may use it.
@@ -117,10 +119,33 @@ Addresses the cold-start problem for new players without requiring crypto purcha
 > that balance. A minting faucet would be an unbounded money supply whose
 > failure stays invisible until the inflation is obvious.
 
+> ⚠️ **This sketch is superseded by the shipped implementation** (Stage 4
+> Component D.1, `commands/work_commands.py`). It is kept because its comments
+> carry the reasoning; read it for *why*, never for *what*. Three differences
+> that matter, all recorded when D closed:
+>
+> * **The table above is the source of truth, not the sketch below.** The sketch
+>   lists three chores; the table lists five. The shipped `TEMPLE_TASKS` has all
+>   five, and each entry also carries a `duration` and four flavour strings
+>   (actor and room, at start and at finish) — the house keeps flavour with the
+>   data, as `eat` does with `consume_message`.
+> * **There is no `TempleFaucet` class.** The faucet is a command, `work`, with
+>   a module-level task table and a module-level payout function. No object
+>   holds faucet state; the Treasury holds the money and the character holds
+>   the cooldowns.
+> * **The chore takes time.** `work` messages, waits `duration` real seconds via
+>   `utils.delay`, and only then pays. The whole `transfer_to` sequence runs
+>   *inside* the delayed callback — S4-R1 forbids splitting a check from its
+>   commit, and a split here would be seconds wide. See Evennia Reference §11.27
+>   for the cancellation pattern that makes this safe.
+
 ```python
 class TempleFaucet:
     """Pays small Copper amounts for simple tasks, out of the Treasury."""
 
+    # ⚠️ THREE OF FIVE. The prose table above is canonical; the shipped
+    # TEMPLE_TASKS in commands/work_commands.py carries all five chores plus
+    # a duration and flavour text for each.
     TASKS = {
         'sweep_floor': {'copper': 25, 'cooldown': 3600},
         'fetch_water': {'copper': 35, 'cooldown': 3600},
