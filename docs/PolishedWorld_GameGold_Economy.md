@@ -1,5 +1,7 @@
 # PolishedWorld - GameGold & Economy Design
 
+> **Rev 4 · 2026-08-02** — **The code sketches are brought into line with the shipped mint rule.** Rev 3 corrected this document's *prose* so that "Gold Creation" matched `MINT_SOURCES`, and left three *sketches* saying the opposite. The Temple-Faucet sketch called `currency.add(..., source='faucet')` — which the shipped `add()` rejects with `ValueError`, and which `tests/test_currency.py` asserts raises, because S4-1 makes the faucet a **transfer** path and `@economy mint` the single production caller of the mint primitive. The `CurrencyHandler.add()` docstring listed `"faucet"` as a valid source, and the economic-metrics sketch broke minted Gold down by a `faucet` bucket that cannot exist by construction. All three are corrected here, and the faucet sketch now shows the Treasury transfer it will actually be. Caught while reading this document as the source of Component D's task table — a reader coming for the table would have found the wrong implementation fifty lines below it. The wider `CurrencyHandler` sketch is still the superseded per-denomination-dict design (S4-2 stores one Copper `int`); it now carries a banner saying so, and its full rewrite remains **Component F's** work.
+
 > **Rev 3 · 2026-07-27** — Reconciles "Gold Creation" with Stage 4's implemented `MINT_SOURCES`. Rev 2 removed the "admin gold (except events)" carve-out to match the single-mint-point principle, and that removal stands — but the shipped whitelist contains `admin_correction` alongside `crypto_exchange`, so the absolute wording needed qualifying before someone read the two documents together and concluded one of them had quietly lost. The distinction is not "admins may create gold sometimes": `admin_correction` repairs the exchange path when a settlement goes wrong, is ledgered identically to any other mint, and shows up in `@economy audit` like any other. It is the same door, used to fix the door. It is **not** a grant mechanism, and no event, reward or compensation may use it.
 
 > **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc; corrected Temple-Faucet rewards from Gold to Copper (were 200–400× too high) and aligned the implementation sketch; removed the "admin gold (except events)" carve-out so Gold Creation matches the single-mint-point principle; clarified CurrencyHandler.add() as a mint-only primitive.
@@ -104,9 +106,20 @@ Addresses the cold-start problem for new players without requiring crypto purcha
 - **Progression** - Encourage moving to crafting/trading
 
 ### Implementation Sketch
+
+> ⚠️ **The faucet transfers. It never mints.** This is decomposition **S4-1** and
+> it is enforced, not merely intended: `MINT_SOURCES` does not contain
+> `"faucet"`, so `currency.add(amount, source="faucet")` raises `ValueError`,
+> and `tests/test_currency.py` asserts that it does. Gold enters the world at
+> exactly one point — the exchange path, reached in Stage 4 through
+> `@economy mint`, which mints a bootstrap tranche into the **Treasury** against
+> a recorded GameGold reserve obligation. The temple then pays players out of
+> that balance. A minting faucet would be an unbounded money supply whose
+> failure stays invisible until the inflation is obvious.
+
 ```python
 class TempleFaucet:
-    """Provides small copper amounts for simple tasks."""
+    """Pays small Copper amounts for simple tasks, out of the Treasury."""
 
     TASKS = {
         'sweep_floor': {'copper': 25, 'cooldown': 3600},
@@ -115,20 +128,41 @@ class TempleFaucet:
     }
 
     def complete_task(self, character, task_name):
-        """Award copper for completing a temple task."""
+        """Pay a character for completing a temple task."""
         task = self.TASKS.get(task_name)
         if not task:
             return False
 
-        # Check cooldown
+        # Check cooldown. Real wall-clock seconds: this throttles player
+        # action spam, which is a real-time phenomenon, not a game-time one.
         cooldown_key = f"faucet_{task_name}"
         if character.cooldowns.get(cooldown_key):
             return False
 
-        # Award copper
-        character.currency.add('copper', task['copper'], source='faucet')
+        # typeclasses/treasury.py::get_treasury(). Returns None whenever
+        # TREASURY_DBREF is unset or unresolvable, and every consumer must
+        # handle that rather than assume — an un-endowed temple is a
+        # supported state, not an error.
+        treasury = get_treasury()
+        if treasury is None:
+            return False
 
-        # Set cooldown
+        # THE PAYOUT: a transfer, not a mint. The amount is a plain int in
+        # Copper (S4-2) — there is no denomination argument, because
+        # denominations are a rendering concern. transfer_to() performs the
+        # read, the check, the debit and the credit as one unbroken
+        # synchronous block (S4-R1) and returns False, having moved nothing,
+        # when the Treasury cannot cover the payout.
+        if not treasury.currency.transfer_to(
+            character, task['copper'], reason="faucet"
+        ):
+            # The coffers are dry. Note what is NOT done here: the cooldown is
+            # deliberately left unset, so an attempt that paid nothing does not
+            # cost the player their next attempt. A finite Treasury that can run
+            # dry is a feature (it is diegetic, and it bounds faucet farming) —
+            # but it must fail without taking something from the player.
+            return False
+
         character.cooldowns.add(cooldown_key, task['cooldown'])
 
         return True
@@ -204,6 +238,14 @@ For each new item/resource:
 
 ## Currency Handler Design
 
+> ⚠️ **Superseded sketch — do not implement from this.** It stores currency as a
+> per-denomination dict; the shipped design (**S4-2**) stores a single `int`
+> denominated in Copper, with denominations applied only at display and input
+> time. The live implementation is `world/currency.py`, and `world/economy_log.py`
+> holds the ledger and the audit invariant. This section is kept for its
+> *intent* until **Component F** rewrites it against the shipped API. Where the
+> two disagree, the code wins.
+
 Prepared for future crypto integration:
 
 ```python
@@ -227,10 +269,18 @@ class CurrencyHandler:
             character: Character receiving currency
             denomination: 'gold', 'silver', or 'copper'
             amount: Amount to add
-            source: "crypto_exchange" (the sole mint point) or "faucet"
-                (temple redistribution of exchange-minted gold). "admin" is
-                permitted only as an audited, exceptional bug-correction tag —
-                never as a normal economic source.
+            source: must be a member of MINT_SOURCES, which ships as
+                {"crypto_exchange", "admin_correction"}. Anything else
+                raises ValueError.
+                ⚠️ "faucet" is NOT a mint source and never was one in the
+                shipped code. The temple pays by transferring out of the
+                Treasury (S4-1), so a faucet payout never reaches this
+                method at all.
+                "admin_correction" repairs the exchange path when a
+                settlement goes wrong. It is ledgered identically to any
+                other mint and appears in `@economy audit` like any other:
+                the same door, used to fix the door. It is not a grant
+                mechanism, and no event, reward or compensation may use it.
         """
         if amount < 0:
             return False
@@ -288,10 +338,14 @@ def get_economy_stats():
     """Calculate economic health metrics."""
     return {
         'total_gold_supply': calculate_total_gold(),
+        # Mint sources ONLY. The faucet is absent by construction, not by
+        # omission: it transfers Treasury-held Copper and creates nothing, so
+        # it can never appear in a breakdown of where money came from. The
+        # shipped equivalents are economy_log.total_minted() /
+        # total_burned() / net_issued(), with audit() proving the sum.
         'gold_by_source': {
-            'crypto_exchange': 0,  # Future
-            'faucet': sum_faucet_gold(),
-            'admin': sum_admin_gold(),
+            'crypto_exchange': sum_minted(source='crypto_exchange'),
+            'admin_correction': sum_minted(source='admin_correction'),
         },
         'active_trades_24h': count_recent_trades(),
         'average_item_prices': calculate_price_averages(),
