@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 16 · 2026-08-02** — Stage 4 Component D close-out. Three new entries, none of them defects. **Faucet task-table tuning** (Currency) is the entry the decomposition asked for by name: `TEMPLE_TASKS` is the anchor, and its numbers cannot be judged until crafted goods have prices players actually charge, because the faucet's whole job is to read as obviously a supplement against a market that does not exist yet. **Timed player actions have a pattern but no shared home** (Tooling & Process) records a duplication rather than a bug: `rest` and `work` implement interruptible timed actions independently, and `at_pre_move` in `characters.py` now carries two hand-written branches that will grow one per future action — the *third* is the signal to extract a helper, not the second. **`_format_wait()` truncates** (Currency) is cosmetic: a fresh one-hour cooldown renders as `59 minutes`, which reads as though the clock started early; noted with the reason the naive ceiling fix is wrong in the other direction.
+
 > **Rev 15 · 2026-08-02** — Stage 4 Component C close-out. Four new entries, all small and all found by running the shipped command rather than by reading it. **Ledger `actor` field** (Currency) is the only one with teeth: the entry shape records who *received* a mint but not who *ordered* it, so the ledger alone cannot answer "which admin minted this" — `@economy` writes the actor to the rotating server log as a stopgap, and the trail exists today, but it is in the wrong place. **Audit holder-count vs wallet-sum inconsistency** (Currency) — the count includes the Treasury while the sum excludes it, so a freshly minted economy reads `Wallets: nothing (1 holder)` where the one holder is the Treasury reported on the next line. **`@economy` log-line direction** (Currency) — burns log `-> treasury #N`, which reads as money going in. **Player → Treasury has no command** (Currency): `pay` refuses the Treasury by design and `donate` was deliberately not claimed, so the Stage 4 exchange-back is admin-mediated; Stage 8's `exchange` owns the direction, recorded so nobody fills the gap speculatively.
 
 > **Rev 14 · 2026-07-30** — Stage 4 Component B close-out. Three new entries. **Bank / post office** (Currency) is the deliberate counterpart to a locked *rejection*: `pay` is same-room permanently, because coin is carried on the body and stays with the corpse, so remote payment would cancel the risk that makes carrying a decision — the sanctioned answer to "I don't want to carry this" is a *place* you have to reach. The rejection itself lives in the Currency decomposition, not here; this entry is the feature that replaces it. **`PAY_CONFIRM_THRESHOLD`** (Currency) carries the reasoning for shipping `pay` with no confirmation prompt, and the constraint that any future confirmation must not be a `yield`. ⚠️ **`CoinPile` vs the corpse's atomic delete** (Death & Corpses) is a doc-vs-code conflict found while reading corpse behaviour for B: `PlayerCorpse` destroys all contents at expiry, while Economic Philosophy Rev 2 states currency never weathers and Gold has exactly one permanent exit. Harmless today (no coin objects exist), a silent second burn point the moment `CoinPile` lands.
@@ -615,6 +617,57 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## Currency
+
+### `_format_wait()` truncates, so a fresh cooldown reads one unit short
+- **What:** `commands/work_commands.py::_format_wait()` floors on division, so a
+  cooldown set to 3600s renders as `59 minutes` from the first second onwards.
+  Correct arithmetic, wrong impression: it reads as though the clock was already
+  running before the chore finished.
+- **Why deferred:** Purely cosmetic, and the naive fix (ceiling) is wrong in the
+  other direction — it would render a fresh 3600s cooldown as `1 hour` for a
+  whole minute and then jump. The right answer is probably to round to the
+  nearest unit and accept a one-unit fuzz at both ends, which is a five-minute
+  change nobody should make while a component is open.
+- **Trigger:** Next time anyone touches faucet output, or the first player who
+  mentions it.
+- **Origin:** Stage 4 D.1, found in the in-game walkthrough.
+- **Status:** OPEN
+
+---
+
+### Faucet task-table tuning (`TEMPLE_TASKS`)
+- **What:** Rewards, cooldowns and now `duration` for the five temple chores, in
+  `commands/work_commands.py::TEMPLE_TASKS`. The named constant is the anchor,
+  per the decomposition; the numbers themselves are first-pass.
+- **Why deferred:** They cannot be tuned against anything real until crafted
+  goods have prices players actually charge each other. The faucet's job is to
+  read as *obviously* a supplement — 170 Copper for the full chain, against a
+  crafted item's eventual worth — and that ratio is unknowable before a market
+  exists.
+- **Trigger:** First playtest with real player-to-player pricing, or Stage 8
+  when Gold acquires an external exchange rate.
+- **Origin:** Stage 4 D.1 (decomposition §6/D asks for the constant explicitly).
+- **Status:** OPEN
+
+---
+
+### Timed player actions have a pattern but no shared home
+- **What:** `rest` (Stage 2) and `work` (Stage 4) both implement "this takes
+  time and can be interrupted" independently: an `ndb` flag, a `delay`, an
+  `at_pre_move` interrupt, a `has_account` guard in the callback. `at_pre_move`
+  in `typeclasses/characters.py` now has two hand-written branches and will grow
+  one per future timed action.
+- **Why deferred:** Two instances is not yet a pattern worth extracting, and the
+  third will teach more about the right shape than guessing now would. But the
+  duplication is real and `at_pre_move` is where it will become visible first —
+  a third branch is the signal to build a small `TimedAction` helper rather than
+  a fourth.
+- **Trigger:** The third timed action. Likely candidates: gathering with a
+  cast time, or anything in Stage 6 combat.
+- **Origin:** Stage 4 D.1 (Evennia Reference §11.27 documents the mechanism).
+- **Status:** OPEN
+
+---
 
 ### Ledger `actor` field — record who ordered a mint, not only who received it
 - **What:** Add an `actor_key` / `actor_dbref` pair to the ledger entry shape in
