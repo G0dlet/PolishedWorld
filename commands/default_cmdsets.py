@@ -24,7 +24,7 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
-from commands.currency_commands import CmdWallet, CmdPay
+from commands.currency_commands import CmdWallet, CmdPay, CmdEconomy
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -141,6 +141,12 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # owns for objects: coin is an integer, not an object (S4-2), and must
         # not learn object verbs it cannot honour.
         self.add(CmdPay())
+        # CmdEconomy (key="@economy") -- Developer-locked admin surface, and the
+        # only production caller of the mint primitive (C.2). Note this is the
+        # FIRST cmd:perm(Developer) command in the codebase: CmdWeather above is
+        # perm(Builder), which is right for weather and wrong here. Builders
+        # build rooms; they do not create money.
+        self.add(CmdEconomy())
 
         self.add(CmdPWTrade())
 

@@ -232,6 +232,62 @@ def format_copper(copper):
     return sign + ", ".join(parts)
 
 
+# Number of decimal places needed to express a Copper amount exactly in
+# GameGold. Derived rather than written as 4, because the exactness claimed
+# below holds ONLY while COPPER_PER_GOLD is a power of ten -- if that ever
+# changes, this constant changing with it is what makes the failure visible
+# instead of silent. `tests/test_currency.py` asserts the power-of-ten property
+# directly, so a tuning change breaks a test rather than the reserve figure.
+GAMEGOLD_DECIMALS = len(str(COPPER_PER_GOLD)) - 1
+
+
+def format_gamegold(copper):
+    """
+    Render a Copper amount as the GameGold reserve obligation it represents.
+
+    THE EXCHANGE RATE IS 1 GameGold : 1 **GOLD**, not per Copper. This is the
+    single easiest thing in the whole currency system to get wrong by four orders
+    of magnitude: a bootstrap tranche of 100 Gold is 1,000,000 Copper and an
+    obligation of 100 GameGold. Anything that quotes the reserve figure calls
+    this function rather than doing the division itself.
+
+    Exact, never rounded. Because 1 Gold is 10,000 Copper, four decimal places
+    represent any Copper amount precisely -- one Copper is exactly 0.0001
+    GameGold. That matters more here than anywhere else in the module: rounding
+    the obligation down understates what must be held in reserve and rounding it
+    up overstates it, and for a backing figure both directions are wrong. The
+    fraction is therefore always printed in full, including trailing zeroes, so
+    the number reads as a precise commitment rather than an approximation.
+
+    Args:
+        copper (int): an amount in Copper.
+
+    Returns:
+        str: e.g. "100.0000 GameGold". Uncoloured (D2).
+
+    Raises:
+        TypeError: if `copper` is not an int.
+
+    Examples:
+        >>> format_gamegold(1_000_000)
+        '100.0000 GameGold'
+        >>> format_gamegold(50)
+        '0.0050 GameGold'
+        >>> format_gamegold(0)
+        '0.0000 GameGold'
+    """
+    _require_int(copper, "copper")
+
+    # One leading sign for the whole figure, same convention as format_copper.
+    # A negative obligation is not a state the economy should ever reach, but if
+    # the ledger somehow reports more burned than minted, showing it honestly is
+    # what lets an admin see that rather than a suspiciously tidy 0.0000.
+    sign = "-" if copper < 0 else ""
+    whole, fraction = divmod(abs(copper), COPPER_PER_GOLD)
+
+    return f"{sign}{whole}.{fraction:0{GAMEGOLD_DECIMALS}d} GameGold"
+
+
 # --------------------------------------------------------------------------
 # Parsing
 # --------------------------------------------------------------------------

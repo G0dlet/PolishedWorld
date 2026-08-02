@@ -41,7 +41,9 @@ from world.currency import (
     COPPER_PER_SILVER,
     MINT_SOURCES,
     CurrencyHandler,
+    GAMEGOLD_DECIMALS,
     format_copper,
+    format_gamegold,
     parse_amount,
     split_denominations,
     to_copper,
@@ -175,6 +177,62 @@ class TestFormatCopper(EvenniaTestCase):
     def test_non_integer_is_rejected(self):
         with self.assertRaises(TypeError):
             format_copper(1.5)
+
+
+class TestFormatGamegold(EvenniaTestCase):
+    """
+    The reserve obligation figure (C.2).
+
+    Two things are worth pinning here and nothing else is. First, the exchange
+    rate is 1 GameGold : 1 **Gold**, so a Copper amount must be divided by
+    COPPER_PER_GOLD -- getting this wrong is a four-orders-of-magnitude error in
+    the number that says how much GameGold must be held in reserve. Second, the
+    figure must be exact, because rounding a backing figure down understates the
+    promise and rounding it up overstates it.
+    """
+
+    def test_decimal_width_is_exactly_what_exactness_requires(self):
+        # THE load-bearing assertion. format_gamegold prints the fractional part
+        # with GAMEGOLD_DECIMALS digits, which represents a Copper amount exactly
+        # only while COPPER_PER_GOLD is that power of ten. If someone ever tunes
+        # the denominations to a non-power-of-ten ratio, this fails loudly instead
+        # of the reserve figure quietly becoming wrong.
+        self.assertEqual(10 ** GAMEGOLD_DECIMALS, COPPER_PER_GOLD)
+
+    def test_one_gold_is_one_gamegold(self):
+        # The rate, stated as the relationship rather than as a literal.
+        self.assertEqual(format_gamegold(COPPER_PER_GOLD), "1.0000 GameGold")
+
+    def test_a_hundred_gold_tranche(self):
+        self.assertEqual(format_gamegold(1_000_000), "100.0000 GameGold")
+
+    def test_sub_gold_amounts_are_not_rounded_away(self):
+        # One Copper is a real, if tiny, reserve obligation. Truncating it to
+        # 0.0000 would let an economy accumulate unbacked units a Copper at a time.
+        self.assertEqual(format_gamegold(1), "0.0001 GameGold")
+        self.assertEqual(format_gamegold(50), "0.0050 GameGold")
+        self.assertEqual(format_gamegold(9_999), "0.9999 GameGold")
+
+    def test_zero_is_a_figure_not_a_word(self):
+        # Unlike format_copper, which renders 0 as "nothing": an obligation of
+        # zero is a precise statement about reserves and should read as a number.
+        self.assertEqual(format_gamegold(0), "0.0000 GameGold")
+
+    def test_mixed_amount_keeps_every_digit(self):
+        self.assertEqual(format_gamegold(10_203), "1.0203 GameGold")
+
+    def test_negative_is_rendered_with_one_leading_sign(self):
+        # Should never occur (it would mean more burned than minted), but showing
+        # it honestly is what lets an admin see it instead of a tidy 0.0000.
+        self.assertEqual(format_gamegold(-10_203), "-1.0203 GameGold")
+
+    def test_output_carries_no_colour_codes(self):
+        # D2, same as format_copper: the command layer colours.
+        self.assertNotIn("|", format_gamegold(1_000_000))
+
+    def test_non_integer_is_rejected(self):
+        with self.assertRaises(TypeError):
+            format_gamegold(1.5)
 
 
 class TestParseAmount(EvenniaTestCase):
@@ -664,9 +722,15 @@ class TestAudit(LedgerIsolationMixin, EvenniaTest):
         self.char1.currency.add(500, source="crypto_exchange")
         self.assertEqual(economy_log.audit()["wallet_count"], before + 1)
 
-    def test_treasury_is_none_before_component_c(self):
+    def test_treasury_is_none_when_unconfigured(self):
         # Reported as None, never as 0. None means "not separately
         # identifiable"; 0 would be a claim about a Treasury that exists.
+        #
+        # Renamed from test_treasury_is_none_before_component_c: the Treasury
+        # typeclass now EXISTS (C.1), so the old name promised something that had
+        # stopped being true while the assertion stayed correct. What actually
+        # holds this green is that settings.TREASURY_DBREF ships unset -- see
+        # tests/test_treasury.py for the configured-Treasury counterparts.
         self.assertIsNone(economy_log.audit()["treasury"])
 
     def test_report_renders_and_names_the_failure(self):
