@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 19 · 2026-08-03** — the seam-checker entry (Tooling & Process) gains a second job: **parse the Mermaid blocks too.** System Map Rev 2 shipped a diagram that did not render, and the failure was invisible to every check performed on it — balanced brackets, balanced pipes, careful reading. Only the actual Mermaid parser found it. A checker that verifies the seam *table* while the *diagram* above it is silently broken is checking the cheaper half.
 > **Rev 18 · 2026-08-03** — one entry added from the System Map Rev 2 sweep: **a runnable seam checker** (Tooling & Process). Not a defect and not a nice-to-have — the map's §*How to keep it honest* prescribes a `grep` that produced two of the three false rows Rev 2 had to fix, and the obvious replacement (AST) silently misses `getattr`-string dispatch. Rev 2 fixed the rows and documented both failure modes in prose; a convention that has now failed once is worth making runnable. Trigger is concrete rather than aspirational: the Damage-chokepoint row already reads `(future: combat)`, so Stage 5 will edit that table.
 > **Rev 17 · 2026-08-03** — Stage 4 Component E close-out. One entry **narrowed**, two added, neither a defect. The **`copper` name collision** (Currency) shrank rather than closed: `offer` was the one verb where both readings were plausible, and E.1's digit-first rule settles it without renaming anything, because Evennia's disambiguation syntax is a *suffix* (`copper-2`) and so no valid object name begins with a digit. What is still deferred is only `caller.search()` facing two `copper`s in a room, which needs `CoinPile` to exist. **Upstream `finish()` is not safe to call twice** (Currency) is recorded rather than scheduled: it is unreachable in play, but it is *currently* what prevents a double currency settlement — by accident, in someone else's code — and anyone reading our one-shot flag should know the belt is doing work the braces also do. **Trade item moves bypass move hooks and `get` locks** (Crafting & Items) is not new debt but newly *homed*: it lived only in `world/README_barter.md`, and it pairs with the future no-trade flag, since the flag without enforcement is decorative and enforcement without the flag has nothing to enforce.
 
@@ -623,7 +624,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   symbol list from `docs/PolishedWorld_System_Map.md`'s seam table and reports the
   real consumers of each: AST call-site and subclass detection, **plus** a sweep
   for the symbol as a string literal inside `getattr(...)`. Output compared to the
-  "Consumers" column by eye; the tool reports, it does not gate.
+  "Consumers" column by eye; the tool reports, it does not gate. **It should also
+  parse the file's Mermaid block** — `mermaid.parse()` under jsdom is enough, no
+  renderer needed. Rev 2 shipped a diagram that did not render at all, and no
+  amount of bracket-balancing or re-reading caught it; only the real parser did.
 - **Why deferred:** System Map Rev 2 was scoped as a documentation commit, and the
   rows are correct as of `23f6f6e`. Shipping the checker in the same sweep would
   have mixed a tooling decision into a doc fix.

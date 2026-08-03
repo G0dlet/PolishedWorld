@@ -1,5 +1,6 @@
 # PolishedWorld — System Map
 
+> **Rev 3 · 2026-08-03** — **graph fix: Rev 2's diagram did not render on GitHub.** `ECON[@economy mint / burn]` failed to parse, because Mermaid 11 reserves `@` for edge-ID and shape syntax (`a e1@--> b`, `a@{ shape: … }`) and so lexes a leading `@` in an *unquoted* node label as a `LINK_ID` token. Quoting the label fixes it; nothing else in the diagram was at fault — self-loops, `★`, em dashes, `Σ`, `==` inside quotes and dotted labelled edges all parse cleanly, verified one construct at a time against Mermaid 11.16. Both Mermaid blocks in the repo (this file and `roadmap.md`) now parse. **Rule of thumb: quote any node label that does not begin with a letter.** Rev 2's content is unchanged.
 > **Rev 2 · 2026-08-03** — **two stages of drift closed, and the honesty method itself repaired.** Stage 4's currency layer is built and merged, so the `NOT BUILT` currency node is replaced by the real graph (Treasury, wallets, the single mint path, the ledger, the audit invariant) and five seam rows are added. **Three of the eight existing seam rows were wrong**, and the way they went wrong matters more than the rows: the §*How to keep it honest* recipe — plain `grep -rn` — is what produced two of the three. `typeclasses/books.py` was listed as a `_RECIPE_CLASSES` consumer on the strength of two comments that say Book is deliberately **not** one, and `world/material_registry.py` was credited with three runtime consumers when nothing in the codebase imports it at all. The reverse failure exists too: an AST-based check misses `crafting_base.py:314`, where `attempt_skill_improvement` is dispatched through a `getattr` **string literal** — which is why that row said four check-sites and the truth is five (`disassemble` became the fifth in Stage 3). §*How to keep it honest* now names both failure modes and requires the cross-check. Also fixed: the prose referred to a `BLOCKED` cluster that does not exist in the graph, and the currency gap note described a death-drop behaviour that Stage 4 does not implement (**S4-3** keeps the wallet on death; `CoinPile` is Stage 5).
 > **Rev 1 · 2026-07-19** — first version. Structural (seam) view of how the built systems connect; a fourth view alongside the three altitudes.
 > **Canonical:** `docs/PolishedWorld_System_Map.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -103,7 +104,7 @@ graph TD
     ITEMS -->|repair fail → delete| S3[destroyed]
 
     %% ---- currency (Stage 4) ----
-    ECON[@economy mint / burn<br/>★ ONLY MINT PATH]
+    ECON["@economy mint / burn<br/>★ ONLY MINT PATH"]
     ECON -->|currency.add, source-validated| TREASURY[Treasury<br/>treasury.py]
     ECON -->|mint + burn appended| LEDGER[(EconomyLedgerScript<br/>mint + burn ONLY)]
     TREASURY -->|transfer_to, never add| WALLETS[character.currency<br/>one int, in Copper]
