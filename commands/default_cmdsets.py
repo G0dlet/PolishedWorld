@@ -24,6 +24,8 @@ from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
+from commands.currency_commands import CmdWallet, CmdPay, CmdEconomy
+from commands.work_commands import CmdWork
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -129,6 +131,35 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # no new key at all.
         self.add(CmdLearn())
         self.add(CmdRepair())
+
+        # Currency (Stage 4, Component B). Both keys verified free against the
+        # default CharacterCmdSet and every contrib we merge, including barter's
+        # runtime CmdsetTrade (decomposition section 5).
+        # CmdWallet (key="wallet", alias "purse") -- read-only balance. "coins"
+        # is deliberately NOT an alias: when CoinPile lands in Stage 5 it would
+        # read as both a command and an object lying in the room.
+        self.add(CmdWallet())
+        # CmdPay (key="pay") -- the only player-facing way to move coin outside
+        # a trade session. Same-room by design, not by omission (see the module
+        # docstring). Deliberately NOT keyed on `give`, which the default cmdset
+        # owns for objects: coin is an integer, not an object (S4-2), and must
+        # not learn object verbs it cannot honour.
+        self.add(CmdPay())
+        # CmdEconomy (key="@economy") -- Developer-locked admin surface, and the
+        # only production caller of the mint primitive (C.2). Note this is the
+        # FIRST cmd:perm(Developer) command in the codebase: CmdWeather above is
+        # perm(Builder), which is right for weather and wrong here. Builders
+        # build rooms; they do not create money.
+        self.add(CmdEconomy())
+        # CmdWork (key="work") -- the temple faucet (Component D.1), the
+        # cold-start answer for a player with nothing and no crypto. Key
+        # verified free against the whole inventory: zero hits for `work` as a
+        # key or alias anywhere in Evennia's default cmdsets, in any contrib we
+        # merge, or in our own commands.
+        #
+        # It pays by TRANSFERRING out of the Treasury and never by minting
+        # (S4-1). `add()` keeps exactly one production caller, CmdEconomy above.
+        self.add(CmdWork())
 
         self.add(CmdPWTrade())
 

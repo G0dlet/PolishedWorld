@@ -112,7 +112,38 @@ GLOBAL_SCRIPTS = {
         "start_delay": False,
         "desc": "Maintains creature populations in spawn-flagged rooms",
     },
+    # Currency mint/burn ledger (Stage 4). Deliberately has NO interval: this is
+    # persistent world-level storage, not a ticker. Registered here so it is
+    # auto-created on first start and re-created after any database reset.
+    "economy_ledger": {
+        "typeclass": "typeclasses.scripts.EconomyLedgerScript",
+        "persistent": True,
+        "desc": "Mint/burn ledger for the currency economy",
+    },
 }
+
+# ============================================================
+# CURRENCY (Stage 4)
+# ============================================================
+# The canonical Treasury, named by dbref (typeclasses/treasury.py).
+#
+# DELIBERATELY LEFT UNSET. There is no sensible default: the Treasury is an
+# in-world object an admin creates and places, and a fresh database has none.
+# `get_treasury()` returns None while this is unset and every consumer handles
+# that -- the faucet simply has no funds, which is the honest state of a temple
+# nobody has endowed yet. Unset is also what keeps the test suite deterministic:
+# a real dbref here could resolve to an unrelated fixture object in the test
+# database and make the audit report the wrong object's balance.
+#
+# To configure:
+#   @create/drop temple treasury:typeclasses.treasury.Treasury
+#   (note the #dbref it prints, then uncomment and set the line below)
+#   @reload
+#
+# A dbref, not a key: keys are not unique in Evennia, and an ambiguous lookup is
+# not acceptable for the one object money is minted into.
+#
+# TREASURY_DBREF = "#42"
 
 # Crafting contrib: where to look for CraftingRecipe subclasses.
 # Verified settings key (singular RECIPE), read in crafting.py.
