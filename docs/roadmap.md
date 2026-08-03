@@ -1,5 +1,6 @@
 # PolishedWorld — Strategic Roadmap
 
+> **Rev 12 · 2026-08-03** — **Stage 4 merged to `main`** (PR #14, `02d1807`); the "merge pending" status Rev 11 recorded is now history. Rev 11 fixed the *instance* — Stage 3's heading — but the pattern behind it survived in four more places, so this revision fixes the pattern: **a branch name belongs in a changelog entry (past tense, permanently true), never in a status heading (present tense, it rots at merge).** The Nuläge section's `🔄 Feature-complete on feature/skill-improvement` heading named a branch that merged on 2026-07-10 and had since become a parking spot for two *closed* stages, while Stage 2 and Stage 4 appeared nowhere in Nuläge at all — it is replaced by **✅ Numbered stages — all merged on `main`**, keyed on a criterion that cannot expire. Stage 0 moves into it from the systems list; Stage 1/2/4 headings drop their branch names; the critical-path graph gains the three ✅ it never received. Also corrected: the Stage 3 bullet cited its decomposition at Rev 10 — it is at Rev 11. **Changelog entries are append-only** — same discipline as the economy ledger (**S4-4**): Rev 11's line stands exactly as written, and the *topmost* entry is the status.
 > **Rev 11 · 2026-08-03** — **Stage 4 (In-game currency) complete on `feature/currency`, in-game-verified; merge to `main` pending.** Components A–F: currency math + `CurrencyHandler` + ledger + audit (A), `wallet`/`pay` (B), `Treasury` + `@economy` (C), the temple faucet `work` command funded by Treasury transfer (D), the barter currency bridge (E), documentation close-out (F). 316 tests green. Stage 4's two open design questions are answered and the notes rewritten to say so rather than still asking: a single Copper integer (**S4-2**) makes rounding bugs structurally impossible, and wallet-on-character beat coin-as-objects — coin-as-objects returns as `CoinPile` in Stage 5, where it is a death-drop question rather than a wallet question. **Also corrected: Stage 3 never got the ✅ its own Rev 10 changelog announced.** Rev 10's prose said "CLOSED and merged to `main`" while the heading still read like an open epic, so the scan-the-headings view of this document — the one anybody actually uses — had Stage 3 open for two weeks. A changelog entry is not a status marker.
 
 > **Rev 10 · 2026-07-26** — **Stage 3 (Recipe Knowledge & Discovery) CLOSED and merged to `main`.** Shipped Components A–H: the per-character known-recipe set + `requires_knowledge` flag (A), the dual gate — `pre_craft` backstop + `CmdCraft` early-reject (B), the `recipes` discovery surface (C), and **five knowledge channels** — profession-grants at chargen (D), destructive reverse-engineering (E), the one-use scroll (F), the perishable multi-recipe book (G) and live consenting teaching (H). Knowledge is now a gated, tradeable resource with sources, sinks and a discovery surface, exactly as the Rev 2 decision-log entry specified. **Component I (world-loot scroll seed) deferred to `docs/BACKLOG.md`** — its failure mode needs players, the valve is manually operable, and there is no world content to seed into; trigger is *before the first real player cohort*. All four Stage 3 sub-decisions are now RESOLVED (see decision log). Decomp: `PolishedWorld_Recipe_Knowledge_Decomposition.md` (Rev 10). **Next: Stage 4 (In-game Currency).**
@@ -55,13 +56,19 @@ Every epic below is justified against at least one pillar. Anything that serves 
 - **Crafting foundation** — `MongooseCraftRecipe`, `world/skillcheck.py` (d100 utility), starter recipes (twine/waterskin/cloth/linen shirt).
 - **Barter** — `PWTradeHandler`, timeout/staleness guards, worn-item no-trade guard.
 - **Clothing & thermal** — `ClothingWithBuffs`, `world/thermal.py` (per-regime `COMFORT_BANDS`, replacing the old flat `COMFORT_MARGIN`), Cold/Heat stress buffs, garment prototypes.
-- **Hunting (Stage 0)** — full loop: `Creature` + tag-based `CreatureSpawnScript`, `hunt` skill-check command, corpse system with decay, harvesting (meat/hide → craftable materials, activating the stubbed wool/fur/leather recipes), respawn ticker, and player death (`at_character_death()` hook + `apply_health_damage()` chokepoint — the seams combat will reuse). Canonical doc: `PolishedWorld_Hunting_Decomposition.md`.
 - **QoL/infra** — statue logout system, custom menu-login connection screen.
 
-### 🔄 Feature-complete on `feature/skill-improvement` (merged)
+### ✅ Numbered stages — all merged on `main`
+
+- **Stage 0 — Hunting** ✅ — full loop: `Creature` + tag-based `CreatureSpawnScript`, `hunt` skill-check command, corpse system with decay, harvesting (meat/hide → craftable materials, activating the stubbed wool/fur/leather recipes), respawn ticker, and player death (`at_character_death()` hook + `apply_health_damage()` chokepoint — the seams combat will reuse). Canonical doc: `PolishedWorld_Hunting_Decomposition.md` (Rev 2).
+
 - **Stage 1 — Skill Improvement** ✅ — Legend-faithful improvement-on-use (`world/improvement.py` pure primitive → `improve_skill_on_use` chokepoint → `attempt_skill_improvement` gated wrapper, wired at four check-sites: craft, repair, hunt-attack, hunt-harvest), plus the felt-progress layer: per-tick feedback, desc-tier-crossing celebration, and the `progress` command (deltas since login). In-game-verified. Canonical doc: `PolishedWorld_Skill_Improvement_Decomposition.md` (Rev 3).
 
-- **Stage 3 — Recipe knowledge & discovery** ✅ **CLOSED & merged** — Components A–H. Known-recipe set + `requires_knowledge` flag (A); dual gate, `pre_craft` backstop + `CmdCraft` early-reject (B); `recipes` discovery surface (C); and five knowledge channels: profession-grants (D), reverse-engineering (E), scroll (F), perishable book (G), live teaching (H). Component I (world-loot seed) deferred → `docs/BACKLOG.md`. Canonical doc: `PolishedWorld_Recipe_Knowledge_Decomposition.md` (Rev 10).
+- **Stage 2 — Crafting progression & tools** ✅ — Components A–G: tool-modifier flip (A), shared `condition` durability axis (B), tool bootstrap — `Tool` typeclass, stone/stick primitives, stone-knife & bone-needle recipes (C), tool wear sink + `CmdRepair` convergence (D), quality → capability via `world/crafting_quality.py` bands (E), `min_skill` recipe gate (F), superior-tool scaling (G). The three orthogonal gates — knowledge, skill, capability — are all live; max craft quality 111. Canonical doc: `PolishedWorld_Crafting_Progression_Decomposition.md` (Rev 9).
+
+- **Stage 3 — Recipe knowledge & discovery** ✅ **CLOSED & merged** — Components A–H. Known-recipe set + `requires_knowledge` flag (A); dual gate, `pre_craft` backstop + `CmdCraft` early-reject (B); `recipes` discovery surface (C); and five knowledge channels: profession-grants (D), reverse-engineering (E), scroll (F), perishable book (G), live teaching (H). Component I (world-loot seed) deferred → `docs/BACKLOG.md`. Canonical doc: `PolishedWorld_Recipe_Knowledge_Decomposition.md` (Rev 11).
+
+- **Stage 4 — In-game currency** ✅ — Components A–F: currency math + `CurrencyHandler` + append-only ledger + audit invariant (A), `wallet`/`pay` (B), `Treasury` + `@economy` (C), the temple faucet `work` command funded by Treasury transfer (D), the barter currency bridge (E), documentation close-out (F). Wallet is a single Copper integer with no declared Attribute (**S4-2**, **D6**); `Treasury.add()` is the only mint path (**S4-1**). 316 tests green. Canonical doc: `PolishedWorld_Currency_Decomposition.md` (Rev 7).
 
 ---
 
@@ -73,9 +80,9 @@ Ordering principle: **make progression real → make it *matter* (skill-gated re
 
 ```mermaid
 graph LR
-    S1[Stage 1: Skill Improvement ✅] --> S2[Stage 2: Crafting Progression + Tools]
-    S2 --> S3[Stage 3: Recipe Knowledge]
-    S3 --> S4[Stage 4: In-game Currency]
+    S1[Stage 1: Skill Improvement ✅] --> S2[Stage 2: Crafting Progression + Tools ✅]
+    S2 --> S3[Stage 3: Recipe Knowledge ✅]
+    S3 --> S4[Stage 4: In-game Currency ✅]
     S4 --> S5[Stage 5: Combat]
     S5 --> S6[Stage 6: Wilderness + Scaling]
     S6 --> S7[Stage 7: Magic]
@@ -92,7 +99,7 @@ graph LR
 
 ---
 
-### Stage 1 — Skill Improvement System ✅ *(complete — `feature/skill-improvement`, in-game-verified)*
+### Stage 1 — Skill Improvement System ✅ *(complete — merged to `main`)*
 **Goal (met):** an automated, Legend-faithful progression layer so skills grow through use — no GM, no levels, no XP-as-a-character-stat — **and is *felt*.** Because Legend has no level-up "ding," a mechanically correct system can still ship as an invisible backend that feels dead. The epic is not done when the number quietly grows; it's done when the player *notices* growth. This epic owns the skill-number axis **and its presentation**.
 **Why here (before combat):** relatively contained, but it retroactively makes *all* existing skill use — hunting, crafting, foraging — progression-meaningful at once, and combat + magic will both lean on it. Highest leverage per unit effort on the board.
 **Legend alignment:** Legend has **no character levels and no XP**. Its two advancement paths port very differently:
@@ -106,7 +113,7 @@ graph LR
 
 ---
 
-### Stage 2 — Crafting progression & tools ✅ *(complete — `feature/crafting-progression`, in-game-verified)*
+### Stage 2 — Crafting progression & tools ✅ *(complete — merged to `main`)*
 **Goal:** turn Stage 1's skill numbers into **felt capability** — gate higher recipes behind skill thresholds, scale output quality with skill (crit-craft → superior item) — and make tools a player-crafted quality/efficiency layer with a durability sink.
 **Why here (promoted ahead of currency):** it depends only on Stage 1 (now done) and is the cheapest, highest-"makes-progression-matter" payoff on the board. Without it the Stage 1 numbers stay a stat readout; with it they become a growing craft menu and better goods.
 **Scope — two threads:**
@@ -134,7 +141,7 @@ graph LR
 
 ---
 
-### Stage 4 — In-game currency ✅ *(complete — `feature/currency`, in-game-verified; merge to `main` pending)*
+### Stage 4 — In-game currency ✅ *(complete — merged to `main`)*
 **Goal:** Gold/Silver/Copper as actual money (100:1:1), with a character wallet and basic give/pay/price plumbing — the medium of exchange the economy currently lacks.
 **Why here:** the economy is **barter-only** today (no coin system in the repo). Several items assume money: Stage 1's Training-via-teacher, Stage 3's recipe buy/sell (charging coin), and **Stage 8 GameGold, which is defined as 1:1 with in-game gold** — gold must exist as a currency before the crypto layer can bridge to it. Kept small and early so it unblocks all coin-based trade while the economy is still small.
 **Pillars:** player-driven economy (the exchange primitive everything else trades through).
@@ -238,3 +245,4 @@ Record outcomes here as they're settled so the roadmap stays a single source of 
 - **Framework:** Evennia · **Ruleset:** Mongoose Legend (d100)
 - **Cadence:** ~5 h/week, 3–5 tasks/session, "skynda långsamt"
 - **Maintenance rule:** update on epic start/finish or when sequencing changes; keep tasks out of this file.
+- **Status vs. history:** branch names belong in changelog entries (past tense, permanently true), never in status headings (present tense — they rot the moment the branch merges). Changelog entries are append-only; the topmost entry is the status, and older entries are left exactly as written.
