@@ -46,6 +46,8 @@ from evennia.utils import create
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from tests.test_currency import LedgerIsolationMixin
+from tests.test_work_command import captured_messages
+from world import economy_log
 from world.barter import (
     CmdPWAccept,
     CmdPWDecline,
@@ -89,6 +91,31 @@ class TradeFixtureMixin:
         """Run `offer` and return what was said, to whoever was listening."""
         caller = caller or self.char1
         return self.call(CmdPWOffer(), args, msg, caller=caller)
+
+    def _drain_to(self, char, balance):
+        """Spend a purse down to an exact figure, the way a player would.
+
+        ⚠️ Through a real `transfer_to`, NOT by writing the wallet Attribute.
+        S4-R2 says no code outside world/currency.py touches that Attribute, and
+        a test that breaks the rule it is meant to be policing is worse than no
+        test: it would keep passing after the rule stopped being true.
+        """
+        sink = getattr(self, "_sink", None)
+        if sink is None:
+            sink = create.create_object(
+                self.character_typeclass, key="Sink", location=self.room1, home=self.room1
+            )
+            self._sink = sink
+        excess = char.currency.value - balance
+        if excess > 0:
+            char.currency.transfer_to(sink, excess)
+
+    def _complete(self, handler=None):
+        """Both parties accept and the deal concludes. Returns finish()'s result."""
+        handler = handler or self.handler
+        handler.part_a_accepted = True
+        handler.part_b_accepted = True
+        return handler.finish()
 
 
 class TestOfferSegmentClassification(TradeFixtureMixin, LedgerIsolationMixin, EvenniaCommandTest):
@@ -430,3 +457,251 @@ class TestGlobalsPatchIsInstalled(EvenniaTest):
         keys = {type(cmd) for cmd in CmdsetTrade().commands}
         for cls in (CmdPWOffer, CmdPWAccept, CmdPWDecline, CmdPWEvaluate, CmdPWStatus):
             self.assertIn(cls, keys)
+
+
+# ---------------------------------------------------------------------------
+# Component E.2 -- settlement and the stale-currency guard
+# ---------------------------------------------------------------------------
+
+
+class TestSettlement(TradeFixtureMixin, LedgerIsolationMixin, EvenniaTest):
+    """
+    Coin actually changing hands.
+
+    Driven through the handler rather than through `accept`, because settlement
+    is a property of `finish()` and `CmdAccept` merely happens to be its most
+    common caller. The command path gets its own class further down.
+    """
+
+    def test_a_one_sided_payment_moves_the_promised_sum(self):
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char1, currency=5 * COPPER_PER_SILVER)
+        self.handler.offer(self.char2, sword)
+        self.assertTrue(self._complete())
+        self.assertEqual(self.char1.currency.value, self.START_BALANCE - 500)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE + 500)
+        self.assertEqual(sword.location, self.char1)
+
+    def test_coin_moves_in_the_same_finish_as_the_goods(self):
+        # The invariant `completing` exists to make structural: coin moves if
+        # and only if items move. Asserting both in one test is what pins the
+        # "and only if" -- separate tests would each pass with the coupling
+        # broken.
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char1, currency=100)
+        self.handler.offer(self.char2, sword)
+        self._complete()
+        self.assertEqual(sword.location, self.char1)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE + 100)
+
+    def test_uneven_two_sided_offers_settle_the_difference(self):
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=300)
+        self._complete()
+        self.assertEqual(self.char1.currency.value, self.START_BALANCE - 200)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE + 200)
+
+    def test_equal_two_sided_offers_move_nothing(self):
+        # delta == 0, so transfer_to is never called -- which matters, because
+        # transfer_to raises on a non-positive amount. A settlement that did not
+        # special-case this would crash on a symmetrical deal.
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=500)
+        self._complete()
+        self.assertEqual(self.char1.currency.value, self.START_BALANCE)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE)
+
+    def test_the_total_is_conserved(self):
+        # The property that makes barter safe to expose: the trade table cannot
+        # create or destroy money, because it only ever calls transfer_to.
+        before = self.char1.currency.value + self.char2.currency.value
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=300)
+        self._complete()
+        after = self.char1.currency.value + self.char2.currency.value
+        self.assertEqual(before, after)
+
+    def test_settlement_is_not_ledgered(self):
+        # S4-4: a barter settlement is a transfer, and transfers are the normal
+        # business of the game. If this fails, either settlement grew a mint
+        # path or the ledger grew a transfer path -- both stage-level breaks.
+        before = len(economy_log.entries())
+        self.handler.offer(self.char1, currency=500)
+        self._complete()
+        self.assertEqual(len(economy_log.entries()), before)
+
+    def test_a_trade_with_no_coin_settles_silently(self):
+        sword = self._item("iron sword")
+        self.handler.offer(self.char1, sword)
+        with captured_messages(self.char1) as seen:
+            self._complete()
+        self.assertNotIn("pay", "\n".join(seen))
+        self.assertNotIn("receive", "\n".join(seen))
+
+
+class TestSettlementMessagesAreGross(TradeFixtureMixin, LedgerIsolationMixin, EvenniaTest):
+    """
+    ⚠️ THE NETTING LEAK. Settlement nets; the players agreed in gross. If the
+    messages are built from the transfer instead of from the promises, the side
+    that offered 3 Silver and received 5 reads "you receive 2 Silver" -- true
+    arithmetic, and not the deal they accepted or the one `status` showed them.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=300)
+
+    def test_the_payer_is_told_both_halves_of_their_own_deal(self):
+        with captured_messages(self.char1) as seen:
+            self._complete()
+        said = "\n".join(seen)
+        self.assertIn("5 Silver", said)
+        self.assertIn("3 Silver", said)
+
+    def test_the_net_figure_is_never_spoken(self):
+        # 200 Copper renders as "2 Silver". It is the implementation's number,
+        # not the players', and it must not appear on either side.
+        with captured_messages(self.char1) as seen_a, captured_messages(self.char2) as seen_b:
+            self._complete()
+        self.assertNotIn("2 Silver", "\n".join(seen_a + seen_b))
+
+    def test_a_side_that_only_pays_is_not_told_it_received(self):
+        handler = PWTradeHandler(self.char1, self.char2)
+        handler.join(self.char2)
+        handler.offer(self.char1, currency=500)
+        with captured_messages(self.char1) as seen:
+            self._complete(handler)
+        said = "\n".join(seen)
+        self.assertIn("pay", said)
+        self.assertNotIn("receive", said)
+
+
+class TestSettlementIsOneShot(TradeFixtureMixin, LedgerIsolationMixin, EvenniaTest):
+    """
+    S4-R3.
+
+    ⚠️ WHY `_settle_currency` IS CALLED DIRECTLY HERE. The realistic double
+    entry -- calling finish() twice -- cannot be run: upstream's cleanup nulls
+    `part_a_offers` but leaves `part_a_accepted` and `trade_started` True, so a
+    second finish() re-enters the completion branch and dies in
+    `for obj in None`. Building a fixture that dodges that crash would test the
+    fixture, not the flag. The flag IS the unit, so the flag is what is called.
+
+    That crash is also why the flag's value is not what it first appears: today
+    a double settlement is prevented by a TypeError in someone else's code. The
+    flag makes the guarantee ours instead of borrowed.
+    """
+
+    def test_settling_twice_moves_the_money_once(self):
+        self.handler._settle_currency(500, 0)
+        self.handler._settle_currency(500, 0)
+        self.assertEqual(self.char1.currency.value, self.START_BALANCE - 500)
+
+    def test_the_second_settlement_says_nothing_either(self):
+        # A duplicate message over money that did not move is its own bug: with
+        # no transfer log, the message is the evidence.
+        self.handler._settle_currency(500, 0)
+        with captured_messages(self.char1) as seen:
+            self.handler._settle_currency(500, 0)
+        self.assertEqual(seen, [])
+
+    def test_the_flag_is_armed_by_a_completed_trade(self):
+        # Proves the real path arms the guard, which the direct calls above
+        # deliberately do not.
+        self.assertFalse(self.handler._currency_settled)
+        self.handler.offer(self.char1, currency=500)
+        self._complete()
+        self.assertTrue(self.handler._currency_settled)
+
+
+class TestStaleCurrencyGuard(TradeFixtureMixin, LedgerIsolationMixin, EvenniaTest):
+    """
+    S4-R4. Money can be spent between the offer and the final accept -- the same
+    staleness `_all_offers_in_hand` guards for items, and the same bug upstream
+    has for items.
+    """
+
+    def test_coin_spent_after_the_offer_cancels_the_trade(self):
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, sword)
+        self._drain_to(self.char1, 100)  # the promise is now worthless
+        self.assertTrue(self._complete())
+        self.assertEqual(self.char1.currency.value, 100)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE)
+        self.assertEqual(sword.location, self.char2)
+
+    def test_the_cancel_message_names_coin_and_not_an_item(self):
+        # The whole reason _stale_offer_reason exists. A player told "an offered
+        # item is no longer available" when it was the silver that vanished will
+        # go looking for the wrong thing.
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=300)
+        self._drain_to(self.char1, 100)
+        with captured_messages(self.char1) as seen:
+            self._complete()
+        said = "\n".join(seen)
+        self.assertIn("offered coin is no longer available", said)
+        self.assertNotIn("item", said)
+
+    def test_a_stale_item_still_names_the_item(self):
+        # Regression on the selector's other branch: widening the guard must not
+        # have blurred the wording it already had.
+        sword = self._item("iron sword")
+        self.handler.offer(self.char1, sword)
+        self.handler.offer(self.char2, currency=300)
+        sword.location = self.room1
+        with captured_messages(self.char1) as seen:
+            self._complete()
+        self.assertIn("an offered item is no longer available", "\n".join(seen))
+
+    def test_a_promise_bigger_than_the_purse_is_refused_even_when_the_net_is_affordable(self):
+        # ⚠️ THE GROSS-NOT-NET TEST. A offers 50 and then spends down to 20;
+        # B offers 30. Net is A paying 20 -- entirely affordable. A guard that
+        # measured net would let this through, and B would have accepted on the
+        # strength of a 50 that A never had.
+        self.handler.offer(self.char1, currency=50)
+        self._drain_to(self.char1, 20)
+        self.handler.offer(self.char2, currency=30)
+        self.assertTrue(self._complete())
+        self.assertEqual(self.char1.currency.value, 20)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE)
+
+
+class TestAcceptCommandStaleGuard(
+    TradeFixtureMixin, LedgerIsolationMixin, EvenniaCommandTest
+):
+    """
+    The command-layer half of the guard. It exists for the WORDING, not for
+    correctness -- finish() would cancel anyway -- so these tests assert what is
+    *not* said as much as what is.
+    """
+
+    def test_the_completing_accept_cancels_instead_of_confirming(self):
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=300)
+        self.handler.part_b_accepted = True
+        self._drain_to(self.char1, 100)
+        returned = self.call(CmdPWAccept(), "", caller=self.char1)
+        self.assertIn("offered coin is no longer available", returned)
+        # Without the command-layer guard the contrib would get here first and
+        # cheerfully confirm an acceptance that is about to be undone.
+        self.assertNotIn("You accept the offer", returned)
+
+    def test_the_cancelled_accept_moves_no_money(self):
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, currency=300)
+        self.handler.part_b_accepted = True
+        self._drain_to(self.char1, 100)
+        self.call(CmdPWAccept(), "", caller=self.char1)
+        self.assertEqual(self.char1.currency.value, 100)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE)
+
+    def test_an_honest_completing_accept_still_settles(self):
+        # The guard must not have made the happy path unreachable.
+        self.handler.offer(self.char1, currency=500)
+        self.handler.part_b_accepted = True
+        self.call(CmdPWAccept(), "", caller=self.char1)
+        self.assertEqual(self.char1.currency.value, self.START_BALANCE - 500)
+        self.assertEqual(self.char2.currency.value, self.START_BALANCE + 500)

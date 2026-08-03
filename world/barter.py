@@ -34,6 +34,8 @@ from evennia.contrib.game_systems.barter.barter import (
     TradeTimeout as BaseTradeTimeout,
 )
 
+from evennia.utils import logger
+
 from world.currency import format_copper, parse_amount
 
 
@@ -77,6 +79,57 @@ def _offered_currency(handler, party):
     if party == handler.part_b:
         return getattr(handler, "part_b_currency", 0) or 0
     return 0
+
+
+def _offered_currency_still_held(handler):
+    """True if each side can still cover the coin it put on the table.
+
+    The sibling of `_all_offers_in_hand()`, and it exists for the same reason:
+    an offer is made at one moment and honoured at another, and the world moves
+    in between. An item can be dropped; coin can be spent (S4-R4). The check
+    differs only because money has no location -- the only meaningful question
+    is whether the promised sum is still covered.
+
+    ⚠️ GROSS, NOT NET, AND DELIBERATELY SO. Each side is measured against what
+    it *promised*, not against the difference that will actually change hands.
+    Otherwise this passes: A offers 50 while holding 20, B offers 30, net is A
+    paying 20 -- affordable, and A never backed the 50 that B accepted on.
+
+    ⚠️ can_afford()'s own docstring forbids using it to decide that a later
+    debit will succeed, and names the exception: it is safe when the check and
+    the debit are one unbroken synchronous sequence. That is the case here --
+    this runs inside finish(), with no yield point between it and the transfer
+    (S4-R1). If settlement is ever moved out of finish(), this guard has to move
+    with it or it becomes exactly the bug it was written to prevent.
+
+    Sides offering no coin are skipped before can_afford() is reached: it calls
+    _require_positive() and raises on 0, which is every ordinary trade.
+    """
+    for party in (handler.part_a, handler.part_b):
+        amount = _offered_currency(handler, party)
+        if not amount:
+            continue
+        wallet = getattr(party, "currency", None)
+        if wallet is None or not wallet.can_afford(amount):
+            return False
+    return True
+
+
+def _stale_offer_reason(handler):
+    """The message to cancel with, or None if the deal is still honest.
+
+    Both call sites -- PWTradeHandler.finish() and CmdPWAccept.func() -- need
+    the same two checks in the same order and the same wording, so the choice
+    lives here rather than being written out twice and drifting apart.
+
+    Items are checked first only because an item leaving someone's hands is the
+    older and commoner failure; neither takes precedence in any deeper sense.
+    """
+    if not _all_offers_in_hand(handler):
+        return "Trade cancelled: an offered item is no longer available."
+    if not _offered_currency_still_held(handler):
+        return "Trade cancelled: offered coin is no longer available."
+    return None
 
 
 def _describe_offer(objs, coin, verb):
@@ -449,6 +502,9 @@ class PWTradeHandler(BaseTradeHandler):
         # where no coin is ever offered.
         self.part_a_currency = 0
         self.part_b_currency = 0
+        # S4-R3. Declared here so it exists before any path can reach
+        # settlement, including a teardown that happens before a single offer.
+        self._currency_settled = False
 
     def offer(self, party, *args, currency=0):
         """
@@ -488,32 +544,136 @@ class PWTradeHandler(BaseTradeHandler):
             and self.part_a_accepted
             and self.part_b_accepted
         ):
-            if not _all_offers_in_hand(self):
-                # An offered item left its owner's hands between the offer and the
-                # final accept. Cancel the whole trade: drop the accepts so super()
-                # moves nothing, then force a full teardown -- otherwise the stale
-                # item stays on offer and every re-accept just re-aborts forever.
+            reason = _stale_offer_reason(self)
+            if reason:
+                # An offered item left its owner's hands, or the promised coin
+                # was spent, between the offer and the final accept. Cancel the
+                # whole trade: drop the accepts so super() moves nothing -- and
+                # note that the same reset is what makes `completing` false in
+                # _finish_and_clear, so it stops the settlement too -- then
+                # force a full teardown. Otherwise the stale offer stays on the
+                # table and every re-accept just re-aborts forever.
                 self.part_a_accepted = False
                 self.part_b_accepted = False
-                msg = "Trade cancelled: an offered item is no longer available."
-                self.part_a.msg(msg)
-                self.part_b.msg(msg)
+                self.part_a.msg(reason)
+                self.part_b.msg(reason)
                 return self._finish_and_clear(force=True)
         return self._finish_and_clear(force=force)
 
-    def _finish_and_clear(self, force=False):
-        """super().finish(), plus zeroing the coin fields on a real teardown.
+    def _settle_currency(self, a_amount, b_amount):
+        """Move the promised coin and tell both parties, exactly once.
 
-        Kept separate because finish() has two exit paths and the clearing must
-        happen on both without being written twice. super() returns True only
-        when it actually tore the trade down; a False return means nothing
-        happened and the standing offer -- coin included -- must survive intact.
+        ⚠️ S4-R3, THE ONE-SHOT FLAG. The check lives here rather than at the
+        call site so that every path into settlement is covered, however it got
+        here. Note what upstream's cleanup does NOT do: it nulls part_a_offers
+        but leaves `part_a_accepted` and `trade_started` True, so a second
+        finish() re-enters the completion branch and only fails because
+        `for obj in None` raises. Today a double settlement is prevented by that
+        crash -- by accident, in someone else's code. This flag makes the
+        guarantee ours.
+
+        ⚠️ NET SETTLEMENT, GROSS MESSAGING. One transfer_to cannot half-settle
+        the way two can; that is the whole reason for netting. But the players
+        agreed in gross ("I pay 50, I get 30"), and that is what `status` showed
+        them, so the messages are built from the promised amounts. A player told
+        "you receive 20" after agreeing to 30 would rightly believe the game had
+        miscounted. Netting is an implementation detail and must not leak into
+        the language.
+
+        S4-4: transfers are not ledgered. With no transaction log these two
+        messages are the only evidence the payment happened, which is why they
+        exist at all rather than letting "Deal is made" cover it.
+
+        Args:
+            a_amount (int): Copper part_a promised.
+            b_amount (int): Copper part_b promised.
         """
+        if self._currency_settled:
+            return
+        self._currency_settled = True
+
+        if not a_amount and not b_amount:
+            return
+
+        delta = a_amount - b_amount
+        if delta:
+            payer, payee = (
+                (self.part_a, self.part_b) if delta > 0 else (self.part_b, self.part_a)
+            )
+            if not payer.currency.transfer_to(payee, abs(delta), reason="barter"):
+                # Not reachable while the staleness guard is intact:
+                # _offered_currency_still_held() has just passed and
+                # |delta| <= what the payer promised. But "unreachable" is a
+                # claim about the code as it stands today, and mutation testing
+                # during E.2 showed it firing the moment that guard was
+                # weakened -- at which point this branch was the only thing
+                # standing between a broken check and money moving on a
+                # promise nobody could keep. Loud in the log, honest to the
+                # players, and second in line rather than decorative.
+                logger.log_err(
+                    "barter settlement failed after the staleness guard passed: "
+                    f"{payer} -> {payee}, {abs(delta)} Copper "
+                    f"(promised {a_amount}/{b_amount})"
+                )
+                stalled = "The coin could not be moved; no money changed hands."
+                self.part_a.msg(stalled)
+                self.part_b.msg(stalled)
+                return
+
+        self._tell_settlement(self.part_a, a_amount, b_amount)
+        self._tell_settlement(self.part_b, b_amount, a_amount)
+
+    @staticmethod
+    def _tell_settlement(party, paid, received):
+        """One party's half of the settlement, in the terms they agreed to."""
+        clauses = []
+        if paid:
+            clauses.append("pay |y%s|n" % format_copper(paid))
+        if received:
+            clauses.append("receive |y%s|n" % format_copper(received))
+        if clauses:
+            party.msg("You %s." % " and ".join(clauses))
+
+    def _finish_and_clear(self, force=False):
+        """super().finish(), plus currency settlement and cleanup.
+
+        Kept separate because finish() has two exit paths and both need the same
+        treatment without it being written twice.
+
+        ⚠️ `completing` MIRRORS UPSTREAM'S OWN `fin` EXPRESSION EXACTLY. That is
+        the point: coin moves if and only if items move, structurally, rather
+        than by two pieces of code agreeing to. Note it does NOT include
+        `force` -- upstream moves goods on a forced teardown too, if both
+        parties are still accepted, and the stale-offer path resets the accepts
+        precisely so that neither goods nor coin move there.
+
+        Both `completing` and the amounts are read BEFORE super(), which nulls
+        the offer lists, and before the clearing below.
+
+        The fallible operation goes first: the item moves are direct
+        `obj.location` assignments that could in principle raise, while
+        settlement cannot fail once the staleness guard has passed. Ordering
+        them this way means a failure leaves no money stranded. There is no
+        yield point between them, so nothing can observe the intermediate state
+        (S4-R1).
+        """
+        completing = (
+            self.trade_started and self.part_a_accepted and self.part_b_accepted
+        )
+        a_amount = self.part_a_currency
+        b_amount = self.part_b_currency
+
         result = super().finish(force=force)
-        if result:
-            self.part_a_currency = 0
-            self.part_b_currency = 0
-        return result
+        if not result:
+            # Nothing happened. The standing offer, coin included, survives.
+            return False
+
+        if completing:
+            self._settle_currency(a_amount, b_amount)
+
+        self.part_a_currency = 0
+        self.part_b_currency = 0
+        return True
 
 
 class CmdPWAccept(CmdBaseAccept):
@@ -542,11 +702,12 @@ class CmdPWAccept(CmdBaseAccept):
             else handler.part_a_accepted
         )
         if other_already_accepted:
-            if not _all_offers_in_hand(handler):
-                msg = "Trade cancelled: an offered item is no longer available."
-                handler.part_a.msg(msg)
-                handler.part_b.msg(msg)
-                # Reset accepts so the forced teardown moves nothing.
+            reason = _stale_offer_reason(handler)
+            if reason:
+                handler.part_a.msg(reason)
+                handler.part_b.msg(reason)
+                # Reset accepts so the forced teardown moves neither goods nor
+                # coin -- see _finish_and_clear's `completing`.
                 handler.part_a_accepted = False
                 handler.part_b_accepted = False
                 handler.finish(force=True)
