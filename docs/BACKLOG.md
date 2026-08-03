@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 17 · 2026-08-03** — Stage 4 Component E close-out. One entry **narrowed**, two added, neither a defect. The **`copper` name collision** (Currency) shrank rather than closed: `offer` was the one verb where both readings were plausible, and E.1's digit-first rule settles it without renaming anything, because Evennia's disambiguation syntax is a *suffix* (`copper-2`) and so no valid object name begins with a digit. What is still deferred is only `caller.search()` facing two `copper`s in a room, which needs `CoinPile` to exist. **Upstream `finish()` is not safe to call twice** (Currency) is recorded rather than scheduled: it is unreachable in play, but it is *currently* what prevents a double currency settlement — by accident, in someone else's code — and anyone reading our one-shot flag should know the belt is doing work the braces also do. **Trade item moves bypass move hooks and `get` locks** (Crafting & Items) is not new debt but newly *homed*: it lived only in `world/README_barter.md`, and it pairs with the future no-trade flag, since the flag without enforcement is decorative and enforcement without the flag has nothing to enforce.
+
 > **Rev 16 · 2026-08-02** — Stage 4 Component D close-out. Three new entries, none of them defects. **Faucet task-table tuning** (Currency) is the entry the decomposition asked for by name: `TEMPLE_TASKS` is the anchor, and its numbers cannot be judged until crafted goods have prices players actually charge, because the faucet's whole job is to read as obviously a supplement against a market that does not exist yet. **Timed player actions have a pattern but no shared home** (Tooling & Process) records a duplication rather than a bug: `rest` and `work` implement interruptible timed actions independently, and `at_pre_move` in `characters.py` now carries two hand-written branches that will grow one per future action — the *third* is the signal to extract a helper, not the second. **`_format_wait()` truncates** (Currency) is cosmetic: a fresh one-hour cooldown renders as `59 minutes`, which reads as though the clock started early; noted with the reason the naive ceiling fix is wrong in the other direction.
 
 > **Rev 15 · 2026-08-02** — Stage 4 Component C close-out. Four new entries, all small and all found by running the shipped command rather than by reading it. **Ledger `actor` field** (Currency) is the only one with teeth: the entry shape records who *received* a mint but not who *ordered* it, so the ledger alone cannot answer "which admin minted this" — `@economy` writes the actor to the rotating server log as a stopgap, and the trail exists today, but it is in the wrong place. **Audit holder-count vs wallet-sum inconsistency** (Currency) — the count includes the Treasury while the sum excludes it, so a freshly minted economy reads `Wallets: nothing (1 holder)` where the one holder is the Treasury reported on the next line. **`@economy` log-line direction** (Currency) — burns log `-> treasury #N`, which reads as money going in. **Player → Treasury has no command** (Currency): `pay` refuses the Treasury by design and `donate` was deliberately not claimed, so the Stage 4 exchange-back is admin-mediated; Stage 8's `exchange` owns the direction, recorded so nobody fills the gap speculatively.
@@ -758,6 +760,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `give copper to Bob` never reaches the currency parser. Renaming either side
   now would churn the material registry and the recipe data for a collision that
   does not yet exist.
+- **Narrowed by Stage 4 E.1 (2026-08-03):** `offer` was the one verb where both
+  readings were plausible, and it is now settled without a rename. A comma
+  segment is coin if its first character is an ASCII digit, and that rule is
+  total rather than heuristic because Evennia's disambiguation syntax is a
+  *suffix* (`SEARCH_MULTIMATCH_REGEX` → `copper-2`), so no valid way of naming an
+  object begins with a digit. `offer copper` is the ingot, `offer 5 copper` is
+  money, and no input can reasonably mean the other. What remains deferred is
+  narrower than when this entry was written: **`caller.search()` disambiguating
+  two objects in a room that both answer to `copper`**, which needs `CoinPile`
+  to exist first.
 - **Trigger:** **Stage 5 kickoff** — the same trigger as the `CoinPile` deferral
   (S4-3), and for the same reason: the moment coins are real objects, two
   different things in a room answer to `copper` and `caller.search()` has to
@@ -766,6 +778,42 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Evennia Reference).
 - **Origin:** Stage 4 A.1 review; flagged in session before A.2.
 - **Status:** SCHEDULED (Stage 5, with `CoinPile`)
+
+### Upstream `TradeHandler.finish()` is not safe to call twice
+- **What:** The contrib's cleanup nulls `part_a_offers` / `part_b_offers` but
+  leaves `part_a_accepted`, `part_b_accepted` and `trade_started` set to `True`.
+  A second `finish()` therefore re-enters the completion branch and dies in
+  `for obj in None` with a `TypeError`.
+- **Why deferred:** **Not reachable in play.** A successful teardown deletes
+  `ndb.tradehandler` from both parties, so no command can obtain the handler
+  again, and the timeout script's `is_valid()` refuses once the trade has
+  started. It is reachable only from a held reference — a test, `@py`, or
+  future code.
+- **Why it is recorded anyway:** it is *currently* what prevents a double
+  currency settlement, by accident, in someone else's code. Our own one-shot
+  flag (S4-R3) covers us, but anyone reading `_settle_currency` should know the
+  belt is doing work the braces are also doing, and that the belt is upstream's
+  and may change.
+- **Trigger:** An Evennia upgrade that touches `barter.py`, or the first time
+  something legitimately needs to call `finish()` more than once.
+- **Origin:** Stage 4 E.2, found while reasoning about S4-R3.
+- **Status:** OPEN (recorded, not scheduled)
+
+### Trade item moves bypass move hooks and `get` locks
+- **What:** `finish()` moves goods with a direct `obj.location =` assignment, so
+  no move hook fires and no lock is consulted. The upgrade is
+  `move_to(quiet=True)` inside our `PWTradeHandler`.
+- **Why deferred:** Harmless today — no current item relies on a move hook
+  during a trade, and there is no item that may not be traded. The change only
+  starts paying when there is something to enforce.
+- **Trigger:** The **no-trade flag** (quest-bound, soulbound or otherwise
+  untradeable items). Do the two together: the flag without lock enforcement is
+  decorative, and the enforcement without the flag has nothing to enforce.
+- **Note:** This is also why currency settlement lives inside `finish()` rather
+  than in a move hook (Evennia Reference §7.5) — the hook never fires.
+- **Origin:** Stage 2 barter hardening; homed here at Stage 4 F.2, previously
+  recorded only in `world/README_barter.md`.
+- **Status:** OPEN
 
 ### `MINT_SOURCES` / `BURN_REASONS` vocabulary
 - **What:** The two whitelists in `world/currency.py`, currently

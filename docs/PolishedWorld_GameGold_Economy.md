@@ -1,5 +1,7 @@
 # PolishedWorld - GameGold & Economy Design
 
+> **Rev 6 · 2026-08-03** — **The `CurrencyHandler` sketch is gone, replaced by the shipped design.** This was the last piece of the debt Rev 4 and Rev 5 each paid part of, and the pattern is worth naming because it caught this document three times: Rev 3 fixed the prose and left the sketches; Rev 4 fixed the sketches' mint rule and left the sketch standing as though it were the design; Rev 5 marked the faucet sketch superseded and left the wider `CurrencyHandler` sketch — a per-denomination dict — carrying a banner instead of a correction. A banner is a promise to fix, not a fix. What replaces it is a description of `world/currency.py` as shipped: one `int` in Copper (**S4-2**), no `wallet` Attribute on the typeclass (**D6**), the module functions and the six handler members with their real signatures, and **D7**'s deliberate asymmetry — `transfer_to()` returns `False` for poverty and *raises* for everything else, so every raising path needs a command-layer guard. Three things are stated as load-bearing rather than incidental: **S4-R1**'s atomic section and what a `yield` inside it would cost the whole economy; **S4-4**, that the ledger holds mint and burn only, and that what proves nothing was created is the *invariant* `Σ(wallets) + Treasury == Σ(mint) − Σ(burn)` rather than a transaction history; and **S4-1**, that `@economy mint` is the single production mint caller and the temple faucet transfers rather than mints. Closes the Component F debt for this document.
+
 > **Rev 5 · 2026-08-02** — **The Temple-Faucet sketch is marked superseded now that the faucet is shipped** (Stage 4 Component D.1, `commands/work_commands.py`). Rev 4 corrected the sketch's *mint rule*; this Rev addresses what Rev 4 left standing — a sketch that a reader could still mistake for the design. Three divergences are named explicitly: the sketch lists **three** chores while the prose table above it lists **five** (the table is canonical, and the discrepancy was found while reading this document as D's task-table source — the same class of half-finished close-out that Rev 4 was itself fixing); there is **no `TempleFaucet` class**, the faucet being a command with a module-level table and payout function; and the chore **takes time**, with the entire `transfer_to` sequence inside the delayed callback because S4-R1 forbids splitting a check from its commit. The sketch is kept for its comments, with a banner saying to read it for *why* and never for *what*. The wider `CurrencyHandler` sketch remains the superseded per-denomination-dict design and its full rewrite is still **Component F's** work.
 
 > **Rev 4 · 2026-08-02** — **The code sketches are brought into line with the shipped mint rule.** Rev 3 corrected this document's *prose* so that "Gold Creation" matched `MINT_SOURCES`, and left three *sketches* saying the opposite. The Temple-Faucet sketch called `currency.add(..., source='faucet')` — which the shipped `add()` rejects with `ValueError`, and which `tests/test_currency.py` asserts raises, because S4-1 makes the faucet a **transfer** path and `@economy mint` the single production caller of the mint primitive. The `CurrencyHandler.add()` docstring listed `"faucet"` as a valid source, and the economic-metrics sketch broke minted Gold down by a `faucet` bucket that cannot exist by construction. All three are corrected here, and the faucet sketch now shows the Treasury transfer it will actually be. Caught while reading this document as the source of Component D's task table — a reader coming for the table would have found the wrong implementation fifty lines below it. The wider `CurrencyHandler` sketch is still the superseded per-denomination-dict design (S4-2 stores one Copper `int`); it now carries a banner saying so, and its full rewrite remains **Component F's** work.
@@ -263,73 +265,104 @@ For each new item/resource:
 
 ## Currency Handler Design
 
-> ⚠️ **Superseded sketch — do not implement from this.** It stores currency as a
-> per-denomination dict; the shipped design (**S4-2**) stores a single `int`
-> denominated in Copper, with denominations applied only at display and input
-> time. The live implementation is `world/currency.py`, and `world/economy_log.py`
-> holds the ledger and the audit invariant. This section is kept for its
-> *intent* until **Component F** rewrites it against the shipped API. Where the
-> two disagree, the code wins.
+**Shipped.** `world/currency.py` holds the module functions and
+`CurrencyHandler`; `world/economy_log.py` holds the ledger and the audit
+invariant. This section describes the shipped shape. Where it disagrees with the
+code, **the code wins** — and if you find a disagreement, fix this document in
+the same pass.
 
-Prepared for future crypto integration:
+### Storage: one integer, in Copper
 
-```python
-class CurrencyHandler:
-    """Handles in-game currency operations."""
-    
-    DENOMINATIONS = {
-        'gold': 10000,    # 1 gold = 10000 copper
-        'silver': 100,    # 1 silver = 100 copper
-        'copper': 1       # Base unit
-    }
-    
-    def add(self, character, denomination, amount, source="crypto_exchange"):
-        """
-        Mint currency onto a character. This is a CREATION primitive and must
-        only be called for legitimate mint sources. Player-to-player movement
-        (trade, barter, rent) is a transfer with a matching decrement and does
-        NOT go through add() — it belongs in a separate transfer path.
+**S4-2.** A wallet is a single `int` on the character, denominated in Copper.
+Denominations exist only at display and input time:
 
-        Args:
-            character: Character receiving currency
-            denomination: 'gold', 'silver', or 'copper'
-            amount: Amount to add
-            source: must be a member of MINT_SOURCES, which ships as
-                {"crypto_exchange", "admin_correction"}. Anything else
-                raises ValueError.
-                ⚠️ "faucet" is NOT a mint source and never was one in the
-                shipped code. The temple pays by transferring out of the
-                Treasury (S4-1), so a faucet payout never reaches this
-                method at all.
-                "admin_correction" repairs the exchange path when a
-                settlement goes wrong. It is ledgered identically to any
-                other mint and appears in `@economy audit` like any other:
-                the same door, used to fix the door. It is not a grant
-                mechanism, and no event, reward or compensation may use it.
-        """
-        if amount < 0:
-            return False
-        
-        # Log all currency creation (critical for crypto auditing)
-        self._log_transaction(character, denomination, amount, source)
-        
-        # Add to character
-        current = character.db.currency.get(denomination, 0)
-        character.db.currency[denomination] = current + amount
-        return True
-    
-    def _log_transaction(self, character, denomination, amount, source):
-        """Log for future crypto auditing."""
-        import time
-        log_entry = {
-            'timestamp': time.time(),
-            'character': character.key,
-            'denomination': denomination,
-            'amount': amount,
-            'source': source
-        }
-        # Store in persistent transaction log
 ```
+1 Gold = 100 Silver = 10,000 Copper
+COPPER_PER_SILVER = 100
+COPPER_PER_GOLD   = 10_000
+```
+
+Nothing is stored per denomination, so no operation can ever leave the three
+figures out of step with one another — the class of bug the earlier sketch made
+possible is structurally absent rather than guarded against.
+
+**No `wallet` Attribute is declared on the typeclass** (rule D6). The Attribute
+row does not exist until the first mutation, and the handler reads through a
+default, so an untouched character behaves exactly like one holding zero without
+anything having been written for it. It also means there is no attribute-shaped
+back door: **S4-R2** — no code outside `world/currency.py` writes the wallet.
+
+### The API
+
+Module level, in `world/currency.py`:
+
+| Function | Purpose |
+|---|---|
+| `to_copper(gold, silver, copper)` | build an amount from denominations |
+| `split_denominations(copper)` | the inverse, for display |
+| `format_copper(copper)` | player-facing text: `"1 Gold, 2 Silver, 3 Copper"`, zero denominations omitted |
+| `format_gamegold(copper)` | the same amount as a GameGold decimal, for the exchange |
+| `parse_amount(text)` | `"5 silver"` → `500`; returns **`None`** on a bad parse rather than raising, so each command owns its own wording |
+
+On `character.currency` (`CurrencyHandler`):
+
+| Member | Purpose |
+|---|---|
+| `.value` | balance in Copper |
+| `.format()` | `format_copper(self.value)` |
+| `.can_afford(amount)` | a **read**. Safe to phrase with; never safe to commit on across a yield |
+| `.add(amount, source)` | **the only mint path.** `source` must be in `MINT_SOURCES` or it raises |
+| `.burn(amount, reason)` | the only destruction path. `reason` must be in `BURN_REASONS` |
+| `.transfer_to(target, amount, reason=None)` | moves money. Cannot create or destroy any |
+
+`transfer_to()` returns `False` for exactly one condition — the payer cannot
+cover the amount — and **raises** for everything else (non-`int` amount,
+self-payment, a target with no wallet). That asymmetry is deliberate (**D7**):
+poverty is a runtime state a command should phrase nicely, while an invalid
+target is a caller bug that should not be silently swallowed. Every raising path
+needs a guard in the command layer *before* the call.
+
+### ⚠️ S4-R1 — the atomic section
+
+Inside `transfer_to()` the balance read, the sufficiency check, the debit and the
+credit happen with **no yield point between them**. Evennia's reactor is
+single-threaded, so an unbroken synchronous block cannot be interleaved: two
+players spending the same coin in the same tick is impossible *because of this
+property*, not because of a lock.
+
+Introducing a `yield`, a `utils.delay` or a deferred call anywhere between the
+check and the credit reopens the duplication window **for the entire economy**.
+This is the single most important line in the currency system.
+
+### What is logged, and what is not
+
+**S4-4.** The ledger records **mint and burn only**. Transfers — payments,
+wages, faucet payouts, barter settlements — are the normal business of the game
+and are not logged.
+
+That is not a gap. What proves nothing was created is the *invariant*, not a
+transaction history:
+
+```
+Σ(player wallets) + Treasury balance  ==  Σ(mint) − Σ(burn)
+```
+
+`@economy audit` computes both sides and reports the difference. A transfer
+cannot change either side, so it cannot break the equality; a leak anywhere in
+the game shows up as a mismatch without needing to have been logged.
+
+The single mint caller in production is `@economy mint` (**S4-1**). The temple
+faucet does **not** mint — it transfers out of the Treasury, which is why a
+faucet with no funds is dry rather than inflationary.
+
+### Why this matters for the crypto layer
+
+The 1:1 bridge is only meaningful if the in-game side has a provable supply.
+The invariant is that proof, and it is checkable at any moment against a live
+database rather than reconstructed from a log that might have gaps. When the
+exchange lands, `crypto_exchange` is already the whitelisted tag on both
+`MINT_SOURCES` and `BURN_REASONS` — the two doors GameGold walks through, and
+the only two.
 
 ---
 

@@ -99,11 +99,9 @@ is structural rather than maintained by hand.
 
 ## Known, deliberate MVP debt
 
-The item move still uses upstream's direct `obj.location =` (via
-`super().finish()`), which bypasses move hooks and `get` locks. Harmless for
-current items. The upgrade to `move_to(quiet=True)` is deferred to pair with the
-future **no-trade flag** (quest-bound items), where lock enforcement during a
-trade actually matters.
+The item move still uses upstream's direct `obj.location =`, bypassing move
+hooks and `get` locks. Deferred to pair with the future no-trade flag —
+`docs/BACKLOG.md`, *Trade item moves bypass move hooks and `get` locks*.
 
 ## Maintenance / fragility
 
