@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 18 · 2026-08-03** — one entry added from the System Map Rev 2 sweep: **a runnable seam checker** (Tooling & Process). Not a defect and not a nice-to-have — the map's §*How to keep it honest* prescribes a `grep` that produced two of the three false rows Rev 2 had to fix, and the obvious replacement (AST) silently misses `getattr`-string dispatch. Rev 2 fixed the rows and documented both failure modes in prose; a convention that has now failed once is worth making runnable. Trigger is concrete rather than aspirational: the Damage-chokepoint row already reads `(future: combat)`, so Stage 5 will edit that table.
 > **Rev 17 · 2026-08-03** — Stage 4 Component E close-out. One entry **narrowed**, two added, neither a defect. The **`copper` name collision** (Currency) shrank rather than closed: `offer` was the one verb where both readings were plausible, and E.1's digit-first rule settles it without renaming anything, because Evennia's disambiguation syntax is a *suffix* (`copper-2`) and so no valid object name begins with a digit. What is still deferred is only `caller.search()` facing two `copper`s in a room, which needs `CoinPile` to exist. **Upstream `finish()` is not safe to call twice** (Currency) is recorded rather than scheduled: it is unreachable in play, but it is *currently* what prevents a double currency settlement — by accident, in someone else's code — and anyone reading our one-shot flag should know the belt is doing work the braces also do. **Trade item moves bypass move hooks and `get` locks** (Crafting & Items) is not new debt but newly *homed*: it lived only in `world/README_barter.md`, and it pairs with the future no-trade flag, since the flag without enforcement is decorative and enforcement without the flag has nothing to enforce.
 
 > **Rev 16 · 2026-08-02** — Stage 4 Component D close-out. Three new entries, none of them defects. **Faucet task-table tuning** (Currency) is the entry the decomposition asked for by name: `TEMPLE_TASKS` is the anchor, and its numbers cannot be judged until crafted goods have prices players actually charge, because the faucet's whole job is to read as obviously a supplement against a market that does not exist yet. **Timed player actions have a pattern but no shared home** (Tooling & Process) records a duplication rather than a bug: `rest` and `work` implement interruptible timed actions independently, and `at_pre_move` in `characters.py` now carries two hand-written branches that will grow one per future action — the *third* is the signal to extract a helper, not the second. **`_format_wait()` truncates** (Currency) is cosmetic: a fresh one-hour cooldown renders as `59 minutes`, which reads as though the clock started early; noted with the reason the naive ceiling fix is wrong in the other direction.
@@ -615,6 +616,36 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   OpenCode *replication* half has not been exercised yet — that is a task, not a
   deferral, and lives in the stage plans rather than here. Keep for traceability,
   prune at the next backlog sweep.
+
+### Runnable seam checker for the System Map
+
+- **What:** A small dev tool (`tools/check_seams.py` or equivalent) that takes the
+  symbol list from `docs/PolishedWorld_System_Map.md`'s seam table and reports the
+  real consumers of each: AST call-site and subclass detection, **plus** a sweep
+  for the symbol as a string literal inside `getattr(...)`. Output compared to the
+  "Consumers" column by eye; the tool reports, it does not gate.
+- **Why deferred:** System Map Rev 2 was scoped as a documentation commit, and the
+  rows are correct as of `23f6f6e`. Shipping the checker in the same sweep would
+  have mixed a tooling decision into a doc fix.
+- **Why it matters, stated plainly:** the map's own honesty method is what let it
+  rot. Plain `grep -rn` **over-reports** — `typeclasses/books.py` was credited as a
+  `_RECIPE_CLASSES` consumer because two comments say it deliberately is *not* one,
+  the same trap the Stage 4 D guard hit — and the natural fix **under-reports**,
+  because `world/crafting_base.py:314` dispatches `attempt_skill_improvement`
+  through a `getattr` string that no AST walk can see. Neither method is sound
+  alone, so the cross-check is currently a paragraph of prose asking a human to be
+  careful. That is exactly the kind of promise that gets skipped at 5 h/week.
+- **Explicitly rejected:** making it a unit test that parses the markdown table.
+  The Consumers column is free prose, so the table would have to be reformatted to
+  machine-readable shape first — a larger change than the rot it prevents — and the
+  test would fail on cosmetic edits. A red build caused by formatting is a build
+  people learn to ignore.
+- **Trigger:** **Stage 5 kickoff.** Combat becomes the second consumer of
+  `apply_health_damage`, whose seam row already says `(future: combat)` — so that
+  table is *going* to be edited, and that is the cheapest moment to make editing it
+  verifiable.
+- **Origin:** System Map Rev 2 verification sweep (2026-08-03).
+- **Status:** SCHEDULED (Stage 5 kickoff)
 
 ---
 
