@@ -1,5 +1,7 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 20 · 2026-08-03** — **§7 rewritten; it was not merely stale but actively wrong.** The status line said *Planned* while `world/barter.py` has been merged since Stage 2, but the damage was further down: **§7.2** told the reader to add `CmdOffer`/`CmdAccept`/`CmdDecline`/`CmdEvaluate`/`CmdStatus` to `CharacterCmdSet`, which would make `offer` typable outside a trade and turn the §11.20 `status` collision from scoped into permanent — only `CmdPWTrade` is global, the rest arrive with `CmdsetTrade` at trade start. **§7.4** described coins as typeclassed objects offered like any other item, the architecture S4-2 explicitly rejected; it now documents the handler-level bridge shipped in Stage 4 Component E (digit-first segment classification, gross re-validation, net settlement, one-shot flag, unledgered per S4-4). New **§7.3** documents the module-global patch mechanism and its seven swaps; new **§7.5** tabulates the five confirmed upstream bugs, of which the direct `obj.location` assignment in `finish()` is the one with teeth — **no move hook fires in a trade, ever**. **§7.6** records that the trade cmdset is added rather than Replace, which is why the staleness guards must exist. Also: the contrib status table was wrong on five rows (Barter, CooldownHandler, BuffHandler, Crafting, Clothing all read *Planned* while in use) — corrected against a grep of the repo, not from memory. `TickerHandler` is deliberately left untouched: whether the survival ticker goes through it or through a Script has not been verified, and correcting an unchecked row is the same failure this Rev is fixing.
+
 > **Rev 19 · 2026-08-02** — One lesson from Stage 4 Component D, verified live against Evennia 6.1.0 with the suite running in-sandbox (256 tests green, 2026-08-02): **§11.27** the identity-marker pattern for cancelling a `utils.delay` from somewhere that never saw the task. A string or task-key flag is **not** sufficient — start an action, abandon it, start the same action again, and the first callback wakes up, recognises the flag value, and completes against the second attempt. A per-attempt `object()` compared with `is` cannot collide. Carries the four constraints that come with it: `ndb` and the delay must be non-persistent *together*; the callback must re-check the world and not only the marker; `has_account` is the "still playing" guard under statue-logout; and the callback belongs at module level so it is testable without a reactor. Also records that a delayed action moving currency must keep its **whole** check-and-commit sequence inside the callback (S4-R1) — a precondition checked before the delay and committed after it reopens a window `duration` seconds wide.
 
 > **Rev 18 · 2026-08-02** — One lesson from Stage 4 Component C, verified live against Evennia 6.1.0 with the suite running in-sandbox (184 tests green, 2026-08-02): **§11.26** `EvenniaCommandTestMixin.call()` does **not** run command locks — it goes straight from `at_pre_cmd()` to `func()` with no `access()` check anywhere — so a "this command refuses an unprivileged caller" test written with `.call()` passes **vacuously**, having silently asserted the opposite of what it claims. Permission tests must call `Command.access(caller, "cmd")` directly, which is what the real cmdhandler uses.
@@ -608,56 +610,117 @@ class CmdPowerAttack(Command):
 ---
  
 ## 7. Barter contrib
- 
+
 **Path:** `evennia/contrib/game_systems/barter/barter.py`
- 
-**Status in PolishedWorld:** Planned — central to the player-driven economy.
- 
+**Hardening layer:** `world/barter.py` (project)
+
+**Status in PolishedWorld:** **In use.** The contrib ships as-is; every fix we
+needed lives in a thin subclass layer, never a fork.
+
 ### 7.1 Concept
- 
-A two-party negotiation system. Each party offers items, both must explicitly `accept` for the trade to finalize. Items only swap once both parties accept the **current** offer set — any `offer` modification resets the accept state.
- 
-### 7.2 Installation
- 
+
+A two-party negotiation. Each side offers, both must `accept`, and goods swap
+only when both have accepted the **current** offer set — any change to an offer
+resets both accepts. PolishedWorld extends "offer" to include coin (§7.4).
+
+### 7.2 Installation — ⚠️ ONLY THE ENTRY COMMAND IS GLOBAL
+
 ```python
-# In commands/default_cmdsets.py
-from evennia.contrib.game_systems.barter import barter
- 
+# commands/default_cmdsets.py
+from world.barter import CmdPWTrade      # NOT from the contrib directly
+
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     def at_cmdset_creation(self):
         super().at_cmdset_creation()
-        self.add(barter.CmdTradeBase())
-        self.add(barter.CmdOffer())
-        self.add(barter.CmdAccept())
-        self.add(barter.CmdDecline())
-        self.add(barter.CmdEvaluate())
-        self.add(barter.CmdStatus())
-        self.add(barter.CmdTradeHelp())
+        self.add(CmdPWTrade())
 ```
- 
-### 7.3 In-game flow (player-facing)
- 
+
+That is the whole installation. Do **not** add `CmdOffer`, `CmdAccept`,
+`CmdDecline`, `CmdEvaluate` or `CmdStatus` to `CharacterCmdSet`: they belong to
+`CmdsetTrade`, which the contrib attaches to both parties when a trade starts
+and deletes when it ends. Adding them globally would make `offer` typable
+outside a trade and would turn the `status` key collision (§11.20) from
+scoped-to-a-trade into permanent.
+
+The import path is load-bearing. `world/barter.py` installs its fixes by
+reassigning the contrib's own module globals, and **importing the module is what
+runs those assignments** — routing the cmdset's import through it is what
+guarantees they are in place at server start.
+
+### 7.3 The module-global patch mechanism
+
+The contrib resolves helper names from its own module namespace *at call time*:
+`CmdTrade.func` does `part_a.scripts.add(TradeTimeout)`, and
+`CmdsetTrade.at_cmdset_creation` does `self.add(CmdOffer())`. Reassigning those
+names makes the unmodified contrib pick up our subclasses:
+
+```python
+barter_module.TradeTimeout = PWTradeTimeout
+barter_module.TradeHandler = PWTradeHandler
+barter_module.CmdOffer    = CmdPWOffer
+barter_module.CmdAccept   = CmdPWAccept
+barter_module.CmdDecline  = CmdPWDecline
+barter_module.CmdEvaluate = CmdPWEvaluate
+barter_module.CmdStatus   = CmdPWStatus
 ```
-A> trade B: I have a sword.
-B> trade A: I'm interested.            # accepts the trade session
-A> offer sword: rations please
-B> offer ration: prime quality
-A> accept
-B> accept                              # both accepted — items exchange
-```
- 
-### 7.4 Money in barter
- 
-The contrib doesn't have a special "currency" concept — coin objects are just items. For PolishedWorld:
- 
-> *"This system is primarily intended for a barter economy, but can easily be used in a monetary economy as well — just let the 'goods' on one side be coin objects."*
- 
-So **Gold/Silver/Copper coins are typeclassed objects** that get offered like any other item. This aligns naturally with the GameGold design (1:1 exchange — gold is a real, transferable in-game object).
- 
-### 7.5 ⚠️ Concurrency
- 
-`TradeHandler` ties two characters together via a `Script` (`TradeTimeout`). If a third party tries to initiate trade with someone already in a trade, `join` will fail. This is desired — but it means handling "the other player won't trade with me" needs UX consideration.
- 
+
+Seven swaps. A dropped assignment is a **silent** no-op — the contrib keeps
+working, just with its own buggy class — so `tests/test_barter_currency.py`
+asserts all seven and asserts that `CmdsetTrade()` is built from them.
+
+### 7.4 Money in barter — ⚠️ NOT COIN OBJECTS
+
+The contrib's own documentation suggests letting the goods on one side be coin
+objects. **PolishedWorld does not do this**, and the reason is S4-2: a wallet is
+a single `int` in Copper, and Stage 4 ships no coin objects at all. There is
+nothing to put on the table.
+
+Coin reaches a trade through a **handler-level bridge** instead
+(Stage 4 Component E):
+
+- `offer` takes currency segments alongside item names —
+  `offer iron sword, 5 silver`. A comma-segment whose first character is an
+  ASCII digit is coin; everything else is an item. The rule is total rather
+  than heuristic because `SEARCH_MULTIMATCH_REGEX` is a *suffix* form
+  (`copper-2`), so no valid way of naming an object begins with a digit.
+- The amount is recorded as `part_a_currency` / `part_b_currency` on the trade
+  handler. **No wallet is touched at offer time** — an offer is a promise.
+- Settlement happens inside `finish()`, alongside the item moves (§7.5), gated
+  by a one-shot flag (S4-R3) and by a re-validation that each side still holds
+  what it promised (S4-R4). The check is **gross** per side; the transfer is
+  **net**, because one `transfer_to` cannot half-settle the way two can.
+- Settlement is a transfer, so it is **not ledgered** (S4-4).
+
+### 7.5 ⚠️ Upstream bugs, all confirmed against 6.1.0
+
+| Bug | Effect | Our fix |
+|---|---|---|
+| `TradeTimeout` reads `ndb.tradeevent`, never assigned (it is `ndb.tradehandler`) | a timed-out invite is never cleaned up; the inviter is stuck in a phantom trade | `PWTradeTimeout` |
+| `CmdTrade`'s no-args branch reads the same missing attribute | `AttributeError` on bare `trade` while already trading | `CmdPWTrade` |
+| `finish()` assigns `obj.location` directly | **no move hooks fire at all**, and ownership is never re-checked — offer an item, have it accepted, dispose of it, then complete the accept, and the contrib teleports it from wherever it now is | `PWTradeHandler.finish()` + `CmdPWAccept` re-validate |
+| `CmdEvaluate` renders `offer.db.desc` | a dynamically-described item shows its stale prototype desc — a scribed book evaluates as "a blank book", hiding the recipes and condition a buyer needs | `CmdPWEvaluate` uses `get_display_desc()` |
+| `CmdDecline`'s emptiness gate reads `list()`, which returns item lists only | a coin-only offer reads as "no offers have been made yet" while `status` shows the money | `CmdPWDecline` |
+
+The direct-assignment bug is the one to remember: **any behaviour that must
+happen when goods change hands in a trade has to live in `finish()` itself.** A
+move hook will never fire.
+
+### 7.6 ⚠️ Concurrency
+
+`TradeHandler` ties two characters together and `join` fails if either is
+already trading — desired, but it means "the other player won't trade with me"
+needs UX consideration.
+
+The trade cmdset is **added, not Replace**, so `drop`, `give`, `pay` and the
+rest stay available mid-trade. That is deliberate (it would be worse to trap
+players), and it is exactly why the staleness guards in §7.5 exist.
+
+Settlement and the item moves happen in one unbroken synchronous block with no
+yield point, which is what makes them atomic — Evennia's reactor is
+single-threaded, so nothing can interleave (S4-R1). Introducing a `yield` or a
+`utils.delay` anywhere inside `finish()` would reopen the window for the whole
+economy.
+
 ---
  
 ## 8. Crafting contrib
@@ -1538,12 +1601,12 @@ Roadmap cross-ref: backlog item *"Search / disambiguation UX + item identity"*.
 | GameTime (custom calendar) | `evennia.contrib.base_systems.custom_gametime` | Phase 2, indexing verified pending |
 | ExtendedRoom | `evennia.contrib.grid.extended_room` | Phase 2, in progress |
 | TraitHandler | `evennia.contrib.rpg.traits` | Phase 1, complete |
-| BuffHandler | `evennia.contrib.rpg.buffs` | Planned (post-survival) |
+| BuffHandler | `evennia.contrib.rpg.buffs` | In use (`world/survival_buffs.py`) |
 | TickerHandler | `evennia.scripts.tickerhandler` (built-in) | Planned (survival ticker) |
-| CooldownHandler | `evennia.contrib.game_systems.cooldowns` | Planned |
-| Barter | `evennia.contrib.game_systems.barter` | Planned (MVP completion) |
-| Crafting | `evennia.contrib.game_systems.crafting` | Planned (post-MVP, 320 recipes) |
-| Clothing | `evennia.contrib.game_systems.clothing` | Planned (post-MVP) |
+| CooldownHandler | `evennia.contrib.game_systems.cooldowns` | In use (`typeclasses/characters.py`) |
+| Barter | `evennia.contrib.game_systems.barter` | In use, hardened (`world/barter.py`, §7) |
+| Crafting | `evennia.contrib.game_systems.crafting` | In use (Stage 3; `world/crafting_base.py`) |
+| Clothing | `evennia.contrib.game_systems.clothing` | In use (`typeclasses/clothing.py`, `world/garment_wear.py`) |
 | AttributeProperty | `evennia.typeclasses.attributes` (built-in) | Use throughout |
 | DurableObject mixin (`condition`/`apply_wear`/`is_broken`/`condition_line`) | `typeclasses/durable.py` (project) | Stage 2 Component B, complete |
 | Search multimatch UX | settings `SEARCH_MULTIMATCH_*` / `SEARCH_AT_RESULT` | Backlog — item-identity + optional reskin (§12) |
