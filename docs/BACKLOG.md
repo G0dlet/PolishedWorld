@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 20 · 2026-08-03** — one entry added from the Core Instructions Rev 3 sweep (Tooling & Process): **three cited documents live outside the repo**, and they are also the only three in the project with no Rev header, no date and no canonical path. Rev 3 marks them per §9 rather than importing them blind.
 > **Rev 19 · 2026-08-03** — the seam-checker entry (Tooling & Process) gains a second job: **parse the Mermaid blocks too.** System Map Rev 2 shipped a diagram that did not render, and the failure was invisible to every check performed on it — balanced brackets, balanced pipes, careful reading. Only the actual Mermaid parser found it. A checker that verifies the seam *table* while the *diagram* above it is silently broken is checking the cheaper half.
 > **Rev 18 · 2026-08-03** — one entry added from the System Map Rev 2 sweep: **a runnable seam checker** (Tooling & Process). Not a defect and not a nice-to-have — the map's §*How to keep it honest* prescribes a `grep` that produced two of the three false rows Rev 2 had to fix, and the obvious replacement (AST) silently misses `getattr`-string dispatch. Rev 2 fixed the rows and documented both failure modes in prose; a convention that has now failed once is worth making runnable. Trigger is concrete rather than aspirational: the Damage-chokepoint row already reads `(future: combat)`, so Stage 5 will edit that table.
 > **Rev 17 · 2026-08-03** — Stage 4 Component E close-out. One entry **narrowed**, two added, neither a defect. The **`copper` name collision** (Currency) shrank rather than closed: `offer` was the one verb where both readings were plausible, and E.1's digit-first rule settles it without renaming anything, because Evennia's disambiguation syntax is a *suffix* (`copper-2`) and so no valid object name begins with a digit. What is still deferred is only `caller.search()` facing two `copper`s in a room, which needs `CoinPile` to exist. **Upstream `finish()` is not safe to call twice** (Currency) is recorded rather than scheduled: it is unreachable in play, but it is *currently* what prevents a double currency settlement — by accident, in someone else's code — and anyone reading our one-shot flag should know the belt is doing work the braces also do. **Trade item moves bypass move hooks and `get` locks** (Crafting & Items) is not new debt but newly *homed*: it lived only in `world/README_barter.md`, and it pairs with the future no-trade flag, since the flag without enforcement is decorative and enforcement without the flag has nothing to enforce.
@@ -650,6 +651,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   verifiable.
 - **Origin:** System Map Rev 2 verification sweep (2026-08-03).
 - **Status:** SCHEDULED (Stage 5 kickoff)
+
+### Import the three project-knowledge-only docs
+
+- **What:** Bring `PolishedWorld_Functional_Decomposition.md` (244 lines),
+  `PolishedWorld_Code_Standards.md` (282) and `PolishedWorld_Mongoose_Legend.md`
+  (236) into `docs/`, each reviewed against the shipped code and given a Rev
+  header per §9 — or retired if what they say has been superseded.
+- **Why deferred:** They must be *read* before they are imported. All three
+  predate the Rev-header convention (added 2026-07-01), none has been reviewed
+  against the code as it stands after five stages, and at least one — Code
+  Standards — is old enough to predate every Evennia gotcha now recorded in
+  `PolishedWorld_Evennia_Reference.md`. Importing them unread would put three
+  unreviewed authority documents on `main`, which is worse than leaving them
+  outside it and saying so.
+- **Why it matters, stated plainly:** `PolishedWorld_Core_Instructions.md` cites
+  all three as authority. They have no version, no date, no canonical path and no
+  git history, so there is no way to tell whether a project-knowledge copy is the
+  latest — the exact failure the §9 convention exists to prevent. Rev 3 marks them
+  as *project-knowledge only*, which makes the gap visible; it does not close it.
+- **Trigger:** **The next time one of them is actually cited in a design
+  discussion.** It gets read then anyway, so the review is nearly free at that
+  moment and expensive as a standalone task.
+- **Origin:** Core Instructions Rev 3 verification sweep (2026-08-03).
+- **Status:** SCHEDULED (on next citation)
 
 ---
 

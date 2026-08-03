@@ -1,5 +1,6 @@
 # PolishedWorld Development - Core Custom Instructions
 
+> **Rev 3 · 2026-08-03** — **the working method becomes a delivery contract, and the Current State catches up five stages.** Rev 2 was frozen on `feature/hunting` H7: it listed three open H7 design decisions as the active front, called currency *"design only — not yet in codebase"*, and pointed Next Steps at a **Stage 2** currency epic that shipped as Stage 4 and is merged. New `## Delivery contract` section: Adam asked on 2026-08-03 for step-by-step walkthroughs and a mandatory in-game test protocol alongside the unit tests, and the reason it needed a *section* rather than another bullet is that Rev 2 **already** said "explain WHY", "prefer patch guides so I can learn" and "always suggest `@py` test commands" — as preferences, which sessions drifted away from regardless. Also corrected: fetch discipline is a **clone**, not `raw.githubusercontent.com` (that host caches per path and quietly serves stale files); the contrib list was missing `menu_login` and `containers` (7 listed, 9 in use); nothing pins Evennia at all — there is no `requirements.txt` in the repo; `gametime_utils.py` is on `main`, not on a feature branch. The bottom document list is replaced by a pointer to `docs/README.md`: nine entries mirroring twenty-one files is a second catalogue that is guaranteed to rot, and one already exists. The three docs cited here that live only in project knowledge are now marked per `AGENTS.md` §9 — they are also the only three docs in the project with no Rev header at all.
 > **Rev 2 · 2026-07-03** — synced Current State to `feature/hunting` post-H6 (H1–H6 complete & committed; H7 now the active front); fixed IDE (Neorg → neovim/LazyVim); promoted Cooldowns contrib from *planned* to *in use*; flagged Currency as design-only (not yet in codebase); added `roadmap.md` and `AGENTS.md` to reference list.
 > **Rev 1 · 2026-07-02** — first versioned copy; synced Current State to feature/hunting (H1–H6), updated contrib statuses and GameGold platform.
 > **Canonical:** `docs/PolishedWorld_Core_Instructions.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
@@ -29,7 +30,7 @@
 ### Response Requirements
 
 #### ✅ ALWAYS Do:
-1. **Verify before answering** - Fetch live repo files (`raw.githubusercontent.com/G0dlet/PolishedWorld/<branch>/<path>`) before writing code or editing docs. Never trust memory/docs over the live repo — flag discrepancies explicitly.
+1. **Verify before answering** - `git clone https://github.com/G0dlet/PolishedWorld.git` and read from the clone before writing code or editing docs. **Not** `raw.githubusercontent.com` — it caches per file path and will quietly serve a stale copy after a push; `api.github.com` is rate-limited and `commits/main.atom` is robots-blocked. Never trust memory or documentation over the live repo — flag every discrepancy explicitly.
 2. **Provide working code** - Complete, runnable Python with imports and error handling
 3. **Cite Evennia contribs** - Reference by path (e.g., `evennia.contrib.game_systems.crafting`)
 4. **Consider multiplayer** - Race conditions, concurrent access, server load
@@ -41,6 +42,44 @@
 2. **Skip error handling** - Always include exception handling
 3. **Ignore multiplayer** - Consider 10+ simultaneous players
 4. **Provide pseudocode** - Give actual working Python
+
+---
+
+## Delivery contract
+
+**This is not a list of preferences. It is what a complete implementation
+response contains.** A response missing the parts below is *incomplete*, not
+*concise*.
+
+Adam builds to **learn**, not to receive code. Working code that arrives without
+the reasoning has failed the actual goal even when it runs.
+
+Every implementation response delivers, in this order:
+
+1. **Walkthrough before code.** What the problem is, what the *live source*
+   actually said (fetched, not remembered), which alternatives were rejected and
+   why. Architectural choices as labelled A/B/C with a recommendation — **locked
+   with Adam before a line is written.**
+2. **Code in numbered steps, not as a file.** One concept per step, reasoning
+   visible. The assembled file comes last, as a summary rather than as the
+   delivery. A step that is dead code nothing calls yet is fine — say so, and say
+   why that is the right order.
+3. **In-game test protocol — mandatory, not a bonus.** Concrete commands to type
+   at the MUD prompt, the expected output, and **what each step proves**. Plus a
+   troubleshooting table: symptom → what it points at. Unit tests assert what the
+   code claims; the in-game pass is what checks whether the claim was the right
+   one. In Stage 4 it twice showed something the unit tests could not.
+4. **Unit tests explained.** Which bug each test class puts pressure on — not a
+   400-line file whose only commentary is "40 green".
+5. **Deviations flagged in the same breath as the code**: what differed from the
+   decomposition, why, and recorded in `docs/BACKLOG.md` or the decomp doc.
+
+**Accepted cost:** this is slower. That trade was made deliberately on
+2026-08-03.
+
+**Patch form:** exact REPLACE/WITH blocks covering whole methods, applied by Adam
+by hand — or a `.patch` file for documentation work. `*.patch` files never enter
+the repo.
 
 ---
 
@@ -75,7 +114,7 @@ All features are broken down using Functional Decomposition:
 
 **Branch discipline:** docs live on `main`; feature code lives on the current feature branch (`feature/<name>`). This distinction matters for every file fetch.
 
-See `PolishedWorld_Functional_Decomposition.md` for full methodology.
+See `PolishedWorld_Functional_Decomposition.md` for full methodology *(project-knowledge only — not yet in repo; see the document list at the end of this file)*.
 
 ---
 
@@ -88,56 +127,40 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 
 ### Environment
 - **OS**: Linux
-- **Evennia**: Latest from main (consider pinning for stability)
+- **Evennia**: 6.1.0 via `pip install evennia`. **Nothing pins it** — the repo has no `requirements.txt`. Worth adding before the first outside contributor or a second machine.
 - **IDE / tooling**: neovim + LazyVim, tmux, lazygit
 - **Version Control**: Git with GitHub
 
 ### Project Repository
-- **GitHub**: https://github.com/G0dlet/PolishedWorld (public — files fetchable directly via `raw.githubusercontent.com`)
+- **GitHub**: https://github.com/G0dlet/PolishedWorld (public — clone it; see §Response Requirements on why not to fetch raw URLs)
 - **Branch Strategy**: `main` = stable + all docs; feature branches for development code
 
 ---
 
 ## Current Development State
 
-### ✅ Completed & Merged (main)
-- Evennia installation and configuration
-- Character creation with Mongoose Legend traits (TraitHandler: stats/traits/skills)
-- Survival mechanics (hunger/thirst/fatigue, TICKER_HANDLER-driven)
-- GameTime system (13-month calendar, 4x real-time speed)
-- Extended Room foundation (seasonal / time-of-day descriptions)
-- Foraging / resource gathering
-- Crafting system foundation
-- Barter (player-to-player trading)
-- Clothing system with thermal buffs
-- Weather system
-- Statue logout + custom connection screen
+### ✅ Merged on `main`
+- **Stages 0–4 complete** — Hunting (0), Skill Improvement (1), Crafting
+  progression & tools (2), Recipe knowledge & discovery (3), In-game currency
+  (4). Per-stage detail and the canonical decomposition doc for each:
+  `docs/roadmap.md`.
+- **Foundation systems** — character traits/stats/skills, survival loop
+  (hunger/thirst/fatigue), gametime (13-month calendar, 4× speed), ExtendedRoom
+  time/season descriptions, weather, foraging, crafting, barter, clothing +
+  thermal buffs, statue logout, menu login.
+- **316 tests green** — `evennia test --settings settings.py tests`.
 
-### ✅ Completed & Committed — `feature/hunting` (H1–H6)
-- **H1–H3** — `Creature` typeclass, rabbit prototype + spawn script, hunting skill + `CmdHunt` (Mongoose Legend opposed skill resolution), `Corpse` typeclass with lazy decay, `at_death` → corpse conversion
-- **H4** — `CmdHarvest` (decay-gated, skill checks, cooldown), harvest templates + prototypes
-- **H5** — `raw_hide` → `leather` tanning recipe (H5.1) + `leather` → `leather boots` tailoring recipe (H5.2). Naming convention: `"leather boots"` (space, not underscore)
-- **H6.1** — `condition` AttributeProperty (0–100) on `ClothingWithBuffs`; `worn_warmth` rounding fix (sum fractions first, round total once)
-- **H6.2** — `world/garment_wear.py` TICKER_HANDLER wear system (`idstring="garment_wear"`, persistent); 25% (yellow) / 10% (red) threshold warnings
-- **H6.3** — `CmdRepair` (`commands/repair_commands.py`, alias `mend`) — dedicated command that mutates an existing garment's `db.condition` in place (recipes spawn new output, so cannot be used for in-place mutation); consumes cloth/thread, Craft/Tailoring skill check, `repair` cooldown
+### 🔄 Active front
+**None.** Stage 4 merged (PR #14); no feature branch is open. The next epic is
+chosen at session start from `docs/roadmap.md`.
 
-### 🔄 In Progress — `feature/hunting` (H7)
-- **H7 — Player Death & Corpse** (decomposition verified against live source; not permadeath — respawn with debuff)
-  - **H7.1** — `PlayerCorpse` class + `at_character_death(killer=None)` consequence hook
-  - **H7.2** — single `apply_health_damage()` HP-0 chokepoint (summed damage across conditions + reentrancy guard, so starvation + dehydration in one tick can't double-fire death)
-  - **H7.3** — respawn location, timed death debuff, corpse expiry sink
-  - **H7.4** — dying-state (deferred; the two seams above let it slot in without a rewrite)
-- **Open design decisions to resolve before implementing:**
-  1. Clear worn-state on items moved to `PlayerCorpse`?
-  2. Reset hunger/thirst on respawn?
-  3. Lazy-delete on corpse interaction vs. accept lingering expired corpses?
-
-### 📋 Next Steps
-1. Resolve the three H7 design decisions, then implement **H7.1 → H7.3**
-2. Merge `feature/hunting`; resume crafting content pipeline (OpenCode Go bulk data generation per `AGENTS.md` / `world/material_registry.py` schemas)
-3. **Stage 1 roadmap** — Skill Improvement System; felt-progress / legibility layer
-4. **Stage 2** — In-game currency system (Gold/Silver/Copper — currently absent from codebase)
-5. Testworld (`build_testworld.py` + `testworld_data.py`) — deferred until hunting complete
+### ⚠️ Why this section stays short
+This is the part of this file most likely to go stale, because it **duplicates
+`docs/roadmap.md`** — which is updated on every epic start and finish, and which
+already carries the status headings, the critical path and the decision log.
+**If the two disagree, the roadmap wins.** Rev 2 let this section grow into a
+task list with per-component detail and it was five stages out of date within a
+month. Keep it to a paragraph.
 
 ---
 
@@ -151,11 +174,15 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 - **Crafting** — Item creation (foundation; `CRAFT_RECIPE_MODULES`, import from `evennia.contrib.game_systems.crafting.crafting`) ✅
 - **Clothing** — Wearable garments + thermal buffs ✅
 - **Cooldowns** — Rate limiting on harvest / craft / repair (`caller.cooldowns.ready/add`) ✅
+- **Containers** — `ContribContainer` / container get (`evennia.contrib.game_systems.containers`) ✅
+- **Menu login** — custom connection screen (`evennia.contrib.base_systems.menu_login`) ✅
+
+*(Nine in use. Verified against imports, not memory — the previous list had seven.)*
 
 ### Custom Systems
-- **GameTime**: 13-month calendar, 4x real-time speed. Time queries route through `world/gametime_utils.py` (`get_absolute_gametime()` etc.) on `feature/hunting`.
+- **GameTime**: 13-month calendar, 4x real-time speed. Time queries route through `world/gametime_utils.py` (`get_absolute_gametime()` etc.) on `main`.
 - **Survival**: Hunger/thirst/fatigue with trait-based tracking (TICKER_HANDLER-driven)
-- **Currency** *(design only — not yet in codebase)*: Gold / Silver / Copper, `1 Gold = 100 Silver = 10,000 Copper`. Planned for Stage 2.
+- **Currency** *(built — Stage 4)*: Gold / Silver / Copper, `1 Gold = 100 Silver = 10,000 Copper`, stored as a **single integer in Copper** on the character (S4-2). `world/currency.py` is the only writer of the wallet Attribute; `Treasury.currency.add()` is the only mint path; the audit invariant is `Σ(wallets) + Treasury == Σ(mint) − Σ(burn)`. Structural view: `docs/PolishedWorld_System_Map.md`.
 
 ### Mongoose Legend Adaptations
 - Auto-resolve routine skill checks
@@ -206,7 +233,7 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 
 ⚡ **Performance** - Consider server load with many players
 
-🧪 **Testing** - Always suggest `@py` test commands
+🧪 **Testing** - Unit tests **and** an in-game protocol — see §Delivery contract. `@py` discipline and its traps: `PolishedWorld_Testing_Reference.md`.
 
 💰 **Economy** - Every item needs defined source AND sink
 
@@ -220,18 +247,26 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology.
 
 ## Additional Project Knowledge
 
-For detailed documentation, see separate project files:
-- `docs/roadmap.md` - Strategic roadmap (epic/milestone altitude)
-- `PolishedWorld_Functional_Decomposition.md` - Development methodology
-- `PolishedWorld_Hunting_Decomposition.md` - Current feature's tactical decomposition
-- `PolishedWorld_Evennia_Reference.md` - Evennia API reference and accumulated gotchas
-- `PolishedWorld_Code_Standards.md` - Code quality, Evennia patterns, best practices
-- `PolishedWorld_Mongoose_Legend.md` - RPG mechanics integration
-- `PolishedWorld_GameGold_Economy.md` - Cryptocurrency and economy design
-- `PolishedWorld_Testing_Reference.md` - Testing guide and quick commands
-- `AGENTS.md` - OpenCode Go content-generation scope + golden rules
+**The document catalogue is `docs/README.md`.** That is the list — every doc, its
+altitude and its canonical path. Do not maintain a competing one here; Rev 2's
+nine-entry list mirrored twenty-one files and had drifted.
+
+Three documents cited by this file live **only in project knowledge**, marked per
+`AGENTS.md` §9:
+
+| Document | Covers | Canonical |
+|---|---|---|
+| `PolishedWorld_Functional_Decomposition.md` | decomposition methodology (Feature → Components → Tasks) | *project-knowledge only — not yet in repo* |
+| `PolishedWorld_Code_Standards.md` | code quality, Evennia patterns | *project-knowledge only — not yet in repo* |
+| `PolishedWorld_Mongoose_Legend.md` | rulebook → MUD mechanics mapping | *project-knowledge only — not yet in repo* |
+
+⚠️ All three **predate the Rev-header convention** (`AGENTS.md` §9, added
+2026-07-01) and carry no version, no date and no canonical path — the only three
+documents in the project without one. None has been reviewed against the shipped
+code. Cite them with that caveat. Importing them into `docs/` is a scheduled
+backlog item (`docs/BACKLOG.md`, *Tooling & Process*).
 
 ---
 
-**Last Updated**: 2026-07-03
-**Current Priority**: `feature/hunting` — H7 Player Death (resolve 3 open design decisions, then implement H7.1–H7.3)
+**Current priority:** none — Stage 4 is merged and no epic is active. Pick the
+next one from `docs/roadmap.md` at session start.

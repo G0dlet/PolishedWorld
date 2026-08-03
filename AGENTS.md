@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 5 · 2026-08-03** — §8 gains a pointer to `docs/PolishedWorld_Core_Instructions.md` (Rev 3), which is where Claude's own delivery contract lives. Deliberately **not** added to §7 Working style: §7 addresses you, a content-generation agent, and a requirement about step-by-step teaching walkthroughs and in-game test protocols is noise there. §8 is already the "who owns what" section, so the cross-reference belongs in it and nowhere else.
 > **Rev 4 · 2026-08-02** — §0A gains the counterpart to Rev 3's separator fix: `.call()` does **not** run command locks, so a test asserting that an unprivileged caller is refused passes *vacuously* — the command simply runs. Permission tests use `Command.access(caller, "cmd")`. Pointer added to Evennia Reference §11.26.
 
 > **Rev 3 · 2026-07-30** — §0A `.call()` constraint **corrected**: the multi-message separator is `|`, not `||`. `EvenniaCommandTestMixin.call()` sets `msg_sep = "|" if noansi else "||"` and `noansi` defaults **True**, so the documented `||` only applies to the non-default `noansi=False` path — as written the rule pointed at a form that fails under the settings every suite in this repo actually uses. Added the `msg={receiver: expected}` dict form (the only way to assert a two-party command) and a pointer to Evennia Reference §11.24 for the `char2`-cannot-be-puppeted fixture trap, which silently turns a happy-path test into a refusal test.
@@ -472,6 +473,12 @@ a new attribute, typeclass, `clothing_type`, skill, or convention, Claude will
 update the relevant schema section here (or hand Adam a patch). Your job is to
 generate data that conforms to the schemas *as written above* — if the data you're
 asked for doesn't fit, that's a FLAG, not a reason to extend the schema yourself.
+
+The other half of that ownership is written down too: **Claude's own working and
+delivery contract is `docs/PolishedWorld_Core_Instructions.md`** (§Delivery
+contract). It governs how features are designed, explained and handed to Adam —
+not how content data is generated, so it does not change anything in §0–§7 above.
+It is named here so a session handoff can find it without being told.
 
 ---
 
