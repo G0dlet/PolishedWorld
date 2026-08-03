@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Improvement Decomposition (Stage 1)
 
+> **Rev 4 · 2026-08-03** — §Call-sites marked as a **planning snapshot**, not a current map. It stated "exakt fyra" call-sites for `skill_check` in present tense; two stages later the surface is six, and the line numbers have moved. The inventory is left as written — it is the terrain Stage 1 was planned against and that is worth preserving — with the current count recorded beside it. Found while verifying the System Map seam table (System Map Rev 2).
 > **Rev 3 · 2026-07-10** — Session C complete: C.1 (tick-feedback), C.2 (tier-celebration), C.3 (`progress` command) committed & in-game-verified on `feature/skill-improvement`. **Component C done → skill-improvement feature functionally complete.** Corrections vs Rev 2's plan, all forced by live source: (1) celebration fires on **desc-tier crossings**, not the 25/50/75/100 quarter marks — the quarters decoupled from the real named ranks, and the desc words mix nouns ("tracker") and adjectives ("mighty", "sneaky"), so "You are now a X" was ungrammatical; shipped copy is label-safe `Your {skill} reaches a new tier: |y{tier}|n.`; (2) `CounterTrait.desc()` reads the buff-inflated `.value`, so tier detection uses a pure `world/improvement.tier_for(value, descs)` on the permanent `old`/`new` ints (mod-safe) — never `skill.desc()`; (3) there were **four** call-sites, not three — harvest (`hunting_commands`) was the missed fourth; (4) C.3 baseline is an `AttributeProperty` dict snapshotted in `at_post_puppet` (after the safe `super()`, fresh dict each puppet), diffed on `.current`.
 > **Rev 2 · 2026-07-06** — Session A complete: A.1 (pure primitive), B.1 (`improve_skill_on_use` chokepoint), B.2 (`attempt_skill_improvement` gated wrapper), B.3 (wired into craft/repair/hunt) committed & in-game-verified on `feature/skill-improvement`. Records the B.2 consolidation (gated wrapper vs pure predicate) and the verified `.current`-vs-`.value` improvement/resolution split. Session C (felt-progress) next.
 > **Rev 1 · 2026-07-06** — first version header. Live source-verification of `main` (post-`feature/hunting` merge): greenfield finding (`check_skill_improvement` does **not** exist), verbatim Legend Improvement-Roll rule, four locked design decisions, A–E breakdown.
@@ -38,11 +39,18 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
 
 - **`check_skill_improvement` finns INTE.** Repo-wide grep (`--include=*.py`) → noll träffar utom en kommentar i `characters.py:252`. Inget improvement-/skills-kommando i `character_commands.py` (bara `status`/`stats`/`skills`/`sheet` display). **Stage 1 är greenfield, inte en patch.** De "tre kända avvikelserna" (saknad INT-bonus, 1D3 istf 1D4+1, ingen garanti-+1) beskrev en tänkt implementation — de blir nu **specen** för A.1, inte fixar.
 - **`world/skillcheck.py`** → `skill_check(skill_value, modifier=0)` är den *rena* single-chokepointen. Returnerar `{"result","success","roll","target","margin","crit_score"}`. Tar en `int`, känner varken karaktär eller skill-nyckel → improvement-lagret måste ligga **ovanpå**, inte inuti. Speglar dess renhetsdisciplin i `world/improvement.py`.
-- **Call-sites för `skill_check`** (= hook-yta för on-use), exakt fyra, mappar till två skills:
+- **Call-sites för `skill_check`** (= hook-yta för on-use), **fyra vid Stage 1:s planering** (se uppdateringen nedan), mappar till två skills:
   - `world/crafting_base.py:153` → **craft**
   - `commands/repair_commands.py:108` → **craft**
   - `commands/hunting_commands.py:255` (`skill_check`) + `:96` (`opposed_check`) → **hunting**
   - `perception`/`stealth`/`athletics` har **inga** call-sites → vilande, byggs inte för spekulativt. De hakar på gratis dagen något rullar mot dem.
+
+  > ⚠️ **Uppdatering 2026-08-03 (Rev 4) — ovanstående är en ögonblicksbild från
+  > Stage 1:s planering, inte en aktuell karta.** Ytan är nu **sex**: Stage 3 la
+  > till `CmdDisassemble` (`commands/crafting_commands.py:418`, craft) och
+  > `CmdScribe` (`:663`, craft). Radnumren ovan har också rört på sig. Fem av de
+  > sex kör improvement; `CmdScribe` gör det inte — se `docs/BACKLOG.md`
+  > (*Crafting & Tools*).
 - **`typeclasses/characters.py`** — tre TraitHandlers: `stats` (static: str/dex/con/siz/int/pow/cha), `traits` (gauge: hunger/thirst/fatigue/health), `skills` (counter, `base`/`current`/`mod`, `max=100`). `update_health_max()` räknar `con.value * 2` (läser bara CON, aldrig SIZ). INT läses via `self.stats.int.value`.
 - **Legend Improvement Roll — verbatim** (`Legend.pdf`, "Using Improvement Rolls", ~rad 3480):
   - Rulla 1D100, **addera hela INT-Characteristicen** (inte en tabell-modifier — CHA-tabellen styr *antalet* rolls, inte roll-bonusen).

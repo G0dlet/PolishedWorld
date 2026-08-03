@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 21 · 2026-08-03** — one entry added (Crafting & Tools): **`CmdScribe` rolls Craft but grants no improvement.** Surfaced while counting `skill_check` call-sites for the roadmap Rev 13 correction — five of six roll-sites train the skill, one does not, and nothing in the code or the decomposition says whether that is a decision or an omission. Recorded as an open question rather than a defect, because either answer is defensible and neither is written down.
 > **Rev 20 · 2026-08-03** — one entry added from the Core Instructions Rev 3 sweep (Tooling & Process): **three cited documents live outside the repo**, and they are also the only three in the project with no Rev header, no date and no canonical path. Rev 3 marks them per §9 rather than importing them blind.
 > **Rev 19 · 2026-08-03** — the seam-checker entry (Tooling & Process) gains a second job: **parse the Mermaid blocks too.** System Map Rev 2 shipped a diagram that did not render, and the failure was invisible to every check performed on it — balanced brackets, balanced pipes, careful reading. Only the actual Mermaid parser found it. A checker that verifies the seam *table* while the *diagram* above it is silently broken is checking the cheaper half.
 > **Rev 18 · 2026-08-03** — one entry added from the System Map Rev 2 sweep: **a runnable seam checker** (Tooling & Process). Not a defect and not a nice-to-have — the map's §*How to keep it honest* prescribes a `grep` that produced two of the three false rows Rev 2 had to fix, and the obvious replacement (AST) silently misses `getattr`-string dispatch. Rev 2 fixed the rows and documented both failure modes in prose; a convention that has now failed once is worth making runnable. Trigger is concrete rather than aspirational: the Damage-chokepoint row already reads `(future: combat)`, so Stage 5 will edit that table.
@@ -309,6 +310,32 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   visibly faster/slower than the scroll and teach channels.
 - **Origin:** Recipe Knowledge decomp §12, Tasks G.2 & G.3.
 - **Status:** OPEN
+
+### `CmdScribe` rolls Craft but grants no skill improvement
+
+- **What:** Decide whether binding a book should train Craft, then make the code
+  and the docs agree. `commands/crafting_commands.py:663` calls
+  `skill_check(skill_value)` to set the book's start-condition, but never calls
+  `attempt_skill_improvement`. Five of the six production roll-sites do
+  (craft, repair, hunt-attack, hunt-harvest, disassemble); scribe is the one that
+  does not.
+- **Why deferred:** It is not obviously a bug. Stage 3 G may have decided that
+  binding is not craft *practice* — the roll measures the author's existing skill
+  rather than exercising it — which is a coherent position. It may equally be an
+  oversight: Component E remembered to wire disassemble and G did not.
+- **Why it matters, stated plainly:** the asymmetry is undocumented in both
+  directions. `PolishedWorld_Skill_Improvement_Decomposition.md` describes
+  improvement-on-use as riding on the check surface, so a reader reasonably infers
+  every roll trains; the code quietly disagrees at one site. Whichever way it is
+  settled, one of the two has to say so out loud — a per-skill cooldown already
+  prevents the "scribe-spam to grind Craft" failure mode, so the balance argument
+  does not decide it either.
+- **Trigger:** Next time `CmdScribe` or the book channel is touched, or at the
+  Crafting XP epic (which revisits what earns progress and will have to answer
+  this anyway).
+- **Origin:** Found while verifying the `skill_check` call-site count for roadmap
+  Rev 13 / System Map Rev 2 (2026-08-03).
+- **Status:** OPEN (question, not defect)
 
 ### Scribe's band→condition bypasses `quality_band`
 - **What:** `SCRIBE_CONDITION_BY_TIER` maps a `skill_check` result tier straight to a
