@@ -1,5 +1,7 @@
 # PolishedWorld - Economic Philosophy
 
+> **Rev 3 · 2026-08-03** — **Stage 4's currency system shipped, and reading this document against it found two places where it overstated itself.** **Principle 4** claimed "no admin-spawned gold"; `MINT_SOURCES` has always contained `admin_correction` alongside `crypto_exchange`. The tag is legitimate — the same door used to repair the door, ledgered and audited identically, never a grant mechanism — but the flat denial was not true of the implementation, and a document that overstates its own guarantee teaches the wrong lesson to whoever proposes the third tag. Now stated honestly, with `BURN_REASONS`' matching pair. **Principle 5** described Gold dropping to the room on death in the present tense; Stage 4 **keeps the wallet through death** (**S4-3**) and the drop needs `CoinPile`, which is Stage 5. Rewritten as intent rather than behaviour, with a pointer to the two BACKLOG entries that must be settled when it lands — the corpse's atomic content delete, which would make a dropped `CoinPile` a second unlogged burn point in direct contradiction of this principle, and the `copper` name collision. **Principle 7**'s promise — item-for-item, item-for-currency, currency-for-currency, any mix — is now mechanically real (Component E), and records the one implementation detail that is visible to design: coin is not an object, so it rides the trade handler as a promise and settles inside `finish()` with the goods.
+
 > **Rev 2 · 2026-07-19** — corrected Principle 5: Gold has exactly ONE permanent exit (exchange back to GameGold), matching Principle 4's single burn point. Removed the erroneous "unlooted corpse decay destroys Gold" claim — currency never weathers; on death it drops to the room and persists until looted or exchanged. Dropped the in-world "deflationary pressure" line that depended on that false sink.
 > **Rev 1 · 2026-07-11** — first version; defines the long-term economic philosophy and the principles the economy must never compromise. Sits above the two economy design docs and gives them their *why*.
 >
@@ -57,7 +59,9 @@ Wear is not a punishment; it is what keeps the economy alive. It creates continu
 
 ### 4. Gold enters the world at exactly one point
 
-In-game Gold is minted in **one place only: the GameGold exchange.** There is no monster-drop gold, no quest gold, no NPC-vendor gold, no admin-spawned gold.
+In-game Gold is minted in **one place only: the GameGold exchange.** There is no monster-drop gold, no quest gold, no NPC-vendor gold.
+
+⚠️ **One honest footnote, added when the code shipped (Stage 4).** `MINT_SOURCES` contains two tags, not one: `crypto_exchange` and `admin_correction`. The second exists to repair the *first* when a settlement goes wrong — the same door, used to fix the door. It is ledgered identically, appears in `@economy audit` identically, and is **not** a grant mechanism: no event, reward or compensation may use it. The principle stands, but the sentence "no admin-spawned gold" was never quite true of the implementation, and a document that overstates its own guarantee teaches the wrong lesson to whoever adds the third tag. `BURN_REASONS` carries the same pair for the same reason.
 
 The temple faucet is **not** a second mint. The temple donates GameGold, stakes it, exchanges the staking rewards to Gold, and redistributes *that* Gold to new players for small tasks. Faucet Gold is therefore ordinary exchange-minted Gold that has simply changed hands — no Gold is created from nothing.
 
@@ -82,7 +86,11 @@ Gold leaves the game permanently in only **one** way:
 
 - **Exchanged back to GameGold** — it returns to being crypto (intentional, reversible). This is the single true burn, matching the single mint point in Principle 4.
 
-Gold never decays. When a character dies, their Gold drops to the room with the rest of their belongings — but unlike goods, currency does **not** weather away. It simply waits there until another player picks it up. So carrying wealth still holds real risk (you can lose it to whoever finds your remains) and there is still room for "treasure hunting" — but that Gold is *transferred*, never destroyed. The total Gold in existence changes only at the exchange.
+Gold never decays, and unlike goods, currency does **not** weather away.
+
+**Intended behaviour on death:** Gold drops to the room with the rest of the character's belongings and waits there until another player picks it up. Carrying wealth therefore holds real risk (you can lose it to whoever finds your remains), there is room for "treasure hunting", and that Gold is *transferred*, never destroyed. The total Gold in existence changes only at the exchange.
+
+⚠️ **Not yet true, and deliberately so.** Stage 4 ships the wallet as a single integer on the character and **keeps it through death** (decision **S4-3**). The drop needs `CoinPile` to exist, which is Stage 5. Two things must be settled when it lands, both already recorded in `docs/BACKLOG.md` rather than argued here: `PlayerCorpse` currently deletes **all** contents at expiry, which would make a dropped `CoinPile` a second, unlogged burn point in direct contradiction of this principle; and `copper` would become the name of both a metal and a coin in the same room. Until then, this paragraph describes the destination, not the road.
 
 ### 6. The cold start is solved without buying crypto
 
@@ -99,6 +107,8 @@ Players must always be free to negotiate:
 item-for-item · item-for-currency · currency-for-currency · any mix of items and currency.
 
 The economy must remain fully functional even for players who never touch currency at all.
+
+**Shipped (Stage 4 Component E).** All four shapes work at the trade table: `offer iron sword`, `offer iron sword, 5 silver`, `offer 50 copper`, and coin on both sides at once. Worth knowing *how*, because it is the one place the implementation shape is visible to design: coin is **not** an object. The wallet is a single integer, so the amount is recorded on the trade handler and settled inside `finish()` alongside the goods — a promise while the deal is open, money only when it closes. Nothing about barter privileges currency over goods, which is the point of this principle: the coin line in the offer table sits beside the items, unnumbered, belonging to whoever offered it.
 
 ### 8. Ownership is the thread that ties it together
 

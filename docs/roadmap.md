@@ -1,5 +1,7 @@
 # PolishedWorld — Strategic Roadmap
 
+> **Rev 11 · 2026-08-03** — **Stage 4 (In-game currency) complete on `feature/currency`, in-game-verified; merge to `main` pending.** Components A–F: currency math + `CurrencyHandler` + ledger + audit (A), `wallet`/`pay` (B), `Treasury` + `@economy` (C), the temple faucet `work` command funded by Treasury transfer (D), the barter currency bridge (E), documentation close-out (F). 316 tests green. Stage 4's two open design questions are answered and the notes rewritten to say so rather than still asking: a single Copper integer (**S4-2**) makes rounding bugs structurally impossible, and wallet-on-character beat coin-as-objects — coin-as-objects returns as `CoinPile` in Stage 5, where it is a death-drop question rather than a wallet question. **Also corrected: Stage 3 never got the ✅ its own Rev 10 changelog announced.** Rev 10's prose said "CLOSED and merged to `main`" while the heading still read like an open epic, so the scan-the-headings view of this document — the one anybody actually uses — had Stage 3 open for two weeks. A changelog entry is not a status marker.
+
 > **Rev 10 · 2026-07-26** — **Stage 3 (Recipe Knowledge & Discovery) CLOSED and merged to `main`.** Shipped Components A–H: the per-character known-recipe set + `requires_knowledge` flag (A), the dual gate — `pre_craft` backstop + `CmdCraft` early-reject (B), the `recipes` discovery surface (C), and **five knowledge channels** — profession-grants at chargen (D), destructive reverse-engineering (E), the one-use scroll (F), the perishable multi-recipe book (G) and live consenting teaching (H). Knowledge is now a gated, tradeable resource with sources, sinks and a discovery surface, exactly as the Rev 2 decision-log entry specified. **Component I (world-loot scroll seed) deferred to `docs/BACKLOG.md`** — its failure mode needs players, the valve is manually operable, and there is no world content to seed into; trigger is *before the first real player cohort*. All four Stage 3 sub-decisions are now RESOLVED (see decision log). Decomp: `PolishedWorld_Recipe_Knowledge_Decomposition.md` (Rev 10). **Next: Stage 4 (In-game Currency).**
 > **Rev 9 · 2026-07-11** — Stage 3 (Recipe Knowledge & Discovery) underway on `feature/recipe-knowledge`; the in-progress pointer moves off the now-merged Stage 2. Component A (foundation) complete & in-game-verified: per-character known-recipe set + `requires_knowledge` recipe flag (storage + declaration; the gate is Component B). Decomp: `PolishedWorld_Recipe_Knowledge_Decomposition.md` (Rev 2).
 > **Rev 8 · 2026-07-11** — Stage 2 Component **G (superior-tool scaling) complete & in-game-verified → Stage 2 CLOSED**. G.1 (a *superior* crafted tool, `quality > 100`, grants `+10` on the craft check via `_tool_modifier` reading the tool's own `db.quality`; `None`-guarded, broken = absent; tool recipes gain a `superior <key>` alias) and G.2 (`CmdRepair._tool_modifier` generalised per target-type via `db.repair_tool_tag` — unset → needle default, `""` → no tool for stone knife / bone needle; superior repair tool grants +10; the old garment-centric needle bug is fixed). Ceiling reconcile: max craft quality **110 → 111** (a superior tool's +10; `skillcheck` never clamps `target`). The three orthogonal gates — knowledge (Stage 3), skill (F/E), capability (tools/G) — are all live. **Next: Stage 3 (Recipe Knowledge & Discovery)**, its own decomposition. Tactical detail in `PolishedWorld_Crafting_Progression_Decomposition.md` (Rev 8).
@@ -117,7 +119,7 @@ graph LR
 
 ---
 
-### Stage 3 — Recipe knowledge & discovery *(core pillar-1 economy epic — promoted from backlog)*
+### Stage 3 — Recipe knowledge & discovery ✅ *(complete — merged to `main`)*
 **Goal:** make recipe knowledge a **gated, tradeable resource** rather than a universal capability (decision log: RESOLVED). Today every character can craft every recipe but can't even *see* which exist; knowledge is neither gated nor a resource. Players learn / buy / sell / teach recipes → knowledge becomes an economic good driving specialisation and interdependence (pillar 1).
 **Why here (before currency):** pillar-1-core, and it pairs tightly with Stage 1's training loop (teaching) and Stage 2's skill gate. Buy/sell ideally wants coin, but **barter works in the interim** — so it can precede currency without blocking.
 **Keep three orthogonal gates distinct:** **knowledge** (binary — do you know it? *this epic*), **skill** (how good — Stage 1 + Stage 2's quality scaling), **capability** (tools/stations — Stage 2 tools / deferred metallurgy).
@@ -132,14 +134,15 @@ graph LR
 
 ---
 
-### Stage 4 — In-game currency *(small, foundational)*
+### Stage 4 — In-game currency ✅ *(complete — `feature/currency`, in-game-verified; merge to `main` pending)*
 **Goal:** Gold/Silver/Copper as actual money (100:1:1), with a character wallet and basic give/pay/price plumbing — the medium of exchange the economy currently lacks.
 **Why here:** the economy is **barter-only** today (no coin system in the repo). Several items assume money: Stage 1's Training-via-teacher, Stage 3's recipe buy/sell (charging coin), and **Stage 8 GameGold, which is defined as 1:1 with in-game gold** — gold must exist as a currency before the crypto layer can bridge to it. Kept small and early so it unblocks all coin-based trade while the economy is still small.
 **Pillars:** player-driven economy (the exchange primitive everything else trades through).
 **Dependencies:** none hard; pairs with barter (`PWTradeHandler`), Stage 1's training loop, and Stage 3's recipe trade.
 **Hard requirement:** must land **before Stage 8 (GameGold)**.
 **Rough scope:** small, ~3–5 commits.
-**Design notes:** keep denominations as a single base-unit integer under the hood (store copper, render as G/S/C) to avoid rounding bugs; decide wallet-on-character (Attribute) vs coin-as-objects (pickup-able, droppable, lootable on death — interacts with the death-policy decision).
+**Design notes:** *(both questions now answered — kept for the reasoning.)* Denominations are a single base-unit integer under the hood (stored in Copper, rendered as G/S/C), which is what makes rounding bugs structurally impossible rather than merely guarded against — **S4-2**. Wallet-on-character won over coin-as-objects for Stage 4: an integer Attribute, with no `wallet` Attribute declared on the typeclass so there is no bypass write (**D6**), and no coin objects at all. Coin therefore reaches the barter table as a number on the trade handler rather than as goods. Coin-as-objects returns as `CoinPile` in **Stage 5**, where it is a death-drop question rather than a wallet question.
+**Shipped:** `world/currency.py`, `world/economy_log.py`, `typeclasses/treasury.py`, `wallet`/`pay`/`@economy`/`work`, and the barter currency bridge. 316 tests. Components A–F; see `docs/PolishedWorld_Currency_Decomposition.md`.
 
 ---
 

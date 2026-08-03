@@ -1,5 +1,7 @@
 # PolishedWorld — docs
 
+> **Rev 6 · 2026-08-03** — **Two documents were missing from the index, and one of them is the first thing anyone should read about the economy.** `PolishedWorld_Economic_Philosophy.md` — the eight principles every other economy document implements — was never listed, and neither was `PolishedWorld_Currency_Decomposition.md`. An index that omits the entry point is worse than no index: it looks complete, so nobody goes looking. Both added — as was **`PolishedWorld_Skill_Improvement_Decomposition.md`**, a third omission the eyeball survey missed and a mechanical check (`for f in docs/*.md; grep -q $f README`) caught immediately. That check is now the way this table gets verified; reading the list and reading the directory are different acts, and only one of them is reliable. The philosophy is marked **read first**. A **reading order for the economy** section is added below the table, because "read first" is a claim a single table row cannot make convincingly and because these five documents are close to useless out of order.
+
 > **Rev 5 · 2026-07-26** — index testing reference, backlog and recipe-knowledge decomp.
 > **Rev 4 · 2026-07-19** — indexed the System Map and Source/Sink Ledger (structural / cross-system altitude).
 > **Rev 3 · 2026-07-10** — indexed the Stage 2 crafting-progression decomposition (tactical, feature-task altitude).
@@ -53,11 +55,29 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
 | Crafting progression decomposition | tactical (feature tasks) | `docs/PolishedWorld_Crafting_Progression_Decomposition.md` |
+| Currency decomposition | tactical (feature tasks) | `docs/PolishedWorld_Currency_Decomposition.md` |
+| Skill improvement decomposition | tactical (feature tasks) | `docs/PolishedWorld_Skill_Improvement_Decomposition.md` |
 | Crafting docs | tactical | `docs/crafting/` |
+| **Economic philosophy** | design (economy — **read first**) | `docs/PolishedWorld_Economic_Philosophy.md` |
 | GameGold design | design (crypto spec) | `docs/GameGold_Design.md` |
 | GameGold economy | design (economy) | `docs/PolishedWorld_GameGold_Economy.md` |
 | Agent scope & schemas | governance | `AGENTS.md` |
 | Core instructions | governance (project meta) | `docs/PolishedWorld_Core_Instructions.md` |
+
+### Reading order for the economy
+
+The economy documents build on one another and are close to useless out of
+order. Read them this way:
+
+1. **`PolishedWorld_Economic_Philosophy.md`** — the *why*. Eight principles;
+   everything below is an implementation of one of them.
+2. **`PolishedWorld_SourceSink_Ledger.md`** — the pillar-1 audit. Where does
+   each thing enter the economy, and where does it leave?
+3. **`PolishedWorld_GameGold_Economy.md`** — the shipped currency design and the
+   crypto bridge.
+4. **`GameGold_Design.md`** — the chain itself.
+5. **`PolishedWorld_Currency_Decomposition.md`** — the task-level record of how
+   Stage 4 was actually built, including every deviation and why.
 
 *(Docs still living only in project knowledge — functional-decomposition methodology,
 Mongoose Legend notes, code standards, creature-harvesting design — get a header and
