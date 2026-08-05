@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 3 · 2026-08-05** — record Component B as delivered, with **five deviations, one of them structural**: B.2 shipped as a read-time fallback rather than a written backfill. The reason is a measurement, not a preference — `at_object_creation` gives every new character non-zero skills, so a one-shot migration is one-shot only for the characters alive when it ran, and the population it must cover has no end. Section 4's original text is left standing and the Delivered block is appended below it, the same shape Rev 2 used for A.1 — the superseded design stays readable, and the block says which parts of it did not survive contact with the code. Components A, C and D unchanged, and **C.1's dependency list is unchanged** — it still needs a working store, and it has one.
 > **Rev 2 · 2026-08-03** — record Task A.1 as delivered with its three additive deviations (calibration-matrix tests, two extra tests, clamped constants), each motivated by P-5's promise that the constants will be recomputed. Sharpens section 3's seed-error note: the error is one-directional and bounded by construction, and the two correction loops are bounded for different reasons -- the step-down loop is dead at the shipped calibration and live at others, which is exactly why the matrix test exists. Components B-D unchanged.
 > **Rev 1 · 2026-08-03** — first version. Decomposes **Stage 4.5**: reinterpret Legend's Improvement Roll so its output banks XP toward the next whole percentage point instead of adding points directly. Four components, six tasks, deliberately ordered so the first two are inert. Supersedes the "no hidden XP accumulator" half of the Stage 1 pacing decision (roadmap Rev 14 decision log); the other three halves of that decision stand.
 > **Canonical:** `docs/PolishedWorld_Skill_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -241,6 +242,94 @@ Also inert. Storage exists; nothing reads it for gameplay yet.
   Step 5–6 is the whole point of the task. A backfill that is not idempotent is a
   data-loss bug waiting for a second `@reload`.
 - **Commit:** `feat(progression): backfill lifetime XP from existing skill levels`
+
+#### Delivered 2026-08-05 — five deviations, one of them structural
+
+Shipped on `feature/skill-progression` as a single commit (`30c7f04`); **363
+tests green** (334 baseline + 29 new). In-game protocol run against the live
+server, all eleven steps as predicted. Component B remains **inert**: the store
+exists, and nothing reads it for gameplay until C.1.
+
+**The structural deviation — B.2 is a fallback, not a backfill.**
+
+The spec above asks for a written one-time backfill, guarded with
+`get(...) is None`, whose headline property is idempotence. That is not what
+shipped, and the reason is a measurement taken before any code was written:
+`at_object_creation` starts every character with **non-zero skills** —
+perception 25, stealth 20, athletics 25, hunting 25, and craft = DEX + INT = 20
+at default stats. A one-shot migration is therefore one-shot only for the
+characters alive when it ran. Every character created afterwards would stand at
+craft 20 with 0 XP, and C.1 — which makes `.current` a materialised cache of
+`level_for_xp(total)` — would de-level her to 0 on her first craft. **The
+population a migration must cover has no end, so a migration cannot close the
+hole.**
+
+What shipped instead: `SkillXPHandler.get()` returns the stored total if one
+exists, and otherwise returns `xp_threshold(int(skill.current))` computed on
+read and **never written**. The Attribute is not created until the first genuine
+bank.
+
+This is not a weaker guarantee than the guarded backfill; it is a different and
+stronger one. Idempotence stops being a property a guard must maintain and
+becomes a property of **there being no write** — the same proof shape
+`world/currency.py` uses for the wallet, and the structural escape §11.23 of the
+Evennia Reference describes. It also survives things a migration does not: a
+restored backup, a character created after the migration ran, and an admin who
+never remembered to run anything.
+
+The cost, stated plainly: until a skill's first bank the causal direction is the
+**reverse** of P-1 — the level is the truth and the XP is derived from it. It
+inverts to P-1's direction permanently at the first `add()` and never inverts
+back. An explicit backfill has the identical inversion; it merely lasts one
+instant instead of lasting until first use. P-1 is therefore not relitigated,
+only its start condition is.
+
+**The other four deviations.**
+
+1. **B.1's test spec "reading an unbanked skill returns 0" is replaced.** It
+   describes the bug, not the behaviour. Two tests take its place: an unbanked
+   skill reads *the floor for its level*, and a skill the character does not
+   have reads 0 — that second case is the only true zero, and it is why `get()`
+   cannot simply be "return the threshold".
+2. **The handler lives in a new `world/skill_xp.py`,** not in
+   `world/progression.py`. The latter's docstring promises no Evennia objects,
+   no I/O and no trait reads, and that promise is what tells the next reader its
+   tests belong on the cheap `EvenniaTestCase`. A handler in the same file makes
+   the promise false and blurs the two base classes. Same division as
+   `world/improvement.py` (pure roll maths) beside `world/currency.py` (handler).
+3. **`add()` does not raise on an unknown skill key.** This looks inconsistent
+   with D7 and is the one deviation shipped with reservations. It follows
+   `Character.improve_skill_on_use`, which already made this exact call in the
+   opposite direction and said so in a comment — it returns None for an unknown
+   skill "rather than raising, so a shared call site that passes a key this
+   character lacks stays safe" — and it is the only caller that will reach
+   `add()`. A second guard could only fire for a caller that had already
+   bypassed the first, and its only effect would be to abort a live craft.
+   `all()` unions stored keys with real skills as the compensating control, so
+   an orphaned entry is findable rather than silent. **Recorded in
+   `docs/BACKLOG.md` as SCHEDULED against C.1's call-site review.**
+4. **`__repr__` calls `all()`,** which is a database read inside a repr. Cheap
+   and debug-only, but worth knowing before someone logs handlers in a loop.
+
+**Measured, not asserted — three mutations.** (a) `add()` banking onto 0 instead
+of onto the floor: 4 failures. (b) `isinstance(store, Mapping)` →
+`isinstance(store, dict)`, the `_SaverDict` trap: 6 failures. (c) `get()` caching
+its fallback: 8 failures, five of them from the calibration matrix — a cached
+floor computed under one calibration is simply a wrong number under the next,
+which is precisely what P-5 guarantees we will walk into. An earlier draft of
+the test docstring claimed mutation (a) reddened only one class; it reddened
+two, and the docstring was corrected rather than the claim softened.
+
+**`.current` is a float.** `CounterTrait` stores 20.0, not 20. The `int()` at the
+call site is explicit and truncates downward, which is the correct direction: the
+floor must be the *smallest* total consistent with the level. Recorded in Evennia
+Reference Rev 21 §3.5.
+
+**Carry into C.1:** the store's API is `get(skill_key)`, `add(skill_key, amount)`
+and `all()`. Deliberately no `level()` / `progress()` read-throughs — C.1 needs
+`level_for_xp` inside `improve_skill_on_use` anyway, and guessing those
+signatures one component early is guessing about code that is still dead.
+
 
 ---
 
