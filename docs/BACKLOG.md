@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 22 · 2026-08-05** — one entry added from the Stage 4.5 Component B close-out (Crafting & Tools): **`SkillXPHandler.add()` does not raise on an unknown skill key.** Recorded because it is the one place Component B knowingly departs from D7, not because it is a defect — it follows `improve_skill_on_use`, which made the same call in the opposite direction and wrote down why. Filed as SCHEDULED rather than OPEN: C.1 reviews every improvement call-site anyway, which is the only moment the answer can change without being a guess.
 > **Rev 21 · 2026-08-03** — one entry added (Crafting & Tools): **`CmdScribe` rolls Craft but grants no improvement.** Surfaced while counting `skill_check` call-sites for the roadmap Rev 13 correction — five of six roll-sites train the skill, one does not, and nothing in the code or the decomposition says whether that is a decision or an omission. Recorded as an open question rather than a defect, because either answer is defensible and neither is written down.
 > **Rev 20 · 2026-08-03** — one entry added from the Core Instructions Rev 3 sweep (Tooling & Process): **three cited documents live outside the repo**, and they are also the only three in the project with no Rev header, no date and no canonical path. Rev 3 marks them per §9 rather than importing them blind.
 > **Rev 19 · 2026-08-03** — the seam-checker entry (Tooling & Process) gains a second job: **parse the Mermaid blocks too.** System Map Rev 2 shipped a diagram that did not render, and the failure was invisible to every check performed on it — balanced brackets, balanced pipes, careful reading. Only the actual Mermaid parser found it. A checker that verifies the seam *table* while the *diagram* above it is silently broken is checking the cheaper half.
@@ -336,6 +337,27 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Found while verifying the `skill_check` call-site count for roadmap
   Rev 13 / System Map Rev 2 (2026-08-03).
 - **Status:** OPEN (question, not defect)
+
+### `SkillXPHandler.add()` does not raise on an unknown skill key
+- **What:** `world/skill_xp.py::SkillXPHandler.add()` accepts any `skill_key`,
+  including one the character has no trait for, and stores XP under it. D7's
+  convention would raise, since a key nobody has is a caller bug and not a
+  condition a player can be in.
+- **Why deferred:** The codebase already decided this case, in the opposite
+  direction, deliberately. `Character.improve_skill_on_use` returns None for an
+  unknown skill "rather than raising, so a shared call site that passes a key
+  this character lacks stays safe" — and after C.1 it is the *only* caller that
+  reaches `add()`. A second guard here could only fire for a caller that had
+  already bypassed the first one, and its sole observable effect would be to
+  abort a live craft. Compensating control shipped instead: `all()` unions the
+  stored keys with the character's real skills, so an orphaned entry is
+  findable rather than silent.
+- **Trigger:** Task C.1, which reviews all five improvement call-sites (P-6). If
+  any of them can reach `add()` without passing through
+  `improve_skill_on_use`'s existing guard, the argument above stops holding and
+  the raise goes in.
+- **Origin:** Skill Progression decomp §4, Delivered 2026-08-05, deviation 3.
+- **Status:** SCHEDULED
 
 ### Scribe's band→condition bypasses `quality_band`
 - **What:** `SCRIBE_CONDITION_BY_TIER` maps a `skill_check` result tier straight to a
