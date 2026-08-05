@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 21 · 2026-08-05** — **§3.5 contained a statement this repo had already measured to be false.** Its `@py` note said comprehensions and generators both fail in `@py`; Testing Reference Rev 4 established on measurement that **comprehensions work** (PEP 709 gave them their own scope in 3.12) and that generators and lambda bodies are what fail. Two documents contradicting each other is worse than one saying nothing, so §3.5's note is corrected and now points at the Testing Reference rather than restating it. §3.5 also gains the fact that **`CounterTrait.current` returns a float** (20.0, not 20) — harmless until a value is stored or compared, at which point the float propagates somewhere it does not belong. New **§11.28**: Evennia deserialises Attribute containers into `_SaverDict`/`_SaverList`, for which `isinstance(x, dict)` is **False**, and `AttributeHandler.has()` returns a **list**, not a bool. Both verified live against Evennia 6.1.0 during Stage 4.5 Component B (363 tests green, 2026-08-05); the `_SaverDict` trap had bitten this project twice before and was not in this document at all.
 > **Rev 20 · 2026-08-03** — **§7 rewritten; it was not merely stale but actively wrong.** The status line said *Planned* while `world/barter.py` has been merged since Stage 2, but the damage was further down: **§7.2** told the reader to add `CmdOffer`/`CmdAccept`/`CmdDecline`/`CmdEvaluate`/`CmdStatus` to `CharacterCmdSet`, which would make `offer` typable outside a trade and turn the §11.20 `status` collision from scoped into permanent — only `CmdPWTrade` is global, the rest arrive with `CmdsetTrade` at trade start. **§7.4** described coins as typeclassed objects offered like any other item, the architecture S4-2 explicitly rejected; it now documents the handler-level bridge shipped in Stage 4 Component E (digit-first segment classification, gross re-validation, net settlement, one-shot flag, unledgered per S4-4). New **§7.3** documents the module-global patch mechanism and its seven swaps; new **§7.5** tabulates the five confirmed upstream bugs, of which the direct `obj.location` assignment in `finish()` is the one with teeth — **no move hook fires in a trade, ever**. **§7.6** records that the trade cmdset is added rather than Replace, which is why the staleness guards must exist. Also: the contrib status table was wrong on five rows (Barter, CooldownHandler, BuffHandler, Crafting, Clothing all read *Planned* while in use) — corrected against a grep of the repo, not from memory. `TickerHandler` is deliberately left untouched: whether the survival ticker goes through it or through a Script has not been verified, and correcting an unchecked row is the same failure this Rev is fixing.
 
 > **Rev 19 · 2026-08-02** — One lesson from Stage 4 Component D, verified live against Evennia 6.1.0 with the suite running in-sandbox (256 tests green, 2026-08-02): **§11.27** the identity-marker pattern for cancelling a `utils.delay` from somewhere that never saw the task. A string or task-key flag is **not** sufficient — start an action, abandon it, start the same action again, and the first callback wakes up, recognises the flag value, and completes against the second attempt. A per-attempt `object()` compared with `is` cannot collide. Carries the four constraints that come with it: `ndb` and the delay must be non-persistent *together*; the callback must re-check the world and not only the marker; `has_account` is the "still playing" guard under statue-logout; and the callback belongs at module level so it is testable without a reactor. Also records that a delayed action moving currency must keep its **whole** check-and-commit sequence inside the callback (S4-R1) — a precondition checked before the delay and committed after it reopens a window `duration` seconds wide.
@@ -368,10 +369,15 @@ skill.value                           # -> 100.0
 `.mod`), aldrig `.base`. Gäller skills, survival-gauges och allt counter-baserat. (Static
 traits skiljer sig: där *är* `value = (base + mod) * mult`, jfr 3.3.)
 
-**`@py`-not (separat gotcha):** `@py` bygger om sitt namespace per rad med tomma globals och
-skriver aldrig tillbaka — inga namn överlever mellan rader, och comprehensions/generators
-failar (de slår upp i de tomma globals). Spelvärld/DB-state persisterar dock. Använd
-`evennia shell` för ren modullogik; självständiga `@py`-rader med `print()` för in-game-checks.
+**`@py`-not (separat gotcha) — RÄTTAD i Rev 21:** `@py` bygger om sitt namespace per rad och
+skriver aldrig tillbaka — inga namn överlever mellan rader. Spelvärld/DB-state persisterar dock.
+⚠️ Rev 1–20 påstod här att *"comprehensions/generators failar"*. Halva påståendet var fel, och
+det mättes: `py` kör `eval(code, {}, available_vars)`, alltså **tom globals-dict**, men PEP 709
+gav comprehensions egen scope i 3.12, så de **fungerar**. Det som failar är generator-uttryck och
+lambda-*kroppar*, som slår upp fria namn i de tomma globals. Bärande regel: *varje namn som
+används inuti en lambda eller generator måste komma in som argument.* Fullständig tabell och de
+diskriminerande testformerna: **Testing Reference Rev 4 §3** — den är källan, det här är en
+pekare.
 
 **Settern klampar också (verifierat 2026-07-06):** `current`-*settern* kör `_enforce_boundaries`,
 så `skill.current = X` klampas till `[min, max]` vid tilldelning (max via `>=`). En read-modify
@@ -381,6 +387,14 @@ Python håller ett returnerat `old/new/delta` exakt. **Progression läser `.curr
 nivå), **resolution läser `.value`** (`(current + mod) * mult`, situationell) — en tool-`.mod`-buff
 ska hjälpa själva checken men inte höja en improvement-rolls target.
 **Corollary — `desc()` läser också `.value`:** `CounterTrait.desc()` slår upp descs-etiketten mot `self.value` (buffad), inte `.current`. En aktiv `.mod` (t.ex. +20 tool-buff) kan därför få `desc()` att rapportera fel tier. För tier-lookup på *permanent* nivå (t.ex. desc-tier-celebration som ska spegla verklig rang, inte tillfällig buff): använd en ren `tier_for(value, descs)` som speglar Evennias övre-gräns-inklusive-loop men tar en explicit int (`world/improvement.tier_for`), matad med de råa `old`/`new`-ints från `improve_skill_on_use`. Samma `.current`/`.value`-regel, en gång till.
+
+**`.current` är en `float` (verifierat 2026-08-05):** `CounterTrait` lagrar 20.0, inte 20 — synligt
+redan i exemplet ovan (`skill.value  # -> 25.0`), men lätt att läsa förbi. Ofarligt så länge värdet
+bara jämförs, men så fort det *lagras* eller matas in i en ren funktion propagerar floaten dit den
+inte hör hemma. Coerca explicit vid anropsstället, inte inuti mottagaren, så trunkeringen syns där
+den sker: `improve_skill_on_use` skriver `int(skill.current)`, och `world/skill_xp.py` gör samma sak
+innan nivån går in i `xp_threshold()`. Riktningen spelar roll där: `int()` trunkerar nedåt, vilket är
+rätt för ett golv som ska vara det *minsta* värde som är förenligt med nivån.
 
 ---
  
@@ -1504,6 +1518,57 @@ sequence must sit **inside** the callback. Checking a precondition before the
 delay and committing after it reopens exactly the window that a single
 synchronous block closes — and the window is `duration` seconds wide. See the
 Currency decomposition's S4-R1.
+
+---
+
+### 11.28 ⚠️ Attribute containers are `_SaverDict`/`_SaverList`, and `has()` returns a list
+
+Two type surprises in the same API, both verified live against Evennia 6.1.0.
+
+**A stored dict does not come back as a `dict`.** Evennia deserialises Attribute
+containers into `_SaverDict` / `_SaverList` — proxies that write through to the
+database on mutation. They implement the full mapping/sequence protocol, so
+`.get()`, `in`, iteration and `dict(x)` all behave, but:
+
+```python
+char.attributes.add("skill_xp", {"craft": 170})
+got = char.attributes.get("skill_xp")
+
+type(got).__name__                      # -> '_SaverDict'
+isinstance(got, dict)                   # -> False        ⚠️
+isinstance(got, collections.abc.Mapping)  # -> True       ✅
+got.get("craft")                        # -> 170
+dict(got)                               # -> {'craft': 170}   (detached copy)
+```
+
+`isinstance(x, dict)` is the natural thing to write and it silently takes the
+**wrong branch**. The failure is quiet by nature: a handler that guards its reads
+with `isinstance(..., dict)` behaves as though the store were permanently empty,
+re-deriving or re-initialising after every write and losing everything the
+previous write put there. Nothing raises.
+
+**Rule:** test containers with `collections.abc.Mapping` / `Sequence`, never with
+`dict` / `list`. Return `dict(x)` from any accessor whose caller should get
+something detached from the database.
+
+This has now bitten the project twice — the survival layer and Stage 4.5's XP
+store — and was not in this document until Rev 21.
+
+**`AttributeHandler.has()` returns a list, not a bool.**
+
+```python
+char.attributes.has("skill_xp")   # -> []   when absent, not False
+```
+
+Falsy, so `if char.attributes.has(...)` reads correctly and `assertFalse` passes.
+But `assertIs(..., False)`, `is True`, and `== False` all fail on a value that is
+semantically correct. In tests use `assertTrue`/`assertFalse`; in `@py` wrap it as
+`bool(self.attributes.has("skill_xp"))` so the output is legible.
+
+**Related:** §11.23 — an Attribute row does not exist until first write, which is
+what lets a handler reading with `default=` design the backfill away rather than
+merely guard it. §11.28 is the trap you hit *after* taking §11.23's advice: the
+row now exists, and the type it comes back as is not the type you put in.
 
 ---
 
