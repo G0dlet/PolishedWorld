@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 2 · 2026-08-03** — record Task A.1 as delivered with its three additive deviations (calibration-matrix tests, two extra tests, clamped constants), each motivated by P-5's promise that the constants will be recomputed. Sharpens section 3's seed-error note: the error is one-directional and bounded by construction, and the two correction loops are bounded for different reasons -- the step-down loop is dead at the shipped calibration and live at others, which is exactly why the matrix test exists. Components B-D unchanged.
 > **Rev 1 · 2026-08-03** — first version. Decomposes **Stage 4.5**: reinterpret Legend's Improvement Roll so its output banks XP toward the next whole percentage point instead of adding points directly. Four components, six tasks, deliberately ordered so the first two are inert. Supersedes the "no hidden XP accumulator" half of the Stage 1 pacing decision (roadmap Rev 14 decision log); the other three halves of that decision stand.
 > **Canonical:** `docs/PolishedWorld_Skill_Progression_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -140,6 +141,48 @@ already take.
   are actual inverses, so a level can never be lost or gained by round-tripping
   through storage.
 - **Commit:** `feat(progression): add pure XP curve module and calibration settings`
+
+#### Delivered 2026-08-03 — three deviations, all additive
+
+Shipped on `feature/skill-progression`; 334 tests green (316 baseline + 18 new).
+Nothing specified above was dropped. Three things were added, and the reason is
+the same in each case: the spec assumed the shipped calibration is the only one
+the code will ever run under, and P-5 says in writing that it is not.
+
+1. **The invariant tests run over a calibration matrix**, not only at
+   `(BASE=6, SPAN=20)`. Measured, not argued: delete the step-*down* correction
+   from `level_for_xp` and all three specified tests still pass at (6, 20) --
+   but fail 176 cases at (6, 7), 61 at (3, 10) and 268 at (1, 5). Tested at the
+   shipped numbers alone the suite cannot tell correct code from code missing
+   half its correction logic, and would first go red at the moment someone
+   recalibrates. The matrix lives in `tests/test_progression.py::CALIBRATIONS`.
+2. **Two tests not in the spec.** `test_cost_doubles_over_one_span` puts P-4's
+   defining property in executable form; `TestCalibrationSafety` covers the
+   clamps in (3).
+3. **`_calibration()` clamps both constants to a minimum of 1.** This follows
+   directly from the termination argument for the step-up loop: the proof that
+   the seed can never be low by more than one depends on `BASE >= 1`. At
+   `BASE = 0` every threshold flattens to 0 and the loop would not terminate --
+   though in practice the seed's division by `BASE` raises ZeroDivisionError
+   first. At `SPAN = 0` the `1 / span` exponent raises. A typo in settings.py
+   should not be able to hang or crash a craft.
+
+**Sharper than the note in section 3 above:** the seed is not merely "off by one
+in either direction". With exact arithmetic it can *only* be low, and only by
+one -- `xp_threshold` floors, so the seed's set of qualifying levels is a subset
+of the true one, and an error of two would need two consecutive exact thresholds
+inside the same unit interval when the gap between them is `BASE * r^L >= 1`.
+The step-*down* loop exists purely to absorb `log()`'s inexactness, which is why
+it is dead at (6, 20) and live elsewhere. Both loops stay; they are bounded for
+different reasons.
+
+**Verified in the running server, not only in `evennia shell`:** shell is a
+separate process and cannot prove the game can import the module or that
+`@reload` picked up the settings block. The in-server check first returned
+`AttributeError: 'Settings' object has no attribute 'SKILL_XP_BASE'`, then
+`(6, 20, 174053)` after `@reload` -- which is the evidence that it reads live
+settings rather than defaults. See Testing Reference Rev 4 §3 for the
+argument-passing `@py` idiom this needed.
 
 ---
 
