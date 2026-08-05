@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 23 · 2026-08-05** — the **`CmdScribe`** entry is **answered and moves OPEN → SCHEDULED**: Stage 4.5's sub-decision close-out settled it in favour of training, and it ships as C.1's sixth call-site. The entry stays rather than closing, because it is not done until C.1 does it. The deciding argument was not the balance one the entry itself had already ruled out — it was that a rule of the form *"some Craft rolls teach and some do not, and you are not told which"* is not learnable by a player, and P-5 makes generosity the safe side to err on. One entry **added** (Crafting & Tools): **the recipe catalogue does not span the skill scale** — eight recipes, one `min_skill`, highest 30 — which is what blocks Stage 4.5's Component E and would strand every crafter above 61 if the gate shipped against it. Filed as BLOCKED with a content trigger, not as tuning.
 > **Rev 22 · 2026-08-05** — one entry added from the Stage 4.5 Component B close-out (Crafting & Tools): **`SkillXPHandler.add()` does not raise on an unknown skill key.** Recorded because it is the one place Component B knowingly departs from D7, not because it is a defect — it follows `improve_skill_on_use`, which made the same call in the opposite direction and wrote down why. Filed as SCHEDULED rather than OPEN: C.1 reviews every improvement call-site anyway, which is the only moment the answer can change without being a guess.
 > **Rev 21 · 2026-08-03** — one entry added (Crafting & Tools): **`CmdScribe` rolls Craft but grants no improvement.** Surfaced while counting `skill_check` call-sites for the roadmap Rev 13 correction — five of six roll-sites train the skill, one does not, and nothing in the code or the decomposition says whether that is a decision or an omission. Recorded as an open question rather than a defect, because either answer is defensible and neither is written down.
 > **Rev 20 · 2026-08-03** — one entry added from the Core Instructions Rev 3 sweep (Tooling & Process): **three cited documents live outside the repo**, and they are also the only three in the project with no Rev header, no date and no canonical path. Rev 3 marks them per §9 rather than importing them blind.
@@ -331,12 +332,42 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   settled, one of the two has to say so out loud — a per-skill cooldown already
   prevents the "scribe-spam to grind Craft" failure mode, so the balance argument
   does not decide it either.
-- **Trigger:** Next time `CmdScribe` or the book channel is touched, or at the
-  Crafting XP epic (which revisits what earns progress and will have to answer
-  this anyway).
+- **ANSWERED 2026-08-05 — it trains.** Settled by Stage 4.5's sub-decision
+  close-out (Skill Progression decomp Rev 4, §2). Neither of the two readings in
+  *Why deferred* above turned out to be decisive; what decided it is that the
+  resulting rule has to be inferable by a player, and "some Craft rolls teach and
+  some do not, and you are not told which" is not. P-5 makes generosity the safe
+  side to err on, and the per-skill cooldown plus Component E's future difficulty
+  gate are the anti-grind controls — not a per-command exclusion list, which
+  grows and gets forgotten.
+- **Trigger:** Task C.1, which folds scribe in as the sixth call-site
+  (`imp = caller.attempt_skill_improvement("craft", outcome)` + the standard
+  `_improvement_feedback` routing). P-6 already reads six.
 - **Origin:** Found while verifying the `skill_check` call-site count for roadmap
-  Rev 13 / System Map Rev 2 (2026-08-03).
-- **Status:** OPEN (question, not defect)
+  Rev 13 / System Map Rev 2 (2026-08-03). Answered 2026-08-05.
+- **Status:** SCHEDULED — not DONE until C.1 ships it.
+
+### ⛔ The recipe catalogue does not span the skill scale
+- **What:** `world/recipes.py` holds **eight** recipes, of which exactly **one**
+  sets `min_skill` (`LeatherBootsRecipe`, 30); the rest default to 0. There is no
+  ladder of increasingly demanding work for a crafter to climb.
+- **Why deferred:** It is content, not engineering — and it was invisible until
+  something needed to read difficulty. Stage 4.5's **Component E** does: its
+  trivial-work gate stops a recipe teaching once your skill exceeds its
+  `min_skill` by more than the band. With the highest `min_skill` at 30 and a
+  30-point band, **nothing in the game teaches Craft above 61**, and a crafter
+  who gets there can never improve again. A smaller band only moves the wall
+  (50 → wall at 81); a dead end is strictly worse than the grind the gate
+  removes, so E is BLOCKED on this rather than scheduled behind it.
+- **Trigger:** `min_skill` values form a ladder with no gap wider than
+  `SKILL_TRIVIAL_BAND` from 0 to the intended ceiling — in practice recipes at
+  roughly 0 / 20 / 40 / 60 / 80, not eight clustered at the bottom. Belongs to
+  whichever stage grows the crafting catalogue. Assigning the values once the
+  catalogue exists is Task E.1 and is inside OpenCode's permitted scope
+  (`world/recipes.py`); assigning them *now* would be guessing.
+- **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
+  decomposing Component E.
+- **Status:** BLOCKED
 
 ### `SkillXPHandler.add()` does not raise on an unknown skill key
 - **What:** `world/skill_xp.py::SkillXPHandler.add()` accepts any `skill_key`,
