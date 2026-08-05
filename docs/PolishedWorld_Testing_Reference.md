@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 4 · 2026-08-03** — **§3's no-comprehensions rule was wrong and is corrected by measurement.** List, set and dict comprehensions *do* see `py`'s eval locals (PEP 709 inlining, Python 3.12+); generator expressions and lambdas do not. Verified on 3.12 and 3.14 during Stage 4.5 A.1. §3 now leads with the cause -- `eval(code, {}, available_vars)` leaves globals empty, so nested function scopes cannot reach the caller's locals -- because the cause is version-independent and the table is not. Adds three diagnostics that actually discriminate, and a warning about the shape of diagnostic that does not: a lambda referencing only its own parameter passes on every version and proves nothing. Adds the argument-passing idiom for verifying a pure module inside the running server, and notes what `evennia shell` cannot prove.
 > **Rev 3 · 2026-07-26** — Three additions from Stage 3 Components G–H. §1 corrected: `evennia shell` has **no** `me`/`self`/`here` at all (pure-function use only), and the interactive `py` console **drops pasted lines** from a MUD client, so the rule of thumb now favours atomic one-shot `@py` over the console — the previous advice pointed straight at the trap. §7 hand-stamp harness extended to knowledge carriers and to `ndb` state (`nattributes.add`), which is what made H.1's regression tests deterministic. §10 gained the how of two-party testing: a consent handshake needs two *sessions*, and `@ipuppet` cannot provide them.
 > **Rev 2 · 2026-07-13** — Added the lambda-scope `me` gotcha (§3) and a manual-stamp harness note for cooldown isolation (§7), both from Stage 3 Component E.2 disassemble testing.
 > **Rev 1 · 2026-07-12** — First committed version. Consolidates the hard-won in-game `@py` testing conventions accumulated through Stage 2–3: one-shot vs interactive console, the `;` client-split gotcha + list-literal idiom, the no-comprehensions rule, reload vs live-data semantics, raw-colour inspection, state-reset idioms, and the `py_compile` fallback diagnostic. Supersedes the informal project-knowledge quick-ref for testing workflow; domain quick-ref tables (calendar/currency/survival) stay in their own docs.
@@ -39,7 +40,7 @@ Portable, client-agnostic workarounds:
   @py setattr(__import__("commands.crafting_commands", fromlist=["CmdRecipes"]).CmdRecipes, "SHOW_HIDDEN_COUNT", True)
   ```
 
-## 3. No comprehensions / generators in one-shot `@py`, and no free `me` in a lambda
+## 3. Nested scopes in one-shot `@py` — lambdas and generators cannot see `me`; comprehensions can
 
 A bare `me`/`self`/`here` inside a **lambda body** in one-shot `@py` → `NameError:
 name 'me' is not defined`. They're injected as eval **locals**, and a lambda's
@@ -50,7 +51,44 @@ literal (everything stays top-level), e.g.
 or pass `me` as a lambda **parameter** (`(lambda o, m: o.move_to(m))(obj, me)`).
 A lambda that references only its own parameter is fine.
 
-Comprehensions and generator expressions have their own scope and fail under `py`'s exec context. Use list *literals* (`[a, b, c]` — fine), explicit loops in the **interactive console**, or `evennia shell` for anything statistical/looping.
+**Comprehensions are not in the same boat, and Rev 1-3's blanket rule was wrong.**
+PEP 709 (Python 3.12) inlines list, set and dict comprehensions into the
+enclosing scope, so they *do* see the eval locals. Generator expressions were
+not inlined and still fail. Measured on 3.12 and again on 3.14 (Stage 4.5, A.1):
+
+| Construct referencing an outer `me` / `self` | one-shot `@py` |
+|---|---|
+| list / set / dict comprehension | works |
+| generator expression | `NameError` |
+| `lambda` body | `NameError` |
+| `map(lambda ...)` closing over an outer name | `NameError` |
+
+⚠️ **A diagnostic that does not touch an outer name proves nothing.**
+`@py self.msg(str([[n for n in (1,2)], list(map(lambda n: n, (1,2)))]))` returns
+`[[1, 2], [1, 2]]` on every version, because neither half references anything
+from the eval locals. These three do discriminate:
+
+    @py self.msg(str([type(self).__name__ for n in (1,)]))      -> ['Character']
+    @py self.msg(str((lambda n: type(self).__name__)(1)))       -> NameError
+    @py self.msg(str(all(type(self).__name__ for n in (1,))))   -> NameError
+
+**The rule worth remembering is the cause, not the table.** `py` runs
+`eval(pycode_compiled, {}, available_vars)` (`evennia/commands/default/system.py`),
+so *globals is an empty dict*. A nested function scope resolves free variables
+against globals, never against the caller's locals. Therefore: **any name used
+inside a lambda or generator expression must be passed in as an argument.** That
+holds on every Python version; relying on comprehension inlining does not.
+
+The argument-passing form generalises to verifying a whole pure module in one
+line, which is how `world/progression.py` was checked inside the running server:
+
+    @py self.msg(str((lambda m: m.xp_threshold(20))(__import__("world.progression", fromlist=["x"]))))
+
+Note that a lambda *nested inside another lambda* is fine — it closes over the
+outer lambda's parameter, which is a real closure. Only the step across the eval
+boundary is broken. `evennia shell` has none of these problems, but it is a
+separate process: it cannot prove that the running server can import a module or
+that `@reload` picked up a settings change.
 
 ## 4. Wrap non-string returns before `msg()`
 
