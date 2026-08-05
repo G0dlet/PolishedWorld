@@ -18,6 +18,7 @@ from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
+from world.skill_xp import SkillXPHandler
 
 from django.conf import settings
 from evennia.utils import search
@@ -147,6 +148,30 @@ class Character(ObjectParent, ClothedCharacter):
         by construction rather than by review.
         """
         return CurrencyHandler(self, db_attribute="wallet")
+
+    @lazy_property
+    def skill_xp(self):
+        """
+        Per-skill lifetime XP store (Stage 4.5, P-1). Storage only -- as of
+        Component B nothing reads this for gameplay; Component C makes it the
+        thing that moves `.current`.
+
+        Note what is NOT here, and it is the same list as `currency` above: no
+        `at_object_creation` initialisation and no AttributeProperty
+        declaration. Both deliberate, both for D6's reason -- there is no
+        `char.skill_xp = {...}` shortcut for code outside world/skill_xp.py to
+        reach for, so P-2's single-writer rule holds by construction rather
+        than by review.
+
+        Unlike `currency` there is also no backfill task anywhere, and that is
+        a stronger claim than "we did the migration". The handler derives an
+        absent entry from the skill's own `.current` on read, so a character
+        created after any migration would have run is still consistent, and
+        cannot be de-levelled by Component C. See world/skill_xp.py's
+        absent-entry rule for why a one-shot migration could not have covered
+        that population.
+        """
+        return SkillXPHandler(self, db_attribute="skill_xp")
 
     def at_object_creation(self):
         """
