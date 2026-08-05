@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 4 · 2026-08-05** — **the three open sub-decisions are closed**, and closing them added a component. XP grain scaled to material cost is **rejected, not deferred**: with a per-skill cooldown the binding resource is *ticks*, so any per-craft scaling makes "the most expensive recipe you can afford, once per window" strictly dominant — and flat grain is degenerate in the mirror direction, making the *cheapest* recipe dominant. Both are the same bug; the fix is neither, it is the `meaningful` seam that `attempt_skill_improvement` already carries and has never used. That becomes **Component E** (§7), recorded as **BLOCKED on recipe content** rather than scheduled, because with eight recipes topping out at `min_skill = 30` the gate would strand every crafter above 60 — strictly worse than the grind it removes. `improvement_cooldown` is **frozen** rather than tuned (one knob per job; the curve is the knob). `CmdScribe` is **taken in** as a sixth call-site, so **P-6 changes from five to six**. Also records the measured pacing this epic actually produces — 38 ticks today vs 2 931 after C.1, a 77× slowdown — and the fact that two independent throttles now multiply.
 > **Rev 3 · 2026-08-05** — record Component B as delivered, with **five deviations, one of them structural**: B.2 shipped as a read-time fallback rather than a written backfill. The reason is a measurement, not a preference — `at_object_creation` gives every new character non-zero skills, so a one-shot migration is one-shot only for the characters alive when it ran, and the population it must cover has no end. Section 4's original text is left standing and the Delivered block is appended below it, the same shape Rev 2 used for A.1 — the superseded design stays readable, and the block says which parts of it did not survive contact with the code. Components A, C and D unchanged, and **C.1's dependency list is unchanged** — it still needs a working store, and it has one.
 > **Rev 2 · 2026-08-03** — record Task A.1 as delivered with its three additive deviations (calibration-matrix tests, two extra tests, clamped constants), each motivated by P-5's promise that the constants will be recomputed. Sharpens section 3's seed-error note: the error is one-directional and bounded by construction, and the two correction loops are bounded for different reasons -- the step-down loop is dead at the shipped calibration and live at others, which is exactly why the matrix test exists. Components B-D unchanged.
 > **Rev 1 · 2026-08-03** — first version. Decomposes **Stage 4.5**: reinterpret Legend's Improvement Roll so its output banks XP toward the next whole percentage point instead of adding points directly. Four components, six tasks, deliberately ordered so the first two are inert. Supersedes the "no hidden XP accumulator" half of the Stage 1 pacing decision (roadmap Rev 14 decision log); the other three halves of that decision stand.
@@ -34,7 +35,7 @@ and none of them learns that XP exists. What changes is only how often
 | **P-3** | The Legend roll is unchanged. `world/improvement.py::improvement_roll()` is not touched by this epic; only its caller reinterprets the result. |
 | **P-4** | Curve shape: exponential, **doubling every `SKILL_XP_DOUBLING_SPAN` points**. RuneScape's ×2-per-7-levels is ruled out by measurement (94% of playtime in the top quartile of a 100-point scale). |
 | **P-5** | Calibration is **not fixed by this epic**. Constants carry provisional values plus the documented procedure to recompute them. Generous now, tightened never — lowering the curve later is free, raising it de-levels people. |
-| **P-6** | Scope is the **shared primitive**, so all five improvement call-sites move together: craft, repair, hunt-attack, hunt-harvest, disassemble. |
+| **P-6** | Scope is the **shared primitive**, so all **six** improvement call-sites move together: craft, repair, hunt-attack, hunt-harvest, disassemble, **scribe**. Scribe was five-not-six by omission rather than by decision (see §2's resolved sub-decisions and §8); a rule of the form "some Craft rolls teach and some do not, and you are not told which" is not learnable by a player, and P-5 says generosity is the safe side to err on. |
 | **P-7** | No hard cap at 100. Legend's >100% band (formula already in `world/improvement.py`'s docstring) becomes reachable. |
 | **P-8** | No second number is shown to the player. The cosmetic 1–99 badge stays rejected — the bar shows progress *within* the percentage, not a parallel level. |
 
@@ -51,19 +52,70 @@ and none of them learns that XP exists. What changes is only how often
   interpretation of it (P-1).
 - **Storing the progress bar.** Anything stored alongside a derived value can
   drift out of step with it. A bar computed on read cannot.
+- **XP grain scaled to material cost.** *(Rejected 2026-08-05, was the first
+  open sub-decision.)* The lever is real, but it is aimed at the wrong target and
+  it misfires. The cooldown is **per skill**, so the binding resource is *ticks*,
+  not materials — the moment XP scales per craft, "the most expensive recipe you
+  can afford, once per window" becomes strictly dominant. That is arithmetic, not
+  a risk. It also couples wealth to progression, which in a 100% player-driven
+  economy is the one feedback loop worth refusing outright. And the problem it
+  was meant to solve is **symmetric**: flat grain makes the *cheapest* recipe
+  dominant (grind a hundred spoons), scaled grain makes the *dearest* one
+  dominant (grind a hundred swords). Scaling does not fix the degeneracy, it
+  swaps which recipe is degenerate. The actual fix is difficulty relative to the
+  crafter, which is Component E — and note the distinction, because they look
+  alike: E scales on *how hard the task is for you*, which nobody can buy, not on
+  *what the task cost*, which is exactly what a rich player has more of.
 
-### Open sub-decisions (answer before Component C)
+### Sub-decisions — all three closed 2026-08-05
 
-- **[OPEN] XP grain scaling by recipe value.** The original sketch had XP
-  proportional to material cost. It is a real lever — it is most of what gives
-  RuneScape its shape without a brutal curve — but it interacts with the economy:
-  it makes the most material-expensive craft the optimal grind, which is either a
-  welcome sink or an exploit depending on how prices settle. **Not needed for
-  A–D to ship.** If deferred, `xp_gained` stays `roll_result` and the multiplier
-  slots in at one place in C.1.
-- **[OPEN] `improvement_cooldown = 30` under the new regime.** With XP grains
-  the cooldown becomes the dominant throttle rather than a spam guard. It is a
-  calibration knob (P-5), listed here so it isn't tuned by accident.
+- **[RESOLVED] XP grain scaling by recipe value → rejected.** See *Explicitly
+  rejected* above. The replacement is Component E (§7).
+- **[RESOLVED] `improvement_cooldown = 30` → frozen, and reclassified.** It is
+  no longer an anti-spam guard; it is the wall-clock floor under the whole curve
+  (2 931 ticks × 30 s ≈ 24 h from craft 20 to 100). It stays at 30 for two
+  reasons. First, **P-5**: raising it is a tightening, and the only lever allowed
+  to move under recalibration is the curve. Second, and more important, **two
+  knobs doing one job is how a system becomes uncalibratable** — halving the
+  cooldown and halving `SKILL_XP_BASE` produce the same observable change, so
+  after the fact nobody can tell which one did it. **The curve is the calibration
+  knob; the cooldown is held fixed.** C.1 rewrites its comment accordingly. It is
+  rarely the binding constraint for craft anyway: materials, gathering time and a
+  successful roll all bite first.
+- **[RESOLVED] `CmdScribe` → it trains.** Sixth call-site, folded into C.1. See
+  P-6 and §8.
+
+### Measured pacing (2026-08-05, 400 simulated careers, INT 10)
+
+Craft 20 → 100, counting eligible ticks:
+
+| | ticks | at 30 s cooldown |
+|---|---|---|
+| shipped system (`main`) | 38 | **19 minutes** |
+| after C.1 at (6, 20) | 2 931 | **24.4 hours** |
+
+A **77× slowdown**, which is the epic working as intended — 19 minutes to mastery
+is not a balance problem, it is a broken system. But it also means (6, 20) is
+generous only *relative to a curve that could be far steeper*; in absolute terms
+it is a serious commitment of player time, and P-5's "generous now" should be
+read with that in mind.
+
+⚠️ **Two throttles now multiply, and only one of them is documented as a
+throttle.**
+
+| level | XP per point | mean grain | ticks per point |
+|---|---|---|---|
+| 20 | 12 | 3.25 | 3.7 |
+| 60 | 48 | 2.25 | 21.3 |
+| 95 | 161 | 1.38 | 117.1 |
+
+Legend's roll already self-throttles — the grain falls from 3.25 to 1.38 because
+the roll must *exceed* your own skill — and `world/improvement.py`'s docstring
+says so in as many words: *"This is the pacing engine — no hidden XP accumulator
+is needed."* This epic adds an accumulator on top of it. That is a deliberate
+choice, but after C.1 that sentence is **false in its own file**, and a
+contradiction inside the source is the same failure the Evennia Reference Rev 21
+had to fix. C.1 corrects it.
 
 ---
 
@@ -384,6 +436,23 @@ calls `improve_skill_on_use`, and only the latter changes (P-6).
   | 4 | craft repeatedly until the level moves | "improves!" fires once | the threshold is what levels you |
   | 5 | `@py str(self.skill_xp.get("hunting"))` after a hunt | XP present | P-6 — hunting moved too, with no call-site edit |
 
+- **Also in C.1, from the 2026-08-05 sub-decision close-out** — three small edits
+  that belong in this commit because they are all consequences of the same
+  reinterpretation:
+  1. **Sixth call-site.** `CmdScribe` (`commands/crafting_commands.py`) gets
+     `imp = caller.attempt_skill_improvement("craft", outcome)` plus the standard
+     `_improvement_feedback` routing, exactly like the other five. It is a real
+     Craft roll with a material cost and a failure mode; excluding it was an
+     omission. P-6 now reads six.
+  2. **Reclassify `improvement_cooldown`.** Its comment currently calls it a
+     "balance knob". Rewrite it to say what it now is: the wall-clock floor under
+     the curve, **held fixed**, with the curve as the sole calibration lever. Do
+     not change the value.
+  3. **Correct `world/improvement.py`'s docstring.** It states that the roll's
+     self-throttle "is the pacing engine — no hidden XP accumulator is needed".
+     After this task that is false in its own file. Correct it in place and say
+     what superseded it, the way Testing Reference Rev 4 handled its own reversal
+     — do not delete the old claim silently.
 - **Commit:** `feat(progression): bank improvement rolls as XP; derive level from total`
 
 ### ⚠️ Ordering hazard — C without D feels *worse* than before
@@ -466,13 +535,110 @@ Two ways to handle it, and the choice belongs to Adam:
 
 ---
 
-## 7. Carry-forward
+## 7. Component E — the difficulty gate ⛔ BLOCKED
 
-- **`CmdScribe` rolls Craft but grants no improvement** (`docs/BACKLOG.md`,
-  *Crafting & Tools*, OPEN). This epic has to answer it: it is the one roll-site
-  of six that banks nothing, and "what earns progress" is precisely this epic's
-  question. Decide it in C.1 or explicitly punt it again, but do not leave it
-  unmentioned a second time.
+**Status: BLOCKED on recipe content. Do not schedule it after D; it is not a
+"later" task, it is a task with an unmet precondition.** Written down now because
+it is the answer to a question that was open for two revisions, and an answer
+nobody wrote down is indistinguishable from an oversight.
+
+### Why it exists
+
+Components A–D make progression *slow*. They do nothing about making it
+*meaningful*. With a flat grain, the optimal way to reach craft 100 is to pick
+the cheapest recipe you know and repeat it 2 931 times — the curve taxes the
+grind but does not object to it. Scaling the grain by material cost inverts the
+exploit rather than removing it (see §2, *Explicitly rejected*).
+
+The lever that removes it is difficulty **relative to the crafter**, and the seam
+for it already exists and has never been used. `attempt_skill_improvement`'s
+gate 2 carries this comment:
+
+> *"Real difficulty: `meaningful` must be True. Trivial/auto-pass call sites pass
+> `meaningful=False` so AFK-farmable actions don't reward. Currently a **seam**,
+> not a policy: both live call sites are meaningful and use the default. When
+> trivial checks exist, they opt out here — we don't build the difficulty
+> heuristic speculatively."*
+
+Crafting something far below your skill **is** the trivial case that seam was
+built for. It is also Legend-faithful: routine tasks do not earn an Improvement
+Roll. P-3 is untouched — the roll is not modified, it simply is not attempted.
+
+### ⛔ Why it cannot ship yet — the ladder does not reach
+
+The gate needs a per-recipe difficulty. One exists: `MongooseCraftRecipe.min_skill`.
+Its current state, measured 2026-08-05:
+
+| recipes in `world/recipes.py` | 8 |
+| with `min_skill` set | **1** (`LeatherBootsRecipe`, 30) |
+| all others | default 0 |
+
+With a trivial band of 30 points, a recipe stops teaching once your skill exceeds
+its `min_skill` by more than the band. The highest `min_skill` in the game is 30.
+**Therefore nothing in the game teaches Craft above 61**, and a crafter who
+reaches 61 can never improve again. That is not a tuning problem to be softened
+with a smaller band — a band of 50 merely moves the wall to 81 — it is a
+statement that the recipe catalogue does not span the skill scale.
+
+A dead end is strictly worse than the grind it replaces. Shipping E against the
+current catalogue would be a regression.
+
+**Rejected mitigation — a soft gate that reduces XP rather than blocking it.**
+It looks like the safe version and is not. At high skill the roll's grain is
+already at its floor of 1 (the mean is 1.38 at level 95), so a "trivial crafts
+bank less" rule has almost no effect at exactly the levels where grinding is
+worth doing. It buys the appearance of a fix at the cost of a second mechanic to
+calibrate.
+
+### Trigger
+
+The recipe catalogue spans the skill scale: `min_skill` values form a ladder with
+**no gap wider than `SKILL_TRIVIAL_BAND`** from 0 up to the intended ceiling. In
+practice that means recipes at roughly 0 / 20 / 40 / 60 / 80, not eight recipes
+clustered at the bottom. That is a content milestone, not an engineering one, and
+it belongs to whichever stage grows the crafting catalogue.
+
+### Tasks, when unblocked
+
+**E.1 — `min_skill` for the whole catalogue.** Assign a deliberate `min_skill` to
+every recipe, replacing the current implicit 0. Pure data in `world/recipes.py`,
+which is inside OpenCode's permitted scope (`AGENTS.md`) — bulk, mechanical,
+no production logic. Depends on the catalogue being large enough to ladder;
+until then it is guessing.
+
+**E.2 — the gate itself.** One constant (`SKILL_TRIVIAL_BAND`, read per call via
+`getattr(settings, ...)` following A.1's precedent) and one expression at the
+craft call-site computing `meaningful=` from the recipe's `min_skill` against the
+crafter's `.current`. ⚠️ Read `.current`, not `.value` — a tool buff must not
+make a task count as harder than it is. No change to
+`attempt_skill_improvement`; the seam is already shaped for this.
+
+**E.3 — the other five call-sites: explicitly deferred, not forgotten.** Repair,
+hunt-attack, hunt-harvest, disassemble and scribe have **no difficulty datum**
+comparable to `min_skill`. Inventing one per site is a separate design problem
+(is a repair's difficulty the item's condition? is a hunt's the creature's?), and
+guessing five heuristics to be consistent with one real one is how a system
+acquires four wrong answers. They keep `meaningful=True` — the generous side,
+per P-5 — until each has a difficulty of its own. **Say this out loud in the
+code**, or the asymmetry reads as a bug to the next person.
+
+### Interaction with the rest of the epic
+
+E is not a dependency of anything. A–D ship and work without it; the grind it
+removes is unpleasant rather than broken, and the 24-hour curve makes
+spoon-grinding tedious enough that it is unlikely to be anyone's first choice
+before E lands.
+
+---
+
+## 8. Carry-forward
+
+- **`CmdScribe` rolls Craft but grants no improvement** — **ANSWERED
+  2026-08-05: it trains.** Folded into C.1 as the sixth call-site; P-6 updated
+  from five to six. The reasoning is in §2's resolved sub-decisions. Kept here
+  rather than deleted because this bullet is what forced the answer, and the
+  `docs/BACKLOG.md` entry it points at moves to SCHEDULED rather than closing —
+  it is not done until C.1 ships.
 - **Calibration** is a settings change by construction (P-1). When there are
   players, recompute from observed action rates — not from genre benchmarks.
   RuneScape's ~250 h per skill buys a world with 23 skills and twenty years of
