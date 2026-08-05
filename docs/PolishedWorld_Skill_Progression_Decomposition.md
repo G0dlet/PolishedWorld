@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 5 · 2026-08-05** — **P-5 gains the threshold it was missing.** "Tightened never" was written as an absolute, and it is not one: the ratchet exists because a tightening de-levels *people*, so it starts at first real players and not before. Pre-launch, recalibration in either direction is free, and several are expected. Without the threshold P-5 would be cited to block a legitimate early rebalance — the rule would outlive its own reason. Also: §7's BLOCKED status is unchanged but **reframed** — the catalogue being small is an ordinary early-development state, not a finding, and Rev 4 wrote it as an alarm. `min_skill = 30` on `LeatherBootsRecipe` is a **placeholder**, so E.1 assigns every value rather than filling in the blanks around it. New hazard recorded in §7: **`min_skill` would carry two jobs** — it is already a hard access floor read from `.value`, and E.2 would read it as a difficulty datum from `.current`. One number, two purposes, two readings; raising it so a recipe teaches longer also locks lower-skill crafters out of it entirely.
 > **Rev 4 · 2026-08-05** — **the three open sub-decisions are closed**, and closing them added a component. XP grain scaled to material cost is **rejected, not deferred**: with a per-skill cooldown the binding resource is *ticks*, so any per-craft scaling makes "the most expensive recipe you can afford, once per window" strictly dominant — and flat grain is degenerate in the mirror direction, making the *cheapest* recipe dominant. Both are the same bug; the fix is neither, it is the `meaningful` seam that `attempt_skill_improvement` already carries and has never used. That becomes **Component E** (§7), recorded as **BLOCKED on recipe content** rather than scheduled, because with eight recipes topping out at `min_skill = 30` the gate would strand every crafter above 60 — strictly worse than the grind it removes. `improvement_cooldown` is **frozen** rather than tuned (one knob per job; the curve is the knob). `CmdScribe` is **taken in** as a sixth call-site, so **P-6 changes from five to six**. Also records the measured pacing this epic actually produces — 38 ticks today vs 2 931 after C.1, a 77× slowdown — and the fact that two independent throttles now multiply.
 > **Rev 3 · 2026-08-05** — record Component B as delivered, with **five deviations, one of them structural**: B.2 shipped as a read-time fallback rather than a written backfill. The reason is a measurement, not a preference — `at_object_creation` gives every new character non-zero skills, so a one-shot migration is one-shot only for the characters alive when it ran, and the population it must cover has no end. Section 4's original text is left standing and the Delivered block is appended below it, the same shape Rev 2 used for A.1 — the superseded design stays readable, and the block says which parts of it did not survive contact with the code. Components A, C and D unchanged, and **C.1's dependency list is unchanged** — it still needs a working store, and it has one.
 > **Rev 2 · 2026-08-03** — record Task A.1 as delivered with its three additive deviations (calibration-matrix tests, two extra tests, clamped constants), each motivated by P-5's promise that the constants will be recomputed. Sharpens section 3's seed-error note: the error is one-directional and bounded by construction, and the two correction loops are bounded for different reasons -- the step-down loop is dead at the shipped calibration and live at others, which is exactly why the matrix test exists. Components B-D unchanged.
@@ -34,7 +35,7 @@ and none of them learns that XP exists. What changes is only how often
 | **P-2** | `skill.current` becomes a **materialised cache with exactly one writer** — the same discipline `world/currency.py` holds over the wallet Attribute (**S4-R2**). |
 | **P-3** | The Legend roll is unchanged. `world/improvement.py::improvement_roll()` is not touched by this epic; only its caller reinterprets the result. |
 | **P-4** | Curve shape: exponential, **doubling every `SKILL_XP_DOUBLING_SPAN` points**. RuneScape's ×2-per-7-levels is ruled out by measurement (94% of playtime in the top quartile of a 100-point scale). |
-| **P-5** | Calibration is **not fixed by this epic**. Constants carry provisional values plus the documented procedure to recompute them. Generous now, tightened never — lowering the curve later is free, raising it de-levels people. |
+| **P-5** | Calibration is **not fixed by this epic**. Constants carry provisional values plus the documented procedure to recompute them. Generous now, tightened never — lowering the curve later is free, raising it de-levels people. **⚠️ The ratchet starts at first real players, not now** *(Rev 5)*. It exists because a tightening takes skill away from someone who earned it; with nobody to take it from, recalibration in either direction costs nothing but a `@reload`. Several rebalances are expected before launch and P-5 does not forbid them — it forbids the *last* one from being upward. State which side of that line a proposed change is on before invoking this rule. |
 | **P-6** | Scope is the **shared primitive**, so all **six** improvement call-sites move together: craft, repair, hunt-attack, hunt-harvest, disassemble, **scribe**. Scribe was five-not-six by omission rather than by decision (see §2's resolved sub-decisions and §8); a rule of the form "some Craft rolls teach and some do not, and you are not told which" is not learnable by a player, and P-5 says generosity is the safe side to err on. |
 | **P-7** | No hard cap at 100. Legend's >100% band (formula already in `world/improvement.py`'s docstring) becomes reachable. |
 | **P-8** | No second number is shown to the player. The cosmetic 1–99 badge stays rejected — the bar shows progress *within* the percentage, not a parallel level. |
@@ -542,6 +543,12 @@ Two ways to handle it, and the choice belongs to Adam:
 it is the answer to a question that was open for two revisions, and an answer
 nobody wrote down is indistinguishable from an oversight.
 
+*(Rev 5 — tone correction.)* Rev 4 wrote the blocker as though a problem had been
+discovered. Nothing is wrong: the catalogue is small because the game is early,
+which is the expected state and not a defect. What follows is a **sequencing**
+fact — E reads a difficulty ladder, the ladder does not exist yet, so E waits.
+The numbers below are what makes it concrete, not an alarm.
+
 ### Why it exists
 
 Components A–D make progression *slow*. They do nothing about making it
@@ -601,10 +608,37 @@ it belongs to whichever stage grows the crafting catalogue.
 ### Tasks, when unblocked
 
 **E.1 — `min_skill` for the whole catalogue.** Assign a deliberate `min_skill` to
-every recipe, replacing the current implicit 0. Pure data in `world/recipes.py`,
-which is inside OpenCode's permitted scope (`AGENTS.md`) — bulk, mechanical,
-no production logic. Depends on the catalogue being large enough to ladder;
-until then it is guessing.
+**every** recipe — including `LeatherBootsRecipe`, whose 30 is a placeholder and
+not a value to build a ladder around. This is a fresh pass over the whole
+catalogue, not a fill-in-the-blanks around one anchor. Pure data in
+`world/recipes.py`, inside OpenCode's permitted scope (`AGENTS.md`) — bulk,
+mechanical, no production logic. Depends on the catalogue being large enough to
+ladder; until then it is guessing.
+
+⚠️ **`min_skill` would be carrying two jobs, and they disagree about which value
+to read.** Today it is a **hard access floor**: `crafting_base.py:263` refuses the
+craft outright when `_skill_value() < min_skill`, and it reads `.value` on
+purpose, so a tool buff may lift you over the bar ("are you good enough to
+*attempt* this right now"). E.2 would read the same field as a **difficulty
+datum**, and must read `.current` — a temporary buff must not make a task count
+as harder, and therefore more instructive, than it is.
+
+One number, two purposes, two readings. The consequence is not subtle: raise a
+recipe's `min_skill` so that it keeps teaching at higher skill, and you have also
+locked every lower-skill crafter out of it completely. With several rebalancing
+passes expected, that coupling makes each pass harder to predict than it looks.
+
+Two ways out, and E.2 must pick one **explicitly** rather than inherit the
+coupling by accident:
+  - **Accept it**, and state that `min_skill` means "the level this recipe is
+    written for" with both effects following from that single meaning. Cheapest,
+    and arguably the honest reading — a recipe you are barely qualified for is
+    also the one that teaches you most.
+  - **Give E its own field** (e.g. `teaches_until`), decoupling access from
+    instruction at the cost of a second number per recipe to keep coherent.
+
+Recorded here rather than decided, because the answer depends on what the grown
+catalogue actually looks like — which is the same thing E is blocked on.
 
 **E.2 — the gate itself.** One constant (`SKILL_TRIVIAL_BAND`, read per call via
 `getattr(settings, ...)` following A.1's precedent) and one expression at the
