@@ -29,9 +29,24 @@ current skill with the roll earns the larger 1D4+1 jump.
 
 Self-throttling by design: because the roll must *exceed* the current skill, a
 low skill is beaten easily (frequent 1D4+1 jumps) while a high skill is beaten
-rarely (mostly the +1 floor). This is the pacing engine -- no hidden XP
-accumulator is needed. It is exactly why on-use improvement stays legible on the
-raw percentage: the curve flattens itself as mastery grows.
+rarely (mostly the +1 floor). Measured over 400 simulated careers at INT 10, the
+mean grain falls from 3.25 at skill 20 to 1.38 at skill 95 -- a factor of ~2.4.
+
+SUPERSEDED (Stage 4.5, 2026-08-05): this docstring used to continue "This is the
+pacing engine -- no hidden XP accumulator is needed", and that claim is now
+false. It was measured and it was wrong by two orders of magnitude: 38 eligible
+ticks took a Craft skill from 20 to 100, roughly 19 minutes of wall clock. A
+factor of 2.4 is a texture, not a pacing curve.
+
+The accumulator the old sentence ruled out is exactly what was built.
+`Character.improve_skill_on_use` now banks this function's "gained" as lifetime
+XP and derives the level from the total through the exponential curve in
+`world/progression.py` (~2 931 ticks over the same span, ~77x). The self-throttle
+survives as a mild *third* ramp on top of the curve rather than as the mechanism.
+
+What this module does is unchanged either way (P-3): the roll still takes the
+skill's level, still returns 1D4+1 on a beat and 1 on the floor. Only its
+caller's interpretation of that number changed.
 
 Deliberate deferral -- skills above 100%:
     The rulebook adds a second band for skills over 100% (roll against a target

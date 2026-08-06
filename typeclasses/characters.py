@@ -18,6 +18,7 @@ from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
+from world.progression import level_for_xp, progress_within_level, xp_threshold
 from world.skill_xp import SkillXPHandler
 
 from django.conf import settings
@@ -532,19 +533,39 @@ class Character(ObjectParent, ClothedCharacter):
 
     def improve_skill_on_use(self, skill_key):
         """
-        Attempt one Legend improvement roll on a skill and apply the result.
+        Attempt one Legend improvement roll on a skill and bank the result as XP.
 
         The on-use analogue of spending an Improvement Roll in the tabletop
         game, and the single chokepoint for on-use skill growth. It does NOT
         decide *whether* a use is eligible (success-only, real-difficulty,
-        cooldown) -- that gate lives in the caller (Component B.2). By the time
-        this runs, the decision to attempt improvement has already been made.
+        cooldown) -- that gate lives in the caller. By the time this runs, the
+        decision to attempt improvement has already been made.
+
+        WHAT STAGE 4.5 CHANGED HERE
+        ---------------------------
+        The roll is untouched (P-3): `improvement_roll` still takes the skill's
+        *level* and still returns 1 on the floor, 2-5 on a beat. What changed is
+        what that number means. It used to be added to `.current` directly, which
+        put a Craft skill from 20 to 100 in roughly 38 eligible ticks -- 19
+        minutes of wall clock. It is now banked as lifetime XP, and the level is
+        recomputed from the total through an exponential curve
+        (`world/progression.py`). Same roll, same grain, ~77x the pacing.
+
+        Two throttles therefore multiply, and only the second is a knob:
+        Legend's roll self-throttles because it must *exceed* your own skill (the
+        grain falls from ~3.25 to ~1.38 across the scale), and the curve makes
+        each point cost more than the last. The curve does essentially all of the
+        work; do not tune one thinking it moves the other.
+
+        P-1 / P-2: lifetime XP is the sole persisted truth. `.current` is a
+        materialised cache of `level_for_xp(total)` with exactly one writer --
+        this method -- the same discipline `world/currency.py` holds over the
+        wallet Attribute (S4-R2).
 
         Improvement is measured against the skill's *permanent* learned level
         (`.current`), NOT its effective `.value`. `.value` folds in situational
         `.mod` (e.g. a +20 tool buff); a temporary bonus must not raise the
-        roll's target and make a skill *harder to permanently improve*. So we
-        read and write `.current` throughout and let the MVP cap (100) hold.
+        roll's target and make a skill *harder to permanently improve*.
 
         Args:
             skill_key (str): key of the skill, e.g. "craft" or "hunting".
@@ -554,17 +575,26 @@ class Character(ObjectParent, ClothedCharacter):
             summary the felt-progress layer consumes:
               - "skill_key" (str)
               - "rolled" (bool): False when already at cap (no roll is wasted
-                on a mastered skill).
-              - "old" / "new" (int): permanent skill % before / after.
-              - "delta" (int): new - old (0 when maxed).
+                on a mastered skill, and no XP is banked -- see the cap note).
+              - "old" / "new" (int): permanent skill % before / after. **These
+                are now usually equal**; the level moves once in dozens of ticks.
+              - "delta" (int): new - old. **Usually 0.** Any caller that treats
+                a non-zero delta as "a tick happened" is now wrong; use "rolled".
               - "beat" (bool): did the roll beat current skill (the 1D4+1
                 outcome)? False when not rolled.
               - "crossed" (list[int]): which of 25/50/75/100 were passed this
-                tick -- the celebration hooks for C.2.
+                tick -- the celebration hooks.
+              - "xp_gained" (int): XP banked by this tick (0 when not rolled).
+              - "xp_total" (int): lifetime XP for this skill after the bank.
+              - "progress" (tuple): `(earned, needed, fraction)` within the
+                current point, from `progress_within_level`. Component D.1 draws
+                its bar from this; nothing about it is stored (P-1).
 
-        Multiplayer note: this is a read-modify-write on `.current`. Evennia's
-        Twisted reactor runs single-threaded and does not preempt a command
-        mid-call, so concurrent uses serialise safely without an explicit lock.
+        Multiplayer note: this is a read-modify-write on the XP Attribute and on
+        `.current`. Evennia's Twisted reactor runs single-threaded and does not
+        preempt a command mid-call, so concurrent uses serialise safely without
+        an explicit lock. Do not introduce a yield, `utils.delay` or deferred
+        between the read and the write.
         """
         skill = self.skills.get(skill_key)
         if skill is None:
@@ -578,27 +608,76 @@ class Character(ObjectParent, ClothedCharacter):
         cap = skill.max if skill.max is not None else 100
 
         # Already mastered -> don't waste a roll (or a celebration) on it.
+        #
+        # ⚠️ DO NOT "SIMPLIFY" THIS AWAY once `min(cap, ...)` below appears to
+        # make it redundant. It is what keeps `.current == level_for_xp(total)`
+        # true at the ceiling. Without it, XP would keep accruing at cap while
+        # `.current` stood still, the cache would silently diverge from the
+        # truth, and D.2's cap lift would then teleport the character several
+        # points at once. With it, the total freezes inside
+        # [threshold(cap), threshold(cap + 1)) and the invariant holds.
         if old >= cap:
+            capped_xp = self.skill_xp.get(skill_key)
             return {"skill_key": skill_key, "rolled": False, "old": old,
-                    "new": old, "delta": 0, "beat": False, "crossed": []}
+                    "new": old, "delta": 0, "beat": False, "crossed": [],
+                    "xp_gained": 0, "xp_total": capped_xp,
+                    "progress": progress_within_level(capped_xp)}
+
+        # P-1 repair, and the one branch that is a no-op in every normal life.
+        # `.current` is supposed to be written only by this method, but an admin
+        # `@py`, a restored backup or a legacy write can leave it standing above
+        # what the stored total implies -- and then `level_for_xp` below would
+        # DE-LEVEL the character. Top the total up to the level's own floor
+        # first, so the grain lands on a consistent base. This is exactly B.2's
+        # absent-entry rule (`xp_threshold(.current)`) applied to a *present*
+        # entry that has fallen behind, and it routes through the single writer.
+        floor_xp = xp_threshold(old)
+        stored_xp = self.skill_xp.get(skill_key)
+        if stored_xp < floor_xp:
+            self.skill_xp.add(skill_key, floor_xp - stored_xp)
 
         int_char = self.stats.int.value   # full INT added to the 1D100 (Legend)
         res = improvement_roll(old, int_char)
 
-        # CounterTrait's setter already clamps via _enforce_boundaries, but we
-        # clamp here too so the returned old/new/delta are exact regardless.
-        new = min(cap, old + res["gained"])
-        skill.current = new
+        # Bank first, then derive. `add()` returns the new lifetime total, which
+        # keeps this a single read-modify-write rather than a read, a write and
+        # a second read.
+        new_xp = self.skill_xp.add(skill_key, res["gained"])
+
+        # The curve, not the roll, decides the level -- a grain of 5 usually
+        # moves nothing at all. Clamp to cap so old/new/delta stay exact.
+        new = min(cap, level_for_xp(new_xp))
+
+        # Write ONLY on a real move (P-2). The common case is that the level did
+        # not change, and a write per craft would be pointless churn on the
+        # Attribute behind the trait.
+        if new != old:
+            skill.current = new
 
         crossed = [t for t in (25, 50, 75, 100) if old < t <= new]
 
         return {"skill_key": skill_key, "rolled": True, "old": old, "new": new,
-                "delta": new - old, "beat": res["beat"], "crossed": crossed}
+                "delta": new - old, "beat": res["beat"], "crossed": crossed,
+                "xp_gained": res["gained"], "xp_total": new_xp,
+                "progress": progress_within_level(new_xp)}
 
-            # Real-time seconds between on-use improvement ticks *per skill*. A balance
-    # knob (dev value; tune once playtesting shows the grind's real shape). Real
-    # time, not game time: this throttles wall-clock action spam, not in-game
-    # duration.
+    # Real-time seconds between on-use improvement ticks *per skill*. Real time,
+    # not game time: this throttles wall-clock action spam, not in-game duration.
+    #
+    # NO LONGER A BALANCE KNOB, and this is a frozen value (Stage 4.5,
+    # sub-decision closed 2026-08-05). It is the wall-clock floor underneath the
+    # whole XP curve: ~2 931 eligible ticks from Craft 20 to 100 x 30 s is
+    # ~24 hours, and that multiplication is the only thing turning an abstract
+    # curve into a duration.
+    #
+    # It stays at 30 for two reasons. P-5 first: raising it is a *tightening*,
+    # and the curve is the only lever allowed to move under recalibration.
+    # More importantly, two knobs doing one job is how a system becomes
+    # uncalibratable -- halving this and halving SKILL_XP_BASE produce the same
+    # observable change, so after the fact nobody can say which one did it.
+    # THE CURVE IS THE CALIBRATION KNOB (server/conf/settings.py); this is held
+    # fixed. It is rarely the binding constraint for craft anyway: materials,
+    # gathering time and a successful roll all bite first.
     improvement_cooldown = 30
 
     # C.3: per-login baseline of every skill's permanent level, captured in
@@ -667,9 +746,10 @@ class Character(ObjectParent, ClothedCharacter):
         Presentation layer for on-use skill growth: the improvement primitive
         (world/improvement.py) stays pure and silent; every call site that fires
         a tick routes its result dict through here and messages the return. One
-        place for the copy across all four call sites (craft, repair, hunt-attack,
-        hunt-harvest), and the single seam the threshold celebration (C.2) will
-        compose onto.
+        place for the copy across all SIX call sites (craft, repair, hunt-attack,
+        hunt-harvest, disassemble, scribe -- P-6), and the single seam the
+        threshold celebration composes onto. The count has been wrong here twice;
+        if you add a seventh, this line is part of the change.
 
         Args:
             result (dict or None): the attempt_skill_improvement summary, or None
