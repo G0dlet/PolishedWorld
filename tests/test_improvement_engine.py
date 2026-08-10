@@ -580,3 +580,85 @@ class TestScribeTrains(EvenniaCommandTest):
             self.call(CmdScribe(), CLOTH, caller=self.char1)
 
         self.assertEqual(self.char1.skill_xp.get("craft"), before)
+
+
+@override_settings(**SHIPPED)
+class TestFeedbackCopy(EvenniaTest):
+    """
+    Component C.2: `_improvement_feedback` must handle `delta == 0` without lying.
+
+    Before C.1, `rolled=True` implied `delta >= 1` -- Legend's floor guaranteed
+    it -- so one gate served for both "a tick happened" and "something visible
+    happened". C.1 pulled those apart, and the old copy would render the newly
+    common case as "(+0, now 40%)": a message whose entire content is that
+    nothing changed.
+
+    The tests below pin three things, in descending order of how badly they would
+    hurt if they broke: that "+0" can never appear; that the practice line makes
+    no claim it will have to retract when D.1 replaces it; and that a real
+    level-crossing still reads exactly as it did on `main`.
+    """
+
+    character_typeclass = CHARACTER
+
+    def setUp(self):
+        super().setUp()
+        self.craft = self.char1.skills.get("craft")
+        self.craft.current = 40
+
+    def _feedback(self, gained):
+        with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(gained)):
+            return self.char1._improvement_feedback(
+                self.char1.improve_skill_on_use("craft")
+            )
+
+    def test_a_tick_that_banks_without_levelling_never_says_plus_zero(self):
+        # The single assertion this whole task exists for.
+        self.assertNotIn("+0", self._feedback(1))
+
+    def test_the_practice_line_carries_no_number_at_all(self):
+        # P-8: no second progression stat is shown to the player. Asserted as
+        # "no digit appears", which is stricter than checking for "%" and catches
+        # a well-meaning future edit that adds an XP count "just for testing".
+        text = self._feedback(1)
+        self.assertTrue(text)
+        self.assertFalse(any(char.isdigit() for char in text))
+
+    def test_the_practice_line_does_not_claim_the_skill_improved(self):
+        # The word "improves" is reserved for a tick where the percentage moved.
+        # Lending it to a tick where nothing visible happened teaches a meaning
+        # that D.1 would then have to take back.
+        self.assertNotIn("improves", self._feedback(1))
+
+    def test_a_levelling_tick_still_reads_exactly_as_it_did_before(self):
+        # The half of the copy C.2 must NOT disturb. One XP short of level 41,
+        # then a single point.
+        self.char1.skill_xp.add("craft", xp_threshold(41) - 1 - xp_threshold(40))
+
+        text = self._feedback(1)
+
+        self.assertIn("improves!", text)
+        self.assertIn("+1", text)
+        self.assertIn("41%", text)
+
+    def test_a_tier_crossing_celebrates_exactly_once(self):
+        # Craft's desc bands put a boundary at 40 -> the tier changes on the tick
+        # that reaches 41. Crossings are strictly rarer after C.1, so this line
+        # is now the rarest thing the method can say -- and it must still fire.
+        self.char1.skill_xp.add("craft", xp_threshold(41) - 1 - xp_threshold(40))
+
+        text = self._feedback(1)
+
+        self.assertEqual(text.count("reaches a new tier"), 1)
+
+    def test_a_gated_out_attempt_says_nothing(self):
+        self.assertEqual(self.char1._improvement_feedback(None), "")
+
+    def test_a_capped_skill_says_nothing(self):
+        # rolled=False, and after C.1 it also banks nothing. Silence is correct:
+        # there is no progress to report, felt or otherwise.
+        self.craft.current = 100
+        self.assertEqual(
+            self.char1._improvement_feedback(self.char1.improve_skill_on_use("craft")),
+            "",
+        )

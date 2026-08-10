@@ -773,6 +773,30 @@ class Character(ObjectParent, ClothedCharacter):
         skill = self.skills.get(result["skill_key"])
         label = skill.name if skill is not None else result["skill_key"].title()
 
+        if not result.get("delta"):
+            # Banked, but the percentage did not move -- the common case after
+            # C.1, and the one the ordering hazard in the decomposition is about.
+            #
+            # ⚠️ THROWAWAY COPY. TODO(D.1): delete this branch and render the
+            # derived progress bar from result["progress"] instead.
+            #
+            # It exists so the branch between C and D is never LESS legible than
+            # `main` is today. Stage 1's whole premise was that mechanically
+            # correct progression can still ship as an invisible backend that
+            # feels dead; going silent for dozens of crafts would walk straight
+            # back into that.
+            #
+            # Two constraints on the wording, and they are why this is not just
+            # the old line with the numbers stripped out:
+            #   * It must NOT say "improves". That word is reserved for a tick
+            #     where the number actually moved, and lending it to a tick where
+            #     nothing visible happened teaches the player a meaning that D.1
+            #     then silently takes back.
+            #   * It must carry NO number. Any figure shown here is a second
+            #     progression stat, which P-8 rejects outright, and it would have
+            #     to be un-taught when the bar arrives.
+            return f"You feel your grasp of {label} steady a little."
+
         lines = [f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"]
 
         # C.2 tier-celebration: fire only on the tick that actually crosses a
