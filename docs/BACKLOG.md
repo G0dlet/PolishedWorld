@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 24 · 2026-08-11** — one entry **added** (Crafting & Tools): **crafting resolves instantly**, with the design settled ahead of any code — timing belongs in the command, not the recipe, because `CraftingRecipeBase.craft()` is synchronous by construction; the shape is to delay `super().func()` in `CmdCraftGated` so ingredient re-resolution lands at completion and the collect→roll→consume sequence stays atomic in one tick. The entry matters less for itself than for what it fires: **it is the third timed action**, so the *Timed player actions have a pattern but no shared home* trigger is now **met**, and the two entries are cross-referenced from both sides. That entry named gathering and Stage 6 combat as the likely third; crafting arrived first, which is exactly why it is written down rather than left to become a fourth hand-written `at_pre_move` branch. The *`CmdCraftGated` recipe-resolver duplication* entry is **annotated, not changed**: a future discipline resolver and recipe-mastery handler both want to read the private registry, and both go inside `world/knowledge.py` to hold the consumer count at four modules — the move F.3 already made for `render_recipe_detail_by_name`.
+
 > **Rev 23 · 2026-08-05** — the **`CmdScribe`** entry is **answered and moves OPEN → SCHEDULED**: Stage 4.5's sub-decision close-out settled it in favour of training, and it ships as C.1's sixth call-site. The entry stays rather than closing, because it is not done until C.1 does it. The deciding argument was not the balance one the entry itself had already ruled out — it was that a rule of the form *"some Craft rolls teach and some do not, and you are not told which"* is not learnable by a player, and P-5 makes generosity the safe side to err on. One entry **added** (Crafting & Tools): **the recipe catalogue does not span the skill scale** — eight recipes, one `min_skill`, highest 30 — which is what blocks Stage 4.5's Component E and would strand every crafter above 61 if the gate shipped against it. Filed as BLOCKED with a content trigger, not as tuning.
 > **Rev 22 · 2026-08-05** — one entry added from the Stage 4.5 Component B close-out (Crafting & Tools): **`SkillXPHandler.add()` does not raise on an unknown skill key.** Recorded because it is the one place Component B knowingly departs from D7, not because it is a defect — it follows `improve_skill_on_use`, which made the same call in the opposite direction and wrote down why. Filed as SCHEDULED rather than OPEN: C.1 reviews every improvement call-site anyway, which is the only moment the answer can change without being a guess.
 > **Rev 21 · 2026-08-03** — one entry added (Crafting & Tools): **`CmdScribe` rolls Craft but grants no improvement.** Surfaced while counting `skill_check` call-sites for the roadmap Rev 13 correction — five of six roll-sites train the skill, one does not, and nothing in the code or the decomposition says whether that is a decision or an omission. Recorded as an open question rather than a defect, because either answer is defensible and neither is written down.
@@ -279,6 +281,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   destroy), so it too tolerates the private matcher changing under us.
 - **Trigger:** The crafting contrib stabilising a public resolver API (or its
   private matcher changing under us).
+- **Constraint until then (Rev 24):** any *new* reader of the private registry
+  goes inside an existing consumer module, not a fifth. The recipe-mastery epic
+  wants two — a `discipline` resolver for `recipes <discipline>` and the mastery
+  handler's recipe lookup — and both belong in `world/knowledge.py`, which is
+  already a consumer via `_can_transmit`. This is the move F.3 made for
+  `render_recipe_detail_by_name`, for the same reason.
 - **Origin:** Recipe Knowledge decomp §7 (Task B.2); §10 (Task E.2).
 - **Status:** OPEN
 
@@ -513,6 +521,29 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   - No loot-table infrastructure — the goal is the valve, not a drop system.
 - **Origin:** Recipe Knowledge decomp §14 (Task I.1) + §2 (c).
 - **Status:** BLOCKED (on world content existing, and on a real player base)
+
+### Crafting resolves instantly
+- **What:** `craft` produces its output in the same tick it is typed. The crafting
+  contrib has no timing support by construction — `CraftingRecipeBase.craft()` runs
+  `pre_craft → do_craft → post_craft` synchronously — so duration belongs in the
+  command, not the recipe. Settled shape: split `CmdCraftGated.func()` into
+  start/complete and delay `super().func()` itself, so ingredient re-resolution,
+  the three gates, the roll and the consume all land at completion in a single
+  tick; stale-reference consumption (an ingredient bartered away mid-craft) then
+  cannot happen. A new `craft_duration` on `MongooseCraftRecipe` replaces
+  `craft_cooldown` as the time sink. `utils.delay` with `persistent=False`, not
+  `yield` — `yield` needs session-backed context and is unreliable under
+  `execute_cmd` / `.call()`, which is how the test protocol drives commands.
+- **Why deferred:** Not a defect; instant crafting is playable. It is also the
+  **third timed action**, so building it means extracting the shared helper the
+  entry below asks for rather than writing a fourth `at_pre_move` branch — which
+  makes it a pass, not a drop-in. Skill-scaled duration is deliberately excluded
+  from v1: it interacts with the Stage 4.5 C/D practice-line balance. v1 abort is
+  movement only, via the existing `at_pre_move` precedent set by `rest` / `work`.
+- **Trigger:** After Stage 4.5 Component D. Pairs with *Timed player actions have
+  a pattern but no shared home* — do both in one pass.
+- **Origin:** Session 2026-08-11 (design settled against live source, no code written).
+- **Status:** OPEN
 
 ---
 
@@ -804,8 +835,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   duplication is real and `at_pre_move` is where it will become visible first —
   a third branch is the signal to build a small `TimedAction` helper rather than
   a fourth.
-- **Trigger:** The third timed action. Likely candidates: gathering with a
-  cast time, or anything in Stage 6 combat.
+- **Trigger:** **Met (Rev 24).** The third timed action is craft duration — see
+  *Crafting resolves instantly* — not the gathering or Stage 6 combat this entry
+  guessed at. Build the small `TimedAction` helper in that same pass; a fourth
+  hand-written `at_pre_move` branch is the outcome this entry exists to prevent.
 - **Origin:** Stage 4 D.1 (Evennia Reference §11.27 documents the mechanism).
 - **Status:** OPEN
 
