@@ -751,6 +751,22 @@ class Character(ObjectParent, ClothedCharacter):
         threshold celebration composes onto. The count has been wrong here twice;
         if you add a seventh, this line is part of the change.
 
+        THREE OUTCOMES NOW, NOT TWO (Stage 4.5, C.2)
+        --------------------------------------------
+        This used to be a two-way gate: a tick either rolled (and then always
+        gained at least Legend's +1, so it always had something to announce) or
+        it did not. C.1 broke that equivalence. A tick now banks XP nearly every
+        time and moves the percentage roughly once in dozens, so `rolled` and
+        "something visible happened" have come apart:
+
+            not rolled            -> ""                      (gated out, or capped)
+            rolled, delta == 0    -> the practice line        (the common case)
+            rolled, delta > 0     -> "improves!" + any tier celebration
+
+        The middle branch is the whole reason C.2 exists. The old copy would have
+        rendered it as "(+0, now 40%)", which is worse than silence: it is a
+        message that fires to tell you nothing changed.
+
         Args:
             result (dict or None): the attempt_skill_improvement summary, or None
                 when the attempt was gated out (the common case). Callers may pass
@@ -762,8 +778,14 @@ class Character(ObjectParent, ClothedCharacter):
                 Callers guard with `if text:` before messaging.
         """
         # Gated out (None) or a maxed skill that burned no growth (rolled=False):
-        # nothing to say. A rolled tick always has delta >= 1 (Legend's +1 floor),
-        # so rolled=True is a sufficient gate.
+        # nothing to say.
+        #
+        # ⚠️ This comment used to read "A rolled tick always has delta >= 1
+        # (Legend's +1 floor), so rolled=True is a sufficient gate." That was
+        # true when the roll's gain went straight onto `.current`. After C.1 the
+        # gain is XP and the percentage is derived, so rolled=True is NO LONGER
+        # sufficient for the "improves!" line -- it is only sufficient for
+        # "something happened at all". The delta check below is what replaced it.
         if not result or not result.get("rolled"):
             return ""
 
@@ -799,13 +821,27 @@ class Character(ObjectParent, ClothedCharacter):
 
         lines = [f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"]
 
-        # C.2 tier-celebration: fire only on the tick that actually crosses a
+        # Tier-celebration: fire only on the tick that actually crosses a
         # desc-tier boundary (a genuine named rank-up), never on the raw quarter
         # marks. Computed from the permanent old/new ints via tier_for (NOT
         # skill.desc(), which reads the buff-inflated .value), so a tool buff can
-        # neither fake nor mask a crossing. Naturally idempotent: improvement is
-        # monotonic (delta >= 1) and boundaries sit >= 15 apart while a single
-        # tick gains at most 5, so each boundary is crossed on exactly one tick.
+        # neither fake nor mask a crossing.
+        #
+        # It sits INSIDE the delta > 0 branch on purpose. It would be a harmless
+        # no-op outside it -- old == new means the tiers match -- but structure
+        # is a better guarantee than an argument, and D.1 will be editing the
+        # branch above it. Crossings are strictly rarer after C.1, which is what
+        # makes this line worth more, not less: it is now the rarest and
+        # therefore the most meaningful thing this method can say.
+        #
+        # ⚠️ The idempotence argument here used to read "improvement is monotonic
+        # (delta >= 1) and boundaries sit >= 15 apart while a single tick gains
+        # at most 5". Both halves are stale: after C.1 delta is usually 0, and
+        # the "at most 5" is 5 XP, not 5 percentage points. The conclusion
+        # survives and is in fact stronger -- the level is monotonic (a tick can
+        # only bank XP forward), boundaries still sit >= 15 apart, and a single
+        # tick can now move at most ONE point, so each boundary is crossed on
+        # exactly one tick.
         # descs is None on an un-migrated character -> tier_for returns "" -> skip.
         descs = skill.descs if skill is not None else None
         old_tier = tier_for(result["old"], descs)
