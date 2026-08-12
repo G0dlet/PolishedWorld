@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 25 · 2026-08-12** — one entry **added** (Tooling & Process) and one **annotated, not changed** (Crafting & Tools). Added: **`PolishedWorld_System_Backlog.md` sits at the wrong altitude for its location** — a strategic 14-system build-order list inside a tactical crafting subfolder. Logged rather than fixed, because moving a file breaks its rev header's canonical path and every reference to it; that is its own small task, not something to fold into a documentation sweep. Annotated: the **recipe catalogue** entry, whose Trigger described the work as though the catalogue had to be authored from nothing. It does not — `docs/crafting/` has held a complete *Arms of Legend* dependency decomposition throughout, and the entry's own author did not know it, which is precisely what an unindexed subdirectory does (see `docs/README.md` Rev 8). **The blocker does not lift:** `min_skill` appears zero times in that decomposition, so the axis Component E reads is the one thing the existing material lacks. What changes is the size and shape of the remaining work, and that is worth recording before someone scopes it as authorship.
+
 > **Rev 24 · 2026-08-11** — one entry **added** (Crafting & Tools): **crafting resolves instantly**, with the design settled ahead of any code — timing belongs in the command, not the recipe, because `CraftingRecipeBase.craft()` is synchronous by construction; the shape is to delay `super().func()` in `CmdCraftGated` so ingredient re-resolution lands at completion and the collect→roll→consume sequence stays atomic in one tick. The entry matters less for itself than for what it fires: **it is the third timed action**, so the *Timed player actions have a pattern but no shared home* trigger is now **met**, and the two entries are cross-referenced from both sides. That entry named gathering and Stage 6 combat as the likely third; crafting arrived first, which is exactly why it is written down rather than left to become a fourth hand-written `at_pre_move` branch. The *`CmdCraftGated` recipe-resolver duplication* entry is **annotated, not changed**: a future discipline resolver and recipe-mastery handler both want to read the private registry, and both go inside `world/knowledge.py` to hold the consumer count at four modules — the move F.3 already made for `render_recipe_detail_by_name`.
 
 > **Rev 23 · 2026-08-05** — the **`CmdScribe`** entry is **answered and moves OPEN → SCHEDULED**: Stage 4.5's sub-decision close-out settled it in favour of training, and it ships as C.1's sixth call-site. The entry stays rather than closing, because it is not done until C.1 does it. The deciding argument was not the balance one the entry itself had already ruled out — it was that a rule of the form *"some Craft rolls teach and some do not, and you are not told which"* is not learnable by a player, and P-5 makes generosity the safe side to err on. One entry **added** (Crafting & Tools): **the recipe catalogue does not span the skill scale** — eight recipes, one `min_skill`, highest 30 — which is what blocks Stage 4.5's Component E and would strand every crafter above 61 if the gate shipped against it. Filed as BLOCKED with a content trigger, not as tuning.
@@ -373,6 +375,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   whichever stage grows the crafting catalogue. Assigning the values once the
   catalogue exists is Task E.1 and is inside OpenCode's permitted scope
   (`world/recipes.py`); assigning them *now* would be guessing.
+- **Annotation (2026-08-12):** the decomposition work is **already done and was
+  not visible from here.** `docs/crafting/` holds a complete *Arms of Legend*
+  dependency decomposition — every item tree, with shared material nodes and
+  per-node status. It carries **no difficulty axis**: `min_skill` appears zero
+  times in it. So the remaining work is not authoring a catalogue but laddering
+  `min_skill` across the subset that is buildable today — **152** nodes are
+  `[BLOCKED]` on unbuilt systems against **110** `[DATA]`, and the 14 systems
+  those blocks resolve to are enumerated in build order in
+  `docs/crafting/PolishedWorld_System_Backlog.md`. **One question to settle
+  first, by judgement and not by grep:** whether the `[DATA]` subset spans enough
+  of the scale to ladder at all. If it tops out below the intended ceiling, the
+  gate reproduces this exact dead end one rung higher — a wall at 80 instead of
+  61 is still a wall.
 - **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
   decomposing Component E.
 - **Status:** BLOCKED
@@ -700,6 +715,29 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## Tooling & Process
+
+### `PolishedWorld_System_Backlog.md` lives at the wrong altitude for its location
+
+- **What:** `docs/crafting/PolishedWorld_System_Backlog.md` is a **strategic**
+  document — 14 systems in dependency order, each one gating a branch of the
+  crafting tree — filed inside a **tactical** subfolder, while `docs/BACKLOG.md`
+  is declared the canonical home for deferrals and `roadmap.md` for anything
+  stage-sized. Its content is neither: it is a build-order list for work that has
+  no stage yet.
+- **Why deferred:** Moving it is not free. Its own rev header names its canonical
+  path, `docs/README.md` now indexes it there, and any cross-reference in the
+  crafting decompositions points at the current location — so a move is a small
+  coordinated task, not a line in a sweep. It was also invisible until
+  `docs/README.md` Rev 8 widened the catalog check to `docs/**/*.md`; a document
+  nobody could find is not a document anyone had an altitude opinion about.
+- **Trigger:** whichever stage picks up the crafting catalogue — the same content
+  trigger as *⛔ The recipe catalogue does not span the skill scale*, since that
+  is the work which will actually read this file. Decide then between three
+  homes: leave it and accept the location, promote its list into `roadmap.md`'s
+  parallel backlog, or move it to `docs/` proper.
+- **Origin:** roadmap Rev 17 session, 2026-08-12, while fetching `docs/crafting/`
+  to check what the catalogue blocker actually needs.
+- **Status:** OPEN
 
 ### Unit-test coverage initiative (`tests/` + OpenCode replication)
 
