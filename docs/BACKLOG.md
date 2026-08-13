@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 26 · 2026-08-13** — new section **World & Rooms**, two entries added from a builder-ergonomics design discussion (no code written; `typeclasses/rooms.py` read live from `main` first). The small one, **builder QoL for dynamic rooms**, bundles three cheap fixes — a state-combination preview, a `roommsg` command to replace the three-line `@py` echo setup, and a written authoring convention (base desc + overlay fragments; full `@desc/<time>/<season>` matrix variants are the exception, not the model). The load-bearing one, **biome fragment library**, is deliberately its own entry so it cannot vanish as a sub-bullet of the QoL list: per-room authoring of a 7-time × 4-season × weather state space does not scale past the test world, and every room built before the library exists becomes migration debt — which is also what makes the entry's trigger self-arming. It is filed as a design session, not a drop-in, because its open questions (fragment format, composition with ExtendedRoom's priority chain, zone overrides, procgen alignment) are exactly the kind that go wrong when settled implicitly in code.
+
 > **Rev 25 · 2026-08-12** — one entry **added** (Tooling & Process) and one **annotated, not changed** (Crafting & Tools). Added: **`PolishedWorld_System_Backlog.md` sits at the wrong altitude for its location** — a strategic 14-system build-order list inside a tactical crafting subfolder. Logged rather than fixed, because moving a file breaks its rev header's canonical path and every reference to it; that is its own small task, not something to fold into a documentation sweep. Annotated: the **recipe catalogue** entry, whose Trigger described the work as though the catalogue had to be authored from nothing. It does not — `docs/crafting/` has held a complete *Arms of Legend* dependency decomposition throughout, and the entry's own author did not know it, which is precisely what an unindexed subdirectory does (see `docs/README.md` Rev 8). **The blocker does not lift:** `min_skill` appears zero times in that decomposition, so the axis Component E reads is the one thing the existing material lacks. What changes is the size and shape of the remaining work, and that is worth recording before someone scopes it as authorship.
 
 > **Rev 24 · 2026-08-11** — one entry **added** (Crafting & Tools): **crafting resolves instantly**, with the design settled ahead of any code — timing belongs in the command, not the recipe, because `CraftingRecipeBase.craft()` is synchronous by construction; the shape is to delay `super().func()` in `CmdCraftGated` so ingredient re-resolution lands at completion and the collect→roll→consume sequence stays atomic in one tick. The entry matters less for itself than for what it fires: **it is the third timed action**, so the *Timed player actions have a pattern but no shared home* trigger is now **met**, and the two entries are cross-referenced from both sides. That entry named gathering and Stage 6 combat as the likely third; crafting arrived first, which is exactly why it is written down rather than left to become a fourth hand-written `at_pre_move` branch. The *`CmdCraftGated` recipe-resolver duplication* entry is **annotated, not changed**: a future discipline resolver and recipe-mastery handler both want to read the private registry, and both go inside `world/knowledge.py` to hold the consumer count at four modules — the move F.3 already made for `render_recipe_detail_by_name`.
@@ -665,6 +667,65 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Bags/chests as craftable items.
 - **Origin:** Hunting / H7.3b decomposition backlog.
 - **Status:** BLOCKED (no container items yet)
+
+---
+
+## World & Rooms
+
+### Builder QoL for dynamic rooms (preview · `roommsg` · authoring convention)
+- **What:** Three small ergonomic fixes to the Extended Room builder surface.
+  (1) **State preview** — `@rdesc/preview winter night snowing` renders the room
+  under an arbitrary state combination by overriding `room_states` for a single
+  render, so a builder sees the winter-night-snow version without touching game
+  time or pinning states via `roomstate`; a companion `/coverage` view lists
+  which desc slots the room actually fills and where each unfilled combination
+  falls back in the 7-level priority chain — today the builder has to *deduce*
+  that "night+winter → falls to desc_winter", the view should just say it.
+  (2) **`roommsg` command** — `roommsg add <text>` / `roommsg rate <seconds>` /
+  `roommsg list|del`, replacing the current three-line `@py` setup for
+  atmospheric echoes (`db.room_messages` + `room_message_rate` +
+  `start_repeat_broadcast_messages()`), which is builder-hostile.
+  (3) **One written convention** — the canonical authoring model is *one base
+  desc + short overlay fragments*; full `@desc/<time>/<season>` matrix variants
+  are reserved for landmark rooms. Docs change only. Full variants and `$state`
+  fragments are two knobs expressing the same overlay, and the convention picks
+  one so the mental model halves without removing capability.
+- **Why deferred:** None is a defect — rooms are fully authorable today, just
+  expensively. And Stage 4.5 is mid-flight; no new feature work until it closes.
+- **Trigger:** Before the next deliberate building pass. (1) and (2) are
+  standard 30–90-minute tasks; (3) is documentation.
+- **Origin:** Session 2026-08-13 (builder-ergonomics discussion; no code).
+- **Status:** OPEN
+
+---
+
+### Biome fragment library for dynamic room descriptions
+- **What:** Rooms gain a `biome` attribute (`forest`, `meadow`, `mountain`,
+  `swamp`, …); a central `world/room_fragments.py` owns default overlay
+  fragments per biome × state (weather, time-of-day, season). Lookup chain:
+  room's own fragment → biome fragment → nothing. A builder then writes one
+  base desc plus a biome value and gets rain, snow, night and season flavour
+  for free; hand-written text remains only where a room is genuinely unique.
+  Single-writer by construction — one module owns the fragment vocabulary, the
+  same shape `world/material_registry.py` gives crafting. It is also the
+  natural procgen seam: a generated room carries only a biome key and the
+  library does the rest, which is the only authoring model that survives the
+  Daggerfall-scale ambition.
+- **Why deferred:** This is the load-bearing piece, but it is a design session,
+  not a drop-in. Open questions that must be settled before code: fragment
+  storage format; how library fragments compose with ExtendedRoom's priority
+  chain and `$state()` parsing (inject? append? replace?); whether a zone level
+  belongs between room and biome; and how far the biome key doubles as an input
+  to future procgen and resource spawning. Building it speculatively
+  mid-Stage-4.5 would break both the no-speculation rule and session focus.
+- **Trigger:** Own decomposition session, scheduled **before any building pass
+  larger than the test world** — every room authored under the per-room model
+  before the library exists becomes migration debt, so the cost of delay grows
+  with every room built. That makes the trigger self-arming rather than
+  aspirational.
+- **Origin:** Session 2026-08-13 (builder-ergonomics discussion; explicitly
+  flagged as must-not-lose).
+- **Status:** OPEN (requires its own design session)
 
 ---
 
