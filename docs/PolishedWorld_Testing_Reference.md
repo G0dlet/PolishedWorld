@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 5 · 2026-08-13** — **Two new sections, from the Stage 4.5 Component C protocol run.** §11 records the run's most expensive mistake, which was not a bug in the code: a step whose expected outcome was *the level did not change* passed while the code under test was never reached, because the craft it used failed and the success-only gate returned first. Nothing happening and the guard working look identical from outside, so a step expecting an absence must carry an independent receipt that the code ran — and both receipts were available here and neither was demanded. It is the in-game twin of the unit-test trap in the same component (a write-guard cannot be tested by asserting the value afterwards, only by observing the write), and the same question finds both: *what else could produce this observation?* §12 records two argument-shape traps that surface as object-search failures rather than usage errors — `harvest <part> from <corpse>` and multimatch numbering (`rabbit-1`).
 > **Rev 4 · 2026-08-03** — **§3's no-comprehensions rule was wrong and is corrected by measurement.** List, set and dict comprehensions *do* see `py`'s eval locals (PEP 709 inlining, Python 3.12+); generator expressions and lambdas do not. Verified on 3.12 and 3.14 during Stage 4.5 A.1. §3 now leads with the cause -- `eval(code, {}, available_vars)` leaves globals empty, so nested function scopes cannot reach the caller's locals -- because the cause is version-independent and the table is not. Adds three diagnostics that actually discriminate, and a warning about the shape of diagnostic that does not: a lambda referencing only its own parameter passes on every version and proves nothing. Adds the argument-passing idiom for verifying a pure module inside the running server, and notes what `evennia shell` cannot prove.
 > **Rev 3 · 2026-07-26** — Three additions from Stage 3 Components G–H. §1 corrected: `evennia shell` has **no** `me`/`self`/`here` at all (pure-function use only), and the interactive `py` console **drops pasted lines** from a MUD client, so the rule of thumb now favours atomic one-shot `@py` over the console — the previous advice pointed straight at the trap. §7 hand-stamp harness extended to knowledge carriers and to `ndb` state (`nattributes.add`), which is what made H.1's regression tests deterministic. §10 gained the how of two-party testing: a consent handshake needs two *sessions*, and `@ipuppet` cannot provide them.
 > **Rev 2 · 2026-07-13** — Added the lambda-scope `me` gotcha (§3) and a manual-stamp harness note for cooldown isolation (§7), both from Stage 3 Component E.2 disassemble testing.
@@ -167,6 +168,59 @@ Read-only commands (e.g. `recipes`) touch no shared state on the single-threaded
 **Two-party tests need two sessions.** ⚠️ `@ipuppet` *switches* your session to the other character, so it cannot give you both parties at once — you cannot watch an offer arrive, walk the offerer out of the room, and then answer as the recipient. Open a second client (raw telnet is fine) on a second account and puppet the other character there. This also exercises a guard you would otherwise never hit: commands that require a *played* target read `target.has_account`, which is truthy only while a session is connected, so an unpuppeted body is correctly refused.
 
 **Backstop coverage.** Any two-step handshake (offer → accept) must be tested against the world moving in between: offerer leaves the room, offerer logs out, the offer expires, the offer is answered twice. Validating only at offer time is the barter `finish()` bug (Evennia Reference §7.5, `world/barter.py`).
+
+## 11. ⚠️ A step that expects "nothing changed" must prove the code ran
+
+The most expensive kind of false pass: a test step whose expected observation is
+an *absence*, satisfied because the code under test was never reached.
+
+Stage 4.5 C.1 shipped a guard that stops a hand-raised skill level from being
+written back down. The protocol step read:
+
+```
+@py str(self.skills.craft.__setattr__("current", 60))
+craft twine from fiber-1, fiber-2, fiber-3
+```
+
+— expect the level to still be 60. It was. The craft had **failed**, the
+success-only gate returned before the improvement engine was called, and the
+guard was never exercised. Nothing happening and the guard working produce the
+identical observation.
+
+**The rule:** when the expected outcome is "X did not change", the step must also
+carry an independent receipt that the code ran — a success message, a second
+value that *did* move, a counter. Here both were available and neither was
+demanded: the craft's own outcome line distinguishes success from failure, and
+the XP total moves on any tick that reaches the engine.
+
+```
+craft twine from fiber-1, fiber-2, fiber-3
+    You work the materials into length of twine.     <- success: the tick ran
+    The work fights you; ...                          <- failure: it did not
+    You botch the work badly ...                      <- fumble: it did not
+@py str((int(self.skills.craft.current), self.skill_xp.get("craft")))
+    (60, 1191)   <- level held AND the total moved: the guard actually fired
+```
+
+This is the in-game twin of a unit-testing trap from the same component. A guard
+that writes a cache "only when it changed" cannot be tested by asserting the
+value afterwards — the value is identical either way. Only observing the *write*
+distinguishes them (spy on the property setter). Same question in both cases:
+**what else could produce this observation?**
+
+## 12. Command-syntax traps that read as bugs
+
+Two argument-shape errors from Stage 4.5's protocol that produce misleading
+messages rather than usage hints:
+
+- **`harvest` requires the connective.** `harvest <part> from <corpse>`. Typing
+  `harvest hide from` alone yields `Could not find 'hide from'` — an object-search
+  failure on the mis-parsed remainder, not a usage error. Read a `Could not find`
+  naming *two* words that were meant to be separate as a syntax problem first.
+- **Identical objects need the numbered alias.** Six rabbits in a room make
+  `hunt rabbit` return a disambiguation list; `hunt rabbit-1` is the target.
+  Evennia's multimatch numbering is per-search, so re-check the list after any
+  kill or flight rather than assuming `-1` still names the same animal.
 
 ## Domain quick-refs
 
