@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 6 · 2026-08-13** — **Component C is delivered, and the epic's most expensive finding is a deviation the spec's own test protocol forced.** §5 gains a Delivered block covering C.1, C.2 and the three sub-decisions. The deviation is **F7**: `.current` raised from outside a bank would have *de-levelled* the character on her next use, and the paragraph that guarantees someone will do this is §5's own in-game protocol, which says to craft until the level moves — hours of work anyone will shortcut by setting `.current` by hand. The repair tops the total up to `xp_threshold(.current)` rather than clamping the level down, so P-1's direction is restored rather than suspended. Also records **three false claims found inside production files** in one epic — `world/improvement.py`'s pacing sentence, `_improvement_feedback`'s "rolled=True is a sufficient gate", and the tier celebration's idempotence argument — all the same shape: prose asserting what a mechanism guarantees, left standing after the mechanism changed. And a **false pass**: the F7 step first "succeeded" because the craft it used failed, so the engine never ran and "the level stayed put" was produced by nothing happening. A step expecting *nothing changed* needs an independent receipt that the code ran (Testing Reference Rev 5 §11). Six mutations recorded, one honest gap stated, and the fact that `improve_skill_on_use` had **zero** tests before this — the 363-test baseline would have stayed green if it had been deleted.
 > **Rev 5 · 2026-08-05** — **P-5 gains the threshold it was missing.** "Tightened never" was written as an absolute, and it is not one: the ratchet exists because a tightening de-levels *people*, so it starts at first real players and not before. Pre-launch, recalibration in either direction is free, and several are expected. Without the threshold P-5 would be cited to block a legitimate early rebalance — the rule would outlive its own reason. Also: §7's BLOCKED status is unchanged but **reframed** — the catalogue being small is an ordinary early-development state, not a finding, and Rev 4 wrote it as an alarm. `min_skill = 30` on `LeatherBootsRecipe` is a **placeholder**, so E.1 assigns every value rather than filling in the blanks around it. New hazard recorded in §7: **`min_skill` would carry two jobs** — it is already a hard access floor read from `.value`, and E.2 would read it as a difficulty datum from `.current`. One number, two purposes, two readings; raising it so a recipe teaches longer also locks lower-skill crafters out of it entirely.
 > **Rev 4 · 2026-08-05** — **the three open sub-decisions are closed**, and closing them added a component. XP grain scaled to material cost is **rejected, not deferred**: with a per-skill cooldown the binding resource is *ticks*, so any per-craft scaling makes "the most expensive recipe you can afford, once per window" strictly dominant — and flat grain is degenerate in the mirror direction, making the *cheapest* recipe dominant. Both are the same bug; the fix is neither, it is the `meaningful` seam that `attempt_skill_improvement` already carries and has never used. That becomes **Component E** (§7), recorded as **BLOCKED on recipe content** rather than scheduled, because with eight recipes topping out at `min_skill = 30` the gate would strand every crafter above 60 — strictly worse than the grind it removes. `improvement_cooldown` is **frozen** rather than tuned (one knob per job; the curve is the knob). `CmdScribe` is **taken in** as a sixth call-site, so **P-6 changes from five to six**. Also records the measured pacing this epic actually produces — 38 ticks today vs 2 931 after C.1, a 77× slowdown — and the fact that two independent throttles now multiply.
 > **Rev 3 · 2026-08-05** — record Component B as delivered, with **five deviations, one of them structural**: B.2 shipped as a read-time fallback rather than a written backfill. The reason is a measurement, not a preference — `at_object_creation` gives every new character non-zero skills, so a one-shot migration is one-shot only for the characters alive when it ran, and the population it must cover has no end. Section 4's original text is left standing and the Delivered block is appended below it, the same shape Rev 2 used for A.1 — the superseded design stays readable, and the block says which parts of it did not survive contact with the code. Components A, C and D unchanged, and **C.1's dependency list is unchanged** — it still needs a working store, and it has one.
@@ -388,9 +389,10 @@ signatures one component early is guessing about code that is still dead.
 
 ## 5. Component C — the primitive changes engine
 
-The first task in this epic that changes what a player experiences. The five
-call-sites are **not touched**: they call `attempt_skill_improvement`, which
-calls `improve_skill_on_use`, and only the latter changes (P-6).
+The first task in this epic that changes what a player experiences. Five of the
+six call-sites are **not touched**: they call `attempt_skill_improvement`, which
+calls `improve_skill_on_use`, and only the latter changes (P-6). The sixth,
+`CmdScribe`, is *added* by C.1 — see the sub-decisions below.
 
 ### Task C.1 — bank XP instead of adding points
 
@@ -487,6 +489,139 @@ Two ways to handle it, and the choice belongs to Adam:
 - **Testing — unit:** `delta == 0` never produces a message containing `+0`; a
   level-crossing tick still produces the tier celebration exactly once.
 - **Commit:** `fix(progression): feedback copy for ticks that bank without levelling`
+
+#### Delivered 2026-08-12/13 — C.1 and C.2, with one deviation the protocol forced
+
+Shipped on `feature/skill-progression` as three commits — `81ab2d9` (C.1),
+`6a9c762` (the tests), `07ffef4` (C.2) — plus `9395ac7`, a comments-only
+follow-up explained below. **391 tests green** (363 baseline + 28 new). The
+in-game protocol was run against the live server; all twelve steps behave as
+predicted, and one of them did not on the first attempt (see *The false pass*).
+
+The ordering hazard was resolved in favour of **C ships with a throwaway line**.
+The reason is calendar, not design: at ~5 h/week the gap between C and D can be a
+week of wall clock, and "do not playtest the intermediate state" is not a
+constraint that survives seven days of the branch sitting there. The line is
+`You feel your grasp of {label} steady a little.` — no number (P-8) and, by
+deliberate choice, **not the word "improves"**, which is reserved for a tick
+where the percentage actually moved. Lending it to a silent tick would teach a
+meaning D.1 then has to take back. It carries a `TODO(D.1)` and is one branch.
+
+**The deviation — F7, a floor repair the spec does not mention.**
+
+B.2 closed the "never banked" hole by deriving the floor on read. The hole left
+standing is *banked, then `.current` raised from outside*: an admin `@py`, a
+restored backup, a legacy write. After that the stored total implies a lower
+level than the cache shows, and `level_for_xp` would **de-level the character**
+on her next successful use.
+
+This is not a theoretical branch, and the proof is in this document. §5's own
+in-game protocol says *"craft repeatedly until the level moves"*, which at any
+interesting skill level takes hours — so the first person to test C.1 sets
+`.current` by hand, and the second thing they do is craft. The spec's test
+procedure and the spec's blind spot are the same paragraph.
+
+What shipped: before the roll, if the stored total is below `xp_threshold(old)`,
+top it up to that floor through `add()`. It is B.2's rule applied to a *present*
+entry that has fallen behind rather than to an absent one, it routes through the
+single writer (P-2), and in every normal life it is one comparison that changes
+nothing. Measured in-game: craft set to 60 by hand against a total of 188 (level
+21); the next successful craft left the level at 60 and moved the total to 1191 —
+`xp_threshold(60)` plus the tick's grain. Without the repair the same craft would
+have printed `improves! (+-39, now 21%)`.
+
+Note the direction. The repair **tops the total up** rather than clamping the
+level down; a `max(old, ...)` guard would also preserve the level but would leave
+the total permanently inconsistent with it and the progress bar permanently
+meaningless. P-1's direction is restored, not suspended.
+
+**The three sub-decisions, all delivered in C.1.**
+
+1. **Sixth call-site.** `CmdScribe` now routes through
+   `attempt_skill_improvement("craft", outcome)` and `_improvement_feedback`,
+   placed after the result message so a feedback line reads as the next beat, as
+   in `CmdDisassemble`. **P-6 reads six**, verified in-game.
+2. **`improvement_cooldown` reclassified, value untouched at 30.** Its comment
+   now states what it is — the wall-clock floor under the curve (~2 931 ticks ×
+   30 s ≈ 24 h), held fixed, with the curve as the sole calibration lever — and
+   why: halving this and halving `SKILL_XP_BASE` are observationally identical,
+   so two knobs doing one job make the system uncalibratable after the fact.
+3. **`world/improvement.py`'s docstring corrected in place.** The claim that the
+   self-throttle *"is the pacing engine — no hidden XP accumulator is needed"* is
+   marked SUPERSEDED with the measurement that falsified it (a factor of 2.4 is a
+   texture, not a curve) and with what replaced it. The old sentence is quoted so
+   a later reader sees the file was wrong rather than seeing a file that was
+   always right.
+
+**Two more stale claims, found only because we went looking.** C.2 shipped the
+three-outcome branch but left the prose around it describing the two-outcome
+world. `_improvement_feedback` still asserted *"a rolled tick always has
+delta >= 1 ... so rolled=True is a sufficient gate"* — with the counter-example
+three lines below it — and the tier celebration's idempotence argument still
+rested on `delta >= 1` and on "a tick gains at most 5", where the 5 is now XP
+rather than points. Both are superseded in place in `9395ac7`, a commit proved to
+be comments-only by comparing the module's AST with docstrings stripped before
+and after (identical). **That is three false claims in one epic**, each of the
+same shape: prose asserting the sufficiency of a mechanism that has since
+changed. The pattern is now explicit — when a mechanism changes, the sentences
+asserting what it guarantees are part of the change.
+
+**The false pass — and what it says about how in-game steps must be written.**
+
+The F7 step first "passed" without running. The craft it used **failed**, the
+success-only gate returned before the engine was reached, and the step's expected
+observation — *the level stays at 60* — was produced by nothing happening at all.
+It read exactly like success.
+
+The rule that falls out: **a test step whose expected outcome is "nothing
+changed" must carry an independent receipt that the code ran.** Here that is the
+success message plus a moved XP total. This is the in-game twin of the unit-test
+finding below, and both were found the same way — by asking what else could
+produce this observation. Recorded in Testing Reference Rev 5 §11.
+
+**Measured, not asserted — six mutations.** (1) `.current` written
+unconditionally: **1 failure**, and only one — every value-equality assertion in
+the file stays green, because the value written equals the value already there.
+Only a spy on the property setter distinguishes them, which is why §5's test (b)
+demands the Attribute not be written rather than the value be equal. (2)
+Reverting the central line to `old + gained`: **12 failures** across six of seven
+classes. (3) The F7 repair deleted: **2 failures**, both de-levellings. (4) The
+cap short-circuit deleted: **2 failures and 1 error**. (5) The `delta == 0`
+branch deleted, i.e. the "+0" copy: **3 failures**. (6) The practice line
+reworded to borrow "improves": **1 failure** — worth running because the sentence
+reads fine and passes both other feedback tests.
+
+**One gap stated rather than hidden:** moving the tier celebration back out of
+the `delta > 0` branch is green in every test. It is a genuine no-op there
+(`old == new` means the tiers match), so its placement is structure, not
+behaviour. It sits inside the branch because D.1 will be rewriting the code
+around it — but the green suite is not evidence that it must.
+
+**The engine had no tests at all before this.** All 363 baseline tests would have
+stayed green if `improve_skill_on_use` had been deleted outright;
+`attempt_skill_improvement` and `_improvement_feedback` were equally uncovered.
+`tests/test_improvement_engine.py` is the first net under any of them, so "the
+suite is still green" is not evidence about this method — the mutations are.
+
+**Calibration is pinned, not swept, in this file** — `override_settings(6, 20)`
+— which is the opposite of `tests/test_progression.py` and `tests/test_skill_xp.py`.
+Those sweep because what they assert must hold under any constants P-5 hands
+them. Several assertions here are only *meaningful* where one point costs more
+than one tick's grain; at a degenerate calibration "the level rises by exactly 1"
+would be a false failure.
+
+**A curve fact the tests found.** `xp_threshold` floors, and at (6, 20) the raw
+cost of point 2 is 6.21 XP — so points 1, 2 and 3 all cost exactly 6. "Each point
+costs strictly more than the one before" is **false** at the shipped calibration
+near the origin; the curve is exponential in the limit, not monotonically strict
+at integer resolution. The assertion was written that way first and the test
+caught it.
+
+**Carry into D.1:** `improve_skill_on_use` returns `progress` — the
+`(earned, needed, fraction)` triple from `progress_within_level` — on every
+branch including the capped one, so the bar has its input without a second read.
+Measured live at craft 21: `(6, 12, 0.5)`. D.1's job is to delete the practice
+line, not to add a branch beside it.
 
 ---
 
