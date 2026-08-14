@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 22 · 2026-08-14** — new **§14: XYZGrid & Wilderness**, pre-implementation source verification for roadmap Stage 6. No code written and neither contrib is in use, so the section carries an explicit status banner — but the reading answered the "verify at source" note that has sat in the Stage 6 entry since Rev 2, so it is written down while it is fresh rather than re-derived later. Read against Evennia `main` and then **diffed against the `v6.1.0` tag: all five relevant files are byte-identical**, so the findings apply to the pinned version rather than only to upstream. Four have teeth. **§14.2** `spawn_nodes()` deletes any XYZRoom whose coordinate has left the map string, and re-applies the prototype over survivors with `exact=False` — a `desc` edited in-game is lost at the next spawn, so grid areas are authored in map modules, not with `dig`/`desc`. **§14.5** wilderness room recycling resets `contents` and exit locks but **not Tags or Attributes**, which is precisely where ExtendedRoom keeps room states and seasonal descs — state leaks between coordinates on a shared shell. **§14.6** `get_objs_at_coordinates()` is an O(n) scan over the whole wilderness and runs on effectively every step, which rules out resource nodes as objects. **§14.7** the grid side composes with ExtendedRoom for free (the two contribs override different hooks and `XYZRoom.return_appearance` calls `super()`), while the wilderness side inherits the behaviour but cannot use the storage. Also §14.3: a misspelled `taget_map_xyz` on the `TransitionMapNode` base class, harmless via the registered legend class and an `AttributeError` if you subclass the base directly.
 > **Rev 21 · 2026-08-05** — **§3.5 contained a statement this repo had already measured to be false.** Its `@py` note said comprehensions and generators both fail in `@py`; Testing Reference Rev 4 established on measurement that **comprehensions work** (PEP 709 gave them their own scope in 3.12) and that generators and lambda bodies are what fail. Two documents contradicting each other is worse than one saying nothing, so §3.5's note is corrected and now points at the Testing Reference rather than restating it. §3.5 also gains the fact that **`CounterTrait.current` returns a float** (20.0, not 20) — harmless until a value is stored or compared, at which point the float propagates somewhere it does not belong. New **§11.28**: Evennia deserialises Attribute containers into `_SaverDict`/`_SaverList`, for which `isinstance(x, dict)` is **False**, and `AttributeHandler.has()` returns a **list**, not a bool. Both verified live against Evennia 6.1.0 during Stage 4.5 Component B (363 tests green, 2026-08-05); the `_SaverDict` trap had bitten this project twice before and was not in this document at all.
 > **Rev 20 · 2026-08-03** — **§7 rewritten; it was not merely stale but actively wrong.** The status line said *Planned* while `world/barter.py` has been merged since Stage 2, but the damage was further down: **§7.2** told the reader to add `CmdOffer`/`CmdAccept`/`CmdDecline`/`CmdEvaluate`/`CmdStatus` to `CharacterCmdSet`, which would make `offer` typable outside a trade and turn the §11.20 `status` collision from scoped into permanent — only `CmdPWTrade` is global, the rest arrive with `CmdsetTrade` at trade start. **§7.4** described coins as typeclassed objects offered like any other item, the architecture S4-2 explicitly rejected; it now documents the handler-level bridge shipped in Stage 4 Component E (digit-first segment classification, gross re-validation, net settlement, one-shot flag, unledgered per S4-4). New **§7.3** documents the module-global patch mechanism and its seven swaps; new **§7.5** tabulates the five confirmed upstream bugs, of which the direct `obj.location` assignment in `finish()` is the one with teeth — **no move hook fires in a trade, ever**. **§7.6** records that the trade cmdset is added rather than Replace, which is why the staleness guards must exist. Also: the contrib status table was wrong on five rows (Barter, CooldownHandler, BuffHandler, Crafting, Clothing all read *Planned* while in use) — corrected against a grep of the repo, not from memory. `TickerHandler` is deliberately left untouched: whether the survival ticker goes through it or through a Script has not been verified, and correcting an unchecked row is the same failure this Rev is fixing.
 
@@ -1675,8 +1676,186 @@ Roadmap cross-ref: backlog item *"Search / disambiguation UX + item identity"*.
 | AttributeProperty | `evennia.typeclasses.attributes` (built-in) | Use throughout |
 | DurableObject mixin (`condition`/`apply_wear`/`is_broken`/`condition_line`) | `typeclasses/durable.py` (project) | Stage 2 Component B, complete |
 | Search multimatch UX | settings `SEARCH_MULTIMATCH_*` / `SEARCH_AT_RESULT` | Backlog — item-identity + optional reskin (§12) |
+| XYZGrid | `evennia.contrib.grid.xyzgrid` | Not in use — source-verified for Stage 6 (§14) |
+| Wilderness | `evennia.contrib.grid.wilderness` | Not in use — source-verified for Stage 6 (§14) |
  
 ---
  
-**Freshness:** tracked in the Rev header at the top of this file (Evennia baseline: `main`; §12 spot-checked 2026-07-01).
+## 14. XYZGrid & Wilderness
+
+> **Status: neither contrib is in use.** This section is pre-implementation source verification for
+> roadmap Stage 6, done 2026-08-14. Every claim below was read out of
+> `evennia/contrib/grid/xyzgrid/{xyzroom,xymap,xymap_legend}.py` and
+> `evennia/contrib/grid/wilderness/wilderness.py`. All five files involved (those four plus
+> `extended_room.py`) are **byte-identical between Evennia `main` and the `v6.1.0` tag** as of that
+> date, so these findings hold for the pinned version this project runs. Nothing here has been
+> exercised against a running server — it is source reading, not measurement, and the distinction
+> matters until Stage 6 actually starts.
+
+The working shape is the two contribs side by side: **XYZGrid for authored, persistent structure**
+(roads, villages, anything a player should be able to return to and find unchanged) and
+**wilderness for large homogeneous resource areas** (forest, mountain, anywhere the rooms are
+interchangeable). They are independent systems with independent coordinate spaces and no built-in
+bridge between them.
+
+### 14.1 XYZGrid — coordinates are Tags
+
+`XYZRoom` (a `DefaultRoom` subclass) stores its position as three Tags, categories
+`room_x_coordinate` / `room_y_coordinate` / `room_z_coordinate`; `XYZExit` additionally carries
+`exit_dest_x_coordinate` and siblings for its destination.
+
+**Z is not height — it is the map's name** (a string, matched `__iexact`). Each Z is a separate 2D
+map string living in a Python module. X and Y are ints.
+
+The custom manager gives coordinate queries directly:
+
+```python
+XYZRoom.objects.get_xyz(xyz=(3, 7, "byvagen"))          # exactly one, no wildcards allowed
+XYZRoom.objects.filter_xyz(xyz=("*", "*", "byvagen"))   # a whole map in one query
+```
+
+Both find subclasses of `XYZRoom`, not only exact matches. `'*'` is the wildcard and is accepted by
+`filter_xyz` only.
+
+`XYZRoom.xyz` caches into `self._xyz`, but **deliberately skips caching when any of the three tags
+reads back `None`** — tags may not have finished saving on a freshly created room. Don't
+reintroduce an unconditional cache.
+
+For a future web atlas this is the cheap half: one tag query returns every room on a map with its
+coordinates.
+
+### 14.2 The map module is the source of truth, not the database
+
+This is the fact with the largest operational consequence, and it inverts how this project has
+built rooms so far.
+
+`XYMap.spawn_nodes()` (`xymap.py`) begins by **deleting** rooms:
+
+```python
+for existing_room in _XYZROOMCLASS.objects.filter_xyz(xyz=(x, y, self.Z)):
+    roomX, roomY, _ = existing_room.xyz
+    if (roomX, roomY) not in map_coords:
+        self.log(f"  deleting room at {existing_room.xyz} (not found on map).")
+        existing_room.delete()
+```
+
+Any XYZRoom whose coordinate is no longer present in the map string is destroyed. Then, per node,
+`MapNode.spawn()` (`xymap_legend.py`) either creates the room or — if one already exists — runs:
+
+```python
+spawner.batch_update_objects_with_prototype(self.prototype, objects=[nodeobj], exact=False)
+```
+
+`exact=False` means attributes *absent* from the prototype survive, but **everything the prototype
+does define is rewritten**. A `desc` edited in-game with the `desc` command is therefore lost at the
+next `xyzgrid spawn` if the prototype defines `desc`.
+
+Practical rule: **grid areas are authored in map modules and prototypes under version control, not
+with `dig` / `desc` in-game.** That suits this project's commit discipline, but it is a habit
+change, and `spawn` is destructive rather than additive.
+
+A node whose prototype is falsy is a *virtual* node — `spawn()` returns early and no room is built.
+
+### 14.3 Map-to-map transitions, and the `taget_map_xyz` typo
+
+Grid-to-grid transitions are solved in-contrib. `MapTransitionNode` (legend symbol `T`) is never
+spawned as a room; its `get_spawn_xyz()` returns `target_map_xyz`, so the exit built toward it lands
+on another Z-map instead. At most one link may connect to a `T` node; a two-way crossing needs a `T`
+on each map, each pointing at the *real* `#` node on the other map — not at the other `T`.
+
+⚠️ The base class `TransitionMapNode` (`xymap_legend.py:485`) misspells its own class attribute as
+`taget_map_xyz`, while `get_spawn_xyz()` reads `self.target_map_xyz`. The class actually registered
+in the default legend, `MapTransitionNode` (`:1184`), defines the name correctly, so ordinary use of
+`T` is fine. **Subclass `MapTransitionNode`, never `TransitionMapNode` directly** — via the base
+class the intended `MapParserError` never fires and you get a bare `AttributeError` instead.
+
+Grid-to-wilderness has **no** contrib support: the wilderness is not a Z-map. That transition is
+project code at designated trailhead rooms, in both directions.
+
+### 14.4 Wilderness — rooms are recycled shells
+
+`WildernessScript` holds the whole system on three Attributes: `db.rooms` (`(x, y)` → room),
+`db.itemcoordinates` (object → `(x, y)`), and `db.unused_rooms`. Coordinates are 2D `(x, y)`, a
+separate namespace from XYZGrid's `(x, y, z)`; several named wildernesses may coexist.
+
+Movement does not move the character between rooms — it re-points a room at new coordinates.
+`WildernessScript.move_obj()` assigns `obj.location` directly (`= None`, then `= room`), so **no
+move hooks fire from the assignment itself** — the same failure family as the Barter `finish()` bug
+in §7.5. The saving grace is that `WildernessExit.at_traverse()` calls `at_pre_move(None)` and
+`at_post_move(None)` explicitly, so guards on those hooks do run — but with `None` as the
+destination, so any guard that inspects where the mover is going gets nothing.
+
+`_destroy_room()` returns a room to `unused_rooms` once no account remains in it. With the default
+`preserve_items=False`, leftover objects get `location = None` but **keep their `itemcoordinates`
+entry**, so they reappear when someone next stands on that coordinate. `preserve_items=True`
+instead blocks recycling while any object is present. Dropped items and corpses therefore do
+persist by coordinate — that part works.
+
+### 14.5 ⚠️ What recycling does *not* reset
+
+`WildernessRoom.set_active_coordinates()` reassigns the room's `contents` and rewrites the exits'
+traverse/view locks. It does **not** touch Tags or Attributes on the room object.
+
+Everything ExtendedRoom stores lives in exactly those two places: `room_states` are Tags
+(`tags.batch_add`, category `room_state`), and `desc_*` seasonal descriptions and details are
+Attributes. On a recycled shell they leak across coordinates. Set `on_fire` at `(5, 5)`, walk away,
+let the room recycle — and the next occupant of that same shell at `(99, 99)` is still on fire.
+
+**Rule for the wilderness: per-place state is coordinate-keyed data held by the map provider or the
+script. Never a Tag or an Attribute on the room.** The same rule is what rules out scattering
+resource nodes as objects (§14.6).
+
+### 14.6 Wilderness performance is O(n) per step
+
+`WildernessScript.get_objs_at_coordinates()` iterates the entire `itemcoordinates` dict — its own
+docstring calls this a *"naive iteration through every object inside the wilderness"* — and it is called
+from `set_active_coordinates()`, i.e. whenever a room is activated for a coordinate it was not
+already showing.
+
+For a lone traveller that is **every step**: the room behind them is recycled, the coordinate ahead
+has no room, so a room is claimed and re-pointed. The cost of one step therefore scales with the
+total object count of the whole wilderness, multiplied by concurrent movers. `itemcoordinates` is
+also a single pickled Attribute on a single Script — one write hotspot for every object entering or
+leaving.
+
+Consequence for Stage 6: **resources in the wilderness should be coordinate-keyed data in the map
+provider, materialised into an object only when a player actually harvests.** Objects-per-node does
+not scale to the resource density this project wants.
+
+### 14.7 Composing both with ExtendedRoom
+
+Both `XYZRoom` and `WildernessRoom` inherit `DefaultRoom`, not `ExtendedRoom`, so neither brings
+this project's weather, seasonal descriptions or room states along. The two sides cost very
+different amounts to fix.
+
+**Grid side — composes cleanly.** The hooks do not collide: `XYZRoom` overrides `return_appearance`
+and `get_display_name`; `ExtendedRoom` overrides `get_display_desc` and does **not** touch
+`return_appearance`. `XYZRoom.return_appearance()` opens with
+`room_desc = super().return_appearance(looker, **kwargs)`, so under MRO
+`PWGridRoom → XYZRoom → Room(ExtendedRoom) → DefaultRoom` the call reaches `DefaultRoom`'s version,
+which calls `self.get_display_desc()` — resolving to ExtendedRoom's. Seasonal descriptions and the
+minimap both work. Lock the MRO with a test rather than trusting it to stay accidental.
+
+**Wilderness side — behaviour composes, storage does not.** `WildernessRoom.get_display_desc()` is
+the *same* hook as ExtendedRoom's; it returns `ndb.active_desc` when set and otherwise falls through
+to `super()`. So simply never setting `active_desc` lets ExtendedRoom answer. But per §14.5 the
+underlying storage is unusable on a shared shell, so the behaviour has to be re-implemented in
+memory — biome from the map provider by coordinate, season from `world/gametime_utils.py` — rather
+than via `desc_*` Attributes. Writing Attributes per step would also defeat the contrib's entire
+`ndb`-based no-DB-write-on-move design.
+
+### 14.8 Two things XYZGrid gives away free
+
+`XYZRoom.return_appearance()` renders an in-game ASCII minimap: `map_display`, `map_mode`
+(`'nodes'` or `'scan'`), `map_visual_range` (default 2), `map_character_symbol`. Each is a class
+attribute overridable per room and further overridable per-call via kwargs and per-map via
+`xymap.options`. The map is emitted as a **separate `msg()` tagged `type='xymap'`**, which makes it
+straightforward to route into its own client pane later.
+
+Pathfinding across a map is also built in — `InterruptMapNode` (`I`) marks a node the auto-stepper
+stops at, `InterruptMapLink` (`i`) the same for a link.
+
+---
+
+**Freshness:** tracked in the Rev header at the top of this file (Evennia baseline: `main`; §12 spot-checked 2026-07-01; §14 verified against `main` **and** the `v6.1.0` tag, 2026-08-14).
 **Maintained alongside:** `PolishedWorld_GDD_v2.md`, `PolishedWorld_Functional_Decomposition.md`, `PolishedWorld_Code_Standards.md`.
