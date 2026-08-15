@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 7 · 2026-08-15** — **Component D.1 is delivered, and the fourth false claim of the epic was produced by this document's own test protocol.** §6 gains a Delivered block covering the four locked decisions (D-1 bar resolution, D-2 when the bar renders, D-3 `CmdProgress`, D-4 captions for bars that cannot move), the evaluation and **rejection** of Evennia's `health_bar` contrib, and the measurement that decided D-1. That measurement is the substantive finding: a whole-cell bar **goes silent at high skill** — 23% of ticks move a 20-cell bar at skill 90 — which is the exact silence D.1 exists to remove, displaced one level down. Eighth-block partials give 8× resolution and resolve every banked XP up to skill ~95. Also records the **fourth falsified production claim**: `_improvement_feedback`'s *"a single tick can now move at most ONE point"*, disproven in-game when a tick took Craft 20 → 60 — because §6's protocol tells the tester to set `.current` by hand, and the claim held only while `.current` had no writer but the engine. Same shape as F7: the spec's own protocol manufactures the state the spec's prose says cannot occur. Two corrections to Rev 6 recorded: the dead SHA `9395ac7` (rewritten to `649224e` before push, cited twice) and the fact that **no recipe in the catalogue requires a tool**, which makes `crafting_base.py`'s `tool_broke` branch unreachable and is a second content dependency alongside §7's.
 > **Rev 6 · 2026-08-13** — **Component C is delivered, and the epic's most expensive finding is a deviation the spec's own test protocol forced.** §5 gains a Delivered block covering C.1, C.2 and the three sub-decisions. The deviation is **F7**: `.current` raised from outside a bank would have *de-levelled* the character on her next use, and the paragraph that guarantees someone will do this is §5's own in-game protocol, which says to craft until the level moves — hours of work anyone will shortcut by setting `.current` by hand. The repair tops the total up to `xp_threshold(.current)` rather than clamping the level down, so P-1's direction is restored rather than suspended. Also records **three false claims found inside production files** in one epic — `world/improvement.py`'s pacing sentence, `_improvement_feedback`'s "rolled=True is a sufficient gate", and the tier celebration's idempotence argument — all the same shape: prose asserting what a mechanism guarantees, left standing after the mechanism changed. And a **false pass**: the F7 step first "succeeded" because the craft it used failed, so the engine never ran and "the level stayed put" was produced by nothing happening. A step expecting *nothing changed* needs an independent receipt that the code ran (Testing Reference Rev 5 §11). Six mutations recorded, one honest gap stated, and the fact that `improve_skill_on_use` had **zero** tests before this — the 363-test baseline would have stayed green if it had been deleted.
 > **Rev 5 · 2026-08-05** — **P-5 gains the threshold it was missing.** "Tightened never" was written as an absolute, and it is not one: the ratchet exists because a tightening de-levels *people*, so it starts at first real players and not before. Pre-launch, recalibration in either direction is free, and several are expected. Without the threshold P-5 would be cited to block a legitimate early rebalance — the rule would outlive its own reason. Also: §7's BLOCKED status is unchanged but **reframed** — the catalogue being small is an ordinary early-development state, not a finding, and Rev 4 wrote it as an alarm. `min_skill = 30` on `LeatherBootsRecipe` is a **placeholder**, so E.1 assigns every value rather than filling in the blanks around it. New hazard recorded in §7: **`min_skill` would carry two jobs** — it is already a hard access floor read from `.value`, and E.2 would read it as a difficulty datum from `.current`. One number, two purposes, two readings; raising it so a recipe teaches longer also locks lower-skill crafters out of it entirely.
 > **Rev 4 · 2026-08-05** — **the three open sub-decisions are closed**, and closing them added a component. XP grain scaled to material cost is **rejected, not deferred**: with a per-skill cooldown the binding resource is *ticks*, so any per-craft scaling makes "the most expensive recipe you can afford, once per window" strictly dominant — and flat grain is degenerate in the mirror direction, making the *cheapest* recipe dominant. Both are the same bug; the fix is neither, it is the `meaningful` seam that `attempt_skill_improvement` already carries and has never used. That becomes **Component E** (§7), recorded as **BLOCKED on recipe content** rather than scheduled, because with eight recipes topping out at `min_skill = 30` the gate would strand every crafter above 60 — strictly worse than the grind it removes. `improvement_cooldown` is **frozen** rather than tuned (one knob per job; the curve is the knob). `CmdScribe` is **taken in** as a sixth call-site, so **P-6 changes from five to six**. Also records the measured pacing this epic actually produces — 38 ticks today vs 2 931 after C.1, a 77× slowdown — and the fact that two independent throttles now multiply.
@@ -493,7 +494,7 @@ Two ways to handle it, and the choice belongs to Adam:
 #### Delivered 2026-08-12/13 — C.1 and C.2, with one deviation the protocol forced
 
 Shipped on `feature/skill-progression` as three commits — `81ab2d9` (C.1),
-`6a9c762` (the tests), `07ffef4` (C.2) — plus `9395ac7`, a comments-only
+`6a9c762` (the tests), `07ffef4` (C.2) — plus `649224e`, a comments-only
 follow-up explained below. **391 tests green** (363 baseline + 28 new). The
 in-game protocol was run against the live server; all twelve steps behave as
 predicted, and one of them did not on the first attempt (see *The false pass*).
@@ -559,7 +560,7 @@ world. `_improvement_feedback` still asserted *"a rolled tick always has
 delta >= 1 ... so rolled=True is a sufficient gate"* — with the counter-example
 three lines below it — and the tier celebration's idempotence argument still
 rested on `delta >= 1` and on "a tick gains at most 5", where the 5 is now XP
-rather than points. Both are superseded in place in `9395ac7`, a commit proved to
+rather than points. Both are superseded in place in `649224e`, a commit proved to
 be comments-only by comparing the module's AST with docstrings stripped before
 and after (identical). **That is three false claims in one epic**, each of the
 same shape: prose asserting the sufficiency of a mechanism that has since
@@ -643,6 +644,171 @@ line, not to add a branch beside it.
   observation is the whole justification for the component: it is what restores
   Stage 1's felt-progress promise under a curve that levels rarely.
 - **Commit:** `feat(progression): derived progress bar within the current point`
+
+#### Delivered 2026-08-15 — D.1, four locked decisions and a fourth false claim
+
+Shipped on `feature/skill-progression`. **416 tests green** (391 baseline + 25
+new), full suite 585 s. Five files changed plus one new test module; the in-game
+protocol was run against the live server and every step is accounted for below,
+including the two steps this document got wrong.
+
+**The measurement that decided the bar's resolution.** §6's original text
+specified `█`/`░` and said nothing about width or granularity, because it assumed
+the bar's problem was rendering. It is not; it is *resolution against a moving
+denominator*. A tick banks 1–5 XP while `needed` grows exponentially, so the
+share of the bar one tick moves shrinks all the way up the curve. Simulated over
+10 000 ticks at INT 12, the proportion that move at least one cell of a 20-cell
+whole-block bar:
+
+| skill | needed | N=10 | N=20 | N=40 | N=20, eighth-blocks |
+|---|---|---|---|---|---|
+| 20 | 12 | 0.99 | 1.00 | 1.00 | 1.00 |
+| 40 | 24 | 0.80 | 0.95 | 1.00 | 1.00 |
+| 60 | 48 | 0.47 | 0.69 | 0.92 | 1.00 |
+| 80 | 96 | 0.19 | 0.37 | 0.59 | 1.00 |
+| 90 | 136 | 0.11 | 0.23 | 0.42 | 1.00 |
+| 99 | 186 | 0.07 | 0.14 | 0.28 | 0.88 |
+
+At skill 90 a whole-cell bar is identical to the previous one on **four crafts in
+five** — the silence C.1 created and this component exists to remove, displaced
+one level down. It would also have made this document's own in-game step ("craft
+again, the bar must move") true only below about skill 50, i.e. a protocol that
+passes where nobody plays and fails where they do.
+
+Eighth-block partials (`▏▎▍▌▋▊▉`) give 160 states across 20 cells and resolve
+**every single banked XP** until `needed` exceeds 160, which the curve does not
+reach until skill ~95. Above that the bar is coarser than the grain again; that
+is an accepted floor, stated rather than hidden, because no fixed-width bar can
+resolve a `needed` that D.2 is about to make unbounded.
+
+**Evennia's `health_bar` contrib — evaluated and rejected.**
+`evennia/contrib/rpg/health_bar/health_bar.py::display_meter(cur, max, …)` takes
+its arguments in the same order `progress_within_level` returns them, so
+`display_meter(*progress[:2])` would have worked mechanically. Rejected for three
+reasons, the third decisive:
+
+1. It draws with **background colours** (`|[G` over spaces), not glyphs. With
+   `show_values=False` and no `pre_text` the string is blank — invisible in any
+   client that does not render background colour, as its own docstring notes for
+   screen readers.
+2. `show_values=True` writes `"6 / 12"` inside the bar. That is precisely the
+   second progression figure **P-8** rejects, and it would have to be un-taught.
+3. `fillcolor_index` picks red→yellow→green **by fullness**. On a health meter
+   red means danger; on a progress bar "nearly empty" means *early in the point*,
+   so the bar would turn red every time the player levels. Points 1 and 2 are
+   workaroundable; point 3 means working around them leaves four lines of
+   arithmetic we write anyway.
+
+**The four locked decisions.**
+
+- **[RESOLVED] D-1 — bar resolution: 20 cells with eighth-block partials.**
+  Alternatives: 20 whole cells (silent at high skill, and would have required
+  rewriting this section's own protocol step to name a skill band); 40 whole
+  cells (still 0.42 at skill 90, and 40 characters is wide for a message stream).
+  Confirmed in Adam's client that the partial glyphs render at sub-cell widths —
+  a rendering check with three fractions one-eighth apart, chosen so that a
+  font falling back to full blocks produces two *identical* rows rather than a
+  judgement about pixel widths.
+- **[RESOLVED] D-2 — the bar renders on `delta == 0` only.** A level-up resets
+  the numerator (measured: 59 → 60 yields `(0, 48, 0.0)`), so a bar under
+  "improves!" would be near-empty and read as a demotion in the same breath as
+  the praise. Drawing it *full* instead was considered and rejected outright: a
+  bar showing anything other than `progress` is a second truth, which is the
+  class of bug P-1 exists to prevent. One felt-progress signal per tick.
+- **[RESOLVED] D-3 — `CmdProgress` keeps the session delta; the skip-unchanged
+  rule falls.** The rule was correct while a tick moved the percentage nearly
+  every time; after C.1 "unchanged" is the normal case, so the command answered
+  *"No skills have improved since you logged in"* for hours — the same silence
+  C.2 fixed one level down, in the feedback line. Every skill is now listed every
+  time and the delta becomes a `(+n)` **suffix** on the rows that earned one.
+  Retiring the login snapshot entirely was rejected: the two figures answer
+  different questions at different grains ("what did this session buy me" vs
+  "how far into the next point am I"), so neither subsumes the other, and C.3
+  had shipped one commit earlier.
+- **[RESOLVED] D-4 — a bar that cannot move is replaced by a caption.**
+  `(not yet trainable)` for skills no call-site routes through
+  `attempt_skill_improvement`; `(at maximum)` at the cap, where the total freezes
+  inside `[threshold(cap), threshold(cap+1))` and a bar would show a partial fill
+  that never moves again. Drawing dead bars reads as broken; hiding the rows
+  hides that three of five skills are untrained content.
+
+**Deviation — `improvable_skills` is a seventh place that can drift.** D-4 needs a
+predicate for "cannot be trained", and it cannot be derived: a skill with no
+stored XP entry is either untrainable *or* trainable-but-untouched, and a fresh
+character would have Craft mislabelled until her first craft. So it is declared,
+as `Character.improvable_skills`, **display-only and explicitly not a gate** —
+the policy of which uses teach remains "which call-sites exist" (P-6). Drift
+costs a wrong caption and nothing else, but a wrong caption is silent, so
+`TestImprovableSkillsSet` holds the set against the call-sites by **AST** (a text
+grep matches the call inside the three docstrings that quote it) and against
+`HARVEST_TEMPLATES` as data, since `CmdHarvest` passes `part["skill"]` and no AST
+can resolve a dict lookup. That gap is stated in the test rather than papered
+over.
+
+**The fourth false claim — and this document produced it.** In-game, a tick moved
+Craft from **20 to 60 in one move**, and reproduced on demand:
+
+```
+craft=20 xp=1195  →  craft  →  Your Crafting improves! (+40, now 60%)
+craft=40 xp=1399  →  craft  →  Your Crafting improves! (+24, now 64%)
+```
+
+`_improvement_feedback` asserted *"a single tick can now move at most ONE point,
+so each boundary is crossed on exactly one tick"* — a claim C.2 wrote while
+retiring two older ones. It is false whenever `.current` sits below what the
+stored total buys, and it is **§6's own in-game protocol that puts it there**:
+steps 10 and 11 tell the tester to set `.current` by hand. This is F7's shape
+exactly — the spec's protocol manufactures the state the spec's prose says cannot
+occur — and it is the fourth claim of this epic to fail the same way. The
+behaviour is correct: P-1 says XP is the truth and `.current` is a cache, so the
+cache catching up is the system working. Superseded in place with both prior
+versions left visible. What survives is weaker and sufficient: the celebration
+fires only on a tier *change* and the level is monotonic, so a tier is announced
+at most once per character; a multi-point jump names the tier landed in and says
+nothing about those passed through, because `tier_for` reports standing, not
+history.
+
+**Two errors in this document's protocol, corrected.** Step 7 predicted
+`(+1, now 41%)` from 200 banked XP; at level 60 that buys four points, and the
+prediction was written against level 40 without being checked against the curve.
+Step 10/11 leave `.current` out of sync with the total and are what produced the
+jump above — the cleanup must precede the out-of-band writes, not follow them.
+Both are the protocol's fault, not the code's.
+
+**Verified in-game.** Every branch of `_improvement_feedback` was exercised
+against the live server:
+
+- `delta == 0` → labelled bar, no digit, no "improves"
+- three consecutive ticks at Craft 64 (xp 1409 → 1410 → 1412) → three
+  **different** bars, percentage steady at 64% throughout. That is the single
+  observation this whole component rests on, and no earlier run had produced it
+- `delta > 0` → "improves!" plus tier line, **no bar**
+- gated out → silence. Proved by an accidental double-craft: a *successful* craft
+  produced no feedback line at all because `improvement_cooldown` had not
+  elapsed, while the XP counter moved between readings — an absence with an
+  independent receipt, which is §11's rule applied without being asked
+- `progress` shows every skill, captions the three untrainable ones, shows
+  `(at maximum)` at the cap, and reads `.current` not `.value` (`value=84.0
+  current=64` displayed as `64%` with no `(+20)`)
+
+**Mutation-verified — seven introduced and measured.** Removing the partials
+fails the resolution test; removing the width compensation fails the constant-
+width test; `_BAR_EMPTY = "|"` fails the glyph whitelist; drawing the bar on
+`delta > 0` fails D-2's test; re-introducing the skip rule fails five tests;
+reading `.value` in `CmdProgress` fails the buff test. The seventh is the
+interesting one: **removing the `fraction` clamp changed nothing** — the clamp
+around `eighths` already covers −0.3, 1.5, `None` and NaN, so it read as dead
+code. It is not: `int(inf * 160)` raises `OverflowError`, and a dedicated test
+was added for the one input the other guard cannot save.
+
+**Second content dependency, alongside §7's.** The recipe catalogue was read live
+during the protocol: **all eight recipes have `tools=[]`**. No recipe requires a
+tool, which makes `world/crafting_base.py`'s `tool_broke` branch unreachable in
+current content, and means the `.value`-vs-`.current` guard in the improvement
+path defends against a state the catalogue cannot presently produce. The guard
+stays — it is correct — but "verified in play" is not true of it until a recipe
+takes a tool. Same content dependency that blocks Component E, and it belongs
+next to it.
 
 ### Task D.2 — Legend's >100% band
 
