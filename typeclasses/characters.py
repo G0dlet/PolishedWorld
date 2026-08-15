@@ -18,7 +18,12 @@ from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
-from world.progression import level_for_xp, progress_within_level, xp_threshold
+from world.progression import (
+    level_for_xp,
+    progress_within_level,
+    render_progress_bar,
+    xp_threshold,
+)
 from world.skill_xp import SkillXPHandler
 
 from django.conf import settings
@@ -680,6 +685,22 @@ class Character(ObjectParent, ClothedCharacter):
     # gathering time and a successful roll all bite first.
     improvement_cooldown = 30
 
+    # D.1, DISPLAY ONLY. Skill keys that some call-site actually routes through
+    # attempt_skill_improvement, so `progress` can say "(not yet trainable)"
+    # instead of drawing a bar that is guaranteed never to move. Perception,
+    # stealth and athletics have no call-site at all; an empty bar beside them
+    # reads as broken, and hiding the rows would hide the fact that three of
+    # five skills are untrained content.
+    #
+    # ⚠️ NOT A GATE. The policy of which uses teach is "which call-sites exist"
+    # (P-6, six of them), and this set must never be read to decide whether a
+    # tick may fire -- that would be two knobs for one job, and the second one
+    # would be the wrong one. It is a label, so drift costs a wrong caption and
+    # nothing else. tests/test_improvement_engine.py::TestImprovableSkillsSet
+    # holds it against the call-sites and the harvest table so the drift is
+    # caught rather than trusted.
+    improvable_skills = frozenset({"craft", "hunting"})
+
     # C.3: per-login baseline of every skill's permanent level, captured in
     # at_post_puppet and diffed on demand by the `progress` command to show
     # growth *this session*. default=None + autocreate=False, and we always
@@ -751,8 +772,8 @@ class Character(ObjectParent, ClothedCharacter):
         threshold celebration composes onto. The count has been wrong here twice;
         if you add a seventh, this line is part of the change.
 
-        THREE OUTCOMES NOW, NOT TWO (Stage 4.5, C.2)
-        --------------------------------------------
+        THREE OUTCOMES, ONE SIGNAL EACH (Stage 4.5, C.2 then D.1)
+        ---------------------------------------------------------
         This used to be a two-way gate: a tick either rolled (and then always
         gained at least Legend's +1, so it always had something to announce) or
         it did not. C.1 broke that equivalence. A tick now banks XP nearly every
@@ -760,12 +781,24 @@ class Character(ObjectParent, ClothedCharacter):
         "something visible happened" have come apart:
 
             not rolled            -> ""                      (gated out, or capped)
-            rolled, delta == 0    -> the practice line        (the common case)
+            rolled, delta == 0    -> the derived progress bar (the common case)
             rolled, delta > 0     -> "improves!" + any tier celebration
 
-        The middle branch is the whole reason C.2 exists. The old copy would have
-        rendered it as "(+0, now 40%)", which is worse than silence: it is a
-        message that fires to tell you nothing changed.
+        C.2 filled the middle branch with a wordless practice line as a
+        placeholder; D.1 replaced it with the bar the placeholder was standing in
+        for. The bar is computed from `result["progress"]` on read and stored
+        nowhere (P-1), and it carries no figure (P-8).
+
+        WHY THE BAR IS NOT ALSO DRAWN ON A LEVELLING TICK (locked D-2)
+        --------------------------------------------------------------
+        One felt-progress signal per tick. On a levelling tick the strongest true
+        thing to say is that the percentage moved, and the bar there would be the
+        *new* point's bar -- near-empty, because a level-up resets the numerator
+        (measured: 59 -> 60 yields `(0, 48, 0.0)`). Printing an empty bar directly
+        under "improves!" reads as a demotion in the same breath as the praise.
+        The alternative considered and rejected was drawing it full instead: that
+        is a bar showing something other than `progress`, i.e. a second truth,
+        which is the whole class of bug P-1 exists to prevent.
 
         Args:
             result (dict or None): the attempt_skill_improvement summary, or None
@@ -797,27 +830,17 @@ class Character(ObjectParent, ClothedCharacter):
 
         if not result.get("delta"):
             # Banked, but the percentage did not move -- the common case after
-            # C.1, and the one the ordering hazard in the decomposition is about.
+            # C.1, and the thing this branch exists to make legible.
             #
-            # ⚠️ THROWAWAY COPY. TODO(D.1): delete this branch and render the
-            # derived progress bar from result["progress"] instead.
-            #
-            # It exists so the branch between C and D is never LESS legible than
-            # `main` is today. Stage 1's whole premise was that mechanically
-            # correct progression can still ship as an invisible backend that
-            # feels dead; going silent for dozens of crafts would walk straight
-            # back into that.
-            #
-            # Two constraints on the wording, and they are why this is not just
-            # the old line with the numbers stripped out:
-            #   * It must NOT say "improves". That word is reserved for a tick
-            #     where the number actually moved, and lending it to a tick where
-            #     nothing visible happened teaches the player a meaning that D.1
-            #     then silently takes back.
-            #   * It must carry NO number. Any figure shown here is a second
-            #     progression stat, which P-8 rejects outright, and it would have
-            #     to be un-taught when the bar arrives.
-            return f"You feel your grasp of {label} steady a little."
+            # `improve_skill_on_use` returns "progress" on every branch including
+            # the capped one, so the bar has its input without a second read of
+            # the XP store. The tuple is unpacked rather than indexed so that a
+            # change in its shape fails here loudly instead of drawing a wrong
+            # bar quietly; `_earned`/`_needed` are deliberately unused, since
+            # showing either of them would be the second progression figure P-8
+            # rejects.
+            _earned, _needed, fraction = result["progress"]
+            return f"|y{label}|n  {render_progress_bar(fraction)}"
 
         lines = [f"Your {label} improves! (+{result['delta']}, now {result['new']}%)"]
 
@@ -829,19 +852,37 @@ class Character(ObjectParent, ClothedCharacter):
         #
         # It sits INSIDE the delta > 0 branch on purpose. It would be a harmless
         # no-op outside it -- old == new means the tiers match -- but structure
-        # is a better guarantee than an argument, and D.1 will be editing the
-        # branch above it. Crossings are strictly rarer after C.1, which is what
-        # makes this line worth more, not less: it is now the rarest and
-        # therefore the most meaningful thing this method can say.
+        # is a better guarantee than an argument. D.1 rewrote the branch above
+        # it and this line was not touched, which is the guarantee paying out.
+        # Crossings are strictly rarer after C.1, which is what makes this line
+        # worth more, not less: it is now the rarest and therefore the most
+        # meaningful thing this method can say.
         #
-        # ⚠️ The idempotence argument here used to read "improvement is monotonic
-        # (delta >= 1) and boundaries sit >= 15 apart while a single tick gains
-        # at most 5". Both halves are stale: after C.1 delta is usually 0, and
-        # the "at most 5" is 5 XP, not 5 percentage points. The conclusion
-        # survives and is in fact stronger -- the level is monotonic (a tick can
-        # only bank XP forward), boundaries still sit >= 15 apart, and a single
-        # tick can now move at most ONE point, so each boundary is crossed on
-        # exactly one tick.
+        # ⚠️ TWO SUPERSEDED VERSIONS OF THIS ARGUMENT, BOTH LEFT VISIBLE.
+        #
+        # It first read "improvement is monotonic (delta >= 1) and boundaries sit
+        # >= 15 apart while a single tick gains at most 5". Both halves went stale
+        # at C.1: delta is usually 0, and the "at most 5" is 5 XP rather than 5
+        # percentage points.
+        #
+        # C.2 replaced it with "a single tick can now move at most ONE point, so
+        # each boundary is crossed on exactly one tick". **That is false, and it
+        # was falsified in-game during D.1's own protocol**: a tick took Craft
+        # from 20 to 60 in one move. It held only under the unstated assumption
+        # that `.current` has no writer but this method -- and the D.1 protocol
+        # itself tells the tester to set `.current` by hand, which is the same
+        # shape as C.1's F7 finding. When `.current` sits below what the stored
+        # total buys, the level snaps up to the truth (P-1 working, not failing)
+        # and delta is however many points that is.
+        #
+        # What actually holds, and it is all this line needs: the celebration
+        # fires only when the tier CHANGES, and the level is monotonic, so a
+        # given tier is announced at most once per character. A multi-point jump
+        # therefore announces the tier landed in and says nothing about the ones
+        # passed through -- `tier_for` reports where you stand, not where you
+        # have been. That is deliberate and not a gap: intermediate tiers are
+        # unreachable except through an out-of-band write.
+
         # descs is None on an un-migrated character -> tier_for returns "" -> skip.
         descs = skill.descs if skill is not None else None
         old_tier = tier_for(result["old"], descs)

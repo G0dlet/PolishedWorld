@@ -91,6 +91,7 @@ The --settings flag is NOT optional anywhere in this project.
         tests.test_improvement_engine.TestFloorRepair.test_a_hand_raised_level_is_not_de_levelled
 """
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 from unittest import mock
 
@@ -101,7 +102,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.crafting_commands import CmdScribe
-from world.progression import level_for_xp, xp_threshold
+from world.progression import _BAR_EMPTY, _BAR_FULL, level_for_xp, xp_threshold
 
 # The shipped calibration, pinned. See the module docstring for why this file
 # pins where its two siblings sweep.
@@ -585,18 +586,24 @@ class TestScribeTrains(EvenniaCommandTest):
 @override_settings(**SHIPPED)
 class TestFeedbackCopy(EvenniaTest):
     """
-    Component C.2: `_improvement_feedback` must handle `delta == 0` without lying.
+    Components C.2 and D.1: `_improvement_feedback` must report each of the three
+    outcomes with exactly one signal, and lie about none of them.
 
     Before C.1, `rolled=True` implied `delta >= 1` -- Legend's floor guaranteed
     it -- so one gate served for both "a tick happened" and "something visible
     happened". C.1 pulled those apart, and the old copy would render the newly
     common case as "(+0, now 40%)": a message whose entire content is that
-    nothing changed.
+    nothing changed. C.2 replaced that with a wordless practice line, explicitly
+    marked as a placeholder; **D.1 replaced the placeholder with the bar it was
+    standing in for**, so the tests below now describe the bar.
 
-    The tests below pin three things, in descending order of how badly they would
-    hurt if they broke: that "+0" can never appear; that the practice line makes
-    no claim it will have to retract when D.1 replaces it; and that a real
-    level-crossing still reads exactly as it did on `main`.
+    ⚠️ The three assertions C.2 wrote survive D.1 untouched, and that is not a
+    coincidence -- they were written against the *constraints* on the middle
+    branch (no "+0", no figure, no claim of improvement) rather than against the
+    string C.2 happened to ship. A test written as `assertEqual(text, "You feel
+    your grasp of Crafting steady a little.")` would have had to be deleted here,
+    and deleting a test to make a change pass is how a suite stops meaning
+    anything.
     """
 
     character_typeclass = CHARACTER
@@ -613,26 +620,37 @@ class TestFeedbackCopy(EvenniaTest):
             )
 
     def test_a_tick_that_banks_without_levelling_never_says_plus_zero(self):
-        # The single assertion this whole task exists for.
+        # The single assertion C.2 existed for. Still the cheapest thing to break.
         self.assertNotIn("+0", self._feedback(1))
 
-    def test_the_practice_line_carries_no_number_at_all(self):
+    def test_the_banking_tick_carries_no_number_at_all(self):
         # P-8: no second progression stat is shown to the player. Asserted as
         # "no digit appears", which is stricter than checking for "%" and catches
-        # a well-meaning future edit that adds an XP count "just for testing".
+        # a well-meaning future edit that adds an XP count "just for testing" --
+        # including one added inside the bar, which is exactly what Evennia's
+        # health_bar contrib does by default and why it was not used.
         text = self._feedback(1)
         self.assertTrue(text)
         self.assertFalse(any(char.isdigit() for char in text))
 
-    def test_the_practice_line_does_not_claim_the_skill_improved(self):
+    def test_the_banking_tick_does_not_claim_the_skill_improved(self):
         # The word "improves" is reserved for a tick where the percentage moved.
         # Lending it to a tick where nothing visible happened teaches a meaning
-        # that D.1 would then have to take back.
+        # the bar would then have to take back.
         self.assertNotIn("improves", self._feedback(1))
 
+    def test_the_banking_tick_draws_the_bar(self):
+        # D.1's own assertion: the middle branch renders progress, and it
+        # renders it *labelled*, so a player who has two skills in flight can
+        # tell which one moved. A bar with no label is one line of art with no
+        # referent.
+        text = self._feedback(1)
+        self.assertIn(_BAR_EMPTY, text)
+        self.assertIn(self.craft.name, text)
+
     def test_a_levelling_tick_still_reads_exactly_as_it_did_before(self):
-        # The half of the copy C.2 must NOT disturb. One XP short of level 41,
-        # then a single point.
+        # The half of the copy neither C.2 nor D.1 may disturb. One XP short of
+        # level 41, then a single point.
         self.char1.skill_xp.add("craft", xp_threshold(41) - 1 - xp_threshold(40))
 
         text = self._feedback(1)
@@ -640,6 +658,23 @@ class TestFeedbackCopy(EvenniaTest):
         self.assertIn("improves!", text)
         self.assertIn("+1", text)
         self.assertIn("41%", text)
+
+    def test_a_levelling_tick_draws_no_bar(self):
+        """
+        Locked decision D-2, pinned: one felt-progress signal per tick.
+
+        A level-up resets the numerator, so the bar drawn here would be the *new*
+        point's -- near-empty, printed directly under "improves!". Two signals
+        for one tick is not a richer interface; it is two systems that then have
+        to be calibrated against each other, and one of them reading as a
+        demotion in the same breath as the praise.
+        """
+        self.char1.skill_xp.add("craft", xp_threshold(41) - 1 - xp_threshold(40))
+
+        text = self._feedback(1)
+
+        self.assertNotIn(_BAR_EMPTY, text)
+        self.assertNotIn(_BAR_FULL, text)
 
     def test_a_tier_crossing_celebrates_exactly_once(self):
         # Craft's desc bands put a boundary at 40 -> the tier changes on the tick
@@ -656,9 +691,100 @@ class TestFeedbackCopy(EvenniaTest):
 
     def test_a_capped_skill_says_nothing(self):
         # rolled=False, and after C.1 it also banks nothing. Silence is correct:
-        # there is no progress to report, felt or otherwise.
+        # there is no progress to report, felt or otherwise. Note that the capped
+        # branch *does* carry a "progress" tuple, so this is a real gate and not
+        # an accident of missing data.
         self.craft.current = 100
         self.assertEqual(
             self.char1._improvement_feedback(self.char1.improve_skill_on_use("craft")),
             "",
+        )
+
+
+class TestImprovableSkillsSet(EvenniaTest):
+    """
+    D.1: hold `Character.improvable_skills` against the call-sites it claims to
+    describe.
+
+    The set is display-only -- it decides whether `progress` draws a bar or says
+    "(not yet trainable)" -- so drift costs a wrong caption rather than wrong
+    behaviour. It is still worth a net, because a wrong caption is *silent*: a
+    seventh call-site added without touching this set would leave a skill that
+    genuinely trains permanently labelled untrainable, and nothing would fail.
+
+    Read by AST rather than by grepping the source text. A text grep matches the
+    forbidden call inside a docstring that merely *quotes* it -- and
+    `typeclasses/characters.py` has three docstrings that do exactly that -- so
+    a grep-based version of this test would have to be written around its own
+    false positives. The AST sees calls only.
+
+    The honest gap, stated rather than hidden: `CmdHarvest` passes
+    `part["skill"]`, a dict lookup the AST cannot resolve. That call-site is
+    covered by the second test instead, which reads the harvest table as data.
+    """
+
+    character_typeclass = CHARACTER
+
+    #: The modules holding the six call-sites (P-6).
+    CALL_SITE_MODULES = (
+        "world/crafting_base.py",
+        "commands/crafting_commands.py",
+        "commands/repair_commands.py",
+        "commands/hunting_commands.py",
+    )
+
+    def _literal_skill_keys(self, path):
+        """Every literal first argument to attempt_skill_improvement in `path`."""
+        import ast
+
+        with open(path, encoding="utf-8") as handle:
+            tree = ast.parse(handle.read(), filename=path)
+
+        keys = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            if name != "attempt_skill_improvement":
+                continue
+            first = node.args[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                keys.add(first.value)
+        return keys
+
+    def test_every_literal_call_site_key_is_declared_improvable(self):
+        found = set()
+        for path in self.CALL_SITE_MODULES:
+            found |= self._literal_skill_keys(path)
+
+        # Guard against the test silently passing because the AST walk broke and
+        # found nothing at all -- an absence and a clean bill of health look
+        # identical otherwise (Testing Reference Rev 5 section 11).
+        self.assertTrue(found, "no literal call-sites found -- the walk is broken")
+        self.assertLessEqual(found, set(self.char1.improvable_skills))
+
+    def test_every_harvestable_part_trains_a_declared_improvable_skill(self):
+        # CmdHarvest's key is data, not a literal, so it is checked as data.
+        from world.harvest_templates import HARVEST_TEMPLATES
+
+        # A template maps part-name -> part-dict directly; there is no "parts"
+        # wrapper. The first version of this test assumed one, found nothing, and
+        # was caught by the emptiness receipt below rather than passing green on
+        # an empty set -- which is the whole reason the receipt is there.
+        found = {
+            part["skill"]
+            for template in HARVEST_TEMPLATES.values()
+            for part in template.values()
+            if isinstance(part, Mapping) and "skill" in part
+        }
+        self.assertTrue(found, "no harvest skills found -- the table shape changed")
+        self.assertLessEqual(found, set(self.char1.improvable_skills))
+
+    def test_every_declared_skill_actually_exists_on_a_character(self):
+        # Drift in the other direction: a renamed skill would leave a dead key
+        # here, and the row it was meant to caption would fall through to the
+        # bar branch and read as trainable-but-stuck.
+        self.assertLessEqual(
+            set(self.char1.improvable_skills), set(self.char1.skills.all())
         )

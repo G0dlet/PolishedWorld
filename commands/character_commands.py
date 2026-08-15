@@ -7,6 +7,7 @@ Commands for viewing character stats, skills, and vital status.
 from evennia import Command
 
 from world.professions import PROFESSIONS, grant_profession
+from world.progression import progress_within_level, render_progress_bar
 
 
 class CmdStatus(Command):
@@ -165,56 +166,102 @@ class CmdSkills(Command):
 
 class CmdProgress(Command):
     """
-    View your skill growth this session
+    View where each of your skills stands
 
     Usage:
         progress
 
-    Shows how far each skill has climbed since you logged in -- the value at
-    login, the value now, and the points gained. Skills that haven't moved are
-    left out. Only you can see this.
+    Shows every skill, how far it has climbed into its next percentage point,
+    and how many points it has gained since you logged in. Only you can see this.
     """
 
     key = "progress"
     locks = "cmd:all()"
     help_category = "Character"
 
+    # Reserved width for the bar column, so the untrainable/maxed captions that
+    # replace a bar leave the rest of the row aligned. Must be >= the widest
+    # caption below and >= the bar's own cell count.
+    _BAR_COLUMN = 20
+
     def func(self):
-        """Display per-skill growth since the login snapshot."""
+        """
+        Display each skill's standing, its progress bar and its session gain.
+
+        WHAT D.1 CHANGED, AND WHY IT IS A DESIGN CHANGE AND NOT A REDRAW
+        ----------------------------------------------------------------
+        This command used to show *only* growth since login and to skip every
+        skill that had not moved. That was correct while a tick moved the
+        percentage nearly every time. After C.1 a level moves roughly once in
+        dozens of ticks, so "unchanged" became the normal case and the command
+        answered "No skills have improved since you logged in" for hours at a
+        stretch -- the same silence C.2 fixed one level down, in the feedback
+        line.
+
+        So the skip-unchanged rule falls (locked D-3): every skill is listed
+        every time, and the session delta becomes a *suffix* on the rows that
+        earned one rather than the reason a row exists. The login snapshot is
+        kept, not retired -- the two figures answer different questions at
+        different grains ("what did this session buy me" vs "how far into the
+        next point am I"), so one does not subsume the other.
+
+        Both readings are taken from `.current`, never `.value`: the snapshot is
+        recorded from `.current` at login, and a worn tool's +20 must not
+        masquerade as either progress or standing.
+        """
         char = self.caller
 
         if not hasattr(char, "skills"):
             self.caller.msg("You have no skills to display.")
             return
 
+        skill_keys = sorted(char.skills.all())
+        if not skill_keys:
+            self.caller.msg("You have no skills to display.")
+            return
+
         # Baseline captured at login (Character.at_post_puppet). Coalesce
         # None -> {} for the edge where this runs before any puppet snapshot.
         snapshot = char.login_skill_snapshot or {}
-        rule = "|g" + "=" * 40 + "|n"
+        improvable = getattr(char, "improvable_skills", frozenset())
+        rule = "|g" + "=" * 48 + "|n"
 
-        rows = []
-        for skill_key in sorted(char.skills.all()):
+        lines = ["\n|wSkill progress:|n", rule]
+        for skill_key in skill_keys:
             skill = char.skills.get(skill_key)
-            before = snapshot.get(skill_key)
-            now = skill.current
-            # Skip skills absent at login (before is None) or unchanged. Growth
-            # is read on .current (permanent), matching the snapshot, so a worn
-            # tool buff never masquerades as progress.
-            if before is None or now <= before:
+            if skill is None:
                 continue
-            rows.append((skill.name, before, now, now - before))
+            now = int(skill.current)
+            cap = skill.max if skill.max is not None else 100
 
-        if not rows:
-            self.caller.msg(
-                f"\n|wProgress this session:|n\n{rule}\n"
-                "  No skills have improved since you logged in.\n"
-                f"{rule}"
-            )
-            return
+            if skill_key not in improvable:
+                # No call-site routes this skill through
+                # attempt_skill_improvement, so its bar could never move. Saying
+                # so is more informative than drawing a permanently empty bar,
+                # and more honest than dropping the row.
+                column = f"{'(not yet trainable)':<{self._BAR_COLUMN}}"
+            elif now >= cap:
+                # ⚠️ TODO(D.2): this branch dies with the cap. `improve_skill_on_use`
+                # short-circuits at the ceiling and freezes the XP total inside
+                # [threshold(cap), threshold(cap + 1)), so the bar here would show
+                # a partial fill that never moves again -- worse than no bar.
+                column = f"{'(at maximum)':<{self._BAR_COLUMN}}"
+            else:
+                # Derived on read from the lifetime total (P-1). Nothing about
+                # this bar is stored, and no figure from it is shown (P-8).
+                _earned, _needed, fraction = progress_within_level(
+                    char.skill_xp.get(skill_key)
+                )
+                column = render_progress_bar(fraction, self._BAR_COLUMN)
 
-        lines = ["\n|wProgress this session:|n", rule]
-        for name, before, now, gain in rows:
-            lines.append(f"  |y{name:14}|n {before:>3} |w→|n {now:<3} (|G+{gain}|n)")
+            row = f"  |y{skill.name:<12}|n {now:>3}%  {column}"
+
+            before = snapshot.get(skill_key)
+            if before is not None and now > before:
+                row += f"  (|G+{now - int(before)}|n)"
+
+            lines.append(row)
+
         lines.append(rule)
         self.caller.msg("\n".join(lines))
 

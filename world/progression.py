@@ -68,6 +68,21 @@ shade lower than its two sibling modules and the difference is worth knowing
 before you copy this file as a template. The precedent for reading settings
 inside the call rather than at import is `world/gametime_utils.py`.
 
+WHY THE BAR RENDERER LIVES HERE (Component D.1)
+-----------------------------------------------
+`render_progress_bar` is presentation, and this module is otherwise arithmetic.
+It sits here anyway because the alternatives are worse: a module of its own would
+import nothing this file does not already have and would exist to hold one pure
+function, and putting it on the Character would make the bar untestable without
+an object graph -- the exact cost the A/B split was drawn to avoid. It reads no
+traits, holds no Evennia objects and does no I/O, so the claim at the top of this
+docstring survives intact; what it costs is that "the shape of progression" now
+includes the shape it is *drawn* as.
+
+The renderer takes a fraction, not the `progress_within_level` tuple. Feeding it
+the tuple would couple the two functions and would let a caller pass a bar's
+worth of state around; a float in [0, 1] is the whole of what a bar needs.
+
 WHY THE CORRECTION LOOPS IN level_for_xp() ARE BOUNDED
 ------------------------------------------------------
 Two separate arguments, one per loop. They are not the same argument and
@@ -232,3 +247,85 @@ def progress_within_level(total_xp):
     fraction = (earned / needed) if needed > 0 else 0.0
 
     return (earned, needed, fraction)
+
+
+# Bar glyphs. NEVER use "|" in bar art: Evennia's colour parser reads "|_" as a
+# space, "|/" as a line break, "|-" as a tab and "||" as a literal pipe, so a bar
+# drawn with pipes renders as garbage (decomposition §6, D.1).
+#
+# The partials are the reason this is not a plain "█/░" bar, and the reason is a
+# measurement rather than a preference -- see render_progress_bar's docstring.
+_BAR_FULL = "\u2588"        # █  FULL BLOCK
+_BAR_EMPTY = "\u2591"       # ░  LIGHT SHADE
+_BAR_PARTIALS = (
+    "",                     # 0/8 -- no leading-edge cell at all
+    "\u258f",               # ▏ 1/8
+    "\u258e",               # ▎ 2/8
+    "\u258d",               # ▍ 3/8
+    "\u258c",               # ▌ 4/8
+    "\u258b",               # ▋ 5/8
+    "\u258a",               # ▊ 6/8
+    "\u2589",               # ▉ 7/8
+)
+
+
+def render_progress_bar(fraction, length=20):
+    """
+    Draw a filled/empty bar for a fraction in [0, 1].
+
+    Args:
+        fraction (float): how full the bar is, normally
+            `progress_within_level(total)[2]`. Clamped to [0.0, 1.0]; a
+            non-numeric or NaN value degrades to an empty bar rather than
+            raising, because this runs inside a live craft.
+        length (int): the bar's width in terminal cells. Minimum 1.
+
+    Returns:
+        str: colour-coded bar art, e.g. ``"|g███▍|x░░░░░░░░░░░░░░░░|n"``. Always
+            exactly `length` visible cells wide, at every fraction.
+
+    WHY EIGHTH-BLOCKS AND NOT WHOLE CELLS
+    -------------------------------------
+    A whole-cell bar goes silent at high skill, which is the failure D.1 exists
+    to cure, displaced one level down. `needed` grows exponentially while a tick
+    still banks only 1-5 XP, so the share of the bar one tick moves shrinks all
+    the way up the curve. Measured over 10 000 simulated ticks at INT 12, the
+    proportion of ticks that change at least one cell of a 20-cell bar:
+
+        skill 20 -> 1.00      skill 60 -> 0.69      skill 90 -> 0.23
+
+    At skill 90 four crafts in five would produce a message identical to the
+    last one. With an eighth-block leading edge the bar has 8x the resolution
+    and **every single XP is visible up to needed = 160**, which the curve does
+    not exceed until skill ~95:
+
+        level  20 (needed  12) -> 12/12 distinct bars
+        level  60 (needed  48) -> 48/48
+        level  90 (needed 136) -> 136/136
+        level  99 (needed 186) -> 160/186, so 14% of single-XP steps are invisible
+
+    Stated honestly: above skill ~95 the bar is again coarser than the grain.
+    That band is short, it is the band D.2 is about to make unbounded, and no
+    fixed-width bar can resolve a `needed` that grows without limit -- so it is
+    a known and accepted floor, not an oversight.
+    """
+    length = max(1, int(length))
+
+    try:
+        fraction = float(fraction)
+    except (TypeError, ValueError):
+        fraction = 0.0
+    if fraction != fraction:            # NaN is the only value unequal to itself
+        fraction = 0.0
+    fraction = min(1.0, max(0.0, fraction))
+
+    # Work in eighths of a cell, then split into whole cells plus a leading edge.
+    eighths = min(length * 8, max(0, int(fraction * length * 8)))
+    full, remainder = divmod(eighths, 8)
+
+    filled = _BAR_FULL * full + _BAR_PARTIALS[remainder]
+    # The partial glyph occupies a whole cell, so it is subtracted from the
+    # empty run -- this is what keeps the rendered width constant.
+    empty = _BAR_EMPTY * (length - full - (1 if remainder else 0))
+
+    return f"|g{filled}|x{empty}|n"

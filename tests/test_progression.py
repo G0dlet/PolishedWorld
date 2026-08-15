@@ -9,6 +9,7 @@ WHAT IT COVERS
 * world.progression.xp_threshold          -- level -> lifetime XP
 * world.progression.level_for_xp          -- lifetime XP -> level
 * world.progression.progress_within_level -- lifetime XP -> (earned, needed, fraction)
+* world.progression.render_progress_bar   -- fraction -> bar art (D.1)
 
 BASE CLASS
 ----------
@@ -47,7 +48,15 @@ from django.test import override_settings
 
 from evennia.utils.test_resources import EvenniaTestCase
 
-from world.progression import level_for_xp, progress_within_level, xp_threshold
+from world.progression import (
+    _BAR_EMPTY,
+    _BAR_FULL,
+    _BAR_PARTIALS,
+    level_for_xp,
+    progress_within_level,
+    render_progress_bar,
+    xp_threshold,
+)
 
 # The calibration matrix. (6, 20) is what ships; the rest exist because P-5
 # promises recalibration and because the off-by-one correction only actually
@@ -295,3 +304,115 @@ class TestCalibrationSafety(EvenniaTestCase):
 
         self.assertEqual(_DEFAULT_XP_BASE, live.SKILL_XP_BASE)
         self.assertEqual(_DEFAULT_XP_DOUBLING_SPAN, live.SKILL_XP_DOUBLING_SPAN)
+
+
+class TestRenderProgressBar(EvenniaTestCase):
+    """
+    Component D.1: the derived bar.
+
+    Pure string maths on a float, so it belongs beside the curve it draws and
+    runs on the same cheap base class. Four things are pinned, and they are not
+    equally cheap to break:
+
+      1. **The art contains no `|`.** Evennia's colour parser reads `|_`, `|/`,
+         `|-` and `||` as space/newline/tab/pipe, so a bar drawn with pipes
+         renders as garbage in the live client and as a perfectly ordinary
+         string in a test that only checks length. Asserted as a *whitelist* of
+         glyphs rather than as "no pipe", because a whitelist also catches the
+         next well-meaning substitution.
+      2. **Constant rendered width.** The partial glyph occupies a whole cell,
+         so it must come out of the empty run. Forget that and the bar breathes
+         by one cell as it fills -- invisible in isolation, obvious in a column.
+      3. **Monotonicity.** More progress never draws less bar.
+      4. **The resolution D-1 was chosen for.** The whole reason for eighth
+         blocks rather than whole cells is that a whole-cell bar stops moving at
+         high skill. That is asserted against the real curve, not against a
+         hand-picked float -- see the last test.
+    """
+
+    #: Every glyph the renderer is allowed to emit, once the three colour codes
+    #: are stripped. Deliberately not built from the source's own concatenation
+    #: order, so a reordering of _BAR_PARTIALS cannot make this vacuous.
+    ALLOWED = set(_BAR_FULL) | set(_BAR_EMPTY) | set("".join(_BAR_PARTIALS))
+
+    @staticmethod
+    def _art(bar):
+        """Strip the colour codes, leaving only the drawn cells."""
+        return bar.replace("|g", "").replace("|x", "").replace("|n", "")
+
+    def test_the_art_never_contains_a_colour_control_character(self):
+        for fraction in (0.0, 0.01, 0.125, 0.5, 0.99, 1.0):
+            art = self._art(render_progress_bar(fraction))
+            self.assertLessEqual(set(art), self.ALLOWED, f"fraction={fraction}")
+            self.assertNotIn("|", art)
+
+    def test_the_rendered_width_is_constant_at_every_fraction(self):
+        # 161 fractions -> every reachable eighth of a 20-cell bar, including
+        # the ones that produce a partial leading edge.
+        for step in range(161):
+            art = self._art(render_progress_bar(step / 160.0))
+            self.assertEqual(len(art), 20, f"step={step}")
+
+    def test_a_custom_length_is_honoured(self):
+        self.assertEqual(len(self._art(render_progress_bar(0.5, 10))), 10)
+        self.assertEqual(len(self._art(render_progress_bar(0.5, 40))), 40)
+
+    def test_more_progress_never_draws_less_bar(self):
+        previous = -1
+        for step in range(161):
+            art = self._art(render_progress_bar(step / 160.0))
+            filled = len(art) - art.count(_BAR_EMPTY)
+            self.assertGreaterEqual(filled, previous)
+            previous = filled
+
+    def test_the_extremes_are_all_empty_and_all_full(self):
+        self.assertEqual(self._art(render_progress_bar(0.0)), _BAR_EMPTY * 20)
+        self.assertEqual(self._art(render_progress_bar(1.0)), _BAR_FULL * 20)
+
+    def test_out_of_range_and_junk_degrade_instead_of_raising(self):
+        # This runs inside a live craft; it must not be able to abort one.
+        self.assertEqual(self._art(render_progress_bar(-0.3)), _BAR_EMPTY * 20)
+        self.assertEqual(self._art(render_progress_bar(1.5)), _BAR_FULL * 20)
+        self.assertEqual(self._art(render_progress_bar(None)), _BAR_EMPTY * 20)
+        self.assertEqual(self._art(render_progress_bar("half")), _BAR_EMPTY * 20)
+        self.assertEqual(self._art(render_progress_bar(float("nan"))), _BAR_EMPTY * 20)
+
+    def test_infinity_is_clamped_rather_than_overflowing(self):
+        """
+        Its own test because it is the one input the *other* guard cannot save.
+
+        Deleting `fraction = min(1.0, max(0.0, fraction))` leaves every other
+        case in this class passing -- the `min`/`max` around `eighths` already
+        covers -0.3, 1.5, None and NaN -- so without this test the fraction
+        clamp reads as dead code and gets tidied away. It is not: `int(inf * 160)`
+        raises OverflowError, and the clamp is what stops that reaching a craft.
+        """
+        self.assertEqual(self._art(render_progress_bar(float("inf"))), _BAR_FULL * 20)
+        self.assertEqual(self._art(render_progress_bar(float("-inf"))), _BAR_EMPTY * 20)
+
+    def test_one_banked_xp_is_visible_across_the_playable_curve(self):
+        """
+        The measurement D-1 was decided on, asserted rather than remembered.
+
+        A tick banks 1-5 XP while `needed` grows exponentially, so the share of
+        the bar one tick moves shrinks all the way up. With whole cells only, a
+        20-cell bar stops changing on most ticks around skill 80 -- which is the
+        silence D.1 exists to remove, displaced one level down. With eighths it
+        resolves every single XP until `needed` exceeds 8 * length.
+
+        Swap `_BAR_PARTIALS` for eight empty strings and this test fails at
+        level 40 upward; nothing else in the suite notices.
+        """
+        for level in (20, 40, 60, 80, 90):
+            floor_xp = xp_threshold(level)
+            needed = xp_threshold(level + 1) - floor_xp
+            self.assertLessEqual(needed, 160, f"level {level} outran the bar")
+
+            bars = [
+                render_progress_bar(progress_within_level(floor_xp + earned)[2])
+                for earned in range(needed)
+            ]
+            self.assertEqual(
+                len(set(bars)), needed,
+                f"level {level}: {len(set(bars))} distinct bars for {needed} XP",
+            )
