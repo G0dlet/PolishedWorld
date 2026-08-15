@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 6 · 2026-08-15** — **§11 gains two more cases from the Stage 4.5 Component D.1 run, and one of them is the protocol attacking itself.** Rev 5 established that a step expecting an absence needs a receipt that the code ran. D.1 found the mirror image: a step that *writes past a single-writer* manufactures a state production code never promised to handle, and then the prose describing that code reads as a bug report. The protocol told the tester to set `.current` by hand; a later tick moved the skill 40 points at once; the docstring saying "at most ONE point" was the fourth false claim of the epic. **State-mutating cleanup steps must run before the out-of-band writes, not after** — and any protocol step that bypasses a documented writer must say which invariant it is suspending. §11 also records the unit-test twin found by mutation: a guard that looks redundant because a second guard covers every input the tests happen to try (`int(inf * 160)` raises `OverflowError`; nothing else in the class reaches it), and the emptiness-receipt idiom catching a collection comprehension that walked the wrong shape and would otherwise have passed green on an empty set.
 > **Rev 5 · 2026-08-13** — **Two new sections, from the Stage 4.5 Component C protocol run.** §11 records the run's most expensive mistake, which was not a bug in the code: a step whose expected outcome was *the level did not change* passed while the code under test was never reached, because the craft it used failed and the success-only gate returned first. Nothing happening and the guard working look identical from outside, so a step expecting an absence must carry an independent receipt that the code ran — and both receipts were available here and neither was demanded. It is the in-game twin of the unit-test trap in the same component (a write-guard cannot be tested by asserting the value afterwards, only by observing the write), and the same question finds both: *what else could produce this observation?* §12 records two argument-shape traps that surface as object-search failures rather than usage errors — `harvest <part> from <corpse>` and multimatch numbering (`rabbit-1`).
 > **Rev 4 · 2026-08-03** — **§3's no-comprehensions rule was wrong and is corrected by measurement.** List, set and dict comprehensions *do* see `py`'s eval locals (PEP 709 inlining, Python 3.12+); generator expressions and lambdas do not. Verified on 3.12 and 3.14 during Stage 4.5 A.1. §3 now leads with the cause -- `eval(code, {}, available_vars)` leaves globals empty, so nested function scopes cannot reach the caller's locals -- because the cause is version-independent and the table is not. Adds three diagnostics that actually discriminate, and a warning about the shape of diagnostic that does not: a lambda referencing only its own parameter passes on every version and proves nothing. Adds the argument-passing idiom for verifying a pure module inside the running server, and notes what `evennia shell` cannot prove.
 > **Rev 3 · 2026-07-26** — Three additions from Stage 3 Components G–H. §1 corrected: `evennia shell` has **no** `me`/`self`/`here` at all (pure-function use only), and the interactive `py` console **drops pasted lines** from a MUD client, so the rule of thumb now favours atomic one-shot `@py` over the console — the previous advice pointed straight at the trap. §7 hand-stamp harness extended to knowledge carriers and to `ndb` state (`nattributes.add`), which is what made H.1's regression tests deterministic. §10 gained the how of two-party testing: a consent handshake needs two *sessions*, and `@ipuppet` cannot provide them.
@@ -207,6 +208,75 @@ that writes a cache "only when it changed" cannot be tested by asserting the
 value afterwards — the value is identical either way. Only observing the *write*
 distinguishes them (spy on the property setter). Same question in both cases:
 **what else could produce this observation?**
+
+### 11a. A step that writes past a single writer suspends an invariant — say which
+
+The other half of the same lesson, found in the Component D.1 protocol.
+
+The protocol's cleanup steps set `self.skills.craft.current` directly, to restore
+a value after a cap test. `.current` is a **cache with exactly one writer**
+(P-2); the lifetime XP total is the truth (P-1). Setting the cache by hand leaves
+it below what the total buys, and the next tick correctly snaps the level up to
+the truth:
+
+```
+craft=20 xp=1195  ->  craft  ->  Your Crafting improves! (+40, now 60%)
+```
+
+Forty points in one tick. Nothing is broken — that is P-1 working — but the
+production docstring three files away asserted *"a single tick can now move at
+most ONE point"*, and it was **this protocol** that created the only state in
+which the sentence is false. The claim had held under an assumption nobody wrote
+down: that `.current` has no writer but the engine.
+
+**Two rules follow.**
+
+1. **Cleanup that restores a cached value runs *before* the out-of-band writes,
+   not after.** A protocol that ends by desynchronising state leaves the next
+   session's first observation looking like a regression.
+2. **A step that bypasses a documented writer must name the invariant it is
+   suspending.** "Set `.current = 40` to restore" is a lie of omission; "set
+   `.current = 40`, which desynchronises it from the XP total until the next tick
+   repairs it (P-1)" is the same keystroke and tells the reader what they are
+   looking at.
+
+This is the second time in one epic that a protocol step manufactured the state
+its own spec said could not occur (the first was C.1's F7). Both were found in
+play rather than in review, which is an argument for running the protocol, not
+against writing it.
+
+### 11b. Mutation testing finds guards that only *look* redundant
+
+A unit-test corollary, from the same component.
+
+`render_progress_bar` clamps its input twice — once on the incoming fraction,
+once on the derived cell count. Deleting the first clamp broke **no test**, which
+reads as a clear verdict: dead code, tidy it away. It is not. The second clamp
+covers `-0.3`, `1.5`, `None` and NaN, and those were exactly the inputs the tests
+happened to try. It does not cover infinity, because `int(float("inf") * 160)`
+raises `OverflowError` *before* the second clamp is reached.
+
+**The rule:** when a mutation kills a guard and nothing fails, the next question
+is not "can it go?" but **"which input class does the surviving guard not
+cover?"** Answer it before deleting, and write the test that distinguishes them —
+otherwise the mutation run has certified the guard as removable for the next
+reader.
+
+The same run produced one more receipt-shaped catch worth copying. A test
+collecting skill keys out of a nested data table walked the wrong shape (it
+assumed a `"parts"` wrapper that does not exist) and found nothing. It failed
+only because it carried an emptiness receipt:
+
+```python
+found = {...}
+self.assertTrue(found, "no harvest skills found -- the table shape changed")
+self.assertLessEqual(found, set(self.char1.improvable_skills))
+```
+
+Without line 2 the subset assertion is vacuously true against the empty set, and
+the test passes green forever while proving nothing. **Any assertion of the form
+"everything in this collection satisfies X" needs a prior assertion that the
+collection is non-empty.**
 
 ## 12. Command-syntax traps that read as bugs
 
