@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 27 · 2026-08-15** — one entry **widened, not added** (Crafting & Tools): **`recipes <name>` output name is a prettified prototype key** now covers the mirror defect found during Stage 4.5 D.1's in-game protocol — `CmdCraftGated`'s failure message renders the raw key (`Could not craft bone_needle without bone`) where the recipe is named `bone needle`. Same root cause, opposite direction: one surface prettifies the key and one forgets to, so a player sees two different names for the same recipe within a single session. Filed under the existing entry rather than as a new one, per the *one item, one home* rule — a fix that resolves prototype display names correctly closes both, and splitting them invites fixing one and calling it done. The entry's title and Trigger are updated to say so; its Status stays OPEN.
 > **Rev 26 · 2026-08-13** — new section **World & Rooms**, two entries added from a builder-ergonomics design discussion (no code written; `typeclasses/rooms.py` read live from `main` first). The small one, **builder QoL for dynamic rooms**, bundles three cheap fixes — a state-combination preview, a `roommsg` command to replace the three-line `@py` echo setup, and a written authoring convention (base desc + overlay fragments; full `@desc/<time>/<season>` matrix variants are the exception, not the model). The load-bearing one, **biome fragment library**, is deliberately its own entry so it cannot vanish as a sub-bullet of the QoL list: per-room authoring of a 7-time × 4-season × weather state space does not scale past the test world, and every room built before the library exists becomes migration debt — which is also what makes the entry's trigger self-arming. It is filed as a design session, not a drop-in, because its open questions (fragment format, composition with ExtendedRoom's priority chain, zone overrides, procgen alignment) are exactly the kind that go wrong when settled implicitly in code.
 
 > **Rev 25 · 2026-08-12** — one entry **added** (Tooling & Process) and one **annotated, not changed** (Crafting & Tools). Added: **`PolishedWorld_System_Backlog.md` sits at the wrong altitude for its location** — a strategic 14-system build-order list inside a tactical crafting subfolder. Logged rather than fixed, because moving a file breaks its rev header's canonical path and every reference to it; that is its own small task, not something to fold into a documentation sweep. Annotated: the **recipe catalogue** entry, whose Trigger described the work as though the catalogue had to be authored from nothing. It does not — `docs/crafting/` has held a complete *Arms of Legend* dependency decomposition throughout, and the entry's own author did not know it, which is precisely what an unindexed subdirectory does (see `docs/README.md` Rev 8). **The blocker does not lift:** `min_skill` appears zero times in that decomposition, so the axis Component E reads is the one thing the existing material lacks. What changes is the size and shape of the remaining work, and that is worth recording before someone scopes it as authorship.
@@ -294,19 +295,32 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Recipe Knowledge decomp §7 (Task B.2); §10 (Task E.2).
 - **Status:** OPEN
 
-### `recipes <name>` output name is a prettified prototype key
-- - **What:** `world/knowledge.py::render_recipe_detail` renders each
-  `output_prototypes` entry by swapping `_`→space (e.g. `leather_boots` →
-  "leather boots"). It does not resolve the prototype's real `key`/`desc`, nor
-  apply a correct article/pluralisation ("a pair of leather boots"). As of F.3 this
-  renderer is shared by `recipes <name>` (C.2) and `look <scroll>` (the `Scroll`
-  typeclass), so one fix corrects both surfaces.
+### Prototype keys leak into player-facing recipe names (both directions)
+- **What:** Two surfaces disagree about how a prototype key becomes a name the
+  player reads.
+
+  *Prettified but not resolved:* `world/knowledge.py::render_recipe_detail`
+  renders each `output_prototypes` entry by swapping `_`→space (e.g.
+  `leather_boots` → "leather boots"). It does not resolve the prototype's real
+  `key`/`desc`, nor apply a correct article/pluralisation ("a pair of leather
+  boots"). As of F.3 this renderer is shared by `recipes <name>` (C.2) and
+  `look <scroll>` (the `Scroll` typeclass), so one fix corrects both surfaces.
+
+  *Not prettified at all:* `CmdCraftGated`'s missing-material message emits the
+  raw key — `Could not craft bone_needle without bone.` — for a recipe whose own
+  name is `bone needle`. Found in the Stage 4.5 D.1 in-game protocol. The player
+  sees two different names for one recipe inside a single session, and the
+  underscore reads as a leaked identifier rather than a typo, which is what it
+  is.
 - **Why deferred:** Resolving prototypes is a separate verification surface
   (`evennia.prototypes`) and article/plural rules are per-item; the prettified
   key is legible and correct enough for discovery. Cosmetic only.
 - **Trigger:** Any pass that adds prototype display-name resolution, or the first
-  recipe whose prototype key reads badly when prettified.
-- **Origin:** Recipe Knowledge decomp §8, Task C.2.
+  recipe whose prototype key reads badly when prettified. Whichever pass takes it
+  must fix **both** surfaces — a resolver that leaves the error path emitting raw
+  keys has moved the inconsistency rather than closed it.
+- **Origin:** Recipe Knowledge decomp §8, Task C.2; error-path half found in
+  Stage 4.5 Component D.1's in-game protocol (2026-08-15).
 - **Status:** OPEN
 
 ### Book-channel tuning (`SCRIBE_*` + `BOOK_WEAR_PER_STUDY`)
