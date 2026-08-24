@@ -327,7 +327,10 @@ class Character(ObjectParent, ClothedCharacter):
             current=25,
             mod=0,
             min=0,
-            max=100,
+            # No max (D.2, P-7). A CounterTrait with max set CLAMPS INSIDE ITS
+            # OWN SETTER -- `.current = 105` on a max=100 trait silently stores
+            # 100 -- which would break `.current == level_for_xp(total)` where no
+            # reader could see it. The curve is the ceiling now, not this field.
             descs={
                 0: "oblivious",
                 20: "unaware",
@@ -345,7 +348,7 @@ class Character(ObjectParent, ClothedCharacter):
             current=20,
             mod=0,
             min=0,
-            max=100,
+            # No max (D.2, P-7) -- see the note on `perception` above.
             descs={
                 0: "clumsy",
                 20: "obvious",
@@ -363,7 +366,7 @@ class Character(ObjectParent, ClothedCharacter):
             current=25,
             mod=0,
             min=0,
-            max=100,
+            # No max (D.2, P-7) -- see the note on `perception` above.
             descs={
                 0: "feeble",
                 20: "weak",
@@ -387,10 +390,9 @@ class Character(ObjectParent, ClothedCharacter):
             current=craft_base,
             mod=0,
             min=0,
-            # Legend permits skills >100%; capped at 100 for MVP to match the
-            # other skills. Lift this when skill-progression (Component 5) lands,
-            # since skill_check() already handles >100 faithfully.
-            max=100,
+            # No max (D.2, P-7) -- see the note on `perception` above. The cap
+            # this comment used to defer is lifted; skill_check() has always
+            # handled >100 faithfully, and improvement_roll now does too.
             descs={
                 0: "unskilled",
                 20: "novice",
@@ -419,7 +421,7 @@ class Character(ObjectParent, ClothedCharacter):
             current=25,
             mod=0,
             min=0,
-            max=100,
+            # No max (D.2, P-7) -- see the note on `perception` above.
             descs={
                 0: "helpless",
                 20: "novice",
@@ -562,6 +564,26 @@ class Character(ObjectParent, ClothedCharacter):
         each point cost more than the last. The curve does essentially all of the
         work; do not tune one thinking it moves the other.
 
+        WHAT D.2 CHANGED HERE -- THERE IS NO CEILING ANY MORE
+        -----------------------------------------------------
+        This method used to open with an `old >= cap` short-circuit that returned
+        `rolled=False` and banked nothing, and the comment above it argued at
+        length that the guard was load-bearing rather than redundant. Both the
+        guard and the argument are gone, and the argument is worth restating so
+        nobody reintroduces either: the guard existed *because there was a cap*.
+        It kept the lifetime total frozen inside [threshold(100), threshold(101))
+        so that `.current == level_for_xp(total)` stayed true at a ceiling where
+        `.current` could not follow the total upward. With the ceiling removed
+        the invariant holds unconditionally, which is a stronger property than
+        the one the guard was defending, not a weaker one.
+
+        Nothing replaces it as a limit, and nothing needs to. At (6, 20) with
+        INT 12 a point costs 192 XP at skill 100, 1 086 at 150 and 6 144 at 200 --
+        roughly 8 and 44 hours of pure 30 s cooldown respectively -- and Legend's
+        second band halves the applied INT the moment you pass 100. The curve and
+        the rulebook throttle the top of the scale between them; a number here
+        would be a third throttle nobody could later attribute an effect to.
+
         P-1 / P-2: lifetime XP is the sole persisted truth. `.current` is a
         materialised cache of `level_for_xp(total)` with exactly one writer --
         this method -- the same discipline `world/currency.py` holds over the
@@ -579,17 +601,23 @@ class Character(ObjectParent, ClothedCharacter):
             dict or None: None if this character has no such skill. Otherwise a
             summary the felt-progress layer consumes:
               - "skill_key" (str)
-              - "rolled" (bool): False when already at cap (no roll is wasted
-                on a mastered skill, and no XP is banked -- see the cap note).
+              - "rolled" (bool): **always True on this path since D.2.** The key
+                is kept rather than dropped because `_improvement_feedback` and
+                the tests read this dict without knowing which branch built it,
+                and a shape that changes shape is how a KeyError gets discovered
+                inside a live craft. Treat it as a shape contract, not a signal.
               - "old" / "new" (int): permanent skill % before / after. **These
                 are now usually equal**; the level moves once in dozens of ticks.
               - "delta" (int): new - old. **Usually 0.** Any caller that treats
                 a non-zero delta as "a tick happened" is now wrong; use "rolled".
-              - "beat" (bool): did the roll beat current skill (the 1D4+1
-                outcome)? False when not rolled.
+              - "beat" (bool): did the roll beat the band's target (the 1D4+1
+                outcome)?
               - "crossed" (list[int]): which of 25/50/75/100 were passed this
-                tick -- the celebration hooks.
-              - "xp_gained" (int): XP banked by this tick (0 when not rolled).
+                tick -- the celebration hooks. D.2 deliberately did NOT extend
+                this list above 100: 100 stays the top celebration, which is
+                where "mastery" honestly sits, and inventing 125/150 marks would
+                celebrate altitudes the curve makes nearly unreachable.
+              - "xp_gained" (int): XP banked by this tick.
               - "xp_total" (int): lifetime XP for this skill after the bank.
               - "progress" (tuple): `(earned, needed, fraction)` within the
                 current point, from `progress_within_level`. Component D.1 draws
@@ -608,25 +636,33 @@ class Character(ObjectParent, ClothedCharacter):
             return None
 
         old = int(skill.current)
-        # max may be None on a legacy/handcrafted trait; fall back to 100 to
-        # match at_object_creation's skills.add(..., max=100).
-        cap = skill.max if skill.max is not None else 100
 
-        # Already mastered -> don't waste a roll (or a celebration) on it.
+        # D.2 CAP-LIFT REPAIR -- the migration, and the reason it is not a
+        # migration script.
         #
-        # ⚠️ DO NOT "SIMPLIFY" THIS AWAY once `min(cap, ...)` below appears to
-        # make it redundant. It is what keeps `.current == level_for_xp(total)`
-        # true at the ceiling. Without it, XP would keep accruing at cap while
-        # `.current` stood still, the cache would silently diverge from the
-        # truth, and D.2's cap lift would then teleport the character several
-        # points at once. With it, the total freezes inside
-        # [threshold(cap), threshold(cap + 1)) and the invariant holds.
-        if old >= cap:
-            capped_xp = self.skill_xp.get(skill_key)
-            return {"skill_key": skill_key, "rolled": False, "old": old,
-                    "new": old, "delta": 0, "beat": False, "crossed": [],
-                    "xp_gained": 0, "xp_total": capped_xp,
-                    "progress": progress_within_level(capped_xp)}
+        # at_object_creation no longer sets `max`, so every character created
+        # from D.2 onward is already correct. Characters that existed BEFORE it
+        # carry max=100 inside their stored trait, and that number is enforced
+        # by Evennia's own setter:
+        #
+        #     @current.setter
+        #     def current(self, value):
+        #         self._data["current"] = ..._enforce_boundaries(value)
+        #
+        # so `skill.current = 105` on such a trait silently stores 100. This is
+        # exactly B.2's problem with the opposite remedy available: B.2 could
+        # solve it read-time because WE owned the read (SkillXPHandler.get);
+        # here the enforcement lives in a setter we do not own, so a read-time
+        # fallback has nothing to intercept -- by the time we read, the value is
+        # already clamped. The write has to happen.
+        #
+        # It happens HERE rather than in a one-shot admin command for B.2's
+        # stated reason: a script only covers the characters alive when someone
+        # remembered to run it, and does not survive a restored backup. Routing
+        # it through the single writer (P-2) makes it idempotent by construction
+        # -- after the first tick there is nothing left to write, forever.
+        if skill.max is not None:
+            skill.max = None
 
         # P-1 repair, and the one branch that is a no-op in every normal life.
         # `.current` is supposed to be written only by this method, but an admin
@@ -641,7 +677,8 @@ class Character(ObjectParent, ClothedCharacter):
         if stored_xp < floor_xp:
             self.skill_xp.add(skill_key, floor_xp - stored_xp)
 
-        int_char = self.stats.int.value   # full INT added to the 1D100 (Legend)
+        int_char = self.stats.int.value   # INT offered to the roll; improvement_
+                                          # roll divides it down above 100 (D.2)
         res = improvement_roll(old, int_char)
 
         # Bank first, then derive. `add()` returns the new lifetime total, which
@@ -650,8 +687,9 @@ class Character(ObjectParent, ClothedCharacter):
         new_xp = self.skill_xp.add(skill_key, res["gained"])
 
         # The curve, not the roll, decides the level -- a grain of 5 usually
-        # moves nothing at all. Clamp to cap so old/new/delta stay exact.
-        new = min(cap, level_for_xp(new_xp))
+        # moves nothing at all. No clamp: D.2 removed the ceiling, and a
+        # `min(cap, ...)` here would be the ceiling wearing a different name.
+        new = level_for_xp(new_xp)
 
         # Write ONLY on a real move (P-2). The common case is that the level did
         # not change, and a write per craft would be pointless churn on the
@@ -752,9 +790,17 @@ class Character(ObjectParent, ClothedCharacter):
             return None
 
         # Eligible. Apply the roll, then start the window *only if* a real tick
-        # happened: a maxed skill (rolled=False) can't grow, so it shouldn't burn
-        # a cooldown. No await between ready-check and add -> no race (single
-        # -threaded reactor), so check+set stays atomic.
+        # happened.
+        #
+        # ⚠️ SUPERSEDED (Stage 4.5, D.2). This used to read "a maxed skill
+        # (rolled=False) can't grow, so it shouldn't burn a cooldown". There is
+        # no maxed skill any more and `rolled` is always True on the non-None
+        # path, so the second half of the condition below is now a shape check
+        # rather than a signal -- kept because a dict arriving here without the
+        # key means it did not come from the engine, and that is worth failing
+        # on. The cooldown is in practice burned on every eligible attempt.
+        # No await between ready-check and add -> no race (single-threaded
+        # reactor), so check+set stays atomic.
         result = self.improve_skill_on_use(skill_key)
         if result and result["rolled"]:
             self.cooldowns.add(cd_key, self.improvement_cooldown)
@@ -780,7 +826,7 @@ class Character(ObjectParent, ClothedCharacter):
         time and moves the percentage roughly once in dozens, so `rolled` and
         "something visible happened" have come apart:
 
-            not rolled            -> ""                      (gated out, or capped)
+            not rolled            -> ""                      (gated out only)
             rolled, delta == 0    -> the derived progress bar (the common case)
             rolled, delta > 0     -> "improves!" + any tier celebration
 
@@ -807,11 +853,17 @@ class Character(ObjectParent, ClothedCharacter):
 
         Returns:
             str: the message to show the player, or "" when there's nothing to
-                announce (gated out, or a maxed skill whose tick didn't roll).
-                Callers guard with `if text:` before messaging.
+                announce (the attempt was gated out). Callers guard with
+                `if text:` before messaging.
         """
-        # Gated out (None) or a maxed skill that burned no growth (rolled=False):
-        # nothing to say.
+        # Gated out: nothing to say.
+        #
+        # ⚠️ D.2 note. Both this comment and the Returns line above used to name
+        # a second silent case -- "a maxed skill whose tick didn't roll". There
+        # is no maxed skill any more: `improve_skill_on_use` returns None or a
+        # dict with rolled=True, and nothing else. The `rolled` half of the guard
+        # below is therefore dead as a *signal* and kept only as a shape check;
+        # if it ever fires, the dict came from somewhere that is not the engine.
         #
         # ⚠️ This comment used to read "A rolled tick always has delta >= 1
         # (Legend's +1 floor), so rolled=True is a sufficient gate." That was
@@ -832,9 +884,11 @@ class Character(ObjectParent, ClothedCharacter):
             # Banked, but the percentage did not move -- the common case after
             # C.1, and the thing this branch exists to make legible.
             #
-            # `improve_skill_on_use` returns "progress" on every branch including
-            # the capped one, so the bar has its input without a second read of
-            # the XP store. The tuple is unpacked rather than indexed so that a
+            # `improve_skill_on_use` returns "progress" on the one branch it
+            # still has, so the bar has its input without a second read of the
+            # XP store. (Until D.2 this sentence named "every branch including
+            # the capped one"; the capped branch is gone.) The tuple is unpacked
+            # rather than indexed so that a
             # change in its shape fails here loudly instead of drawing a wrong
             # bar quietly; `_earned`/`_needed` are deliberately unused, since
             # showing either of them would be the second progression figure P-8

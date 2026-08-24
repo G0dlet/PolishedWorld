@@ -393,18 +393,18 @@ class TestDeterministicPacing(EvenniaTest):
 
 
 @override_settings(**SHIPPED)
-class TestCapShortCircuit(EvenniaTest):
+class TestNoCeiling(EvenniaTest):
     """
-    F2: the `old >= cap` early return is load-bearing, not an optimisation.
+    D.2: the cap is gone, and the class that used to defend it is gone with it.
 
-    Once `min(cap, ...)` exists a few lines below it, the short-circuit looks
-    redundant and invites deletion. It is not. Without it a mastered skill keeps
-    banking XP while `.current` sits at 100, the invariant
-    `.current == level_for_xp(total)` breaks silently, and D.2's cap lift then
-    teleports the character several points at once out of XP nobody watched
-    accumulate. With it, the total freezes inside [threshold(100),
-    threshold(101)) and the invariant survives until D.2 removes the ceiling
-    honestly.
+    This replaces `TestCapShortCircuit`, which asserted that a skill at 100 does
+    not roll and banks nothing. Those assertions were correct and are now exactly
+    backwards; they are deleted rather than inverted in place, because a test
+    that keeps a name describing a mechanism that no longer exists is a false
+    claim of the same family this epic has retracted five times.
+
+    The invariant they protected survives and is asserted below in its stronger
+    unconditional form: `.current == level_for_xp(total)` at any level.
     """
 
     character_typeclass = CHARACTER
@@ -414,34 +414,80 @@ class TestCapShortCircuit(EvenniaTest):
         self.craft = self.char1.skills.get("craft")
         self.craft.current = 100
 
-    def test_a_capped_skill_does_not_roll(self):
-        with mock.patch("typeclasses.characters.improvement_roll") as rolled:
+    def test_a_skill_at_100_still_rolls(self):
+        with mock.patch("typeclasses.characters.improvement_roll",
+                        fixed_roll(1)) as rolled:
             result = self.char1.improve_skill_on_use("craft")
 
-        rolled.assert_not_called()
-        self.assertFalse(result["rolled"])
-        self.assertEqual(result["delta"], 0)
+        self.assertTrue(result["rolled"])
 
-    def test_a_capped_skill_banks_no_xp(self):
+    def test_a_skill_at_100_banks_xp(self):
         before = self.char1.skill_xp.get("craft")
 
         with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(5, beat=True)):
             self.char1.improve_skill_on_use("craft")
 
-        self.assertEqual(self.char1.skill_xp.get("craft"), before)
-        # Nothing was written at all -- the Attribute is not even created.
-        self.assertFalse(self.char1.attributes.has("skill_xp"))
+        self.assertEqual(self.char1.skill_xp.get("craft"), before + 5)
 
-    def test_the_capped_result_still_carries_the_new_keys(self):
-        # `_improvement_feedback` and, shortly, D.1's bar read this dict without
-        # checking which branch produced it. A KeyError inside a craft is not an
-        # acceptable way to learn that the cap branch returns a different shape.
-        result = self.char1.improve_skill_on_use("craft")
+    def test_the_level_passes_100_when_the_total_buys_it(self):
+        """
+        Point 101 costs 192 XP at (6, 20), so one grain cannot do it -- bank the
+        rest out of band first, then let a real tick derive the new level. The
+        out-of-band write suspends P-1's direction (the total leads the level)
+        for exactly one statement; the tick restores it.
+        """
+        self.char1.skill_xp.add("craft", xp_threshold(101) - self.char1.skill_xp.get("craft"))
 
-        for key in ("xp_gained", "xp_total", "progress"):
-            self.assertIn(key, result)
-        self.assertEqual(result["xp_gained"], 0)
-        self.assertEqual(len(result["progress"]), 3)
+        with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(1)):
+            result = self.char1.improve_skill_on_use("craft")
+
+        self.assertEqual(result["new"], 101)
+        self.assertEqual(int(self.craft.current), 101)
+
+    def test_the_invariant_holds_above_100(self):
+        self.char1.skill_xp.add("craft", xp_threshold(103) - self.char1.skill_xp.get("craft"))
+
+        with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(1)):
+            self.char1.improve_skill_on_use("craft")
+
+        self.assertEqual(int(self.craft.current),
+                         level_for_xp(self.char1.skill_xp.get("craft")))
+
+    def test_a_legacy_trait_carrying_a_max_is_repaired_before_the_write(self):
+        """
+        The migration, asserted. A pre-D.2 character has max=100 stored, and
+        CounterTrait clamps inside its own setter -- so without the repair the
+        write below stores 100 and the invariant breaks where nobody looks.
+
+        This is the one test that would still pass if the repair were deleted
+        AND the assertion on `.max` were dropped, which is why the level
+        assertion is here too: 101 is only reachable through an unclamped setter.
+        """
+        self.craft.max = 100
+        self.assertIsNotNone(self.craft.max, "the legacy state was not set up")
+
+        self.char1.skill_xp.add("craft", xp_threshold(101) - self.char1.skill_xp.get("craft"))
+
+        with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(1)):
+            self.char1.improve_skill_on_use("craft")
+
+        self.assertIsNone(self.craft.max)
+        self.assertEqual(int(self.craft.current), 101)
+
+    def test_the_repair_leaves_an_already_clean_trait_alone(self):
+        """
+        "Nothing changed" needs an independent receipt that the code ran
+        (Testing Reference section 11) -- here, the XP that was banked. Without
+        it this test passes just as green against a method that returns early.
+        """
+        self.assertIsNone(self.craft.max, "a fresh D.2 character should carry no max")
+        before = self.char1.skill_xp.get("craft")
+
+        with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(2)):
+            self.char1.improve_skill_on_use("craft")
+
+        self.assertIsNone(self.craft.max)
+        self.assertEqual(self.char1.skill_xp.get("craft"), before + 2)   # the receipt
 
 
 @override_settings(**SHIPPED)
@@ -689,16 +735,18 @@ class TestFeedbackCopy(EvenniaTest):
     def test_a_gated_out_attempt_says_nothing(self):
         self.assertEqual(self.char1._improvement_feedback(None), "")
 
-    def test_a_capped_skill_says_nothing(self):
-        # rolled=False, and after C.1 it also banks nothing. Silence is correct:
-        # there is no progress to report, felt or otherwise. Note that the capped
-        # branch *does* carry a "progress" tuple, so this is a real gate and not
-        # an accident of missing data.
+    def test_a_skill_above_100_still_draws_the_bar(self):
+        """
+        The branch `test_a_capped_skill_says_nothing` used to guard is gone: a
+        skill at 100 now banks like any other, so the honest signal is the bar,
+        not silence.
+        """
         self.craft.current = 100
-        self.assertEqual(
-            self.char1._improvement_feedback(self.char1.improve_skill_on_use("craft")),
-            "",
-        )
+
+        with mock.patch("typeclasses.characters.improvement_roll", fixed_roll(1)):
+            text = self.char1._improvement_feedback(self.char1.improve_skill_on_use("craft"))
+
+        self.assertIn(_BAR_EMPTY, text)
 
 
 class TestImprovableSkillsSet(EvenniaTest):

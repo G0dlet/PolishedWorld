@@ -156,21 +156,32 @@ class TestProgressCommand(EvenniaCommandTest):
         stealth = self.char1.skills.get("stealth")
         self.assertNotIn(stealth.key, self.char1.improvable_skills)
 
-    def test_a_maxed_skill_says_so_instead_of_showing_a_frozen_bar(self):
+    def test_a_skill_at_100_draws_a_bar_instead_of_a_caption(self):
         """
-        At the cap `improve_skill_on_use` short-circuits and the total freezes
-        inside [threshold(cap), threshold(cap + 1)), so a bar here would show a
-        partial fill that never moves again.
-
-        ⚠️ D.2 lifts the cap and this branch dies with it. When that happens this
-        test should be deleted, not adjusted -- an adjusted version would be
-        asserting a caption for a state that can no longer occur.
+        The caption `(at maximum)` died with the cap (D.2). A skill at 100 is
+        mid-climb like any other now, so it gets bar art -- and the assertion is
+        written against the caption's absence as well as the bar's presence,
+        because a row that lost both would otherwise pass.
         """
         self.craft.current = 100
 
         out = self._output()
 
-        self.assertIn("at maximum", out)
+        self.assertNotIn("at maximum", out)
+        self.assertTrue(_BAR_EMPTY in out or _BAR_FULL in out)
+
+    def test_a_skill_above_100_renders_without_breaking_the_row(self):
+        """
+        Three-digit levels are reachable now and the column is `{now:>3}`. Not a
+        cosmetic worry: the caption branch used to absorb everything at the top
+        of the scale, so this width has never been exercised.
+        """
+        self.craft.current = 140
+
+        out = self._output()
+
+        self.assertIn("140%", out)
+        self.assertNotIn("at maximum", out)
 
     # -- the session delta, which survives as a suffix ---------------------
 

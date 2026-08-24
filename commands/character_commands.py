@@ -208,6 +208,27 @@ class CmdProgress(Command):
         Both readings are taken from `.current`, never `.value`: the snapshot is
         recorded from `.current` at login, and a worn tool's +20 must not
         masquerade as either progress or standing.
+
+        WHAT D.2 CHANGED, AND THE LIMIT IT KNOWINGLY ACCEPTS
+        ----------------------------------------------------
+        The `(at maximum)` caption is gone with the cap that produced it. There
+        is no longer a state in which a skill's bar is frozen, so there is no
+        longer a caption standing in for one; `(not yet trainable)` survives,
+        because a skill with no call-site still has a bar that cannot move.
+
+        The accepted limit, recorded here rather than rediscovered: **the bar's
+        resolution runs out at skill ~96, not at 100.** D-1 gives 20 cells x 8
+        eighth-blocks = 160 renderable states, and at (6, 20) a point first costs
+        more than 160 XP at level 96 (161) -- from there one banked XP can leave
+        the art unchanged. It degrades gracefully rather than breaking, but it
+        degrades: at 150 a point costs 1 086 XP, so a single grain moves 0.15 of
+        one eighth and the bar visibly steps about once every seven ticks. That
+        is D.1's own silence returning fifty points higher up.
+
+        It is accepted, not overlooked. The alternatives were a longer bar above
+        100 (breaks D-1's 20 cells and the column alignment for a band almost
+        nobody reaches) and a caption (dishonest -- the bar up there is coarse,
+        not dead). Revisit only if a player is ever observed above ~130.
         """
         char = self.caller
 
@@ -232,7 +253,6 @@ class CmdProgress(Command):
             if skill is None:
                 continue
             now = int(skill.current)
-            cap = skill.max if skill.max is not None else 100
 
             if skill_key not in improvable:
                 # No call-site routes this skill through
@@ -240,15 +260,11 @@ class CmdProgress(Command):
                 # so is more informative than drawing a permanently empty bar,
                 # and more honest than dropping the row.
                 column = f"{'(not yet trainable)':<{self._BAR_COLUMN}}"
-            elif now >= cap:
-                # ⚠️ TODO(D.2): this branch dies with the cap. `improve_skill_on_use`
-                # short-circuits at the ceiling and freezes the XP total inside
-                # [threshold(cap), threshold(cap + 1)), so the bar here would show
-                # a partial fill that never moves again -- worse than no bar.
-                column = f"{'(at maximum)':<{self._BAR_COLUMN}}"
             else:
                 # Derived on read from the lifetime total (P-1). Nothing about
-                # this bar is stored, and no figure from it is shown (P-8).
+                # this bar is stored, and no figure from it is shown (P-8). This
+                # is now the ONLY branch a trainable skill can take, at any
+                # level -- there is no ceiling to special-case (D.2).
                 _earned, _needed, fraction = progress_within_level(
                     char.skill_xp.get(skill_key)
                 )
