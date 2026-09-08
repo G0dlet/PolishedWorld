@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 8 · 2026-08-24** — **Component D.2 is delivered and Stage 4.5 is closed.** The 100% cap is gone and Legend's second band is live. §6 gains a Delivered block covering the five locked decisions (no numeric ceiling, `descs` untouched, write-time migration, the bar's accepted resolution limit, and `int_bonus` reporting the *applied* INT). The substantive finding is **why a read-time migration was not available here**: B.2 could solve its equivalent problem read-time because *we owned the read*, but a `CounterTrait`'s ceiling is enforced inside **Evennia's own `current` setter**, so a stored `max=100` clamps before any reader sees it. The repair therefore runs at write time through the single writer (P-2) — idempotent by construction, and immune to the restored-backup case a one-shot script cannot cover. Also records that **the cap lived in eight places, not the five that were inventoried**, and that the three extra ones were all prose; that `improvement_roll` had **zero** tests before this task, so the 416-test baseline proved nothing about the arithmetic being changed; the **fifth falsified production claim** (`world/recipes.py`'s *"max craft quality is 110 (skill cap 100)"*) — the first caught *before* it went false rather than after; and a **provably equivalent mutant** (`> 100` vs `>= 100` in the `target` expression differ for no integer input), which corrects a claim this task's own code comment makes about where the band boundary is expressed. **Component E leaves the epic** rather than holding it open: it is BLOCKED on content nobody has scheduled, and a stage held open by an unscheduled trigger blocks Stage 5 without anyone having decided to.
 > **Rev 7 · 2026-08-15** — **Component D.1 is delivered, and the fourth false claim of the epic was produced by this document's own test protocol.** §6 gains a Delivered block covering the four locked decisions (D-1 bar resolution, D-2 when the bar renders, D-3 `CmdProgress`, D-4 captions for bars that cannot move), the evaluation and **rejection** of Evennia's `health_bar` contrib, and the measurement that decided D-1. That measurement is the substantive finding: a whole-cell bar **goes silent at high skill** — 23% of ticks move a 20-cell bar at skill 90 — which is the exact silence D.1 exists to remove, displaced one level down. Eighth-block partials give 8× resolution and resolve every banked XP up to skill ~95. Also records the **fourth falsified production claim**: `_improvement_feedback`'s *"a single tick can now move at most ONE point"*, disproven in-game when a tick took Craft 20 → 60 — because §6's protocol tells the tester to set `.current` by hand, and the claim held only while `.current` had no writer but the engine. Same shape as F7: the spec's own protocol manufactures the state the spec's prose says cannot occur. Two corrections to Rev 6 recorded: the dead SHA `9395ac7` (rewritten to `649224e` before push, cited twice) and the fact that **no recipe in the catalogue requires a tool**, which makes `crafting_base.py`'s `tool_broke` branch unreachable and is a second content dependency alongside §7's.
 > **Rev 6 · 2026-08-13** — **Component C is delivered, and the epic's most expensive finding is a deviation the spec's own test protocol forced.** §5 gains a Delivered block covering C.1, C.2 and the three sub-decisions. The deviation is **F7**: `.current` raised from outside a bank would have *de-levelled* the character on her next use, and the paragraph that guarantees someone will do this is §5's own in-game protocol, which says to craft until the level moves — hours of work anyone will shortcut by setting `.current` by hand. The repair tops the total up to `xp_threshold(.current)` rather than clamping the level down, so P-1's direction is restored rather than suspended. Also records **three false claims found inside production files** in one epic — `world/improvement.py`'s pacing sentence, `_improvement_feedback`'s "rolled=True is a sufficient gate", and the tier celebration's idempotence argument — all the same shape: prose asserting what a mechanism guarantees, left standing after the mechanism changed. And a **false pass**: the F7 step first "succeeded" because the craft it used failed, so the engine never ran and "the level stayed put" was produced by nothing happening. A step expecting *nothing changed* needs an independent receipt that the code ran (Testing Reference Rev 5 §11). Six mutations recorded, one honest gap stated, and the fact that `improve_skill_on_use` had **zero** tests before this — the 363-test baseline would have stayed green if it had been deleted.
 > **Rev 5 · 2026-08-05** — **P-5 gains the threshold it was missing.** "Tightened never" was written as an absolute, and it is not one: the ratchet exists because a tightening de-levels *people*, so it starts at first real players and not before. Pre-launch, recalibration in either direction is free, and several are expected. Without the threshold P-5 would be cited to block a legitimate early rebalance — the rule would outlive its own reason. Also: §7's BLOCKED status is unchanged but **reframed** — the catalogue being small is an ordinary early-development state, not a finding, and Rev 4 wrote it as an alarm. `min_skill = 30` on `LeatherBootsRecipe` is a **placeholder**, so E.1 assigns every value rather than filling in the blanks around it. New hazard recorded in §7: **`min_skill` would carry two jobs** — it is already a hard access floor read from `.value`, and E.2 would read it as a difficulty datum from `.current`. One number, two purposes, two readings; raising it so a recipe teaches longer also locks lower-skill crafters out of it entirely.
@@ -835,9 +836,178 @@ next to it.
   the ≤100 band (the boundary the `>` in the docstring formula decides).
 - **Commit:** `feat(progression): implement Legend's above-100% improvement band`
 
+#### ✅ Delivered 2026-08-24 — `a970883`, 429 tests green
+
+The task above is left standing; this block says which parts of it survived
+contact with the code. Two did not: the cap lived in **eight** places rather than
+the five this spec names, and the trait `max` could not simply be "raised or
+removed" on existing characters without deciding *where* the removal happens.
+
+**The five decisions, locked as A/B/C before any code was written.**
+
+| # | Question | Locked | Why |
+|---|---|---|---|
+| 1 | Unbounded, or a new number? | **No `max` at all** | A number would be a second throttle on a curve that already strangles the top of the scale. Measured at (6, 20) with INT 12: a point costs 192 XP at skill 100, 1 086 at 150 (~8 h of pure 30 s cooldown) and 6 144 at 200 (~44 h). `improvement_cooldown` was frozen for exactly this reason; a ceiling would have re-introduced the shape. Site count 5 → 0. |
+| 2 | What does `tier_for` show at 140? | **`descs` untouched** | `tier_for` already returns the highest label above the highest bound, so 140 reads `master`. New bands would need rewriting in `at_object_creation`, in `HUNTING_SKILL_DEFAULTS` *and* on every existing character's stored trait — the migration surface of decision 3, doubled, for cosmetics. Deferred to `docs/BACKLOG.md` (*UX & Item Identity*). |
+| 3 | Migration for existing characters' `max` | **Constructor + write-time repair** | See the finding below. |
+| 4 | The bar above 100 | **Accept and document** | See the accepted limit below. |
+| 5 | What `int_bonus` means in the second band | **The applied figure** | `total` is documented as `roll + int_bonus`. Reporting the raw INT score would have falsified that line the moment anyone passed 100 — the same shape of stale claim this epic has retracted five times, written with open eyes. |
+
+**⚠️ The finding: a read-time migration was not available, and B.2's rule is why.**
+
+B.2 shipped as a read-time fallback rather than a written backfill, and §4's
+Delivered block gives the reason: the population a one-shot script must cover has
+no end. That reasoning applies here and its *remedy* does not, for a reason worth
+stating plainly — **B.2 owned the read**. `SkillXPHandler.get()` is ours, so a
+fallback had somewhere to live. A `CounterTrait`'s ceiling is enforced inside
+Evennia's own setter:
+
+```python
+@current.setter
+def current(self, value):
+    if isinstance(value, (int, float)):
+        self._data["current"] = self._check_and_start_timer(self._enforce_boundaries(value))
+```
+
+`_enforce_boundaries` returns `self.max` when the value reaches it. So on a
+pre-D.2 character `skill.current = 101` **silently stores 100**, and by the time
+any reader looks, the clamping has already happened. There is nothing to
+intercept. The write has to occur.
+
+It occurs in `improve_skill_on_use`, beside the F7 floor repair, rather than in a
+one-shot command — for B.2's stated reason plus one more: a script covers only
+the characters alive when someone remembered to run it, and **does not survive a
+restored backup**. Routing it through the single writer (P-2) makes it idempotent
+by construction: after the first tick there is nothing left to write, forever.
+`at_object_creation` and `HUNTING_SKILL_DEFAULTS` stop setting `max` in the same
+commit, so the repair is not manufacturing work for itself.
+
+**⚠️ The cap lived in eight places. Three were prose, and prose has no tests.**
+
+The five inventoried: `improvement_roll`'s single band; the `old >= cap`
+short-circuit; `max=100` on five traits; `HUNTING_SKILL_DEFAULTS`; the
+`(at maximum)` caption and its test (deleted, not adjusted — a test whose
+mechanism no longer exists is a false claim wearing a test's name).
+
+The three that were not, all found by the prose-verification loop after the code
+was believed complete:
+
+1. `attempt_skill_improvement`'s cooldown comment — *"a maxed skill (rolled=False)
+   can't grow, so it shouldn't burn a cooldown"*. `rolled` is now always `True` on
+   the non-`None` path, so the second half of that condition is a shape check
+   rather than a signal, and the cooldown is in practice burned on every eligible
+   attempt.
+2. `_improvement_feedback`'s *"returns `progress` on every branch including the
+   capped one"* — there is one branch now.
+3. `world/recipes.py`'s *"max craft quality is 110 (skill cap 100 → crit_score
+   10), so no craft ever reached 125"* — **the fifth falsified production claim of
+   this epic, and the first caught before it went false.** `crit_score` is
+   `.value // 10`; a crafter at skill 250 stamps 125 and reopens the branch the
+   comment justified removing. The removal still stands, for a better reason: the
+   band helper is the single place quality is classified.
+
+**The accepted limit: the bar's resolution runs out at skill ~96, not at 100.**
+
+D-1 gives 20 cells × 8 eighth-blocks = 160 renderable states, and at (6, 20) a
+point first costs more than 160 XP at level **96** (161). Above that a single
+banked XP can leave the art unchanged. At 150 a point costs 1 086 XP, so one
+grain moves 0.15 of an eighth and — because the second band halves applied INT,
+dropping the beat rate to ~6% — nearly every tick *is* one grain. The bar steps
+about once every seven ticks up there. **That is D.1's own silence returning
+fifty points higher up**, and it is accepted rather than overlooked: a longer bar
+breaks D-1's 20 cells and the column alignment for a band almost nobody reaches,
+and a caption would be dishonest (the bar is coarse, not dead). Revisit only if a
+player is ever observed above ~130.
+
+**Two things deliberately left alone.**
+
+- `crossed` stays `(25, 50, 75, 100)`. 100 remains the top celebration, which is
+  where mastery honestly sits; marks at 125 or 150 would celebrate altitudes the
+  curve makes nearly unreachable.
+- `world/skillcheck.py::opposed_check` keeps its **own** unimplemented >100% rule
+  (highest mastered skill drops to 100, the excess penalises everyone). It is a
+  separate decision with its own motivation. `world/improvement.py`'s old
+  deferral note bundled the two into one sentence, which made them look like one
+  decision; they are not, and lifting this cap does not decide that one.
+
+**Mutations — five run, one survivor, and the survivor is provable.**
+
+| # | Mutation | Predicted | Killed | |
+|---|---|---|---|---|
+| M1 | `max(0, …)` dropped from the INT divisor | 1 | 1 — `…never_multiplies_the_int` | ✅ |
+| M2 | `target = 100 if skill_value >= 100 else …` | 0 | 0 | ✅ |
+| M3 | `beat = total > skill_value` (band removed) | 1 | 2 — `…target_is_100_and_not_the_skill`, `…gain_is_untouched_by_the_band` | ⚠️ |
+| M4 | the `max` repair removed | 1 | 1 — `…legacy_trait…is_repaired…` | ✅ |
+| M5 | `"int_bonus": int_char` (raw, not applied) | 1 | 3 — `…halved_one_point_later`, `…quartered_in_the_third_band`, `…roll_plus_the_applied_int` | ⚠️ |
+
+**⚠️ M2 is a provably equivalent mutant, not a gap in the tests.** For every
+integer input, `100 if sv > 100 else sv` and `100 if sv >= 100 else sv` return
+the same value — at `sv == 100` the first yields `sv` (100) and the second yields
+100. §11b's question (*"which input class does no test cover?"*) has no answer
+here, because no input distinguishes them. **That correction matters beyond the
+mutation run:** `improvement_roll`'s shipped comment claims the `>` is *"what
+puts a skill of exactly 100 in the FIRST band … a decision, not an accident of
+arithmetic"*. The decision is real; it is **not expressed there**. The entire
+band boundary is carried by `(skill_value - 1) // 100` in the INT divisor. The
+comment is corrected in place rather than deleted, since a reader who trusts it
+would mutate the wrong line.
+
+M1 is the one worth keeping in mind for its own sake: Python floors toward
+negative infinity, so `(0 - 1) // 100 == -1` and `2 ** -1` is the **float** 0.5.
+Without `max(0, …)` a skill of 0 gets `int_char // 0.5` — a *doubled* bonus, and
+a float. The guard is not defensive tidiness; the band inverts at the bottom of
+the scale without it.
+
+**⚠️ `improvement_roll` had zero tests before this task.** P-3 kept the module
+untouched through Components A–C, and `tests/test_improvement_engine.py` says
+outright that it tests "the reinterpretation, not the roll". D.2 is the first
+change to that module since it was written, so the 416-test baseline it inherited
+proved nothing whatsoever about the arithmetic being changed. `tests/test_improvement_roll.py`
+is new: 9 tests. Total 416 → **429** (5 deleted with the mechanisms they guarded,
+18 added).
+
+**Deviations — three, all in delivery rather than in design.**
+
+1. **The `max=100` removals were delivered as one full block plus four
+   "same, but with this line" abbreviations.** One of the four was applied with a
+   duplicated comma and the server refused to start (`SyntaxError`, `0: "clumsy",,`).
+   The delivery contract says ERSÄTT/MED blocks cover *entire* units because the
+   prose is part of the patch; four abbreviations are four patches that were
+   described rather than delivered. It failed loudly here only by luck — an
+   abbreviation covering a *condition* rather than a dict entry would have
+   compiled.
+2. **The in-game protocol's step 6 was arithmetically wrong**, and the unit test
+   for the same behaviour was right. The protocol said to add a fixed 192 XP; the
+   character had a real stored total of 1 414 (level 64), so it reached 1 606 and
+   not the 5 466 that buys point 101. The test computes
+   `xp_threshold(101) - get()` — an absolute set. **The protocol and the test
+   should have been the same expression** and were not.
+3. **Two of the three prose sites above were missed by the delivered blocks** and
+   found only by the verification loop, which is the third occurrence of this
+   exact shape in this epic.
+
+**In-game verification (2026-08-24), all thirteen steps.** The two that carry the
+result: `craft twine from fiber-1, fiber-2, fiber-3` →
+`Your Crafting improves! (+1, now 101%)`, and the invariant read back as
+`(101, 101)` — `.current == level_for_xp(total)` holding **above** 100, which is
+the property the deleted short-circuit existed to defend and now holds
+unconditionally. `skill.max` read `100` before the craft and `None` after it,
+proving the repair fired inside a real tick and not inside a `@py` call.
+
 ---
 
-## 7. Component E — the difficulty gate ⛔ BLOCKED
+## 7. Component E — the difficulty gate ⛔ BLOCKED, and **no longer part of this epic**
+
+> **Moved out 2026-08-24, at Stage 4.5 close-out.** E is blocked on a content
+> trigger that belongs to no scheduled stage, and a stage held open by an
+> unscheduled trigger blocks the next one without anyone having decided to —
+> here, Stage 5 (Combat), which must not begin before 4.5 closes. Keeping E
+> inside the epic would have made that blockage implicit; moving it makes the
+> cost visible and the trigger armed. The section below stands unchanged as the
+> design; its home is now `docs/BACKLOG.md` (*Crafting & Tools*, BLOCKED), which
+> already carried the blocker entry, and the roadmap's Stage 4.5 entry records
+> the close-out. Nothing about the design changed — only which document is
+> responsible for remembering it.
 
 **Status: BLOCKED on recipe content. Do not schedule it after D; it is not a
 "later" task, it is a task with an unmet precondition.** Written down now because
