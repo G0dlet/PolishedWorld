@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 28 · 2026-08-24** — one entry **added** (*UX & Item Identity*): **skill `descs` stop at 95, so nothing reads above `master`** — surfaced by Stage 4.5 D.2 lifting the 100% cap, which made 140% reachable and `master` the label for everything from 95 upward. Deferred rather than fixed in D.2 because `descs` are stored **per trait on every existing character**, so new bands carry the same migration surface the cap removal did, for a purely cosmetic gain. One entry **re-homed**: **⛔ the recipe catalogue does not span the skill scale** was the blocker behind Stage 4.5's Component E, and with 4.5 closed and E moved out of the epic, this file is now E's only home — the trigger is armed here or nowhere.
 > **Rev 27 · 2026-08-15** — one entry **widened, not added** (Crafting & Tools): **`recipes <name>` output name is a prettified prototype key** now covers the mirror defect found during Stage 4.5 D.1's in-game protocol — `CmdCraftGated`'s failure message renders the raw key (`Could not craft bone_needle without bone`) where the recipe is named `bone needle`. Same root cause, opposite direction: one surface prettifies the key and one forgets to, so a player sees two different names for the same recipe within a single session. Filed under the existing entry rather than as a new one, per the *one item, one home* rule — a fix that resolves prototype display names correctly closes both, and splitting them invites fixing one and calling it done. The entry's title and Trigger are updated to say so; its Status stays OPEN.
 > **Rev 26 · 2026-08-13** — new section **World & Rooms**, two entries added from a builder-ergonomics design discussion (no code written; `typeclasses/rooms.py` read live from `main` first). The small one, **builder QoL for dynamic rooms**, bundles three cheap fixes — a state-combination preview, a `roommsg` command to replace the three-line `@py` echo setup, and a written authoring convention (base desc + overlay fragments; full `@desc/<time>/<season>` matrix variants are the exception, not the model). The load-bearing one, **biome fragment library**, is deliberately its own entry so it cannot vanish as a sub-bullet of the QoL list: per-room authoring of a 7-time × 4-season × weather state space does not scale past the test world, and every room built before the library exists becomes migration debt — which is also what makes the entry's trigger self-arming. It is filed as a design session, not a drop-in, because its open questions (fragment format, composition with ExtendedRoom's priority chain, zone overrides, procgen alignment) are exactly the kind that go wrong when settled implicitly in code.
 
@@ -404,8 +405,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   of the scale to ladder at all. If it tops out below the intended ceiling, the
   gate reproduces this exact dead end one rung higher — a wall at 80 instead of
   61 is still a wall.
+- **⚠️ Re-homed (2026-08-24, Stage 4.5 close-out):** Component E has **left the
+  epic**. Stage 4.5 closed with A–D delivered, and E was moved out rather than
+  holding the stage open — a stage blocked on a content trigger that belongs to
+  no scheduled stage blocks the *next* stage (Combat) without anyone having
+  decided to. **This entry is now E's only armed home.** The design still lives
+  in Skill Progression decomp §7, which is marked as moved-out and will stop
+  being read once that decomp is closed; if the trigger below is ever met, start
+  here. E's own tasks (E.1 `min_skill` laddering, E.2 the trivial-work gate) are
+  specified there in full.
 - **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
-  decomposing Component E.
+  decomposing Component E; re-homed at Rev 8 close-out.
 - **Status:** BLOCKED
 
 ### `SkillXPHandler.add()` does not raise on an unknown skill key
@@ -744,6 +754,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## UX & Item Identity
+
+### Skill `descs` stop at 95 — nothing reads above `master`
+- **What:** Every skill trait's `descs` map tops out at `95: "master"`, so
+  `tier_for()` returns `master` for 95 and for 250 alike. Stage 4.5 D.2 removed
+  the 100% cap, so scores above 100 are now reachable and the top tier covers an
+  open-ended band instead of the last five points.
+- **Why deferred:** The gain is cosmetic and the cost is a migration. `descs` are
+  stored **per trait on every existing character**, so new bands must be written
+  in `Character.at_object_creation`, in
+  `world/character_migrations.py::HUNTING_SKILL_DEFAULTS`, *and* onto every
+  character created before the change — the same surface D.2's `max` removal had
+  to solve with a write-time repair, incurred a second time for labels. D.2
+  locked "leave `descs` alone" precisely so the migration commit had one job.
+- **⚠️ Constraint if picked up:** **P-8** (no second progression number shown to
+  the player) is *not* violated by a label — a tier name is not a figure — but the
+  labels must stay honest about the curve. A point costs ~6 144 XP at skill 200
+  (~44 h of pure cooldown), so a tier called `grandmaster` at 150 would name an
+  altitude almost nobody reaches, and the band 95–140 would keep the single label
+  it has now. Decide what the *reachable* range actually is before naming bands
+  in it.
+- **Trigger:** Either a player is observed above ~110, or another change is
+  already migrating stored trait data and can carry this for free.
+- **Origin:** Skill Progression decomp Rev 8 §6, D.2 locked decision 2.
+- **Status:** OPEN
 
 ### `look`-injected condition for non-admin players
 - **What:** Surface the condition line in `look` output for regular players
