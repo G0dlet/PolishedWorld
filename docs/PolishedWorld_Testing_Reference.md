@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 7 · 2026-08-24** — **Three verified findings from the Stage 4.5 D.2 run, and all three are ways a diagnostic can report success while proving nothing.** §1 gains the **exec-mode silence trap**: `py` compiles in `eval` mode and falls back to `exec` the moment the line contains a *statement* — an import, an assignment — and in `exec` mode `eval()` returns `None`, which `py` discards. So `@py from x import y; str(y())` prints **nothing**, and four steps of a protocol read as failures when the code had run correctly. Push the value with `self.msg(str(...))`. New **§11c** covers the prose-verification loop and two ways it lies: unquoted `--include=*.py` under **zsh** triggers `NOMATCH`, which aborts `grep` before it searches while the loop still prints its all-clear (bash passes the unmatched glob through, so the same line behaves differently in the two shells); and a *line*-based loop can never reach silence against a correctly superseded claim, because the superseding convention requires the retired text to stay in the file. The loop has to read a **block**. Also records the rule that makes the loop trustworthy at all: run it once *before* the fix, and confirm it produces hits — otherwise its later silence cannot be told apart from it never having searched.
 > **Rev 6 · 2026-08-15** — **§11 gains two more cases from the Stage 4.5 Component D.1 run, and one of them is the protocol attacking itself.** Rev 5 established that a step expecting an absence needs a receipt that the code ran. D.1 found the mirror image: a step that *writes past a single-writer* manufactures a state production code never promised to handle, and then the prose describing that code reads as a bug report. The protocol told the tester to set `.current` by hand; a later tick moved the skill 40 points at once; the docstring saying "at most ONE point" was the fourth false claim of the epic. **State-mutating cleanup steps must run before the out-of-band writes, not after** — and any protocol step that bypasses a documented writer must say which invariant it is suspending. §11 also records the unit-test twin found by mutation: a guard that looks redundant because a second guard covers every input the tests happen to try (`int(inf * 160)` raises `OverflowError`; nothing else in the class reaches it), and the emptiness-receipt idiom catching a collection comprehension that walked the wrong shape and would otherwise have passed green on an empty set.
 > **Rev 5 · 2026-08-13** — **Two new sections, from the Stage 4.5 Component C protocol run.** §11 records the run's most expensive mistake, which was not a bug in the code: a step whose expected outcome was *the level did not change* passed while the code under test was never reached, because the craft it used failed and the success-only gate returned first. Nothing happening and the guard working look identical from outside, so a step expecting an absence must carry an independent receipt that the code ran — and both receipts were available here and neither was demanded. It is the in-game twin of the unit-test trap in the same component (a write-guard cannot be tested by asserting the value afterwards, only by observing the write), and the same question finds both: *what else could produce this observation?* §12 records two argument-shape traps that surface as object-search failures rather than usage errors — `harvest <part> from <corpse>` and multimatch numbering (`rabbit-1`).
 > **Rev 4 · 2026-08-03** — **§3's no-comprehensions rule was wrong and is corrected by measurement.** List, set and dict comprehensions *do* see `py`'s eval locals (PEP 709 inlining, Python 3.12+); generator expressions and lambdas do not. Verified on 3.12 and 3.14 during Stage 4.5 A.1. §3 now leads with the cause -- `eval(code, {}, available_vars)` leaves globals empty, so nested function scopes cannot reach the caller's locals -- because the cause is version-independent and the table is not. Adds three diagnostics that actually discriminate, and a warning about the shape of diagnostic that does not: a lambda referencing only its own parameter passes on every version and proves nothing. Adds the argument-passing idiom for verifying a pure module inside the running server, and notes what `evennia shell` cannot prove.
@@ -19,6 +20,51 @@ Two modes, different rules:
 - **One-shot `@py <code>`** — a single game command; `py` execs/evals the whole line and returns once. **Namespace does NOT persist** between separate `@py` calls, so any import must be used on the *same* line/expression. `me`, `self`, `here` are injected fresh every call, so they're always available.
 - **Interactive console** (`py` with no args → `>>>` prompt; `quit()` to exit) — a real `code.InteractiveConsole`. Namespace persists across lines; `;` and multi-line statements work like normal Python. ⚠️ **But it drops lines when you paste a block from a MUD client**: the client sends the lines faster than the console consumes them, the remainder leaks to the game parser, and you get a wall of `Command '...' is not available`. Reliable only when typed line by line, or over raw telnet.
 - **`evennia shell`** (a Django shell outside the game) — ⚠️ **`me`, `self` and `here` do not exist here at all**; touching one raises `NameError`. There is no player session to inject them from. Use it *only* for pure functions and statistics (`skill_check` distributions, registry inspection), never for anything that needs a character. It has its own paste trap — see Evennia Reference §11.16.
+
+### ⚠️ 1a. The exec-mode silence trap — a statement on the line means **no output**
+
+`py` compiles your input in `eval` mode first and falls back to `exec` only if that
+fails (`evennia/commands/default/system.py`):
+
+```python
+try:
+    pycode_compiled = compile(pycode, "", mode)      # mode = "eval"
+except Exception:
+    mode = "exec"
+    pycode_compiled = compile(pycode, "", mode)
+...
+ret = eval(pycode_compiled, {}, available_vars)
+if ret is None:
+    return
+```
+
+An `import`, an assignment, or anything else that is a **statement** forces `exec`
+mode — and in `exec` mode `eval()` returns `None`, which the guard above discards.
+**Nothing is echoed.** A *pure expression* echoes; anything else is silent:
+
+    @py str(self.skills.craft.max)                              -> 100
+    @py self.skills.craft.current = 100                         -> (silence, but it ran)
+    @py from world.progression import xp_threshold as t; str(t(100))   -> (silence)
+    @py from world.progression import xp_threshold as t; self.msg(str(t(100)))   -> 5274
+
+⚠️ **This produces false negatives, not visible errors.** In the D.2 protocol four
+steps were read as failures — including two that were checking whether a *band of
+new arithmetic worked at all* — when the code had run correctly and only the echo
+was missing. **Any `@py` step that contains a statement must push its own output
+with `self.msg(str(...))`.** §4's wrap-before-`msg()` rule and this one compose:
+the value needs both the `msg()` and the `str()`.
+
+Two consequences worth internalising:
+
+- A statement-bearing `@py` that "does nothing" may have done everything.
+  Conversely, a silent line is **not** evidence of failure.
+- Statements on one line execute **sequentially**, so a line that raises partway
+  through has already applied its earlier statements. In the D.2 run
+  `@py self.skills.craft.current = 40; self.skill_xp.add("craft", xp_threshold(40) - ...)`
+  raised `NameError` on the un-imported `xp_threshold` **after** the assignment
+  had landed, leaving the character in a state neither the tester nor the protocol
+  expected. Read a mid-line traceback as "some of this took effect", never as
+  "this was rejected".
 
 Rule of thumb: prefer **atomic one-shot `@py`, one self-contained line per step** (§2's idioms make almost anything fit). Reach for the interactive console only when you must, and type rather than paste. Reach for `evennia shell` only for character-free maths.
 
@@ -277,6 +323,56 @@ Without line 2 the subset assertion is vacuously true against the empty set, and
 the test passes green forever while proving nothing. **Any assertion of the form
 "everything in this collection satisfies X" needs a prior assertion that the
 collection is non-empty.**
+
+### 11c. The prose-verification loop must read blocks, not lines — and must be proven to search
+
+Four of this epic's five falsified production claims were found by grepping for
+the retired wording across `*.py` after the code was believed finished. The loop
+is the only net under prose, since no test reads a comment. It has two failure
+modes, both of which end in a green all-clear.
+
+**Failure 1 — the shell aborts the search and the loop still reports success.**
+zsh has `NOMATCH` on by default: a glob with no match **aborts the command**
+rather than being passed through as text, which is what bash does.
+`--include=*.py` never matches a file, so under zsh:
+
+    $ zsh -c 'grep -rn --include=*.py "old >= cap" . | head -2'
+    zsh: no matches found: --include=*.py
+    exit=0
+
+`grep` never ran, the capture variable is empty, the loop prints its all-clear,
+and `$?` is `0` because of the pipe. Quote the glob and terminate the options:
+`grep -rn --include="*.py" -- "$p" .`. The same line behaves differently in the
+two shells, so a loop that was verified in bash is **not** verified in zsh.
+
+**Failure 2 — a line-based loop can never go quiet after correct work.** The
+superseding convention requires the retired claim to stay visible in the file
+next to its replacement. A `grep` for that wording therefore *always* matches
+after a correct supersede, and `grep -v SUPERSEDED` does not help, because `grep`
+is line-based and the marker sits on a different line from the quoted claim. Read
+a **window** instead — a retired phrase is acceptable only inside a block that
+carries a supersede marker within a few lines:
+
+```zsh
+for p in "(at maximum)" "old >= cap" "max=100" "maxed skill" "capped one"; do
+  for h in ${(f)"$(grep -rn --include="*.py" -- "$p" . | cut -d: -f1,2)"}; do
+    file=${h%%:*}; line=${h##*:}
+    lo=$(( line > 6 ? line - 6 : 1 ))
+    if ! sed -n "${lo},$(( line + 6 ))p" "$file" | grep -q "SUPERSEDED\|D\.2"; then
+      echo "KVAR: $p -> $file:$line"; sed -n "${line}p" "$file"
+    fi
+  done
+done
+echo "-- loop klar --"
+```
+
+**⚠️ The rule that makes it trustworthy: run it once before the fix.** A loop's
+silence is only evidence if you have seen the same loop produce hits. Run it
+against the unpatched tree first, confirm it names the sites you are about to
+change, then fix, then run it again. Without that first run, "clean" and "never
+searched" look identical — which is §11's receipt rule applied to the tooling
+instead of to the code, and the reason the catalogue loop in the working notes
+says *the loop is run, not read*.
 
 ## 12. Command-syntax traps that read as bugs
 
