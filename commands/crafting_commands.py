@@ -693,6 +693,19 @@ class CmdScribe(Command):
         tail = SCRIBE_TIER_FLAVOUR.get(tier, "")
         caller.msg(f"You bind a book of |y{listed}|n. {tail}".rstrip())
 
+        # Sixth on-use improvement call-site (Stage 4.5, P-6). Scribing is a real
+        # Craft roll with a material cost and a failure mode; leaving it out was
+        # an omission, not a decision -- "some Craft rolls teach and some do not,
+        # and you are not told which" is not a rule a player can learn. The gates
+        # (success-only, cooldown) live inside attempt_skill_improvement, so a
+        # failed binding still produces its low-condition book and teaches
+        # nothing. Placed after the result message so the feedback line reads as
+        # the next beat, exactly as in CmdDisassemble.
+        imp = caller.attempt_skill_improvement("craft", outcome)
+        text = caller._improvement_feedback(imp)
+        if text:
+            caller.msg(text)
+
 
 class CmdTeach(Command):
     """

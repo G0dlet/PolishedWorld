@@ -116,9 +116,19 @@ class WaterskinRecipe(MongooseCraftRecipe):
     def _finalize_item(self, obj, outcome):
         # Quality -> capacity (draughts) + durability (lifespan in refills),
         # classified through the shared band helper so this recipe never
-        # hard-codes a raw threshold. This replaces the old >=125 branch, which
-        # was DEAD: max craft quality is 110 (skill cap 100 -> crit_score 10), so
-        # no craft ever reached 125 and every critical fell into serviceable.
+        # hard-codes a raw threshold. This replaces the old >=125 branch.
+        #
+        # ⚠️ SUPERSEDED (Stage 4.5, D.2). The removal was originally justified as
+        # "max craft quality is 110 (skill cap 100 -> crit_score 10), so no craft
+        # ever reached 125". The premise is gone: there is no skill cap any more,
+        # crit_score is `.value // 10`, and a crafter at skill 250 stamps 125.
+        # The removal still stands, for a better reason than the old one -- the
+        # band helper is the single place quality is classified, and a recipe
+        # reopening a raw threshold would reintroduce exactly the split
+        # world/crafting_quality.py exists to prevent. Recorded rather than
+        # quietly rewritten: this is the fifth claim in this epic to be undone by
+        # a mechanism changing underneath it, and the first caught before it went
+        # false rather than after.
         band = quality_band(obj.db.quality)
         obj.db.max_charges, obj.db.durability = _WATERSKIN_STATS_BY_BAND[band]
         obj.db.charges = 0                              # crafted empty regardless

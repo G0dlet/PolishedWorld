@@ -26,13 +26,20 @@ from typeclasses.characters import Character
 # Keep in sync with the matching self.skills.add("hunting", ...) call in
 # Character.at_object_creation. Single source of truth for the backfill so a
 # backfilled character is byte-for-byte identical to a freshly created one.
+#
+# ⚠️ NO "max" KEY (Stage 4.5, D.2, P-7). It was 100 and it is deliberately
+# absent, not accidentally missing. A CounterTrait with max set clamps inside
+# its own setter, so a backfilled character carrying max=100 would have its
+# `.current` silently pinned at 100 while its lifetime XP kept climbing --
+# breaking `.current == level_for_xp(total)` in the one place no reader looks.
+# Character.improve_skill_on_use repairs pre-D.2 traits on first use; this file
+# must not manufacture new ones for it to repair.
 HUNTING_SKILL_DEFAULTS = {
     "trait_type": "counter",
     "base": 25,
     "current": 25,
     "mod": 0,
     "min": 0,
-    "max": 100,
     "descs": {
         0: "helpless",
         20: "novice",

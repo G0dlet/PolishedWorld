@@ -150,6 +150,34 @@ GLOBAL_SCRIPTS = {
 CRAFT_RECIPE_MODULES = ["world.recipes"]
 
 # ============================================================
+# SKILL PROGRESSION / XP (Stage 4.5)
+# ============================================================
+# Shape of the skill-progression curve, read by world/progression.py on every
+# call (not captured at import) so a change takes effect on @reload.
+#
+# The cost of the n-th skill point is BASE * 2**((n-1)/SPAN): the per-point
+# cost doubles every SPAN points.
+#
+# THESE VALUES ARE PROVISIONAL (decision P-5). Generous now, tightened never --
+# lowering the curve later is free, raising it de-levels characters who already
+# earned their number.
+#
+# To recompute after a play-rate measurement:
+#   1. Measure the mean XP banked per successful improvement roll at the skill
+#      level you care about (2-5 on a beat, 1 on the floor; the beat rate is
+#      1D100 + INT > current, so it falls as the skill rises).
+#   2. Decide the target: "how many successful uses should point N cost?"
+#   3. BASE  = target uses for point 1 x mean XP per use.
+#      SPAN  = the number of points over which you want that to double.
+#   4. Sanity-check against world/progression.py's xp_threshold() before
+#      committing; at BASE=6/SPAN=20 the thresholds are
+#      level 1 = 6, 20 = 170, 50 = 792, 100 = 5 274, 150 = 30 628.
+#
+# There is no hard cap at 100 (P-7); Legend's >100% band stays reachable.
+SKILL_XP_BASE = 6            # XP cost of the very first point (0 -> 1)
+SKILL_XP_DOUBLING_SPAN = 20  # points over which the per-point cost doubles
+
+# ============================================================
 # CLOTHING CONTRIB
 # evennia/contrib/game_systems/clothing/clothing.py
 # ============================================================
