@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 29 · 2026-09-09** — new section **Health & Injury**, one entry: **two-stage healing (stabilise vs. repair)**. It is the surviving half of a proposal the roadmap declined in the same session (Rev 21, `[RESOLVED]` organ-level damage model) — the organ *data model* was rejected, the triage/surgery *split* was not, and separating the two is the whole point of filing it here rather than losing it inside the rejection. Its own section rather than a sub-bullet of *Death & Corpses*, for the reason Rev 26 gave the biome library one: wound state is a domain Stage 5 is about to create, this is the first entry in it and will not be the last (armour AP mapping and prosthetics both land here), and an entry parked under a neighbouring heading is an entry nobody finds at stage-planning time. Filed **BLOCKED** on two named prerequisites rather than OPEN, because both are dated — there is nothing to treat until Stage 5's wound tiers exist, and surgery is a timed action by construction, so building it before Epic A's shared home lands would produce exactly the fourth hand-written `at_pre_move` branch Rev 24 wrote the trigger to prevent.
 > **Rev 28 · 2026-08-24** — one entry **added** (*UX & Item Identity*): **skill `descs` stop at 95, so nothing reads above `master`** — surfaced by Stage 4.5 D.2 lifting the 100% cap, which made 140% reachable and `master` the label for everything from 95 upward. Deferred rather than fixed in D.2 because `descs` are stored **per trait on every existing character**, so new bands carry the same migration surface the cap removal did, for a purely cosmetic gain. One entry **re-homed**: **⛔ the recipe catalogue does not span the skill scale** was the blocker behind Stage 4.5's Component E, and with 4.5 closed and E moved out of the epic, this file is now E's only home — the trigger is armed here or nowhere.
 > **Rev 27 · 2026-08-15** — one entry **widened, not added** (Crafting & Tools): **`recipes <name>` output name is a prettified prototype key** now covers the mirror defect found during Stage 4.5 D.1's in-game protocol — `CmdCraftGated`'s failure message renders the raw key (`Could not craft bone_needle without bone`) where the recipe is named `bone needle`. Same root cause, opposite direction: one surface prettifies the key and one forgets to, so a player sees two different names for the same recipe within a single session. Filed under the existing entry rather than as a new one, per the *one item, one home* rule — a fix that resolves prototype display names correctly closes both, and splitting them invites fixing one and calling it done. The entry's title and Trigger are updated to say so; its Status stays OPEN.
 > **Rev 26 · 2026-08-13** — new section **World & Rooms**, two entries added from a builder-ergonomics design discussion (no code written; `typeclasses/rooms.py` read live from `main` first). The small one, **builder QoL for dynamic rooms**, bundles three cheap fixes — a state-combination preview, a `roommsg` command to replace the three-line `@py` echo setup, and a written authoring convention (base desc + overlay fragments; full `@desc/<time>/<season>` matrix variants are the exception, not the model). The load-bearing one, **biome fragment library**, is deliberately its own entry so it cannot vanish as a sub-bullet of the QoL list: per-room authoring of a 7-time × 4-season × weather state space does not scale past the test world, and every room built before the library exists becomes migration debt — which is also what makes the entry's trigger self-arming. It is filed as a design session, not a drop-in, because its open questions (fragment format, composition with ExtendedRoom's priority chain, zone overrides, procgen alignment) are exactly the kind that go wrong when settled implicitly in code.
@@ -664,6 +665,38 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Fatigue-exhaustion consequence (below).
 - **Origin:** Hunting / H7 decomposition backlog.
 - **Status:** BLOCKED (fatigue-exhaustion consequence)
+
+---
+
+## Health & Injury
+
+### Two-stage healing — field stabilisation vs. repair
+- **What:** Split wound treatment into two distinct actions rather than one
+  heal. **Stabilise** (First Aid): stops the `CON+POW` bleed-out clock on a
+  Major Wound, buys the victim time, restores **no** location Hit Points, and
+  can be performed under field conditions by a modestly skilled player.
+  **Repair** (Healing / surgery): restores the location to positive HP and
+  clears the *maimed* tier; requires a higher skill, a meaningful duration, and
+  crafted consumables (bandage, splint, sutures, splint-boards). Roadmap Rev 20
+  already names Healing/First Aid as a service another player sells; this is the
+  mechanic that makes the two saleable separately, at different prices, to
+  different specialists.
+- **Why deferred:** There is nothing to treat until Stage 5 ships wound state —
+  the tiers, the bleed-out clock and the location HP that repair writes back to
+  are all Stage 5 deliverables, and a treatment system built against a wound
+  model that does not exist yet is designed against a guess. Second, surgery is
+  a timed, interruptible action by construction, so it belongs on Epic A's
+  `world/timed_actions.py` slot rather than as its own hand-rolled branch —
+  building it first inverts that dependency.
+- **Trigger:** Both, in order — (1) Stage 5's wound tiers shipped and
+  in-game-verified, (2) Epic A's shared timed-action module merged. Design
+  session, not a drop-in: consumable list, skill thresholds, whether stabilise
+  is self-applicable, and what a *failed* surgery does are all open, and the
+  last one is a player contract that touches **[OPEN] death-consequence policy**.
+- **Origin:** 2026-09-09 organ-damage-model evaluation; the surviving half of the
+  proposal rejected in `docs/roadmap.md` Rev 21 (`[RESOLVED]` organ-level damage
+  model). Original idea from another Evennia developer's RimWorld-derived system.
+- **Status:** BLOCKED (Stage 5 wound tiers + Epic A timed-action home)
 
 ---
 
