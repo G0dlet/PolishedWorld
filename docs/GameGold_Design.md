@@ -1,5 +1,6 @@
 # GameGold - PolishedWorld Cryptocurrency Design
 
+> **Rev 3 · 2026-09-09** — platform choice **re-verified and confirmed**: fork from blackcoin-more's `28.x` branch (v28.4.0, Bitcoin Core 28.4 base, released 2026-07-06), not the older `v26.2.0` tag this document specified since Rev 1. Adds an **Upstream tracking** subsection with an explicit exit trigger, so "is this codebase still maintained" is a question with a written answer rather than one re-litigated every time it is asked. Cold staking (PIVX-style P2CS) is **decided and deferred** — the reasoning is recorded here, the work is filed in `docs/BACKLOG.md` (*GameGold*).
 > **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc.
 > **Rev 1 · 2026-07-02** — first versioned copy; platform migrated Komodo Smartchain → blackcoin-more fork (Bitcoin Core 26.x, PoSV3).
 > **Canonical:** `docs/GameGold_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -22,7 +23,7 @@ GameGold is an experimental cryptocurrency designed to bridge the in-game econom
 
 | Parameter | Value |
 |-----------|-------|
-| Platform | blackcoin-more fork (Bitcoin Core 26.x base, PoSV3) |
+| Platform | blackcoin-more fork, `28.x` branch — v28.4.0 (Bitcoin Core 28.4 base, PoSV3) |
 | Consensus | 100% Proof of Stake (PoSV3) after 100 PoW bootstrap blocks |
 | Block time | 1 minute |
 | Block reward | 1 GameGold |
@@ -38,12 +39,59 @@ GameGold is an experimental cryptocurrency designed to bridge the in-game econom
 ### Why a Blackcoin fork (blackcoin-more)?
 
 - **PoSV3 is exactly our consensus model** — pure Proof of Stake after a short PoW bootstrap, which is precisely GameGold's design, rather than bending a general-purpose platform to fit
-- **Modern, audited base** — blackcoin-more tracks Bitcoin Core 26.x, so we inherit years of hardening, SegWit, and a familiar `bitcoin.conf` / RPC surface
+- **Modern, audited base** — blackcoin-more tracks Bitcoin Core 28.x, so we inherit years of hardening, SegWit, and a familiar `bitcoin.conf` / RPC surface
 - **Full sovereignty** — our own `chainparams.cpp` (fair launch, no premine, 1-min blocks, 1 coin/block) instead of depending on another platform's infrastructure or token rules
 - **Runs on our hardware** — Bitcoin Core has ARM64 builds, so nodes fit the Orange Pi Zero 2W deployment
 - **Simple, strong node security** — a wallet-less public node can be exposed while an isolated staking node holds keys (see `PolishedWorld_GameGold_Economy.md`)
 
 > **Migration note**: GameGold originally targeted a Komodo Smartchain; we moved to a blackcoin-more fork for the reasons above.
+
+### Upstream tracking
+
+**Fork point: the `28.x` branch, not the `v26.2.0` tag.** The tag was the
+default choice when Rev 1 was written and is now two Core majors behind. Forking
+from a tag means every upstream security fix has to be back-ported by hand;
+forking from the maintained branch means a rebase.
+
+**The concern this settles.** blackcoin-more is a small project, and the honest
+risk is that upstream stops moving and GameGold inherits an unmaintained
+consensus codebase. That risk is real but it is *bounded*, and the bound is worth
+writing down rather than re-arguing:
+
+> **Exit trigger:** no upstream rebase within **24 months** of the latest
+> release → evaluate Peercoin as the new base; otherwise carry the rebase
+> manually. A hobby chain with 1-minute blocks and no market does not need
+> upstream velocity — it needs the option to leave, and the option is cheap
+> while the consensus patch set stays small.
+
+That last clause is the load-bearing one, and it is why cold staking is deferred
+rather than built at genesis (below): **every consensus patch we carry makes the
+rebase, and therefore the exit, more expensive.**
+
+> ⚠️ **Verify in source before writing chainparams.** The specific parameter
+> names in this document (bootstrap block height, stake modifier interval,
+> reward schedule) were written from the design side, not read out of
+> `chainparams.cpp` on the `28.x` branch. Read them there before the first
+> testnet genesis, not after.
+
+### Cold staking (PIVX-style P2CS) — decided, deferred
+
+**Decision: launch without it; add it later at a fixed activation height.**
+
+The intuition that argued for building it at genesis is a good one — consensus
+rules feel like the thing you only get one chance to set — but it does not hold
+here. Bitcoin script reserves `OP_NOP` opcodes precisely so that new behaviour
+can be redefined into them at a fixed height without a chain split, and on a
+chain with no exchange listings, no third-party wallets and a handful of
+operators, a later fixed-height activation costs about what a genesis rule costs.
+What genesis inclusion *does* cost is immediate: a consensus patch carried
+against upstream from day one, against the rebase budget the exit trigger above
+depends on.
+
+- **Reference implementation when the trigger fires:** PIVX's P2CS.
+- **Role in the game economy:** the temple acts as the delegate staking node, so
+  players can stake without running infrastructure or exposing keys.
+- **Detail and trigger:** `docs/BACKLOG.md` (*GameGold*).
 
 ## Economic Model
 

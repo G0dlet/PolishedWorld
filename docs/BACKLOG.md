@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 32 · 2026-09-09** — one entry **added** (*GameGold*): **cold staking (PIVX-style P2CS)**. The entry exists because the decision was to *defer*, and a deferral with a good reason behind it is exactly the thing that gets silently reversed later by whoever no longer remembers the reason. The reason: it feels like a genesis-only choice and is not — Bitcoin script reserves `OP_NOP` opcodes for redefinition at a fixed activation height, and on a chain with no listings, no third-party wallets and a handful of operators, later costs about what genesis costs. What genesis *does* cost is a consensus patch carried against upstream from day one, which spends the same budget as `GameGold_Design.md` Rev 3's exit trigger — the option to leave blackcoin-more stays cheap only while the patch set stays small. Filed rather than dropped because the payoff is a real pillar-1 mechanic: the temple as delegate staking node lets players stake without running infrastructure or holding keys.
 > **Rev 31 · 2026-09-09** — new section **Environment & Weather**, three entries from a forward-looking design discussion (no code written; `world/weather.py` and `world/gametime_utils.py` read live from `main` first). The section exists because the three sit on one axis and would otherwise scatter into *Survival* and *World & Rooms*, where nobody looking for "what do we do about weather" would find them together. Two are cheap and want no new state: **weather inertia** (`roll_weather(season, current=None)` already carries `current` as an unused extension point, so a Markov table per season is a body swap) and **season-dependent day length**, encapsulated because `get_time_of_day()` is already the single reader. The third, **regional weather**, is filed **BLOCKED** rather than OPEN and cross-referenced to *biome fragment library* (Rev 26) and Stage 6 — per-region weather needs a region concept, and building one on today's global broadcast would author the same migration debt the biome entry exists to prevent. What the section deliberately does **not** hold is the temperature/exposure gauge: that is a survival mechanic with its own trait, its own clothing coupling and its own death mode — stage-sized, so it lands in `roadmap.md` (Rev 22) under this file's own scope rule.
 > **Rev 30 · 2026-09-09** — one entry **added** (*Tooling & Process*): **public test server with nightly reset**. Filed as one entry rather than two because the halves are sequenced, not independent — deterministic seeding from an empty database is the *prerequisite* for the hosted box, and it is the half worth building now: it yields a reproducible fresh-DB environment locally and lets other people run the code without anyone operating a server. The hosting half is **BLOCKED on Stage 5**, and the reason is the opposite of the obvious one — the constraint is not effort but *content*. Multiplayer exposure is the entire point of hosting, and until two accounts have a reason to occupy one room, a public server buys uptime obligations toward strangers in exchange for a smoke test the maintainer could run alone. The entry also closes a hypothesis rather than leaving it to re-form later: the Evennia Game Index was assumed to require a live server, and source verification shows it does not — three required listing fields, none of them a hostname — so the index is **not** an argument for hosting, and a nightly-wiped instance would in fact publish a total-account count that resets to zero every day.
 > **Rev 29 · 2026-09-09** — new section **Health & Injury**, one entry: **two-stage healing (stabilise vs. repair)**. It is the surviving half of a proposal the roadmap declined in the same session (Rev 21, `[RESOLVED]` organ-level damage model) — the organ *data model* was rejected, the triage/surgery *split* was not, and separating the two is the whole point of filing it here rather than losing it inside the rejection. Its own section rather than a sub-bullet of *Death & Corpses*, for the reason Rev 26 gave the biome library one: wound state is a domain Stage 5 is about to create, this is the first entry in it and will not be the last (armour AP mapping and prosthetics both land here), and an entry parked under a neighbouring heading is an entry nobody finds at stage-planning time. Filed **BLOCKED** on two named prerequisites rather than OPEN, because both are dated — there is nothing to treat until Stage 5's wound tiers exist, and surgery is a timed action by construction, so building it before Epic A's shared home lands would produce exactly the fourth hand-written `at_pre_move` branch Rev 24 wrote the trigger to prevent.
@@ -1353,6 +1354,33 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## GameGold
+
+### Cold staking (PIVX-style P2CS)
+
+- **What:** Pay-to-Cold-Staking outputs, so a coin owner can delegate staking
+  rights to a node that never holds spending authority. In GameGold terms: the
+  **temple runs as the delegate staking node**, and a player can stake without
+  running an Orange Pi, keeping a wallet online, or handing anyone their keys.
+- **Why deferred:** Not because it is unimportant — because it is *not*
+  genesis-only, which was the assumption that made it look urgent. Bitcoin
+  script reserves `OP_NOP` opcodes for exactly this: new behaviour redefined into
+  a reserved opcode at a fixed activation height, no chain split. On a chain with
+  no exchange listings, no third-party wallet implementations and a handful of
+  operators, a later activation costs roughly what a genesis rule costs. Building
+  it now, by contrast, has an immediate price: **a consensus patch carried
+  against upstream from day one**, which is the same budget that
+  `GameGold_Design.md` Rev 3's exit trigger depends on — the option to leave
+  blackcoin-more for Peercoin stays cheap only while the patch set stays small.
+- **Reference implementation:** PIVX's P2CS. Read it at source when the trigger
+  fires; nothing in this entry has been verified against PIVX's current code.
+- **Trigger:** **After mainnet, and only once there is a real staker who is not
+  the maintainer.** Before that the feature has no user — delegating to yourself
+  is just running your own node with extra consensus rules.
+- **Origin:** Session 2026-09-04 (GameGold platform review; option A chosen —
+  launch without cold staking, option B documented as the future path).
+- **Status:** OPEN (post-mainnet; no code blocker, only an absent user)
+
+---
 
 ### GameGold block explorer
 - **What:** A Django-based, staking-focused block explorer for the GameGold
