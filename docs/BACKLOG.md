@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 31 · 2026-09-09** — new section **Environment & Weather**, three entries from a forward-looking design discussion (no code written; `world/weather.py` and `world/gametime_utils.py` read live from `main` first). The section exists because the three sit on one axis and would otherwise scatter into *Survival* and *World & Rooms*, where nobody looking for "what do we do about weather" would find them together. Two are cheap and want no new state: **weather inertia** (`roll_weather(season, current=None)` already carries `current` as an unused extension point, so a Markov table per season is a body swap) and **season-dependent day length**, encapsulated because `get_time_of_day()` is already the single reader. The third, **regional weather**, is filed **BLOCKED** rather than OPEN and cross-referenced to *biome fragment library* (Rev 26) and Stage 6 — per-region weather needs a region concept, and building one on today's global broadcast would author the same migration debt the biome entry exists to prevent. What the section deliberately does **not** hold is the temperature/exposure gauge: that is a survival mechanic with its own trait, its own clothing coupling and its own death mode — stage-sized, so it lands in `roadmap.md` (Rev 22) under this file's own scope rule.
 > **Rev 30 · 2026-09-09** — one entry **added** (*Tooling & Process*): **public test server with nightly reset**. Filed as one entry rather than two because the halves are sequenced, not independent — deterministic seeding from an empty database is the *prerequisite* for the hosted box, and it is the half worth building now: it yields a reproducible fresh-DB environment locally and lets other people run the code without anyone operating a server. The hosting half is **BLOCKED on Stage 5**, and the reason is the opposite of the obvious one — the constraint is not effort but *content*. Multiplayer exposure is the entire point of hosting, and until two accounts have a reason to occupy one room, a public server buys uptime obligations toward strangers in exchange for a smoke test the maintainer could run alone. The entry also closes a hypothesis rather than leaving it to re-form later: the Evennia Game Index was assumed to require a live server, and source verification shows it does not — three required listing fields, none of them a hostname — so the index is **not** an argument for hosting, and a nightly-wiped instance would in fact publish a total-account count that resets to zero every day.
 > **Rev 29 · 2026-09-09** — new section **Health & Injury**, one entry: **two-stage healing (stabilise vs. repair)**. It is the surviving half of a proposal the roadmap declined in the same session (Rev 21, `[RESOLVED]` organ-level damage model) — the organ *data model* was rejected, the triage/surgery *split* was not, and separating the two is the whole point of filing it here rather than losing it inside the rejection. Its own section rather than a sub-bullet of *Death & Corpses*, for the reason Rev 26 gave the biome library one: wound state is a domain Stage 5 is about to create, this is the first entry in it and will not be the last (armour AP mapping and prosthetics both land here), and an entry parked under a neighbouring heading is an entry nobody finds at stage-planning time. Filed **BLOCKED** on two named prerequisites rather than OPEN, because both are dated — there is nothing to treat until Stage 5's wound tiers exist, and surgery is a timed action by construction, so building it before Epic A's shared home lands would produce exactly the fourth hand-written `at_pre_move` branch Rev 24 wrote the trigger to prevent.
 > **Rev 28 · 2026-08-24** — one entry **added** (*UX & Item Identity*): **skill `descs` stop at 95, so nothing reads above `master`** — surfaced by Stage 4.5 D.2 lifting the 100% cap, which made 140% reachable and `master` the label for everything from 95 upward. Deferred rather than fixed in D.2 because `descs` are stored **per trait on every existing character**, so new bands carry the same migration surface the cap removal did, for a purely cosmetic gain. One entry **re-homed**: **⛔ the recipe catalogue does not span the skill scale** was the blocker behind Stage 4.5's Component E, and with 4.5 closed and E moved out of the epic, this file is now E's only home — the trigger is armed here or nowhere.
@@ -725,6 +726,83 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Bags/chests as craftable items.
 - **Origin:** Hunting / H7.3b decomposition backlog.
 - **Status:** BLOCKED (no container items yet)
+
+---
+
+## Environment & Weather
+
+### Weather inertia, and Legend's four independent axes
+
+- **What:** Two changes to `world/weather.py`, in either order. **(1) Inertia:**
+  `roll_weather(season, current=None)` already takes the current state and
+  ignores it — the parameter is a stated extension point. Replace the uniform
+  draw over `SEASON_ALLOWED_WEATHER` with a per-season Markov table, so rain
+  follows cloud rather than sunshine. No new state, no migration, no schema.
+  **(2) Legend's own tables:** the rulebook treats weather as four *independent*
+  axes — wind strength, cloud cover, temperature, precipitation — with seasonal
+  modifiers on cloud cover and a wind table that yields concrete Perception
+  penalties. Splitting today's four-value enum into a small struct is RAW-faithful
+  and is what makes weather *mechanical* rather than decorative.
+- **Why deferred:** Neither is blocked; both were raised as future work in a
+  discussion explicitly framed as backlog material, and neither competes well
+  with the alpha-milestone session or Stage 5. (2) is also the larger of the two
+  — an enum → struct change touches every reader of `room_state`, so it wants a
+  moment when the weather readers are already open, not a standalone pass.
+- **Why it matters:** weather without consequence is scenery. Today seasons gate
+  weather and weather gates descs, and nothing else reads either. The Perception
+  penalties in (2) are the cheapest available bridge from flavour to mechanic,
+  and they arrive already balanced by someone else.
+- **Trigger:** (1) any light week — it is a self-contained function body.
+  (2) whenever a system first needs to *read* weather mechanically (Stage 5
+  visibility, foraging yield, or the exposure gauge in `roadmap.md`), so the
+  struct is designed against a real consumer rather than a guessed one.
+- **Origin:** Session 2026-09-04 (weather/season expansion discussion).
+- **Status:** OPEN
+
+---
+
+### Season-dependent day length
+
+- **What:** Make the seven time-of-day period boundaries a function of season, so
+  winter days are genuinely short and summer days genuinely long, instead of the
+  same seven fixed slices year-round.
+- **Why deferred:** Not blocked, just not urgent. It is a contained change
+  precisely because `gametime_utils.get_time_of_day()` is already the single
+  reader — nothing else derives period boundaries — so the cost does not grow
+  while it waits.
+- **Why it matters:** the 13-month calendar with its four-month summer is the
+  most distinctive thing about the world model and currently has almost no
+  mechanical surface. A winter day that is actually short sells that calendar
+  harder than any room description does, and it feeds the exposure gauge and
+  light/Perception coupling when those land.
+- **Trigger:** Any light week; pairs naturally with weather inertia above (same
+  file neighbourhood, same session).
+- **Origin:** Session 2026-09-04 (weather/season expansion discussion).
+- **Status:** OPEN
+
+---
+
+### ⛔ Regional weather (per-area rather than global)
+
+- **What:** Weather that differs by place — rain over the valley while the ridge
+  stays clear — instead of today's single global roll broadcast to every room
+  with an `is_indoor` guard.
+- **Why deferred — and why BLOCKED, not OPEN:** there is no region concept to
+  hang it on. Rooms have no coordinates and no biome key, so "regional" would
+  have to be invented here as an ad-hoc grouping, and every room built under that
+  grouping becomes migration debt the moment the real one arrives. That is
+  exactly the failure the *biome fragment library* entry (World & Rooms, Rev 26)
+  is written to prevent, and the same one Stage 6's grid/wilderness split
+  resolves. Building it early does not bring the payoff forward; it just moves
+  the cost into a migration.
+- **Also noted:** the broadcast architecture is a second, smaller concern.
+  Today's global change walks tagged rooms; per-region weather multiplies that
+  walk, and it wants designing against ten simultaneous players rather than
+  discovered afterwards.
+- **Trigger:** **After** the biome layer exists (*biome fragment library*) **and**
+  Stage 6's coordinate model is decided — both, not either.
+- **Origin:** Session 2026-09-04 (weather/season expansion discussion).
+- **Status:** BLOCKED (biome layer + Stage 6 world architecture)
 
 ---
 
