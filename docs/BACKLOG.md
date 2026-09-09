@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 30 · 2026-09-09** — one entry **added** (*Tooling & Process*): **public test server with nightly reset**. Filed as one entry rather than two because the halves are sequenced, not independent — deterministic seeding from an empty database is the *prerequisite* for the hosted box, and it is the half worth building now: it yields a reproducible fresh-DB environment locally and lets other people run the code without anyone operating a server. The hosting half is **BLOCKED on Stage 5**, and the reason is the opposite of the obvious one — the constraint is not effort but *content*. Multiplayer exposure is the entire point of hosting, and until two accounts have a reason to occupy one room, a public server buys uptime obligations toward strangers in exchange for a smoke test the maintainer could run alone. The entry also closes a hypothesis rather than leaving it to re-form later: the Evennia Game Index was assumed to require a live server, and source verification shows it does not — three required listing fields, none of them a hostname — so the index is **not** an argument for hosting, and a nightly-wiped instance would in fact publish a total-account count that resets to zero every day.
 > **Rev 29 · 2026-09-09** — new section **Health & Injury**, one entry: **two-stage healing (stabilise vs. repair)**. It is the surviving half of a proposal the roadmap declined in the same session (Rev 21, `[RESOLVED]` organ-level damage model) — the organ *data model* was rejected, the triage/surgery *split* was not, and separating the two is the whole point of filing it here rather than losing it inside the rejection. Its own section rather than a sub-bullet of *Death & Corpses*, for the reason Rev 26 gave the biome library one: wound state is a domain Stage 5 is about to create, this is the first entry in it and will not be the last (armour AP mapping and prosthetics both land here), and an entry parked under a neighbouring heading is an entry nobody finds at stage-planning time. Filed **BLOCKED** on two named prerequisites rather than OPEN, because both are dated — there is nothing to treat until Stage 5's wound tiers exist, and surgery is a timed action by construction, so building it before Epic A's shared home lands would produce exactly the fourth hand-written `at_pre_move` branch Rev 24 wrote the trigger to prevent.
 > **Rev 28 · 2026-08-24** — one entry **added** (*UX & Item Identity*): **skill `descs` stop at 95, so nothing reads above `master`** — surfaced by Stage 4.5 D.2 lifting the 100% cap, which made 140% reachable and `master` the label for everything from 95 upward. Deferred rather than fixed in D.2 because `descs` are stored **per trait on every existing character**, so new bands carry the same migration surface the cap removal did, for a purely cosmetic gain. One entry **re-homed**: **⛔ the recipe catalogue does not span the skill scale** was the blocker behind Stage 4.5's Component E, and with 4.5 closed and E moved out of the epic, this file is now E's only home — the trigger is armed here or nowhere.
 > **Rev 27 · 2026-08-15** — one entry **widened, not added** (Crafting & Tools): **`recipes <name>` output name is a prettified prototype key** now covers the mirror defect found during Stage 4.5 D.1's in-game protocol — `CmdCraftGated`'s failure message renders the raw key (`Could not craft bone_needle without bone`) where the recipe is named `bone needle`. Same root cause, opposite direction: one surface prettifies the key and one forgets to, so a player sees two different names for the same recipe within a single session. Filed under the existing entry rather than as a new one, per the *one item, one home* rule — a fix that resolves prototype display names correctly closes both, and splitting them invites fixing one and calling it done. The entry's title and Trigger are updated to say so; its Status stays OPEN.
@@ -966,6 +967,54 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   moment and expensive as a standalone task.
 - **Origin:** Core Instructions Rev 3 verification sweep (2026-08-03).
 - **Status:** SCHEDULED (on next citation)
+
+---
+
+### Public test server with nightly reset
+
+- **What:** A hosted instance that pulls `main`, wipes its database on a fixed
+  cadence (~24 h) and re-seeds a playable world unattended, so other people can
+  try the codebase as it stands. Two parts, and only one of them is hosting.
+  **(a) Deterministic seeding from an empty DB** — `server/conf/at_initial_setup.py`
+  as the once-per-fresh-database hook, sourcing the world data that already
+  exists in `world/testworld_data.py`, plus a reset script (stop → drop
+  `evennia.db3` → `evennia migrate` → non-interactive superuser → start).
+  **(b) The box it runs on**, plus a documented one-command start in the README.
+- **Why deferred:** Only (b) is deferred. (a) is useful immediately and
+  independent of hosting: it gives a reproducible fresh-DB environment locally
+  and lets anyone else run the code without anyone operating a server. (b) buys
+  **multiplayer exposure that solo development cannot produce** — concurrent
+  crafting against one `TimedAction` slot, barter between two real accounts, two
+  harvesters on one node — and that value does not exist until two players have
+  a reason to be in the same room.
+- **The nightly wipe is the right shape and also the ceiling:** it matches the
+  no-backfill philosophy — schema changes cost nothing and no migration debt
+  accrues on a database that is thrown away — but it also means the economy
+  pillar cannot be tested there. Emergent prices need persistence across weeks;
+  a wiped server measures whether commands work, not whether the market does.
+  Plan it as a smoke test, not as an economy trial.
+- **The Evennia Game Index is not a reason to host** (verified against live
+  source 2026-09-09: `evennia/settings_default.py`,
+  `evennia/server/game_index_client/{service,client}.py`). Listing is decoupled
+  from having a public server. Only `game_status`, `short_description` and
+  `listing_contact` are required — they are read with `[]` and raise `KeyError`
+  — while `telnet_hostname`, `telnet_port`, `web_client_url` and `game_website`
+  all default to empty via `.get()`, and the settings comment states outright
+  that a game in closed pre-alpha development may list. The client is a
+  30-minute `LoopingCall` heartbeat from a *running* server (first check-in 10 s
+  after start) reporting `connected_account_count` and `total_account_count`, so
+  a nightly-wiped instance would publish a total that resets to zero daily —
+  which argues for reporting from a persistent instance and **against** coupling
+  the listing to the wipe box. A malformed listing returns HTTP 400 and the
+  service then **shuts itself down for that run**, logging only an infomsg.
+- **Two constraints for when (b) does happen:** no GameGold wallet or chain node
+  on that machine, and not a home IP.
+- **Trigger:** (a) **OPEN** — any light week; doing it first costs nothing twice,
+  since (b) needs it anyway. (b) **after Stage 5**, when two accounts in one room
+  is a scenario rather than a hypothetical.
+- **Origin:** Session 2026-09-09 (test-server discussion; option B chosen —
+  build seeding and reset now, host later).
+- **Status:** OPEN (seeding) / BLOCKED on Stage 5 (hosting)
 
 ---
 
