@@ -31,9 +31,20 @@ call to `_finish_task(char, key, marker)` for the payout. That is why the payout
 lives in a module-level function rather than a closure or a bound method -- it
 makes the interesting half of the command reachable without a running reactor.
 
-The marker the tests pass is read off `char.ndb.working`, i.e. the real one the
-command minted, not a fabricated one. A test that fabricated its own marker
-would pass while the identity check was broken.
+The marker the tests pass is read off the character's timed-action slot
+(`_marker_of` below), i.e. the real one `timed_actions.start()` minted, not a
+fabricated one. A test that fabricated its own marker would pass while the
+identity check was broken.
+
+⚠️ THE SLOT IS SHARED, AND THE GUARD IS NOT IN THIS MODULE ANY MORE
+--------------------------------------------------------------------
+Since Epic A TA1.2, `work` carries no flag of its own: it occupies
+`character.ndb.timed_action` and `world/timed_actions.py` owns the identity
+check, the busy refusal, and the `has_account` refusal. The tests below still
+assert the BEHAVIOUR -- a stale callback pays nothing, a logged-out worker is
+not paid -- because behaviour is what the player meets and what a future
+refactor could break. They do not re-test `timed_actions`'s internals;
+`tests/test_timed_actions.py` does that.
 
 ⚠️ LEDGER ISOLATION -- INHERIT THE MIXIN
 -----------------------------------------
@@ -82,9 +93,26 @@ from commands.work_commands import (
     _validate_task_table,
 )
 from typeclasses.treasury import Treasury
-from world import economy_log
+from world import economy_log, timed_actions
 
 from tests.test_currency import LedgerIsolationMixin
+
+
+def _marker_of(char):
+    """
+    The live marker in a character's timed-action slot, or None if it is empty.
+
+    Every test that needs a marker reads it through here rather than minting its
+    own: a fabricated marker would satisfy `claim()` never, and a test that
+    expects a refusal would then pass for the wrong reason -- which is exactly
+    the failure mutation M1 exposed in TA1.1 (a test passing because the wrong
+    character was in the subject position).
+
+    Returns the marker rather than the record so the call sites read the same as
+    they did when the marker lived on `ndb.working` directly.
+    """
+    record = timed_actions.is_busy(char)
+    return record.marker if record is not None else None
 
 
 @contextmanager
@@ -336,7 +364,7 @@ class WorkTestBase(LedgerIsolationMixin, EvenniaCommandTest):
         """
         caller = caller or self.char1
         self.call(CmdWork(), task_key, caller=caller)
-        marker = caller.ndb.working
+        marker = _marker_of(caller)
         _finish_task(caller, task_key, marker)
         return marker
 
@@ -362,7 +390,7 @@ class TestWorkWithoutATemple(WorkTestBase):
 
     def test_nothing_is_started(self):
         self.call(CmdWork(), "sweep", caller=self.char1)
-        self.assertIsNone(self.char1.ndb.working)
+        self.assertIsNone(timed_actions.is_busy(self.char1))
 
     def test_no_cooldown_is_consumed(self):
         self.call(CmdWork(), "sweep", caller=self.char1)
@@ -396,11 +424,11 @@ class TestTreasuryInAnotherRoom(WorkTestBase):
         self.treasury.location = self.room2
         with override_settings(TREASURY_DBREF=self.treasury.dbref):
             self.call(CmdWork(), "sweep", caller=self.char1)
-            self.assertIsNone(self.char1.ndb.working)
+            self.assertIsNone(timed_actions.is_busy(self.char1))
 
             self.treasury.location = self.room1
             self.call(CmdWork(), "sweep", caller=self.char1)
-            self.assertIsNotNone(self.char1.ndb.working)
+            self.assertIsNotNone(timed_actions.is_busy(self.char1))
 
 
 class TestWorkBoard(WorkTestBase):
@@ -506,14 +534,14 @@ class TestWorkPayout(WorkTestBase):
 
     def test_the_payout_names_the_amount_to_the_worker(self):
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         with captured_messages(self.char1) as seen:
             _finish_task(self.char1, "sweep", marker)
         self.assertIn("25 Copper", "\n".join(seen))
 
     def test_the_worker_is_told_the_chore_is_done(self):
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         with captured_messages(self.char1) as seen:
             _finish_task(self.char1, "sweep", marker)
         self.assertIn(TEMPLE_TASKS["sweep"]["done_actor"], "\n".join(seen))
@@ -525,7 +553,7 @@ class TestWorkPayout(WorkTestBase):
             self.character_typeclass, key="Watcher", location=self.room1, home=self.room1
         )
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         with captured_messages(observer) as seen:
             _finish_task(self.char1, "sweep", marker)
         text = "\n".join(seen)
@@ -537,7 +565,7 @@ class TestWorkPayout(WorkTestBase):
         # They already got a fuller message naming the sum; receiving the vague
         # public one too would read as the chore having happened twice.
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         with captured_messages(self.char1) as seen:
             _finish_task(self.char1, "sweep", marker)
         self.assertNotIn(TEMPLE_TASKS["sweep"]["done_room"], "\n".join(seen))
@@ -546,12 +574,12 @@ class TestWorkPayout(WorkTestBase):
         cd_key = _cooldown_key("sweep")
         self.call(CmdWork(), "sweep", caller=self.char1)
         self.assertTrue(self.char1.cooldowns.ready(cd_key))  # not yet
-        _finish_task(self.char1, "sweep", self.char1.ndb.working)
+        _finish_task(self.char1, "sweep", _marker_of(self.char1))
         self.assertFalse(self.char1.cooldowns.ready(cd_key))  # now
 
     def test_the_marker_is_cleared_on_completion(self):
         self.start_and_finish("sweep")
-        self.assertIsNone(self.char1.ndb.working)
+        self.assertIsNone(timed_actions.is_busy(self.char1))
 
     def test_the_full_chain_of_five_chores_is_allowed(self):
         # Deliberate: cooldowns are per task, so all five are available in one
@@ -576,15 +604,35 @@ class TestWorkRefusals(WorkTestBase):
 
     def test_an_unknown_chore_starts_nothing(self):
         self.call(CmdWork(), "brew ale", caller=self.char1)
-        self.assertIsNone(self.char1.ndb.working)
+        self.assertIsNone(timed_actions.is_busy(self.char1))
 
     def test_a_second_chore_while_busy_is_refused(self):
         # The queue guard. Without it, five `work sweep` schedule five payouts
         # and the cooldown gate never sees any of them, because none has fired.
+        #
+        # ⚠️ The sentence CHANGED in TA1.2 and the change is deliberate: it used
+        # to be "You are already busy with something.", written here. D3/Q2 puts
+        # one sentence in `timed_actions.start()`'s keeping, built from the
+        # `label` the caller passes, so every timed action refuses in the same
+        # voice and no call site can drift. `work` passes label="working".
         self.call(CmdWork(), "sweep", caller=self.char1)
-        first_marker = self.char1.ndb.working
-        self.call(CmdWork(), "water", "You are already busy", caller=self.char1)
-        self.assertIs(self.char1.ndb.working, first_marker)
+        first_marker = _marker_of(self.char1)
+        self.call(
+            CmdWork(), "water", "You are already working.", caller=self.char1
+        )
+        self.assertIs(_marker_of(self.char1), first_marker)
+
+    def test_the_chore_occupies_the_shared_slot(self):
+        # The migration itself, asserted rather than assumed. `work` must be in
+        # `ndb.timed_action` under the key the rest of Epic A will read, with the
+        # label the refusal sentence above is built from. A `work` that still
+        # kept a private flag would satisfy every behavioural test in this file.
+        self.call(CmdWork(), "sweep", caller=self.char1)
+        record = timed_actions.is_busy(self.char1)
+        self.assertIsNotNone(record)
+        self.assertEqual(record.key, "work")
+        self.assertEqual(record.label, "working")
+        self.assertIsNone(self.char1.ndb.working)
 
     def test_a_chore_on_cooldown_is_refused_with_the_wait(self):
         self.char1.cooldowns.add(_cooldown_key("sweep"), 3600)
@@ -593,7 +641,7 @@ class TestWorkRefusals(WorkTestBase):
     def test_a_chore_on_cooldown_starts_nothing(self):
         self.char1.cooldowns.add(_cooldown_key("sweep"), 3600)
         self.call(CmdWork(), "sweep", caller=self.char1)
-        self.assertIsNone(self.char1.ndb.working)
+        self.assertIsNone(timed_actions.is_busy(self.char1))
 
     def test_an_ambiguous_prefix_lists_the_candidates(self):
         # No two current keys share a prefix, so this exercises the branch
@@ -643,13 +691,13 @@ class TestDryTreasury(WorkTestBase):
     def test_the_player_can_immediately_try_again(self):
         self.start_and_finish("sweep")
         self.call(CmdWork(), "sweep", caller=self.char1)
-        self.assertIsNotNone(self.char1.ndb.working)
+        self.assertIsNotNone(timed_actions.is_busy(self.char1))
 
     def test_the_failure_is_diegetic(self):
         # "the alms box is bare", not "TREASURY_DBREF has insufficient funds".
         # The player is not the admin.
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         with captured_messages(self.char1) as seen:
             _finish_task(self.char1, "sweep", marker)
         text = "\n".join(seen)
@@ -659,7 +707,7 @@ class TestDryTreasury(WorkTestBase):
     def test_the_marker_is_still_cleared(self):
         # A dry temple must not leave the player permanently "busy".
         self.start_and_finish("sweep")
-        self.assertIsNone(self.char1.ndb.working)
+        self.assertIsNone(timed_actions.is_busy(self.char1))
 
 
 class TestStaleAndInterruptedCallbacks(WorkTestBase):
@@ -679,46 +727,83 @@ class TestStaleAndInterruptedCallbacks(WorkTestBase):
         # THE collision this mechanism exists for: start, abandon, start again
         # with the SAME key. A task key alone would not tell the two apart.
         self.call(CmdWork(), "sweep", caller=self.char1)
-        stale = self.char1.ndb.working
-        self.char1.ndb.working = None
+        stale = _marker_of(self.char1)
+        timed_actions.interrupt(self.char1)
 
         self.call(CmdWork(), "sweep", caller=self.char1)
-        fresh = self.char1.ndb.working
+        fresh = _marker_of(self.char1)
         self.assertIsNot(stale, fresh)
 
         _finish_task(self.char1, "sweep", stale)
         self.assertEqual(self.char1.currency.value, 0)
         self.assertTrue(self.char1.cooldowns.ready(_cooldown_key("sweep")))
         # And the live attempt is untouched by the stale one firing.
-        self.assertIs(self.char1.ndb.working, fresh)
+        self.assertIs(_marker_of(self.char1), fresh)
 
     def test_the_fresh_attempt_still_pays_after_a_stale_one_fires(self):
         self.call(CmdWork(), "sweep", caller=self.char1)
-        stale = self.char1.ndb.working
-        self.char1.ndb.working = None
+        stale = _marker_of(self.char1)
+        timed_actions.interrupt(self.char1)
         self.call(CmdWork(), "sweep", caller=self.char1)
-        fresh = self.char1.ndb.working
+        fresh = _marker_of(self.char1)
 
         _finish_task(self.char1, "sweep", stale)
         _finish_task(self.char1, "sweep", fresh)
         self.assertEqual(self.char1.currency.value, 25)
 
     def test_walking_out_cancels_the_chore(self):
-        # at_pre_move clears the marker and says so at the moment of the move.
+        # at_pre_move empties the slot at the moment of the move; the delay
+        # still fires afterwards and `claim()` refuses the dead marker.
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         self.char1.move_to(self.room2, quiet=True)
-        self.assertIsNone(self.char1.ndb.working)
+        self.assertIsNone(timed_actions.is_busy(self.char1))
 
         _finish_task(self.char1, "sweep", marker)
         self.assertEqual(self.char1.currency.value, 0)
         self.assertTrue(self.char1.cooldowns.ready(_cooldown_key("sweep")))
 
+    def test_walking_out_tells_the_worker_so(self):
+        # The message is the whole reason at_pre_move touches the slot at all --
+        # `_finish_task`'s location re-check would refuse the payout regardless.
+        # Separated from the test above on purpose: that one passes just as
+        # happily if the interrupt is silent, and a chore that cancels without
+        # saying anything reads as the command being broken.
+        #
+        # The sentence is the `interrupt_msg` CmdWork records at start time.
+        # at_pre_move does not know it and must not: it interrupts whatever is
+        # there, which is what lets TA1.3 add `rest` without editing the hook.
+        self.call(CmdWork(), "sweep", caller=self.char1)
+        with captured_messages(self.char1) as seen:
+            self.char1.move_to(self.room2, quiet=True)
+        self.assertIn("You break off what you were doing.", "\n".join(seen))
+
+    def test_moving_while_idle_is_silent(self):
+        # at_pre_move now calls interrupt() UNCONDITIONALLY -- the `if` that
+        # used to stand in front of it is gone. The no-op is therefore load
+        # bearing: without it every step a player takes would carry a message.
+        #
+        # The hook is called DIRECTLY rather than through `move_to()`, and that
+        # is the point of the test rather than a shortcut. `move_to(quiet=True)`
+        # is quiet about the room's arrival announcements but still runs the
+        # arriving character's `look`, so a message lands either way and
+        # "nothing was said" could not be asserted through it -- it would have
+        # to be softened to "nothing INTERRUPT-shaped was said", which passes
+        # against an at_pre_move that was never reached at all.
+        #
+        # The independent receipt that the code ran (lesson 2) is the return
+        # value: at_pre_move must permit the move, and a hook that raised or
+        # refused could not return True.
+        with captured_messages(self.char1) as seen:
+            allowed = self.char1.at_pre_move(self.room2)
+        self.assertTrue(allowed)
+        self.assertEqual(seen, [])
+
     def test_the_location_recheck_is_the_backstop(self):
         # Teleport and death bypass at_pre_move's message but not this. The
         # marker is deliberately left intact so only the re-check can refuse.
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         self.char1.location = self.room2  # direct assignment, no move hooks
 
         _finish_task(self.char1, "sweep", marker)
@@ -728,7 +813,7 @@ class TestStaleAndInterruptedCallbacks(WorkTestBase):
 
     def test_the_treasury_being_moved_mid_chore_cancels_the_payout(self):
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         self.treasury.location = self.room2
 
         _finish_task(self.char1, "sweep", marker)
@@ -742,7 +827,7 @@ class TestStaleAndInterruptedCallbacks(WorkTestBase):
         # exactly the state being tested.
         self.assertFalse(self.char2.has_account)
         self.call(CmdWork(), "sweep", caller=self.char2)
-        marker = self.char2.ndb.working
+        marker = _marker_of(self.char2)
 
         _finish_task(self.char2, "sweep", marker)
         self.assertEqual(self.char2.currency.value, 0)
@@ -752,7 +837,7 @@ class TestStaleAndInterruptedCallbacks(WorkTestBase):
         # Only reachable if the table changed under a live delay. Asserted so
         # the branch is a refusal rather than a KeyError.
         self.call(CmdWork(), "sweep", caller=self.char1)
-        marker = self.char1.ndb.working
+        marker = _marker_of(self.char1)
         _finish_task(self.char1, "no_such_chore", marker)
         self.assertEqual(self.char1.currency.value, 0)
 

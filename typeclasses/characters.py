@@ -18,6 +18,7 @@ from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
+from world import timed_actions
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -1223,20 +1224,33 @@ class Character(ObjectParent, ClothedCharacter):
         delay(self.rest_interval, self._rest_tick)   # reschedule
 
     def at_pre_move(self, destination, move_type="move", **kwargs):
-        """Interrupt timed activities when moving, but allow the move itself."""
+        """
+        Interrupt timed activities when moving, but allow the move itself.
+
+        Two branches during the Epic A migration, and only one of them is
+        permanent. `timed_actions.interrupt()` is the shape this hook is
+        collapsing to: one call that every future timed action inherits without
+        anyone editing this method again. The `resting` branch above it is the
+        last un-migrated action; it disappears in TA1.3 and this method becomes
+        the `interrupt()` line plus the `super()` call. That line is written
+        once, here, and is not rewritten then -- only left unaccompanied.
+
+        `interrupt()` is a silent no-op on an empty slot, so an idle character
+        who moves is not messaged and pays for nothing.
+
+        What it does for a chore in progress: clearing the slot is what cancels
+        it. The pending delay still fires on schedule, `claim()` finds the
+        marker gone, and it returns without paying. The sentence the player sees
+        is the `interrupt_msg` the command recorded at start time -- this hook
+        knows that something was interrupted, never what, which is precisely why
+        it never needs another branch.
+
+        The message is why this exists, not the correctness: the location
+        re-check in `_finish_task` would refuse the payout anyway. But refusing
+        it twenty seconds later in silence reads as the command being broken,
+        and a player who walks out mid-chore should be told when they do it.
+        """
         if self.ndb.resting:
             self.stop_resting("You get up, interrupting your rest.")
-        if self.ndb.working:
-            # A temple chore in progress (commands/work_commands.py). Clearing
-            # the marker is what cancels it: the pending delay still fires on
-            # schedule, finds the marker gone, and returns without paying.
-            #
-            # This exists for the message, not for the correctness -- the
-            # location re-check in `_finish_task` would refuse the payout
-            # anyway. But refusing it twenty seconds later in silence reads as
-            # the command being broken, and a player who walks out mid-chore
-            # should be told at the moment they do it. Same shape and same
-            # reasoning as the resting interrupt above.
-            self.ndb.working = None
-            self.msg("You break off what you were doing.")
+        timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
