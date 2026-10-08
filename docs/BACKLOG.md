@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 34 · 2026-10-08** — one entry **added** (*Tooling & Process*): **two treasury tests assume the developer's settings match the shipped ones.** Both test the *unset* state by applying no override at all, so on any working tree with a configured Treasury — which is every tree someone actually plays on — they fail on every local run. Filed rather than fixed because neither file belongs to Epic A, whose branch was open when this was found. Filed rather than tolerated because "expected failures" are the slow form of the Testing Reference's §11 trap: once two reds are normal, a third looks the same. The entry carries one verified detail that makes the obvious fix wrong — `override_settings(TREASURY_DBREF="")`, the pattern `tests/test_work_command.py` already uses, satisfies `resolve_treasury()` but fails `test_unset_is_a_supported_state`'s `assertIsNone(get_configured_dbref())`. The hermetic value there is `None`.
 > **Rev 33 · 2026-09-09** — the two **timed-action** entries move **OPEN → SCHEDULED (Epic A)**. Nothing about either has changed; what changed is that the pass they both name now exists as a document instead of as a chat log. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* have been cross-referenced since Rev 24 with the instruction to do both in one pass, and that pass is now decomposed in `docs/PolishedWorld_Timed_Actions_Decomposition.md` (Rev 1), which locks seven decisions (D1–D7) settled in chat and otherwise unrecorded — one slot rather than a flag per action, `rest` migrating rather than staying, explicit mutual exclusion rather than silent interruption, and `craft_duration` fully replacing `craft_cooldown`. They move to SCHEDULED rather than closing because nothing is built: it is the status Rev 23 used for `CmdScribe` in the same situation. The epic is defined at roadmap altitude (Rev 23), which is also where "Epic A" acquires a definition at all — the name was cited by this file's *two-stage healing* entry, Trigger and Status both, before anything defined it.
 > **Rev 32 · 2026-09-09** — one entry **added** (*GameGold*): **cold staking (PIVX-style P2CS)**. The entry exists because the decision was to *defer*, and a deferral with a good reason behind it is exactly the thing that gets silently reversed later by whoever no longer remembers the reason. The reason: it feels like a genesis-only choice and is not — Bitcoin script reserves `OP_NOP` opcodes for redefinition at a fixed activation height, and on a chain with no listings, no third-party wallets and a handful of operators, later costs about what genesis costs. What genesis *does* cost is a consensus patch carried against upstream from day one, which spends the same budget as `GameGold_Design.md` Rev 3's exit trigger — the option to leave blackcoin-more stays cheap only while the patch set stays small. Filed rather than dropped because the payoff is a real pillar-1 mechanic: the temple as delegate staking node lets players stake without running infrastructure or holding keys.
 > **Rev 31 · 2026-09-09** — new section **Environment & Weather**, three entries from a forward-looking design discussion (no code written; `world/weather.py` and `world/gametime_utils.py` read live from `main` first). The section exists because the three sit on one axis and would otherwise scatter into *Survival* and *World & Rooms*, where nobody looking for "what do we do about weather" would find them together. Two are cheap and want no new state: **weather inertia** (`roll_weather(season, current=None)` already carries `current` as an unused extension point, so a Markov table per season is a body swap) and **season-dependent day length**, encapsulated because `get_time_of_day()` is already the single reader. The third, **regional weather**, is filed **BLOCKED** rather than OPEN and cross-referenced to *biome fragment library* (Rev 26) and Stage 6 — per-region weather needs a region concept, and building one on today's global broadcast would author the same migration debt the biome entry exists to prevent. What the section deliberately does **not** hold is the temperature/exposure gauge: that is a survival mechanic with its own trait, its own clothing coupling and its own death mode — stage-sized, so it lands in `roadmap.md` (Rev 22) under this file's own scope rule.
@@ -1095,6 +1096,41 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Session 2026-09-09 (test-server discussion; option B chosen —
   build seeding and reset now, host later).
 - **Status:** OPEN (seeding) / BLOCKED on Stage 5 (hosting)
+
+### Two treasury tests assume the developer's settings match the shipped ones
+
+- **What:** `tests/test_treasury.py::TestResolveTreasury::test_unset_is_a_supported_state`
+  and `tests/test_economy_command.py::TestEconomyOverview::test_unconfigured_treasury_names_the_setting_and_the_fix`
+  test the **unset** state by applying no override at all. Both rely on
+  `TREASURY_DBREF` being absent from `server/conf/settings.py` — and
+  `tests/test_treasury.py`'s module docstring says so in as many words
+  (*SETTINGS OVERRIDE PATTERN*). That holds for the committed file and for a
+  fresh clone. It does not hold on a working tree, where the local settings carry
+  an uncommitted `TREASURY_DBREF` pointing at the live Treasury; the test
+  database has no object at that dbref, so both tests fail on every local run
+  (`'not_found' != 'unset'`, and an overview that reports a dangling dbref
+  instead of naming the setting). Fix: make both hermetic with
+  `override_settings`, and update the docstring section to say the unset state
+  is *forced*, not assumed.
+- ⚠️ **The hermetic value is `None`, not `""`.** `tests/test_work_command.py`
+  uses `override_settings(TREASURY_DBREF="")`, and that is correct *there*:
+  `resolve_treasury()` tests `if not dbref`, so `""` reads as unset. But
+  `test_unset_is_a_supported_state` also asserts
+  `assertIsNone(get_configured_dbref())`, and `get_configured_dbref()` returns
+  the raw setting via `getattr` — `""` would fail it. Copying the work-test
+  pattern verbatim swaps one red for another.
+- **Why deferred:** Not Epic A's to fix. Neither file is touched by the epic,
+  and fixing them on `feature/timed-actions` would put an unrelated change into a
+  branch whose review is about one mechanism. The cost of waiting is not zero,
+  which is why this is filed rather than remembered: two failures every run
+  "expects" teach the reader to skim the failure list. Until fixed, verify them
+  **by name** on every local run.
+- **Trigger:** The next change to either test file, or any light week —
+  whichever comes first. One small commit.
+- **Origin:** Epic A TA1.2, 2026-10-08. Local run: 453 tests, 2 failures, both
+  traced to the local `TREASURY_DBREF`. The sandbox clone, which has no local
+  settings, ran 453 green.
+- **Status:** OPEN
 
 ---
 
