@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 8 · 2026-10-08** — **Four findings from Epic A TA1.2, and three of them are Rev 5–7's failure in new clothes: an observation that cannot tell the code working apart from the code not running.** New **§1b**: in `@py`, `self` *is* the caller — the character — not a Command, so `self.caller` raises `AttributeError`. §1 already said `self` is injected; it never said what it is, and a protocol written by someone thinking in `Command.func()` reached for `self.caller` in two steps, one of which had to run inside a 20-second chore window. New **§11d**: `move_to(quiet=True)` silences the *room's* announcements but not the mover's arrival `look`, so "nothing was said during the move" cannot be asserted through it — and the tempting repair, "nothing *interrupt-shaped* was said", passes against a hook that never ran. Call the hook directly; its return value is the receipt. New **§11e**: an absence after a *timer* ("the stale callback paid nothing") reads the same at second 5 as at second 60, so the step needs a stated wall-clock margin or a receipt that cannot predate the timer; and wall-clock numbers in a protocol's expected outcome are read from source — the TA1.2 protocol said a chore's cooldown was five minutes, and `TEMPLE_TASKS` says 3600 seconds. **§11b** gains the harness trap: a mutation loop that restores with `git checkout -- <file>` restores to `HEAD`, which before the commit is the code *without* the change, so every mutant runs against the old code — and a mutator whose "exactly one match" assertion is swallowed by the shell loop lets a mutant that never applied run as a no-op. The tell is distinct mutants producing **identical** failure lists.
 > **Rev 7 · 2026-08-24** — **Three verified findings from the Stage 4.5 D.2 run, and all three are ways a diagnostic can report success while proving nothing.** §1 gains the **exec-mode silence trap**: `py` compiles in `eval` mode and falls back to `exec` the moment the line contains a *statement* — an import, an assignment — and in `exec` mode `eval()` returns `None`, which `py` discards. So `@py from x import y; str(y())` prints **nothing**, and four steps of a protocol read as failures when the code had run correctly. Push the value with `self.msg(str(...))`. New **§11c** covers the prose-verification loop and two ways it lies: unquoted `--include=*.py` under **zsh** triggers `NOMATCH`, which aborts `grep` before it searches while the loop still prints its all-clear (bash passes the unmatched glob through, so the same line behaves differently in the two shells); and a *line*-based loop can never reach silence against a correctly superseded claim, because the superseding convention requires the retired text to stay in the file. The loop has to read a **block**. Also records the rule that makes the loop trustworthy at all: run it once *before* the fix, and confirm it produces hits — otherwise its later silence cannot be told apart from it never having searched.
 > **Rev 6 · 2026-08-15** — **§11 gains two more cases from the Stage 4.5 Component D.1 run, and one of them is the protocol attacking itself.** Rev 5 established that a step expecting an absence needs a receipt that the code ran. D.1 found the mirror image: a step that *writes past a single-writer* manufactures a state production code never promised to handle, and then the prose describing that code reads as a bug report. The protocol told the tester to set `.current` by hand; a later tick moved the skill 40 points at once; the docstring saying "at most ONE point" was the fourth false claim of the epic. **State-mutating cleanup steps must run before the out-of-band writes, not after** — and any protocol step that bypasses a documented writer must say which invariant it is suspending. §11 also records the unit-test twin found by mutation: a guard that looks redundant because a second guard covers every input the tests happen to try (`int(inf * 160)` raises `OverflowError`; nothing else in the class reaches it), and the emptiness-receipt idiom catching a collection comprehension that walked the wrong shape and would otherwise have passed green on an empty set.
 > **Rev 5 · 2026-08-13** — **Two new sections, from the Stage 4.5 Component C protocol run.** §11 records the run's most expensive mistake, which was not a bug in the code: a step whose expected outcome was *the level did not change* passed while the code under test was never reached, because the craft it used failed and the success-only gate returned first. Nothing happening and the guard working look identical from outside, so a step expecting an absence must carry an independent receipt that the code ran — and both receipts were available here and neither was demanded. It is the in-game twin of the unit-test trap in the same component (a write-guard cannot be tested by asserting the value afterwards, only by observing the write), and the same question finds both: *what else could produce this observation?* §12 records two argument-shape traps that surface as object-search failures rather than usage errors — `harvest <part> from <corpse>` and multimatch numbering (`rabbit-1`).
@@ -67,6 +68,35 @@ Two consequences worth internalising:
   "this was rejected".
 
 Rule of thumb: prefer **atomic one-shot `@py`, one self-contained line per step** (§2's idioms make almost anything fit). Reach for the interactive console only when you must, and type rather than paste. Reach for `evennia shell` only for character-free maths.
+
+### ⚠️ 1b. `self` in `@py` is the caller — there is no Command in scope
+
+`py` builds its namespace from `evennia_local_vars(caller)`
+(`evennia/commands/default/system.py`, pinned `v6.1.0`):
+
+```python
+return {
+    "self": caller,
+    "me": caller,
+    "here": getattr(caller, "location", None),
+    "evennia": evennia,
+    "ev": evennia,
+    "inherits_from": utils.inherits_from,
+}
+```
+
+`self` and `me` are **the same object**: the character typing the command. The
+reflex from writing `Command.func()` — where the character is `self.caller` —
+fails loudly:
+
+    @py self.msg(str(self.caller.ndb.working))   -> AttributeError: 'Character' object has no attribute 'caller'
+    @py self.msg(str(self.ndb.working))          -> None
+
+Write `self` or `me` wherever a command body would write `self.caller`. The
+error is loud, so this is a *writing* trap rather than a reading one; its cost
+is time. In Epic A TA1.2 the step had to run while a timed chore was still in
+progress, and the chore paid out before the corrected line was typed — the
+protocol had to be re-run against a different chore.
 
 ## 2. The `;` gotcha — client-side command splitting
 
@@ -324,6 +354,23 @@ the test passes green forever while proving nothing. **Any assertion of the form
 "everything in this collection satisfies X" needs a prior assertion that the
 collection is non-empty.**
 
+**The harness can delete the change under test.** A mutation loop that undoes
+each mutant with `git checkout -- <file>` restores the file to `HEAD` — and
+before the change is committed, `HEAD` is the code *without* the change. In
+Epic A TA1.2 every mutant therefore ran against the pre-migration code, under
+tests already migrated to the new API: one "survived" with a clean `OK` and
+three "died" with the **same thirteen failures**. The tell is worth knowing on
+sight: **distinct mutants producing identical failure lists.** Two rules make
+the harness trustworthy:
+
+- Snapshot the known-good files *before* the first mutant and restore from the
+  snapshot, never from git.
+- Have the mutator assert that its target text occurs **exactly once** — and
+  let that assertion **stop the run**. The TA1.2 mutator had the assertion; the
+  shell loop around it caught the failure (`|| …`) and ran the suite anyway. A
+  mutant that did not apply then runs as a no-op, and its "survival" reads as a
+  missing test rather than a broken harness.
+
 ### 11c. The prose-verification loop must read blocks, not lines — and must be proven to search
 
 Four of this epic's five falsified production claims were found by grepping for
@@ -373,6 +420,67 @@ change, then fix, then run it again. Without that first run, "clean" and "never
 searched" look identical — which is §11's receipt rule applied to the tooling
 instead of to the code, and the reason the catalogue loop in the working notes
 says *the loop is run, not read*.
+
+### 11d. `quiet=True` silences the room, not the mover
+
+`move_to(destination, quiet=True)` turns off the *emit* hooks — the
+departure and arrival announcements other occupants see
+(`evennia/objects/objects.py`, `move_to` docstring). It does **not** skip
+`at_post_move`, which runs "regardless of quiet mode", and
+`DefaultCharacter.at_post_move` sends the mover a `look` unconditionally. So a
+unit test that captures the mover's messages always sees the room description:
+
+```python
+with captured_messages(self.char1) as seen:
+    self.char1.move_to(self.room2, quiet=True)
+self.assertEqual(seen, [])          # FAILS -- the arrival look is in `seen`
+```
+
+The tempting repair is to assert that nothing *interrupt-shaped* was said. That
+is §11's trap exactly: it passes just as green against an `at_pre_move` that was
+never reached. Test the hook as the unit instead, and let its return value be
+the receipt that it ran:
+
+```python
+with captured_messages(self.char1) as seen:
+    allowed = self.char1.at_pre_move(self.room2)
+self.assertTrue(allowed)            # the hook ran and permitted the move
+self.assertEqual(seen, [])          # ...and said nothing while doing it
+```
+
+The positive twin needs no such care. Asserting that a sentence **is** present
+(`assertIn`) through `move_to()` is sound, because the extra `look` cannot
+produce a false pass. (Origin: `tests/test_work_command.py`,
+`test_moving_while_idle_is_silent` and `test_walking_out_tells_the_worker_so`.)
+
+In-game, the same hook leaves a receipt of its own: an `at_pre_move` message
+prints **before** the new room's description. A line that appears *after* the
+description came from somewhere else.
+
+### 11e. Absences after a timer, and numbers written from memory
+
+Two traps from one in-game run, both about time.
+
+**An absence after a timer has no timestamp.** "Walk out of a chore; the stale
+callback fires and pays nothing" is checked by reading the wallet afterwards.
+But the wallet reads the same at second 5, before the callback has fired, as at
+second 60, after it fired and was refused — and the refusal is silent by design
+(`claim()` returns `False` and nothing is said). The step needs one of:
+
+- a **stated wall-clock margin** in the protocol — wait at least twice the
+  action's duration before reading; or
+- a **receipt that cannot predate the timer** — a second, uninterrupted action
+  started in the same window that *does* pay, so the final balance separates
+  "refused" from "not yet fired" (in the TA1.2 run: 110 Copper if the stale
+  callback was refused, 145 if it paid).
+
+**Wall-clock numbers in an expected outcome come from source.** The TA1.2
+protocol told the tester a chore's cooldown was five minutes. `TEMPLE_TASKS`
+says `3600`, and the board said 54 minutes remaining five minutes after the
+payout. Nothing in the code was wrong; the protocol was. A protocol whose
+expected values are routinely off trains its reader to wave deviations
+through — the opposite of its job. Read the constant (`TEMPLE_TASKS`,
+`craft_duration`, the `*_COOLDOWN` names) before writing the number.
 
 ## 12. Command-syntax traps that read as bugs
 
