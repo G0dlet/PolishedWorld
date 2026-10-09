@@ -102,6 +102,7 @@ class TwineRecipe(MongooseCraftRecipe):
     output_prototypes = ["twine"]
     tool_tag = None                                 # handcraft; no tool benefit
     craft_cooldown = 20                             # quick craft (overrides base 30)
+    craft_duration = 20                             # quick craft (overrides base 30)
 
 
 class WaterskinRecipe(MongooseCraftRecipe):
@@ -112,6 +113,7 @@ class WaterskinRecipe(MongooseCraftRecipe):
     output_prototypes = ["waterskin"]
     tool_tag = "knife"                     # OPTIONAL: knife shapes the gourd (baseline 0); improvised -20
     craft_cooldown = 45                    # more involved than twine
+    craft_duration = 45                    # more involved than twine
 
     def _finalize_item(self, obj, outcome):
         # Quality -> capacity (draughts) + durability (lifespan in refills),
@@ -146,6 +148,7 @@ class ClothRecipe(MongooseCraftRecipe):
     output_prototypes = ["cloth"]
     tool_tag = None                                 # handwoven; no tool benefit
     craft_cooldown = 25                             # between twine (20) and waterskin (45)
+    craft_duration = 25                             # between twine (20) and waterskin (45)
 
 
 class LeatherRecipe(MongooseCraftRecipe):
@@ -157,6 +160,7 @@ class LeatherRecipe(MongooseCraftRecipe):
     output_prototypes = ["leather"]               # the new H5.1 prototype
     tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (baseline 0); absent = -20
     craft_cooldown = 45                           # involved work (soak/scrape/tan); overrides base 30
+    craft_duration = 45                           # involved work (soak/scrape/tan); overrides base 30
 
 
 class LinenShirtRecipe(MongooseCraftRecipe):
@@ -168,6 +172,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
     tool_tag = "needle"                    # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_cooldown = 40
+    craft_duration = 40
 
     def _finalize_item(self, obj, outcome):
         # E.3: quality -> garment start-condition (+ superior alias) via the
@@ -185,6 +190,7 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     output_prototypes = ["leather_boots"]        # existing Component B prototype
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_cooldown = 40                          # mirrors linen shirt
+    craft_duration = 40                          # mirrors linen shirt
     min_skill = 30                               # Component F.2: HARD floor. Boots sit above
                                                  # the survival tier (hide->leather->boots), so
                                                  # a developing crafter must show competence to
@@ -216,6 +222,7 @@ class StoneKnifeRecipe(MongooseCraftRecipe):
     # so ungated is simply the default.
     tool_tag = None
     craft_cooldown = 30                 # base default; a first-tool assembly
+    craft_duration = 30                 # base default; a first-tool assembly
 
     # consume_policy inherits "raw" -> every attempt yields a knife (quality scales
     # with the roll), so a new player never loses gathered materials to a bad roll
@@ -247,6 +254,7 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
     # tool_tag="knife" -- carving needs a blade -- is a deliberate deferral.)
     tool_tag = None
     craft_cooldown = 30                 # small, fiddly assembly; mirrors stone knife
+    craft_duration = 30                 # small, fiddly assembly; mirrors stone knife
 
     # consume_policy inherits "raw" -> a hunt is never wasted on a bad roll.
 

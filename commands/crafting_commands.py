@@ -22,6 +22,8 @@ import time
 from evennia import Command
 from evennia.contrib.game_systems.crafting.crafting import (
     CmdCraft,
+    CraftingError,
+    CraftingValidationError,
     _load_recipes,
     _RECIPE_CLASSES,
 )
@@ -31,6 +33,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils import logger
 
 from world.knowledge import _can_transmit, render_recipe_detail
+from world import timed_actions
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
 # conservative dev value: the disassemble roll is already destructive (the item
@@ -168,34 +171,188 @@ class CmdCraftGated(CmdCraft):
     Usage:
       craft <recipe> [from <ingredient>,...] [using <tool>, ...]
 
-    Identical to the stock `craft`, but attempting an advanced recipe you have
-    not learned is refused at once -- before the command searches your inventory
-    for ingredients you would never get to use.
+    Crafting takes time. You set to work at once and the item is made when
+    you finish; nothing is used up until then. Moving away stops the work,
+    and your materials are left as they were.
+
+    Attempting an advanced recipe you have not learned is refused at once --
+    before the command searches your inventory for ingredients you would never
+    get to use.
     """
 
-    # key/locks/parse are inherited from CmdCraft; we only widen func().
+    # key/locks/parse are inherited from CmdCraft. func() is the START half of
+    # a timed craft (Epic A, TA2.1); the COMPLETION half is the module-level
+    # _complete_craft below, which runs the contrib's own func().
 
     def func(self):
+        """
+        Start a timed craft.
+
+        Every check in here is a courtesy (D5): it refuses early what the
+        contrib would refuse anyway, and it touches no state. What counts is
+        the contrib's own pass at completion, which searches the inventory
+        again, runs every gate again, rolls and consumes -- all in one tick.
+        Nothing read here decides anything there.
+        """
         caller = self.caller
 
-        # parse() (inherited) has already populated self.recipe, lowercased.
-        # Resolve the recipe the same way the contrib will, then reject early if
-        # it is a learnable recipe this caller has not learned. If caller lacks
+        # 1. Which recipe. parse() (inherited) has populated self.recipe,
+        # lowercased, and _resolve_recipe matches it the way contrib craft()
+        # will, against the same registry -- so the class found here is the
+        # class that runs at completion, and its craft_duration is the right
+        # wait. When nothing resolves (no arguments, neither "from" nor
+        # "using", an unknown or ambiguous name) there is nothing to time:
+        # the contrib answers at once, in its own words, and nothing is
+        # scheduled. Before TA2.1 an unresolved name also went straight to
+        # super().func(), so what the player sees here is unchanged.
+        cls = _resolve_recipe(self.recipe) if self.recipe else None
+        if cls is None:
+            super().func()
+            return
+
+        # 2. Knowledge early-reject (Stage 3, B.2) -- unchanged, and still
+        # BEFORE the inventory search: that is its whole point. If caller lacks
         # the knows_recipe helper (never true for a puppeted Character, but the
         # guard mirrors B.1's defensiveness), we fall through and let pre_craft
         # be the backstop rather than second-guessing here.
-        if self.recipe:
-            cls = _resolve_recipe(self.recipe)
-            if (
-                cls is not None
-                and getattr(cls, "requires_knowledge", False)
-                and getattr(caller, "knows_recipe", None)
-                and not caller.knows_recipe(cls.name)
-            ):
-                caller.msg("You don't know how to make that.")
-                return
+        if (
+            getattr(cls, "requires_knowledge", False)
+            and getattr(caller, "knows_recipe", None)
+            and not caller.knows_recipe(cls.name)
+        ):
+            caller.msg("You don't know how to make that.")
+            return
 
-        super().func()
+        # 3. Would the contrib accept these inputs right now? If not, it has
+        # already said why, in the words completion would have used.
+        if not self._inputs_pass(cls):
+            return
+
+        # 4. The busy gate and the scheduling are ONE call (T2): start() refuses
+        # an occupied slot, says "You are already <label>." itself and returns
+        # None. The courtesy checks run first, as work's cooldown gate does
+        # (T8): busy AND naming bad inputs is answered about the inputs. Both
+        # answers are true; the one that wins is about the craft the player
+        # actually named.
+        #
+        # `self` is handed over as the callback's argument (D6). cmdhandler
+        # copies the command per dispatch (retain_instance is False), so this
+        # instance and its parse() state belong to this one craft.
+        #
+        # No on_interrupt. Only moving and dying interrupt a craft: at_pre_move
+        # and at_character_death call interrupt(), and stop_resting() leaves
+        # anything but a rest alone (T12). A move already shows the room the
+        # crafter leaving, and the start line never told the room what was
+        # being made, so there is nothing to tell it was abandoned. rest needs
+        # one because a rest can end in place, with its rester still there.
+        if timed_actions.start(
+            caller,
+            "craft",
+            cls.craft_duration,
+            _complete_craft,
+            self,
+            label="crafting",
+            interrupt_msg="You set your crafting aside; your materials are untouched.",
+        ) is None:
+            return
+
+        # Announced after scheduling, as work does: announcing first would
+        # announce a craft that start() might still refuse. The room sees the
+        # act, not the recipe -- and there is no room line at completion (Q4).
+        caller.msg(f"You set to work on {cls.name}.")
+        if caller.location:
+            caller.location.msg_contents(
+                f"{caller.get_display_name()} begins to craft something.",
+                exclude=caller,
+            )
+
+    def _inputs_pass(self, cls):
+        """
+        Would the contrib's own pass accept these inputs right now? (D5)
+
+        The search half mirrors CmdCraft.func: the same two calls, in the same
+        order, so a missing or ambiguous name is answered by the very sentence
+        completion would give. The inputs are then dry-run through the recipe's
+        pre_craft on a throwaway instance. pre_craft only reads -- the
+        contrib's input validation sets attributes on the instance; the
+        knowledge, skill and cooldown gates read tags, traits and cooldowns --
+        and consumption lives in post_craft, which is never called here.
+        Whatever refuses has already messaged the crafter.
+
+        NOT mirrored: the contrib's refusal of puppeted or nocraft-locked
+        inputs. Such an input can pass here and is refused at completion,
+        after the wait, in the contrib's own words. Nothing is consumed either
+        way; the cost is the wait.
+
+        Args:
+            cls (type): the resolved recipe class.
+
+        Returns:
+            bool: True if the craft may be scheduled.
+        """
+        caller = self.caller
+
+        ingredients = []
+        for ingr_key in self.ingredients:
+            if not ingr_key:
+                continue
+            obj = caller.search(ingr_key, location=caller)
+            if not obj:
+                return False
+            ingredients.append(obj)
+
+        tools = []
+        for tool_key in self.tools:
+            if not tool_key:
+                continue
+            obj = caller.search(tool_key)
+            if not obj:
+                return False
+            tools.append(obj)
+
+        try:
+            cls(caller, *(tools + ingredients)).pre_craft()
+        except (CraftingError, CraftingValidationError):
+            return False
+        return True
+
+
+def _complete_craft(caller, cmd, marker):
+    """
+    The completion half of a timed craft. Runs `craft_duration` seconds after
+    CmdCraftGated.func scheduled it (D6).
+
+    Args:
+        caller (Object): the crafter. timed_actions.start() injects it first
+            (T1), so this can never complete a craft for someone else's slot.
+        cmd (CmdCraftGated): the instance that started this craft; its parse()
+            state -- recipe, ingredients, tools -- is what the contrib reads.
+        marker (object): the identity token. start() appends it last.
+
+    claim() goes first. It refuses a stale marker (this craft was interrupted,
+    perhaps followed by another) and a body nobody is puppeting any more (T3),
+    and on a matching marker it empties the slot before anything below can
+    raise. Silent on refusal, like work's _finish_task: an interrupted crafter
+    has already been told, and a logged-out one is not there to hear it.
+
+    Then the contrib's func, reached past our override, runs exactly as an
+    instant craft used to: it searches the inventory again (an ingredient given
+    away during the wait is simply not found), runs every gate in pre_craft,
+    rolls and consumes -- all in this one tick.
+    """
+    if not timed_actions.claim(caller, marker):
+        return
+
+    # Outside the command handler now, so nothing catches an error for us. The
+    # cmdhandler used to log it and tell the player; an error escaping a
+    # delayed callback goes back into its Deferred, which Twisted logs as
+    # unhandled, and the player hears nothing. So do both here by hand. The
+    # slot is already empty: a crash can never leave the crafter busy.
+    try:
+        super(CmdCraftGated, cmd).func()
+    except Exception:
+        logger.log_trace(f"craft: completion of {cmd.recipe!r} raised.")
+        caller.msg("Something went wrong as you finished your crafting.")
 
 
 class CmdRecipes(Command):

@@ -46,6 +46,13 @@ class MongooseCraftRecipe(CraftingRecipe):
     name = "mongoose craft base"          # concrete recipes MUST override
     skill_name = "craft"                  # which Character.skills entry to roll
     craft_cooldown = 30                   # realtime seconds, per-recipe
+    craft_duration = 30                   # realtime seconds a craft TAKES (Epic A).
+                                          # Read by the `craft` command before this
+                                          # recipe ever runs: the wait lives in the
+                                          # command, because craft() is synchronous
+                                          # by construction. Equal to craft_cooldown
+                                          # in every recipe until TA2.2 removes the
+                                          # cooldown (asserted in the tests).
     consume_policy = "raw"                # see module docstring
     min_skill = 0                         # Component F: HARD skill floor (effective
                                           # Craft %) required to *attempt* this recipe.
