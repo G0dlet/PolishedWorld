@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 35 · 2026-10-09** — three entries **added**, one **annotated**, all found during Epic A TA1.3's in-game protocol and none of them Epic A's. *UX & Item Identity* gains two: **`descs` tables are read as upper bounds but shaped like lower bounds**, and **health `descs` use a 0–100 scale against a max of `CON × 2`** — the second is wrong under *either* reading of the first, which is why it is its own entry, and it is the one a player sees: a character at full health is told they are *critically wounded*. *Tooling & Process* gains **`Idmapper flush called more than once`**, the watch item the TA1.3 handoff asked to be filed if it recurred; it recurred, and reading Evennia's source turns it from "check memory usage" into a probable timing artifact with a stated way to confirm it. The annotation is on *Skill `descs` stop at 95*, whose band arithmetic reads the table as lower bounds while `world/improvement.py::tier_for()` reads it — deliberately, by its own docstring — as upper bounds. The two documents cannot both describe intent; the new entry says which decision has to come first, and the annotation stops the skill entry being picked up without it. Rev 35 corrects one claim made in the chat that found these: that the tables *were written* as lower bounds. Their shape suggests it; nothing records it, and `tier_for()`'s author recorded the opposite.
 > **Rev 34 · 2026-10-08** — one entry **added** (*Tooling & Process*): **two treasury tests assume the developer's settings match the shipped ones.** Both test the *unset* state by applying no override at all, so on any working tree with a configured Treasury — which is every tree someone actually plays on — they fail on every local run. Filed rather than fixed because neither file belongs to Epic A, whose branch was open when this was found. Filed rather than tolerated because "expected failures" are the slow form of the Testing Reference's §11 trap: once two reds are normal, a third looks the same. The entry carries one verified detail that makes the obvious fix wrong — `override_settings(TREASURY_DBREF="")`, the pattern `tests/test_work_command.py` already uses, satisfies `resolve_treasury()` but fails `test_unset_is_a_supported_state`'s `assertIsNone(get_configured_dbref())`. The hermetic value there is `None`.
 > **Rev 33 · 2026-09-09** — the two **timed-action** entries move **OPEN → SCHEDULED (Epic A)**. Nothing about either has changed; what changed is that the pass they both name now exists as a document instead of as a chat log. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* have been cross-referenced since Rev 24 with the instruction to do both in one pass, and that pass is now decomposed in `docs/PolishedWorld_Timed_Actions_Decomposition.md` (Rev 1), which locks seven decisions (D1–D7) settled in chat and otherwise unrecorded — one slot rather than a flag per action, `rest` migrating rather than staying, explicit mutual exclusion rather than silent interruption, and `craft_duration` fully replacing `craft_cooldown`. They move to SCHEDULED rather than closing because nothing is built: it is the status Rev 23 used for `CmdScribe` in the same situation. The epic is defined at roadmap altitude (Rev 23), which is also where "Epic A" acquires a definition at all — the name was cited by this file's *two-stage healing* entry, Trigger and Status both, before anything defined it.
 > **Rev 32 · 2026-09-09** — one entry **added** (*GameGold*): **cold staking (PIVX-style P2CS)**. The entry exists because the decision was to *defer*, and a deferral with a good reason behind it is exactly the thing that gets silently reversed later by whoever no longer remembers the reason. The reason: it feels like a genesis-only choice and is not — Bitcoin script reserves `OP_NOP` opcodes for redefinition at a fixed activation height, and on a chain with no listings, no third-party wallets and a handful of operators, later costs about what genesis costs. What genesis *does* cost is a consensus patch carried against upstream from day one, which spends the same budget as `GameGold_Design.md` Rev 3's exit trigger — the option to leave blackcoin-more stays cheap only while the patch set stays small. Filed rather than dropped because the payoff is a real pillar-1 mechanic: the temple as delegate staking node lets players stake without running infrastructure or holding keys.
@@ -892,6 +893,93 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Either a player is observed above ~110, or another change is
   already migrating stored trait data and can carry this for free.
 - **Origin:** Skill Progression decomp Rev 8 §6, D.2 locked decision 2.
+- ⚠️ **Rev 35 — the band arithmetic above reads the table as lower bounds.**
+  The code does not: `Trait.desc()` and `tier_for()` both read
+  `{upper_bound_inclusive: label}`, so `80: "skilled", 95: "master"` puts
+  **81** and everything above it in `master`, not "the last five points", and
+  "the band 95–140" is 81–140. The entry's premise (one label for 95 and 250
+  alike) still holds. Do not pick this up before *`descs` tables are read as
+  upper bounds but shaped like lower bounds* (below) is decided — it changes
+  what every number in this entry means.
+- **Status:** OPEN
+
+### `descs` tables are read as upper bounds but shaped like lower bounds
+- **What:** Evennia's `Trait.desc()` reads every `descs` key as an **upper
+  bound, inclusive**: the first key with `value <= key` wins, and a value above
+  the top key gets the top label (`evennia/contrib/rpg/traits/traits.py`,
+  pinned `v6.1.0` — its docstring says `{upper_bound_inclusive: text}`). Eight
+  of the nine tables in `Character.at_object_creation` — the three survival
+  gauges and all five skill tables — have the *shape* of a lower-bound table
+  instead: the worst label at key `0`, the best at key `95`, the steps between
+  at 20/40/60/80. (Health's is keyed differently; see the next entry.) Under
+  the upper-bound reading that shape has two visible effects:
+  - **The key-`0` label covers one value.** `starving`, `dying of thirst`,
+    `exhausted`, and every skill table's bottom label (`unskilled`,
+    `helpless`, `clumsy`, `feeble`, `oblivious`) apply at exactly 0 and nowhere
+    else.
+  - **The top key's number does nothing.** `80: "satisfied", 95: "full"` labels
+    81–100 `full`: 81–95 match 95 as a bound and 96–100 fall above it.
+
+  Net effect: a value strictly *between* two keys (21–39, 81–94, …) reads one
+  band better than a lower-bound reading of the same table; a value on a key,
+  or above 95, reads the same either way. Seen in play 2026-10-09: fatigue 50
+  shows `weary` (lower-bound reading: `tired`), fatigue 70 shows `rested`. The
+  same sheet's skills confirm the reading: Perception 25 → `attentive`
+  (≤ 40), Stealth 20 → `obvious` (≤ 20).
+- ⚠️ **The repository disagrees with itself about which reading is meant.**
+  `world/improvement.py::tier_for()` mirrors the upper-bound rule on purpose and
+  its docstring calls the maps "declared ascending, so order is meaningful and
+  correct". The entry above (*Skill `descs` stop at 95*) reasons in lower
+  bounds. Each is accurate about what it states; they cannot both describe
+  intent, and nothing else in the repository records which was meant.
+- **Three readers, one rule.** `Trait.desc()` (eight call sites:
+  `commands/character_commands.py` ×7, `world/survival_ticker.py:127`),
+  `tier_for()` (the skill tier-up message, `typeclasses/characters.py`), and
+  `world/survival_ticker.py::_bucket_index()` (the "You feel …" message when a
+  gauge drops a band). Any change to the reading changes all three together, or
+  the sheet, the tier-up line and the ticker's warnings disagree about the band
+  a character is in.
+- **Decide the reading first; it decides the cost.**
+  - *Upper bounds are the design:* the tables are rewritten so their numbers
+    say what they do. `descs` are stored per trait on every character, so this
+    is the data migration *Skill `descs` stop at 95* describes, for every gauge
+    and every skill.
+  - *Lower bounds are the design:* the stored tables are already right and the
+    three readers change instead — no data migration, but every tier boundary
+    moves by one band, so a tier-up message fires at a different score than it
+    does today.
+- **Why deferred:** Cosmetic. No mechanic branches on a label; the visible
+  effects are the sheet, the tier-up line and the ticker's warnings. Not Epic
+  A's, and found while Epic A's branch was open.
+- **Trigger:** Before the next change to any `descs` table — including the
+  entry above and the health entry below, either of which would otherwise bake
+  a reading in by accident.
+- **Origin:** Epic A TA1.3 in-game protocol, 2026-10-09 (the sheet's fatigue
+  labels). Reading verified against `traits.py`, `improvement.py` and
+  `survival_ticker.py`.
+- **Status:** OPEN
+
+### Health `descs` use a 0–100 scale against a max of `CON × 2`
+- **What:** Health's `descs` are keyed 0/10/25/50/75/90/100, and `desc()`
+  compares them against the trait's **absolute** value. But health's base is
+  `self.stats.con.value * 2` — 20 at CON 10. A character at full health
+  therefore reads `critically wounded` (20 ≤ 25), and `healthy` (91–100 under
+  key 100) needs a max of at least 91 — CON 45.5 or more. Seen in play 2026-10-09:
+  `Health 20.0/20.0 (100.0%) - critically wounded`.
+- **Wrong under either reading** of the entry above, which is why this is its
+  own entry: under lower bounds, 20/20 would read `near death`. The scale is the
+  bug, not the bound. A fixed absolute table cannot be right for every character
+  while the max moves with CON, so the label has to follow the gauge's
+  `percent()` rather than its value. That is a reader change (or a table
+  re-keyed per character whenever CON changes, which is worse).
+- **Why deferred:** Cosmetic — no mechanic reads the label — but it is the most
+  misleading of the `descs` problems: the one sentence about health a player
+  sees contradicts the number printed next to it. Of the three `descs` entries,
+  this is the one to do first.
+- **Trigger:** Together with the decision in the entry above (the health reader
+  is one of the three), or the next change to `sheet`/vitals output — whichever
+  comes first.
+- **Origin:** Epic A TA1.3 in-game protocol, 2026-10-09.
 - **Status:** OPEN
 
 ### `look`-injected condition for non-admin players
@@ -1130,6 +1218,45 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Epic A TA1.2, 2026-10-08. Local run: 453 tests, 2 failures, both
   traced to the local `TREASURY_DBREF`. The sandbox clone, which has no local
   settings, ran 453 green.
+- **Status:** OPEN
+
+### `Idmapper flush called more than once` — probably a timing artifact, not memory
+- **What:** `[WW] Warning: Idmapper flush called more than once in 5.0 min
+  interval. Check memory usage.` in the server log — once on 2026-10-08, and on
+  2026-10-09 at 17:21:12, **exactly nine minutes** after a reload logged at
+  17:12:12. Read against Evennia's source (`evennia/server/service.py`,
+  `evennia/utils/idmapper/models.py`, pinned `v6.1.0`), nine minutes is the one
+  moment the warning can fire with no memory pressure at all:
+  - `server_maintenance()` runs every 60 s (`LoopingCall`, `now=True`), and
+    calls `conditional_flush()` on every fifth run — ~4 min and ~9 min after a
+    start, then every 5 min.
+  - The **first** call only records `LAST_FLUSH = now` and returns.
+  - The **second** compares `now - LAST_FLUSH < 300.0` — and nominally exactly
+    300 s have passed. If the first call ran a little later than its slot (the
+    reactor is busiest just after a start), the difference is just under 300 and
+    the warning fires.
+  - It fires **before** the memory check is reached, so it says nothing about
+    memory. `LAST_FLUSH` moves only on a real flush, so the third call sees
+    ~600 s and the warning cannot repeat until the next start — **or** until a
+    real flush resets `LAST_FLUSH`, after which the call five minutes later is
+    in the same race. A real flush needs real pressure, so that case still
+    points at memory.
+- ⚠️ **This is a hypothesis with one data point.** It predicts that *every*
+  occurrence sits at ≈ +9:00 after a start or reload. The 2026-10-08 occurrence
+  has not been checked against the log. Confirm by listing the warning's
+  timestamps next to the preceding `Server successfully reloaded` / start
+  lines. All at ≈ +9 min → benign and upstream (a candidate Evennia report, no
+  PolishedWorld action). Any occurrence at another offset → real cache pressure:
+  check the idmapper cache with `@server`. The committed settings do not
+  override `IDMAPPER_CACHE_MAXSIZE`, so unless the local settings do, the cap
+  is Evennia's default of 400 MB.
+- **Why deferred:** Not Epic A's, and the evidence so far says it is noise —
+  but "it is noise" is exactly the conclusion that must be checked rather than
+  assumed, which is why it is filed.
+- **Trigger:** The next occurrence, or the next time the server log is read for
+  anything else.
+- **Origin:** Watch item carried by the Epic A TA1.3 handoff (first seen
+  2026-10-08); recurred during the TA1.3 in-game protocol, 2026-10-09.
 - **Status:** OPEN
 
 ---
