@@ -10,6 +10,7 @@ ticker on its next pass once the gauge is back above zero.
 
 from evennia.utils.utils import inherits_from
 from commands.command import Command
+from world import timed_actions
 from typeclasses.consumables import Food, Drink
 
 
@@ -102,8 +103,25 @@ class CmdRest(Command):
     help_category = "survival"
 
     def func(self):
+        """
+        Toggle resting.
+
+        `rest` occupies the shared timed-action slot (Epic A), so this asks the
+        slot what is going on and branches on WHICH action holds it:
+
+        - a rest: toggle it off (`stop_resting`).
+        - anything else: fall through to `start_resting()`, whose `start()`
+          refuses with "You are already <label>." (D3, T2). The other action
+          is NOT interrupted -- `rest` during a chore is answered, not used as
+          a way to cancel the chore.
+        - nothing: start resting.
+
+        The branch reads the record's `key`, not its `label`: the label is
+        player-facing wording and free to change; the key is the identity.
+        """
         caller = self.caller
-        if caller.ndb.resting:
+        record = timed_actions.is_busy(caller)
+        if record is not None and record.key == "rest":
             caller.stop_resting()
             return
         caller.start_resting()

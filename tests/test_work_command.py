@@ -800,8 +800,10 @@ class TestStaleAndInterruptedCallbacks(WorkTestBase):
         self.assertEqual(seen, [])
 
     def test_the_location_recheck_is_the_backstop(self):
-        # Teleport and death bypass at_pre_move's message but not this. The
-        # marker is deliberately left intact so only the re-check can refuse.
+        # A direct `location` assignment skips every move hook, so nothing
+        # interrupts the slot: the marker is left intact and only the re-check
+        # can refuse. (Death no longer reaches this backstop -- it interrupts
+        # explicitly, D7 -- and `@tel` runs at_pre_move like any other move.)
         self.call(CmdWork(), "sweep", caller=self.char1)
         marker = _marker_of(self.char1)
         self.char1.location = self.room2  # direct assignment, no move hooks

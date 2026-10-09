@@ -44,9 +44,10 @@ stays standing in the room (statue logout), so the object -- and its `ndb` --
 outlive the session. That is why every entry point below checks `has_account`,
 and why the checks that find it false CLEAR the slot instead of merely refusing.
 A slot left occupied on a body nobody is puppeting is a character who is busy
-forever, and the live implementations this module replaces both already clean up
-on that path (`_finish_task` nulls the marker before its `has_account` check;
-`_rest_tick` clears `ndb.resting` in the same branch that refuses).
+forever, and the implementations this module replaced both already cleaned up
+on that path (`_finish_task` nulled its marker before its `has_account` check;
+the pre-Epic-A rest tick cleared its boolean flag in the same branch that
+refused).
 
 WHAT THIS MODULE DOES NOT IMPORT
 --------------------------------

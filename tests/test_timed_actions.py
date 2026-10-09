@@ -185,9 +185,10 @@ class TestStaleMarkers(TimedActionTestBase):
     Only marker IDENTITY refuses it -- the action key is identical in both
     attempts, so a key comparison would wave it through.
 
-    This is also the class that closes a live defect the migration inherits:
-    `rest` has no marker today, only a boolean `ndb.resting`, so
-    rest -> walk -> rest leaves two tick loops running against one gauge.
+    This is also the class that pins the defect the migration closed: before
+    TA1.3 a rest carried no marker, only a boolean flag, so
+    rest -> walk -> rest left two tick loops running against one gauge.
+    `tests/test_rest.py` (TestStaleRestTicks) holds the rest-level regression.
     """
 
     def test_a_stale_marker_is_refused_by_claim(self):

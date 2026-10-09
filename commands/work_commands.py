@@ -71,8 +71,11 @@ longer owns its own machinery:
 2. **Walking away mid-task.** `at_pre_move` calls `timed_actions.interrupt()`
    unconditionally. The sentence the player sees is the `interrupt_msg` this
    command recorded at start time -- the hook knows that something was
-   interrupted, never what. The location re-check in `_finish_task` is the
-   backstop for the paths a move hook never sees: teleport, death.
+   interrupted, never what. Death relocates with `move_hooks=False`, so
+   `at_character_death()` calls `interrupt()` itself (D7, TA1.3). The location
+   re-check in `_finish_task` is the backstop for a relocation that skips both:
+   a direct `location` assignment, or another `move_to(..., move_hooks=False)`.
+   (`@tel` is not one of them -- it moves with hooks, so `at_pre_move` runs.)
 3. **`@reload` mid-task.** The delay is NOT persistent, and neither is `ndb`, so
    both die together. The task is silently abandoned; the cooldown was never
    set, so the player simply starts again and loses nothing but the wait. This
@@ -89,11 +92,11 @@ longer owns its own machinery:
 `work` occupies `character.ndb.timed_action`, the single slot shared by every
 timed action (Epic A, D1). There is no `ndb.working`.
 
-State of the migration as of this commit, because half-migrated is the state
-prose gets wrong: `work` is on the slot, `rest` is not -- it still carries
-`ndb.resting` and moves in TA1.3. So a chore and a rest are NOT yet mutually
-exclusive. They become so when `rest` migrates, by construction rather than by
-a cross-check written into either command.
+`rest` occupies the same slot since TA1.3, so a chore and a rest are mutually
+exclusive by construction rather than by a cross-check written into either
+command: `rest` during a chore answers "You are already working.", `work`
+during a rest answers "You are already resting.", and both sentences are
+written by `timed_actions.start()` (T2).
 
 A STALE CALLBACK MUST NOT PAY A NEW TASK
 ----------------------------------------
@@ -413,8 +416,10 @@ def _finish_task(caller, task_key, marker):
         return
 
     # Re-check, and THIS is the check that counts -- the pre-delay one was
-    # courtesy. Covers walking out by any route a move hook never sees
-    # (teleport, death, the Treasury itself being moved mid-chore).
+    # courtesy. Covers a relocation the slot never hears about (a direct
+    # `location` assignment, a `move_to(..., move_hooks=False)` other than
+    # death, which interrupts explicitly) and the Treasury itself being moved
+    # mid-chore.
     treasury = _temple_here(caller)
     if treasury is None:
         caller.msg("You look up from your work. There is no work to be had here.")

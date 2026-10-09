@@ -1093,6 +1093,24 @@ class Character(ObjectParent, ClothedCharacter):
             return
         self.ndb._dying = True
         try:
+            # D7: end any timed action FIRST. The relocation below moves with
+            # move_hooks=False, so at_pre_move -- the hook that normally does
+            # this -- never runs, and a rest would otherwise keep ticking at the
+            # respawn point. First, so an action's on_interrupt (a rest's "gets
+            # up") never sees a half-moved body or an emptied inventory.
+            # Not silenced (T13): the actor hears the action's interrupt_msg
+            # just before "You have died.", which is true.
+            # Guarded like the corpse spawn below: a failing interrupt must not
+            # abort the death sequence and strand the character at 0 HP.
+            # interrupt() empties the slot before it messages anyone, so the
+            # slot is clear even when this logs.
+            try:
+                timed_actions.interrupt(self)
+            except Exception:
+                logger.log_trace(
+                    f"at_character_death: timed-action interrupt failed for {self}"
+                )
+
             location = self.location
 
             # Spawn the corpse where they fell. A character with no location is
@@ -1173,84 +1191,169 @@ class Character(ObjectParent, ClothedCharacter):
             self.ndb._dying = False
 
     def start_resting(self):
-        """Begin resting. Schedules the first recovery tick."""
+        """
+        Begin resting: occupy the shared timed-action slot and schedule the
+        first recovery tick (Epic A, TA1.3).
+
+        Two refusals, in this order. The order follows T8's precedent for
+        `work`: the gate about the action the player NAMED runs first.
+
+        1. "You are not tired." -- checked here, before the slot is touched, so
+           a refused rest never occupies the slot and never has to give it back.
+        2. "You are already <label>." -- written by `timed_actions.start()`
+           itself (T2) when the slot holds anything, a chore included. Nothing
+           is said here; `None` is the whole signal.
+
+        Busy AND fully rested therefore answers "You are not tired.". Both are
+        true; the one that wins is about the action the player asked for.
+
+        Nobody hears "settles down" until `start()` has succeeded: those lines
+        must never be sent for a rest that did not begin.
+
+        The tick is the module-level `_rest_tick(char, marker)` (T10) -- the
+        callback shape `_finish_task` already has. The room's "gets up" on an
+        interrupt is `_announce_getting_up`, run by `interrupt()` as
+        `on_interrupt`.
+        """
         fatigue = self.traits.get("fatigue")
         if fatigue is None:
             return
         if fatigue.current >= fatigue.max:
             self.msg("You are not tired.")
             return
-        self.ndb.resting = True
+        marker = timed_actions.start(
+            self,
+            "rest",
+            self.rest_interval,
+            _rest_tick,
+            label="resting",
+            interrupt_msg="You get up, interrupting your rest.",
+            on_interrupt=_announce_getting_up,
+        )
+        if marker is None:
+            return
         self.msg("You settle down to rest.")
         if self.location:
             self.location.msg_contents(
                 f"{self.key} settles down to rest.", exclude=self
             )
-        delay(self.rest_interval, self._rest_tick)
 
     def stop_resting(self, reason="You stop resting."):
-        """Stop resting (no-op if not resting). Safe to call from anywhere."""
-        if not self.ndb.resting:
-            return
-        self.ndb.resting = False
-        self.msg(reason)
-        if self.location:
-            self.location.msg_contents(f"{self.key} gets up.", exclude=self)
-
-    def _rest_tick(self):
         """
-        One recovery step. Reschedules itself while resting continues.
+        End a rest in progress. A no-op unless the slot holds a REST (T12).
 
-        Stops (without rescheduling) if resting was cancelled, the character
-        is no longer actively puppeted (offline-safe via has_account), or the
-        fatigue gauge is full.
+        "Safe to call from anywhere" is the contract this method has always
+        had, and the shared slot is what makes it need a guard: a bare
+        `interrupt(self, reason)` ends whatever occupies the slot, so calling
+        this while working would cancel the chore and tell the worker "You stop
+        resting.". The key check keeps the method about rest.
+
+        Everything past the guard is `timed_actions.interrupt()`: it empties the
+        slot, sends `reason` -- which overrides the "You get up, interrupting
+        your rest." recorded at start (T4) -- and runs `_announce_getting_up` for
+        the room. The pending tick is not cancelled; it fires, `is_current()`
+        finds its marker gone, and it stops without touching the gauge.
+
+        Args:
+            reason (str): what the actor is told.
+
+        Returns:
+            bool: True if a rest was ended, False if there was none.
         """
-        if not self.ndb.resting or not self.has_account:
-            self.ndb.resting = False
-            return
-        fatigue = self.traits.get("fatigue")
-        if fatigue is None:
-            self.ndb.resting = False
-            return
-        fatigue.current += self.rest_recovery   # auto-clamps to max
-        if fatigue.current >= fatigue.max:
-            self.ndb.resting = False
-            self.msg("You feel fully rested.")
-            if self.location:
-                self.location.msg_contents(
-                    f"{self.key} gets up, looking refreshed.", exclude=self
-                )
-            return
-        delay(self.rest_interval, self._rest_tick)   # reschedule
+        record = timed_actions.is_busy(self)
+        if record is None or record.key != "rest":
+            return False
+        return timed_actions.interrupt(self, reason)
 
     def at_pre_move(self, destination, move_type="move", **kwargs):
         """
-        Interrupt timed activities when moving, but allow the move itself.
+        Interrupt whatever timed action is in progress, but allow the move.
 
-        Two branches during the Epic A migration, and only one of them is
-        permanent. `timed_actions.interrupt()` is the shape this hook is
-        collapsing to: one call that every future timed action inherits without
-        anyone editing this method again. The `resting` branch above it is the
-        last un-migrated action; it disappears in TA1.3 and this method becomes
-        the `interrupt()` line plus the `super()` call. That line is written
-        once, here, and is not rewritten then -- only left unaccompanied.
+        One line for every timed action there is or will be (Epic A, D1). The
+        hook knows that something was interrupted, never what: the sentence the
+        player sees is the `interrupt_msg` the action recorded at start ("You
+        break off what you were doing." for a chore, "You get up, interrupting
+        your rest." for a rest), and a rest's `on_interrupt` tells the room
+        "<name> gets up.". A new timed action joins by passing its own messages
+        to `start()`; it does not edit this method.
 
         `interrupt()` is a silent no-op on an empty slot, so an idle character
         who moves is not messaged and pays for nothing.
 
-        What it does for a chore in progress: clearing the slot is what cancels
-        it. The pending delay still fires on schedule, `claim()` finds the
-        marker gone, and it returns without paying. The sentence the player sees
-        is the `interrupt_msg` the command recorded at start time -- this hook
-        knows that something was interrupted, never what, which is precisely why
-        it never needs another branch.
+        Clearing the slot is what cancels the action. The pending delay still
+        fires on schedule, `claim()` (work) or `is_current()` (rest) finds the
+        marker gone, and the callback returns without effect.
 
-        The message is why this exists, not the correctness: the location
-        re-check in `_finish_task` would refuse the payout anyway. But refusing
-        it twenty seconds later in silence reads as the command being broken,
-        and a player who walks out mid-chore should be told when they do it.
+        This hook does not run for `move_to(..., move_hooks=False)` or a direct
+        `location =` assignment. Death relocates with `move_hooks=False`, which
+        is why `at_character_death()` calls `interrupt()` itself (D7).
         """
-        if self.ndb.resting:
-            self.stop_resting("You get up, interrupting your rest.")
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
+
+
+# --- Rest callbacks (Epic A, TA1.3) -------------------------------------------
+# Module level, not methods (T10). `timed_actions.start()` invokes its callback
+# as `callback(char, *args, marker)` (T1), so a bound method would receive the
+# character twice. This is the shape `_finish_task` (work) already has and
+# `_complete_craft` (craft, TA2.1) will have: one callback shape for every timed
+# action, each directly callable from a test without a running reactor.
+
+
+def _rest_tick(char, marker):
+    """
+    One recovery step of a rest. Reschedules itself while the rest continues.
+
+    The tuning knobs stay on the class (`rest_interval`, `rest_recovery`) and
+    are read through `char`, so a subclass can still override them.
+
+    Three ways out, and who empties the slot in each:
+
+    - **Not current** -- a stale marker, an emptied slot, a deleted or an
+      unpuppeted character. `is_current()` refuses. It clears the slot only for
+      the unpuppeted body (T3); a stale tick must not clear anything, because
+      the slot may now hold a newer rest or a chore that is none of its
+      business.
+    - **The rest ends here** -- fully rested, or no fatigue gauge at all. This
+      function empties the slot with `claim()` (T11), as the first statement of
+      the branch: before any message, so a `msg()` that raises cannot leave the
+      character resting forever. `claim()` cannot be refused at that point --
+      `is_current()` said yes in this same synchronous call, and the reactor is
+      single-threaded -- so its return value is not consulted.
+    - **Otherwise** -- reschedule with `delay(..., marker)` directly. Not via
+      `start()`: the slot is occupied by this very rest, so `start()` would
+      refuse it.
+
+    Args:
+        char (Character): the resting character.
+        marker (object): the identity token `start()` minted for this rest.
+    """
+    if not timed_actions.is_current(char, marker):
+        return
+    fatigue = char.traits.get("fatigue")
+    if fatigue is None:
+        timed_actions.claim(char, marker)
+        return
+    fatigue.current += char.rest_recovery   # auto-clamps to max
+    if fatigue.current >= fatigue.max:
+        timed_actions.claim(char, marker)
+        char.msg("You feel fully rested.")
+        if char.location:
+            char.location.msg_contents(
+                f"{char.key} gets up, looking refreshed.", exclude=char
+            )
+        return
+    delay(char.rest_interval, _rest_tick, char, marker)   # reschedule
+
+
+def _announce_getting_up(char):
+    """
+    The room's half of an interrupted rest: `on_interrupt` for "rest".
+
+    `timed_actions.interrupt()` runs this after the actor's own message, and
+    only for a puppeted character -- under statue logout nobody is there to be
+    seen getting up. Module level rather than a lambda in `start_resting()` so
+    a test can assert identity on it and a traceback names it.
+    """
+    if char.location:
+        char.location.msg_contents(f"{char.key} gets up.", exclude=char)
