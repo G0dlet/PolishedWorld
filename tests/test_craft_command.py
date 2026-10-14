@@ -1,5 +1,6 @@
 """
-Unit tests for `craft` on the shared timed-action slot. Epic A, Task TA2.1.
+Unit tests for `craft` on the shared timed-action slot. Epic A, Tasks TA2.1
+and TA2.2.
 
 Until TA2.1 there were no tests for `CmdCraftGated` or for a craft driven end to
 end through the recipe pipeline. Everything here is new coverage, and the
@@ -8,7 +9,7 @@ classes are arranged by the question each one answers.
 WHAT IS WORTH TESTING HERE
 --------------------------
 1. **The start schedules and nothing else.** No consume, no product, no
-   cooldown stamp: the whole collect -> roll -> consume lands at completion.
+   do_craft: the whole collect -> roll -> consume lands at completion.
 2. **Completion is the contrib's own pass.** An ingredient given away during the
    wait is not found and nothing is consumed; the product appears only there.
 3. **The courtesy checks refuse at start, schedule nothing, and reuse the
@@ -18,9 +19,10 @@ WHAT IS WORTH TESTING HERE
    An error at completion still empties the slot.
 5. **D3 across three commands**: craft, work and rest refuse each other out
    loud and never interrupt.
-6. **The middle-state invariant**: craft_duration == craft_cooldown in every
-   recipe, which is what keeps the cooldown from refusing after the wait
-   (T16). Deleted with craft_cooldown in TA2.2.
+6. **One knob** (D4, TA2.2). The same recipe starts again straight after it
+   finished, a completed craft writes no cooldown but the skill-improvement
+   window, every recipe takes a positive time, and nothing defines
+   craft_cooldown any more.
 
  THE COMPLETION IS DRIVEN BY HAND
 ------------------------------------
@@ -33,10 +35,11 @@ the identity check deleted.
 
  COOLDOWNS
 -------------
-A completed craft stamps `craft:<recipe>` (do_craft) until TA2.2. Each test gets
-fresh characters from the fixture, so nothing leaks between tests; no test
-completes the same recipe twice. Keys are built through the recipe's own
-`_cooldown_key`, so a rename cannot decouple test from code.
+Crafting stamps none since TA2.2. The one cooldown a completed craft can still
+write is the skill-improvement window, `improve_craft`, stamped on a successful
+roll when its window is open -- so whether it appears depends on the dice. The
+test that guards this therefore compares every key before and after the
+completion and allows exactly that one, rather than demanding no write at all.
 
  THE RECIPE IS THE REAL TWINE
 -------------------------------
@@ -75,11 +78,6 @@ INTERRUPT_MSG = "You set your crafting aside; your materials are untouched."
 
 def _joined(seen):
     return "\n".join(seen)
-
-
-def _twine_key(char):
-    """The cooldown key do_craft stamps, built by the recipe itself."""
-    return TwineRecipe(char)._cooldown_key
 
 
 class CraftFixtureMixin:
@@ -151,11 +149,6 @@ class TestStartSchedulesOnly(CraftTestBase):
             self.assertEqual(obj.location, self.char1)
         self.assertEqual(self.twine_in(self.char1), [])
 
-    def test_no_cooldown_is_stamped_at_start(self):
-        # do_craft stamps it. Ready here means do_craft has not run.
-        self.assertIsNotNone(self.start_craft())
-        self.assertTrue(self.char1.cooldowns.ready(_twine_key(self.char1)))
-
     def test_the_crafter_is_told_and_the_room_sees_the_act_not_the_recipe(self):
         with captured_messages(self.char2) as room:
             with mock.patch("world.timed_actions.delay"):
@@ -177,7 +170,6 @@ class TestCompletion(CraftTestBase):
         for obj in self.fibres:
             self.assertIsNone(obj.pk)
         self.assertIsNone(timed_actions.is_busy(self.char1))
-        self.assertFalse(self.char1.cooldowns.ready(_twine_key(self.char1)))
 
     def test_an_ingredient_gone_during_the_wait_fails_and_consumes_nothing(self):
         scheduled = self.start_craft()
@@ -190,7 +182,6 @@ class TestCompletion(CraftTestBase):
             self.assertIsNotNone(obj.pk)
         self.assertEqual(self.twine_in(self.char1), [])
         self.assertIsNone(timed_actions.is_busy(self.char1))
-        self.assertTrue(self.char1.cooldowns.ready(_twine_key(self.char1)))
 
     def test_an_error_at_completion_is_logged_told_and_frees_the_slot(self):
         scheduled = self.start_craft()
@@ -234,11 +225,6 @@ class TestCourtesyRefusesAtStart(CraftTestBase):
     def test_a_skill_floor_is_refused_at_start(self):
         with mock.patch.object(TwineRecipe, "min_skill", 999):
             self.assert_refused(TWINE, "Your Craft is too unskilled (need 999%).")
-
-    def test_a_running_cooldown_is_refused_at_start(self):
-        # The middle state (T16): visible double throttling until TA2.2.
-        self.char1.cooldowns.add(_twine_key(self.char1), TwineRecipe.craft_cooldown)
-        self.assert_refused(TWINE, "You must wait")
 
     def test_an_unlearned_recipe_is_refused_before_any_search(self):
         # B.2's point survives the split: the knowledge reject runs before the
@@ -362,11 +348,34 @@ class TestCraftWorkAndRestExcludeEachOther(CraftFixtureMixin, WorkTestBase):
         self.assertIs(_marker_of(self.char1), craft)
 
 
-class TestDurationMatchesCooldown(EvenniaCommandTest):
+class TestNothingThrottlesARepeat(CraftTestBase):
     """
-    Question 6: the middle-state invariant (T16). While both knobs exist,
-    equal values are what keep the cooldown from refusing a craft after its
-    wait. DELETE this class with craft_cooldown in TA2.2.
+    Question 6: with craft_cooldown gone (D4, TA2.2), does anything but the
+    wait itself stand between one craft and the next?
+    """
+
+    def test_the_same_recipe_starts_again_straight_after_it_finished(self):
+        self.finish(self.start_craft())
+        self.assertEqual(len(self.twine_in(self.char1)), 1)  # receipt: do_craft ran
+        self.give_fibres(self.char1)
+        self.assertIsNotNone(self.start_craft())
+
+    def test_a_completed_craft_writes_no_cooldown_but_the_skill_window(self):
+        # Every key, before and after: catches a stamp under any name and
+        # through any method of the handler, not just add() of `craft:*`.
+        before = set(self.char1.cooldowns.all)
+        self.finish(self.start_craft())
+        self.assertEqual(len(self.twine_in(self.char1)), 1)  # receipt: do_craft ran
+        written = set(self.char1.cooldowns.all) - before
+        self.assertLessEqual(written, {"improve_craft"}, written)
+
+
+class TestOneKnob(EvenniaCommandTest):
+    """
+    Question 6b: is craft_duration the only time knob (D4)? A recipe that
+    still defined craft_cooldown would carry an attribute nothing reads --
+    silent in play, so only a test can catch it. AGENTS.md section 4 tells the
+    data agent this test exists.
     """
 
     def recipe_classes(self):
@@ -377,14 +386,16 @@ class TestDurationMatchesCooldown(EvenniaCommandTest):
             and obj is not MongooseCraftRecipe
         ]
 
-    def test_every_recipe_waits_exactly_as_long_as_its_cooldown(self):
+    def test_every_recipe_takes_a_positive_time(self):
         classes = self.recipe_classes()
         self.assertTrue(classes)  # "all of them" over nothing proves nothing
         for cls in classes:
             with self.subTest(recipe=cls.name):
                 self.assertGreater(cls.craft_duration, 0)
-                self.assertEqual(cls.craft_duration, cls.craft_cooldown)
 
-    def test_the_base_default_is_thirty_for_both(self):
-        self.assertEqual(MongooseCraftRecipe.craft_duration, 30)
-        self.assertEqual(MongooseCraftRecipe.craft_cooldown, 30)
+    def test_neither_the_base_nor_any_recipe_defines_craft_cooldown(self):
+        classes = self.recipe_classes()
+        self.assertTrue(classes)
+        for cls in [MongooseCraftRecipe, *classes]:
+            with self.subTest(recipe=cls.name):
+                self.assertFalse(hasattr(cls, "craft_cooldown"))

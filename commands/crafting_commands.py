@@ -275,8 +275,8 @@ class CmdCraftGated(CmdCraft):
         completion would give. The inputs are then dry-run through the recipe's
         pre_craft on a throwaway instance. pre_craft only reads -- the
         contrib's input validation sets attributes on the instance; the
-        knowledge, skill and cooldown gates read tags, traits and cooldowns --
-        and consumption lives in post_craft, which is never called here.
+        knowledge and skill gates read tags and traits -- and consumption
+        lives in post_craft, which is never called here.
         Whatever refuses has already messaged the crafter.
 
         NOT mirrored: the contrib's refusal of puppeted or nocraft-locked

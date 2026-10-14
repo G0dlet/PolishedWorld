@@ -6,9 +6,10 @@ MongooseCraftRecipe: PolishedWorld's base crafting recipe.
 This sits between Evennia's CraftingRecipe and our concrete recipes. It layers
 Mongoose Legend skill resolution onto the contrib's lifecycle:
 
-    pre_craft   -> validate inputs (contrib) + cooldown gate (abort, no consume)
+    pre_craft   -> validate inputs (contrib) + knowledge and skill gates
+                   (abort, no consume)
     do_craft    -> roll Craft skill, map result tier -> quality, spawn output,
-                   stamp quality, start the per-recipe cooldown
+                   stamp quality
     post_craft  -> tier-flavoured message + consume materials per policy
 
 IMPORTANT: this module must NOT be listed in settings.CRAFT_RECIPE_MODULES.
@@ -18,11 +19,12 @@ callables_from_module() only returns classes whose __module__ is the recipe
 module itself, the imported base is not registered as a phantom recipe.
 
 Concrete recipes (world/recipes.py) subclass this and set:
-    name              - unique recipe name (used by the `craft` command + cooldown key)
+    name              - unique recipe name (used by the `craft` command)
     consumable_tags   - ingredient tag-keys (crafting_material category), repeated per count
     output_prototypes - prototype_key(s) to spawn on a craft
     tool_tag          - OPTIONAL tool tag-key (crafting_tool category) for a bonus; None = none
-    craft_cooldown    - realtime seconds before this recipe can be re-run (override as needed)
+    craft_duration    - realtime seconds a craft takes: the `craft` command waits
+                        this long before the craft resolves (override as needed)
 
 Consume policy (consume_policy):
     "raw"    - every attempt produces an item; quality scales with the result
@@ -45,14 +47,12 @@ class MongooseCraftRecipe(CraftingRecipe):
     # --- tuning (override per concrete recipe) ---
     name = "mongoose craft base"          # concrete recipes MUST override
     skill_name = "craft"                  # which Character.skills entry to roll
-    craft_cooldown = 30                   # realtime seconds, per-recipe
     craft_duration = 30                   # realtime seconds a craft TAKES (Epic A).
-                                          # Read by the `craft` command before this
-                                          # recipe ever runs: the wait lives in the
+                                          # Read by the `craft` command before
+                                          # craft() runs: the wait lives in the
                                           # command, because craft() is synchronous
-                                          # by construction. Equal to craft_cooldown
-                                          # in every recipe until TA2.2 removes the
-                                          # cooldown (asserted in the tests).
+                                          # by construction. The only time knob: it
+                                          # replaced craft_cooldown (D4, TA2.2).
     consume_policy = "raw"                # see module docstring
     min_skill = 0                         # Component F: HARD skill floor (effective
                                           # Craft %) required to *attempt* this recipe.
@@ -108,11 +108,6 @@ class MongooseCraftRecipe(CraftingRecipe):
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
-
-    @property
-    def _cooldown_key(self):
-        """Per-recipe cooldown key, so different recipes don't block each other."""
-        return f"craft:{self.name}"
 
     def _skill_value(self):
         """Effective Craft skill (counter trait .value = current + mod), 0 if absent."""
@@ -241,7 +236,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         # branch entirely, so the gate only ever fires on learnable recipes.
         #
         # The getattr guard mirrors this module's defensive crafter-access (cf.
-        # _skill_value / cooldowns / attempt_skill_improvement): the world layer
+        # _skill_value / attempt_skill_improvement): the world layer
         # never assumes crafter is a Character, so a crafter that lacks the
         # knows_recipe helper cannot "know" an advanced recipe and is refused --
         # the safe default for a knowledge-gated good. The check is read-only
@@ -257,9 +252,9 @@ class MongooseCraftRecipe(CraftingRecipe):
             raise CraftingError(f"{self.name}: recipe unknown to crafter.")
 
         # Skill-gate (Component F.1). A HARD floor: advanced recipes set min_skill;
-        # a crafter below it is refused HERE -- after inputs are valid, before the
-        # cooldown gate and before any consume. We raise before do_craft, so rolled
-        # stays False and post_craft consumes nothing. Reads EFFECTIVE skill
+        # a crafter below it is refused HERE -- after inputs are valid and before
+        # any consume. We raise before do_craft, so rolled stays False and
+        # post_craft consumes nothing. Reads EFFECTIVE skill
         # (_skill_value() = counter .value = current + mod), so a temporary buff can
         # lift someone over the bar -- intended: the gate asks "are you good enough
         # to *attempt* this right now". Deliberately does NOT apply the tool modifier:
@@ -271,14 +266,6 @@ class MongooseCraftRecipe(CraftingRecipe):
             self.msg(f"Your Craft is too unskilled (need {self.min_skill}%).")
             raise CraftingError(f"{self.name} requires Craft {self.min_skill}%.")
 
-        # Cooldown gate. Only reached once inputs are valid. Abort WITHOUT
-        # consuming (we raise before do_craft; rolled stays False).
-        cooldowns = getattr(self.crafter, "cooldowns", None)
-        if cooldowns and not cooldowns.ready(self._cooldown_key):
-            left = cooldowns.time_left(self._cooldown_key, use_int=True)
-            self.msg(f"You must wait {left}s before crafting {self.name} again.")
-            raise CraftingError(f"{self.name} is on cooldown.")
-
     def do_craft(self, **kwargs):
         # A real attempt is happening.
         self.rolled = True
@@ -286,15 +273,10 @@ class MongooseCraftRecipe(CraftingRecipe):
         self.skill_outcome = outcome
         tier = outcome["result"]
 
-        # The time sink applies to every completed attempt, regardless of tier.
-        cooldowns = getattr(self.crafter, "cooldowns", None)
-        if cooldowns:
-            cooldowns.add(self._cooldown_key, self.craft_cooldown)
-
         # Tool-wear sink (Component D.1). A *completed* attempt wears the used
-        # tool. Placed here -- after rolled=True and the cooldown add, before the
-        # produce/consume branch -- so wear ties to a real craft and never to a
-        # cooldown-abort or invalid-input bail (both raise before do_craft runs).
+        # tool. Placed here -- after rolled=True, before the produce/consume
+        # branch -- so wear ties to a real craft and never to an invalid-input,
+        # knowledge or skill-floor bail (all raise before do_craft runs).
         # _used_tool() reads self.inputs (validated_tools is empty for our
         # optional-tool recipes; see its docstring) and nicks the tool, never a
         # consumable. hasattr-guarded: a future station/furnace could carry the
@@ -343,8 +325,9 @@ class MongooseCraftRecipe(CraftingRecipe):
         return result
 
     def post_craft(self, craft_result, **kwargs):
-        # Aborted before any roll (cooldown or invalid inputs): pre_craft / the
-        # contrib already messaged the reason. Consume nothing.
+        # Aborted before any roll (invalid inputs, an unlearned recipe or a skill
+        # floor): pre_craft / the contrib already messaged the reason. Consume
+        # nothing.
         if not self.rolled:
             return craft_result
 

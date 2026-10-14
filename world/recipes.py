@@ -3,7 +3,8 @@ world/recipes.py
 
 Concrete crafting recipes, discovered by Evennia's crafting contrib via
 CRAFT_RECIPE_MODULES. Recipes subclass MongooseCraftRecipe (world/crafting_base.py)
-to inherit Legend skill resolution, quality, tool modifiers and the cooldown sink.
+to inherit Legend skill resolution, quality and tool modifiers. A recipe's
+craft_duration is how long the `craft` command waits before the craft resolves.
 
 NOTE: MongooseCraftRecipe is imported, not defined here. callables_from_module()
 only registers classes whose __module__ is this module, so the imported base is
@@ -101,7 +102,6 @@ class TwineRecipe(MongooseCraftRecipe):
     consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres, matched by tag-key
     output_prototypes = ["twine"]
     tool_tag = None                                 # handcraft; no tool benefit
-    craft_cooldown = 20                             # quick craft (overrides base 30)
     craft_duration = 20                             # quick craft (overrides base 30)
 
 
@@ -112,7 +112,6 @@ class WaterskinRecipe(MongooseCraftRecipe):
     consumable_tags = ["gourd", "twine"]   # consumed
     output_prototypes = ["waterskin"]
     tool_tag = "knife"                     # OPTIONAL: knife shapes the gourd (baseline 0); improvised -20
-    craft_cooldown = 45                    # more involved than twine
     craft_duration = 45                    # more involved than twine
 
     def _finalize_item(self, obj, outcome):
@@ -147,7 +146,6 @@ class ClothRecipe(MongooseCraftRecipe):
     consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres per bolt
     output_prototypes = ["cloth"]
     tool_tag = None                                 # handwoven; no tool benefit
-    craft_cooldown = 25                             # between twine (20) and waterskin (45)
     craft_duration = 25                             # between twine (20) and waterskin (45)
 
 
@@ -159,7 +157,6 @@ class LeatherRecipe(MongooseCraftRecipe):
     consumable_tags = ["raw_hide", "raw_hide"]    # two hides per piece, matched by tag-key
     output_prototypes = ["leather"]               # the new H5.1 prototype
     tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (baseline 0); absent = -20
-    craft_cooldown = 45                           # involved work (soak/scrape/tan); overrides base 30
     craft_duration = 45                           # involved work (soak/scrape/tan); overrides base 30
 
 
@@ -171,7 +168,6 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     consumable_tags = ["cloth", "cloth"]   # two bolts per shirt
     output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
     tool_tag = "needle"                    # OPTIONAL: needle eases stitching (baseline 0); improvised -20
-    craft_cooldown = 40
     craft_duration = 40
 
     def _finalize_item(self, obj, outcome):
@@ -189,7 +185,6 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     consumable_tags = ["leather", "leather"]     # two pieces per pair
     output_prototypes = ["leather_boots"]        # existing Component B prototype
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (baseline 0); improvised -20
-    craft_cooldown = 40                          # mirrors linen shirt
     craft_duration = 40                          # mirrors linen shirt
     min_skill = 30                               # Component F.2: HARD floor. Boots sit above
                                                  # the survival tier (hide->leather->boots), so
@@ -221,7 +216,6 @@ class StoneKnifeRecipe(MongooseCraftRecipe):
     # very tool it exists to give you. No min_skill: the base has no skill floor,
     # so ungated is simply the default.
     tool_tag = None
-    craft_cooldown = 30                 # base default; a first-tool assembly
     craft_duration = 30                 # base default; a first-tool assembly
 
     # consume_policy inherits "raw" -> every attempt yields a knife (quality scales
@@ -253,7 +247,6 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
     # min_skill: the base has no skill floor, so ungated is the default. (A future
     # tool_tag="knife" -- carving needs a blade -- is a deliberate deferral.)
     tool_tag = None
-    craft_cooldown = 30                 # small, fiddly assembly; mirrors stone knife
     craft_duration = 30                 # small, fiddly assembly; mirrors stone knife
 
     # consume_policy inherits "raw" -> a hunt is never wasted on a bad roll.
