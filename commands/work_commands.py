@@ -483,6 +483,9 @@ class CmdWork(Command):
     Chores take a little time to do. Walk out part way through and you have done
     nothing and earned nothing.
 
+    Crafting, working and resting each take time, and you can only be
+    doing one of them at once.
+
     The temple pays out of its own coffers, and those coffers are finite. If
     donations have run thin there may be nothing to pay you with, however
     willing you are.

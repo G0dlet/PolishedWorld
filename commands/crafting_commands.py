@@ -175,6 +175,9 @@ class CmdCraftGated(CmdCraft):
     you finish; nothing is used up until then. Moving away stops the work,
     and your materials are left as they were.
 
+    Crafting, working and resting each take time, and you can only be
+    doing one of them at once.
+
     Attempting an advanced recipe you have not learned is refused at once --
     before the command searches your inventory for ingredients you would never
     get to use.

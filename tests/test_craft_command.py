@@ -18,7 +18,7 @@ WHAT IS WORTH TESTING HERE
 4. **Every interruption ends the craft with no product**: move, death, logout.
    An error at completion still empties the slot.
 5. **D3 across three commands**: craft, work and rest refuse each other out
-   loud and never interrupt.
+   loud and never interrupt, and each one's help says so (T24).
 6. **One knob** (D4, TA2.2). The same recipe starts again straight after it
    finished, a completed craft writes no cooldown but the skill-improvement
    window, every recipe takes a positive time, and nothing defines
@@ -346,6 +346,49 @@ class TestCraftWorkAndRestExcludeEachOther(CraftFixtureMixin, WorkTestBase):
             self.call(CmdCraftGated(), TWINE, "You are already crafting.", caller=self.char1)
         scheduled.assert_not_called()
         self.assertIs(_marker_of(self.char1), craft)
+
+    def test_craft_during_a_rest_is_refused_and_the_rest_goes_on(self):
+        # The sixth pairing: the other five are above and in tests/test_rest.py.
+        # It had no test of its own, and `help craft` now says it cannot happen.
+        with mock.patch("world.timed_actions.delay"):
+            self.call(CmdRest(), "", "You settle down to rest.", caller=self.char1)
+        rest = _marker_of(self.char1)
+        self.assertEqual(timed_actions.is_busy(self.char1).key, "rest")
+        with mock.patch("world.timed_actions.delay") as scheduled:
+            self.call(CmdCraftGated(), TWINE, "You are already resting.", caller=self.char1)
+        scheduled.assert_not_called()
+        self.assertIs(_marker_of(self.char1), rest)
+
+
+class TestHelpStatesTheRule(EvenniaCommandTest):
+    """
+    Question 5, for the player (T24): each command on the shared slot says in
+    its own help that craft, work and rest cannot run side by side.
+
+    The text is read through `get_help()`, the method `help <command>` calls
+    (Evennia v6.1.0 `Command.get_help` returns `self.__doc__`), so an override
+    that builds help some other way is still checked. Whitespace is normalised
+    because each docstring wraps the sentence at a different place: what is
+    tested is what the player reads, not where the lines break. Whether
+    `help craft` reaches CmdCraftGated rather than the contrib's stock CmdCraft
+    is a cmdset question, and the in-game protocol checks it.
+
+    A fourth consumer of `timed_actions.start()` changes RULE and joins
+    COMMANDS.
+    """
+
+    RULE = (
+        "Crafting, working and resting each take time, and you can only be "
+        "doing one of them at once."
+    )
+    COMMANDS = (CmdCraftGated, CmdWork, CmdRest)
+
+    def test_each_slot_command_states_the_rule_exactly_once(self):
+        self.assertEqual(len(self.COMMANDS), 3)
+        for cmdclass in self.COMMANDS:
+            with self.subTest(command=cmdclass.__name__):
+                shown = " ".join(cmdclass().get_help(self.char1, None).split())
+                self.assertEqual(shown.count(self.RULE), 1)
 
 
 class TestNothingThrottlesARepeat(CraftTestBase):

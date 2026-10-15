@@ -97,6 +97,9 @@ class CmdRest(Command):
       rest
 
     Begin resting. Use 'rest' again, or move, to stop.
+
+    Crafting, working and resting each take time, and you can only be
+    doing one of them at once.
     """
 
     key = "rest"
