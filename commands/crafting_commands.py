@@ -361,13 +361,13 @@ class CmdRecipes(Command):
 
     Usage:
       recipes            - list common + learned recipes (hint if more exist)
-      recipes <name>     - show one recipe's ingredients, tool and skill floor
+      recipes <name>     - show one recipe's ingredients, tool, skill floor and time
 
     The bare list shows the common recipes everyone can make plus any advanced
     recipes you have personally learned. `recipes <name>` details a recipe you
-    can see: its ingredients, whether a tool helps, any skill floor, and what it
-    produces. Recipes you have not learned stay hidden -- their ingredients are
-    part of what you learn, buy, or are taught.
+    can see: its ingredients, whether a tool helps, any skill floor, how long it
+    takes to craft, and what it produces. Recipes you have not learned stay
+    hidden -- their ingredients are part of what you learn, buy, or are taught.
     """
 
     key = "recipes"

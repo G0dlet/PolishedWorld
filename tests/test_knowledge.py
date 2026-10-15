@@ -16,6 +16,8 @@ WHAT IT COVERS
 * world.knowledge.render_recipe_detail(_by_name) -- the pure renderers
 * commands.crafting_commands.CmdInscribe    -- writing a scroll (F.1)
 * commands.crafting_commands.CmdLearn       -- reading a scroll (F.2)
+* CmdRecipes + Scroll.get_display_desc      -- the renderer's two consumers
+                                               (TA2.3: the craft duration)
 
 HOW TO RUN
 ----------
@@ -52,8 +54,9 @@ from world.knowledge import (
     render_recipe_detail,
     render_recipe_detail_by_name,
 )
-from world.recipes import ClothRecipe, LeatherRecipe
-from commands.crafting_commands import CmdInscribe, CmdLearn
+from world.crafting_base import MongooseCraftRecipe
+from world.recipes import ClothRecipe, LeatherRecipe, TwineRecipe
+from commands.crafting_commands import CmdInscribe, CmdLearn, CmdRecipes
 
 
 # Canonical recipe NAMES (MongooseCraftRecipe.name), because that is exactly
@@ -86,6 +89,29 @@ class TestRecipeRendering(EvenniaTestCase):
         # ... ClothRecipe.tool_tag is None -> "none needed".
         self.assertIn("none needed", render_recipe_detail(ClothRecipe))
 
+    def test_render_detail_shows_craft_duration(self):
+        # TA2.3: the wait `craft` imposes is visible before you commit to it.
+        # The expected text is built from the class attribute, never typed as
+        # a literal, so a retune changes test and display together.
+        #
+        # TWO recipes, because one cannot tell "reads this recipe's value" from
+        # "hard-codes this recipe's number"; and neither may equal the base
+        # class's value, or reading MongooseCraftRecipe instead would pass.
+        # Assert that premise first, so a retune that breaks it fails loudly
+        # here instead of silently weakening the test.
+        durations = {
+            TwineRecipe.craft_duration,
+            ClothRecipe.craft_duration,
+            MongooseCraftRecipe.craft_duration,
+        }
+        self.assertEqual(len(durations), 3)
+        for recipe in (TwineRecipe, ClothRecipe):
+            with self.subTest(recipe=recipe.name):
+                self.assertIn(
+                    f"{recipe.craft_duration} seconds",
+                    render_recipe_detail(recipe),
+                )
+
     def test_render_by_name_resolves_known(self):
         block = render_recipe_detail_by_name(CLOTH)
         self.assertIsNotNone(block)
@@ -100,6 +126,40 @@ class TestRecipeRendering(EvenniaTestCase):
         # Falsy input is guarded before the registry is even touched.
         self.assertIsNone(render_recipe_detail_by_name(""))
         self.assertIsNone(render_recipe_detail_by_name(None))
+
+
+class TestDurationReachesBothViews(EvenniaCommandTest):
+    """
+    TA2.3's premise is that render_recipe_detail is SHARED: add the Time line
+    once and both `recipes <name>` and `look <scroll>` show it. The rendering
+    test above cannot see that -- it calls the renderer itself. These go in
+    through each consumer, so a consumer that stops delegating (renders its own
+    block, or filters the shared one) fails here, and only here.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_recipes_detail_shows_duration(self):
+        # twine is common (requires_knowledge=False), so CmdRecipes' visibility
+        # gate passes without learning anything: this test is about the
+        # renderer reaching the command, not about the gate. .call() returns
+        # the output with colour codes stripped.
+        output = self.call(CmdRecipes(), "twine", caller=self.char1)
+        self.assertIn(f"{TwineRecipe.craft_duration} seconds", output)
+
+    def test_scroll_look_shows_duration(self):
+        # get_display_desc is the hook `look` reaches (at_look ->
+        # return_appearance); calling it directly keeps ExtendedRoom's
+        # room-detail handling in the look command out of this test. cloth,
+        # not twine: a different value from the test above, and the kind of
+        # recipe a scroll actually carries (advanced, learned).
+        scroll = spawn("scroll")[0]
+        scroll.stamp(CLOTH)
+        scroll.move_to(self.char1, quiet=True)
+        self.assertIn(
+            f"{ClothRecipe.craft_duration} seconds",
+            scroll.get_display_desc(self.char1),
+        )
 
 
 class TestCanTransmit(EvenniaTest):
