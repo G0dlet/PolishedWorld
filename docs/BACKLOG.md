@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 39 · 2026-10-17** — one entry **decided**, one **annotated**, two **added**, all from the death-consequence policy (roadmap Rev 26). *`CoinPile` vs the corpse's atomic content delete* goes **SCHEDULED → DECIDED**, two stages early: its trigger was Stage 5 kickoff, but what it asked was a policy question — does any cleanup path get to destroy currency — and the policy session answered it with a rule rather than a `CoinPile` detail: **never; an abandoned pile is transferred to the Treasury with a ledger entry**. The entry's three candidates are all retired, and the text says why: two of them (exempt the pile, drop it on the floor) leave a `CoinPile` in a room that Stage 6 may recycle, which is the same unlogged burn moved to another file, and the third amends the principle that makes the economy auditable. The trigger for the *code* is unchanged. *Bank / post office* gains the owner-first grace in the sentence that already described the corpse, so it does not promise a risk the policy softened. **Added**, both under *Death & Corpses*: **death contract surfaces** — the owner-first `get_from` lock, the death message that carries the contract, and `help death`, with the seven prose sites in four files that the policy falsifies listed in the entry so they are changed in the same commit and not found afterwards; and **`at_character_death()` restore block vs persistent wound tiers**, BLOCKED on Stage 5, which is the die-to-heal hazard the roadmap entry names — filed now, before the wound model is coded, so the epic that adds locational HP reads it before touching the restore block rather than after.
 > **Rev 38 · 2026-10-17** — two entries **annotated**, none added, both from the alpha milestone decision (roadmap Rev 25). *⛔ The recipe catalogue does not span the skill scale* gains the census the roadmap's open question asked for: its 110/152 figures — written here on 2026-08-12 and copied upward — are tag occurrences, not items; at item level the AoL decomposition holds 44 `[DATA]` finished items against 43 `[BLOCKED]`, with the same depth distribution on both sides, and neither the decomposition nor *Arms of Legend* carries a per-item difficulty. The Trigger is unchanged; what changes is *when* E.1 may run — after FAS 1 and tanning, per the roadmap decision — and the entry now says so, because an entry whose trigger can be met by assignment alone would otherwise invite exactly the guessing its own Trigger forbids. *Public test server with nightly reset* gains a conflict note rather than a change: its hosting half is sequenced *after Stage 5*, and its own text says the wiped box cannot test the economy pillar, while the alpha now defined excludes combat and exists to test pillar 1. Status is left as it is — the conflict is sequencing, which is roadmap altitude, and it is settled there with the track order; the annotation is here so the trigger is not read as current by someone who reads only this file.
 > **Rev 37 · 2026-10-17** — **Epic A merged to `main` (`34b2ee4`)**, and the three entries that waited on it move. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* go **SCHEDULED → DONE**: they asked to be done in one pass, and they were — on `feature/timed-actions`, merged together. Their *What* and *Why deferred* text is unchanged: it is the design as settled, including "`craft_duration` replaces `craft_cooldown`", which is what shipped. Both are kept for traceability and pruned at the next sweep, per the legend. *Two-stage healing* loses half of its blocker: Trigger (2), Epic A's timed-action module merged, is met, so the entry is now **BLOCKED (Stage 5 wound tiers)** alone. Its design text — surgery belongs on Epic A's slot rather than a hand-rolled branch — is unchanged, and now describes something that exists.
 > **Rev 36 · 2026-10-17** — two entries **added**, two **annotated**, all found while Epic A's TA2.3 and TA3 were open and none of them Epic A's. They are filed on `main` before the epic merges because each describes behaviour `main` already has. *Tooling & Process* gains **the recipe visibility gate has no test**: `CmdRecipes` writes one rule out twice — the list hides unlearned advanced recipes, the detail view refuses them — and no test would notice the two copies drifting apart. *UX & Item Identity* gains **`look <scroll>` collapses the recipe block's column padding**, confirmed by running Evennia's own `compress_whitespace` on the block's rows rather than by reading its regex. The annotations: *Prototype keys leak into player-facing recipe names* gains a third surface, the craft-outcome line in `MongooseCraftRecipe.post_craft`, which names the product without an article. That is the object's own name, so not a key leak, but it is the article half of the same entry, and the entry's Trigger already says that a fix which leaves one surface behind has only moved the inconsistency. *`_format_wait()` truncates* gains the short end of its arithmetic: the last two minutes of every cooldown read `1 minute`, the rounding the entry proposes still errs by up to thirty seconds there, and one second reads `1 seconds`.
@@ -680,24 +681,99 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   inside the body when it passes its recovery window (288 game hours), then
   deletes the body. Once `CoinPile` materialises in Stage 5 and drops on death,
   that path destroys currency.
-- **Why deferred:** Harmless today — Stage 4 keeps the wallet on death (S4-3) and
-  no coin objects exist, so nothing currency-shaped can be inside a corpse. It
-  cannot be *resolved* today either, because the object it concerns is not built.
-- **Why it matters, stated plainly:** this is a **doc-vs-code conflict**, not a
+- **Decision (2026-10-17, roadmap Rev 26 — death-consequence policy, (ii)):**
+  **currency is never deleted by any cleanup path.** When an expired
+  `PlayerCorpse` crumbles, a `CoinPile` inside it is **transferred to the
+  Treasury with a ledger entry** (a transfer, so `@economy audit` sees it and
+  the invariant balances) before the body and the rest of its contents are
+  deleted. The same rule binds every other cleanup that would otherwise remove a
+  `CoinPile` — wilderness room recycling in Stage 6 above all — and it is
+  written as a rule rather than a corpse fix for exactly that reason. The
+  transfer goes through `world/currency.py` like every other wallet write
+  (S4-R2). The three candidates this entry carried are retired: *exempt the
+  pile from the delete* and *move it to the room* both leave a `CoinPile` on a
+  floor that Stage 6 may reset, which is the same unlogged burn in another
+  file; *accept it as a sink* amends the principle that makes the economy
+  auditable. Gear is **not** covered by the rule: it has a crafting source, so
+  the atomic delete of everything else at expiry stands as the loot sink.
+- **Why deferred:** The *decision* is made; the *object* is not built. Stage 4
+  keeps the wallet on death (S4-3) and no coin objects exist, so nothing
+  currency-shaped can be inside a corpse today.
+- **Why it mattered, stated plainly:** this was a **doc-vs-code conflict**, not a
   refinement. `PolishedWorld_Economic_Philosophy.md` Rev 2 states that currency
   never weathers and that Gold has exactly **one** permanent exit (exchange back
-  to GameGold). An expiring corpse would be a second, unintended and **unlogged**
-  exit — and it would be invisible to `@economy audit`, because a deleted
+  to GameGold). An expiring corpse would have been a second, unintended and
+  **unlogged** exit — invisible to `@economy audit`, because a deleted
   `CoinPile` simply stops appearing in `get_by_attribute("wallet")`, leaving the
-  invariant reporting a discrepancy it cannot explain. Whichever way this is
-  decided, one of the two documents has to change.
-- **Trigger:** **Stage 5 kickoff**, with `CoinPile`. Three candidate resolutions:
-  exempt `CoinPile` from the atomic delete; accept it as an intended sink and
-  amend Economic Philosophy accordingly; or move coin to the room when the body
-  crumbles.
+  invariant reporting a discrepancy it cannot explain. The decision keeps the
+  principle and changes the code's future, not the document's (§5 Rev 4 records
+  the rule).
+- **Trigger:** **Stage 5 kickoff**, with `CoinPile` — unchanged. The Treasury
+  sweep lands in the same task that makes the pile droppable, so the rule is
+  never false on `main` for a single commit.
 - **Origin:** Found in Stage 4 B.2 while reading corpse behaviour for the
-  same-room payment rationale (2026-07-30).
-- **Status:** SCHEDULED (Stage 5, with `CoinPile`)
+  same-room payment rationale (2026-07-30). Decided in the death-consequence
+  policy session (2026-10-17).
+- **Status:** DECIDED (roadmap Rev 26) · code SCHEDULED (Stage 5, with `CoinPile`)
+
+### Death contract surfaces — owner-first loot grace, death message, `help death`
+- **What:** The player-facing half of the death-consequence policy (roadmap Rev
+  26), three changes that ship together. **(1)** `PlayerCorpse`'s `get_from`
+  lock becomes owner-only for a grace window and `true()` after it — a
+  time-conditioned lock on `death_time` and the corpse's `owner` attribute,
+  which `at_character_death()` already stamps; the grace length is a module
+  constant next to `_PLAYER_EXPIRY_HOURS`, a calibration knob, not a contract
+  term. **(2)** The death line carries the contract: where the body lies, that
+  it keeps the belongings for days, that Death's Chill passes — replacing the
+  bare `|RYou have died.|n`. **(3)** A `help death` topic saying the same in
+  full. **Prose sites the policy falsifies, counted before writing (Testing
+  Reference §11c) — seven in four files, to be changed in the same commit:**
+  `typeclasses/characters.py` — the death line (`msg("|RYou have died.|n")`)
+  and the `at_character_death()` docstring (*NOT permadeath* becomes a decision
+  citation, not an assertion); `typeclasses/corpse.py` — the crumble line
+  (*"what it held is lost with it"* is false once coin is swept, not lost) and
+  the `PlayerCorpse` docstrings (*"time to run back"*, *"gear not recovered in
+  time is destroyed with the body"* — true of gear, must say so);
+  `commands/currency_commands.py` — the module docstring (*"stays with the
+  corpse to be looted"* gains the owner-first grace); `commands/crafting_commands.py`
+  — T17's `interrupt_msg` is listed because it was the trigger for the question
+  and **stays unchanged**: it is true of the craft.
+- **Why deferred:** It is code, and this policy was delivered as a docs patch on
+  `main` (Core Instructions, *Delivery contract*). The grace lock is also the
+  first lock in the project with a time term in it, and it wants its own
+  in-game protocol (two accounts, one death, a clock) rather than a line in an
+  unrelated epic.
+- **Trigger:** The next code session on the alpha track, on its own
+  `feature/death-contract` branch; **must be on `main` before the first test
+  cohort** — the policy is an alpha prerequisite, and a contract the cohort
+  cannot read is not settled. Does not wait on Stage 5: none of the three touch
+  the wound model.
+- **Origin:** Death-consequence policy session (2026-10-17), point (v); the
+  grace from point (iii).
+- **Status:** OPEN (alpha prerequisite — implementation)
+
+### `at_character_death()` restore block vs persistent wound tiers
+- **What:** When Stage 5 ships locational Hit Points and the three wound tiers
+  (roadmap Rev 20), the restore block in `at_character_death()` — today
+  `health.current = health.max` plus hunger/thirst reset — must restore location
+  HP (which clears the *disabled* tier, temporary by RAW) and **must not clear
+  the *maimed* or *severed* tiers**. Wound state persists through respawn.
+- **Why deferred:** There is no wound state to preserve until Stage 5 writes it.
+  Filed now so the epic that adds locational HP reads this before it touches
+  the restore block — the hazard is silent: a respawn that resets everything is
+  the obvious edit, and it is the wrong one.
+- **Why it matters, stated plainly:** Rev 20 made *maimed* curable only by another
+  player's Healing/surgery, which is the service pillar 1 wants crafters to
+  sell. If death cleared it, starving to death would be the cheapest surgeon in
+  the world — a free NPC healer in a game that forbids NPC vendors. The
+  death-consequence policy (roadmap Rev 26, (iv)) settles it: `DeathWeakness`
+  stays a timed respawn debuff, wounds are state, and the two coexist.
+- **Trigger:** Stage 5's wound-tier task — the same task that writes the tiers,
+  so that no commit on `main` has persistent wounds and a respawn that erases
+  them.
+- **Origin:** Death-consequence policy session (2026-10-17), answering the
+  hit-location entry's sub-question (a).
+- **Status:** BLOCKED (Stage 5 wound tiers)
 
 ### `DeathWeakness` debuff → `fatigue_rate`
 - **What:** Point the death-weakness debuff at `fatigue_rate` (its intended
@@ -1600,8 +1676,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   rejected, not a missing convenience. `pay` is same-room permanently (Currency
   decomposition §6/B.2 and the module docstring of
   `commands/currency_commands.py` both state the rule and its reasoning): coin is
-  carried on the body and, from Stage 5, stays with the corpse to be looted, so
-  carrying a large sum is a risk the player chooses. A global `pay` would cancel
+  carried on the body and, from Stage 5, stays with the corpse to be looted —
+  owner-only for a grace window, then by anyone (death-consequence policy,
+  roadmap Rev 26) — so carrying a large sum is a risk the player chooses. A global `pay` would cancel
   that risk for free — empty your pockets remotely from inside the dungeon and
   the decision costs nothing. A bank restores the *option* while keeping the
   cost, because reaching it is a journey that can go wrong. Building it before
