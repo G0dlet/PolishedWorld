@@ -3,6 +3,8 @@
 Prioriterad lista över de 14 system som behöver byggas för att låsa upp hela
 crafting-trädet från *Arms of Legend*. Sorterad i byggordning med beroenden.
 
+> **2026-10-17 (Epic A):** `craft_cooldown` → `craft_duration` i skisserna nedan, samma tal — men talen är nu en väntan på plats *innan* crafting löses, som rörelse avbryter, och kalibreras när respektive system byggs (Shipbuilding 300 = fem minuter stilla).
+
 ---
 
 ## SYSTEM 1: Wood Gathering `[DATA — bygg först]`
@@ -87,7 +89,7 @@ Omvandlar `raw_hide` → `leather` genom garvning med oak bark + water.
       consumable_tags = ["raw_hide", "oak_bark"]  # + water (DECISION #6)
       output_prototypes = ["leather"]
       tool_tag = None  # hand-craft, optional vessel
-      craft_cooldown = 60  # lång process
+      craft_duration = 60  # lång process
   ```
 - `leather`-material i registry
 - `oak_bark`-material + recipe (oak_wood + knife)
@@ -122,7 +124,7 @@ Omvandlar `wood` → `charcoal` via en kolningsprocess (pyrolys).
       consumable_tags = ["wood", "wood", "wood"]  # 3 wood per charcoal
       output_prototypes = ["charcoal"]
       tool_tag = None
-      craft_cooldown = 120  # lång process
+      craft_duration = 120  # lång process
       requires_station = "charcoal_kiln"  # eller liknande
   ```
 - `charcoal`-material i registry
@@ -153,7 +155,7 @@ Omvandlar `iron_ore` → `iron_ingot` (och copper/tin → bronze) via smältning
       consumable_tags = ["iron_ore", "charcoal"]  # malm + bränsle
       output_prototypes = ["iron_ingot"]
       tool_tag = None
-      craft_cooldown = 90
+      craft_duration = 90
       requires_station = "furnace"
   ```
 - Material: `iron_ingot`, `copper_ingot`, `tin_ingot`, `bronze_ingot`
@@ -187,7 +189,7 @@ Smider `iron_ingot`/`steel_ingot` → verktyg, vapen, rustningar, fittings.
       consumable_tags = ["iron_ingot"]
       output_prototypes = ["iron_dagger"]
       tool_tag = "hammer"  # + anvil som station
-      craft_cooldown = 60
+      craft_duration = 60
       requires_station = "forge"
   ```
 - Material: `iron_ingot` → items
@@ -220,7 +222,7 @@ Förädlar `iron_ingot` → `steel_ingot` genom att tillsätta kol (carbon) och 
       consumable_tags = ["iron_ingot", "charcoal"]  # iron + carbon
       output_prototypes = ["steel_ingot"]
       tool_tag = "hammer"
-      craft_cooldown = 120  # längre än iron
+      craft_duration = 120  # längre än iron
       requires_station = "forge"
   ```
 - `steel_ingot`-material i registry
@@ -253,7 +255,7 @@ Smälter `sand` + `soda_ash` → `glass` items via glassblåsning.
       consumable_tags = ["sand", "soda_ash"]
       output_prototypes = ["glass_bottle"]
       tool_tag = "blowpipe"  # special tool
-      craft_cooldown = 45
+      craft_duration = 45
       requires_station = "glass_furnace"
   ```
 - Material: `glass`, `soda_ash` (från plant_ash)
@@ -288,7 +290,7 @@ Bränner `clay` → `pottery` items via en keramikugn.
       consumable_tags = ["clay"]
       output_prototypes = ["clay_pot"]
       tool_tag = None  # hand-formed
-      craft_cooldown = 30
+      craft_duration = 30
       requires_station = "kiln"
   ```
 - Material: `clay` (raw) → `pottery` (fired)
@@ -322,7 +324,7 @@ Sågning och bearbetning av `wood` → planks, frames, furniture.
       consumable_tags = ["wood"]
       output_prototypes = ["wooden_plank"]
       tool_tag = "saw"
-      craft_cooldown = 20
+      craft_duration = 20
   ```
 - Material: `wood` → `wooden_plank`, `wooden_beam`
 - Verktyg: `saw`, `chisel`, `plane`, `mallet`
@@ -358,7 +360,7 @@ Odlar silkesmaskar på mullbärsträd, skördar cocoons, reeler silk thread.
       consumable_tags = ["silkworm_cocoon", "silkworm_cocoon"]
       output_prototypes = ["silk_thread"]
       tool_tag = "reeling_frame"  # station/tool
-      craft_cooldown = 60
+      craft_duration = 60
   ```
 - Material: `silk_thread` → `silk_cloth` (via weaving)
 - Eventuellt: `reeling_frame` station
@@ -391,7 +393,7 @@ Kemiska processer: extraktion, destillation, transmutation, gifttillverkning.
       consumable_tags = ["vitriol", "water"]
       output_prototypes = ["acid_vial"]
       tool_tag = "alembic"  # station
-      craft_cooldown = 120  # lång process
+      craft_duration = 120  # lång process
       requires_station = "alchemy_lab"
   ```
 - Material: `vitriol`, `aqua_fortis`, `philosophers_stone` (endgame)
@@ -427,7 +429,7 @@ Bygger fartyg (raft → canoe → rowboat → ship) via skeppsvarv.
       consumable_tags = ["wooden_plank", "wooden_plank", "wooden_plank", ...]  # många
       output_prototypes = ["rowboat"]
       tool_tag = "saw"
-      craft_cooldown = 300  # mycket lång process
+      craft_duration = 300  # mycket lång process
       requires_station = "shipyard"
   ```
 - Material: massiva mängder `wooden_plank`, `nails`, `pitch`, `cloth` (segel), `rope`

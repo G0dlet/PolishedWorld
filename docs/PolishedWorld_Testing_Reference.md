@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 9 · 2026-10-17** — **Epic A's fifteen candidates, filed in two groups, and one idiom Epic A made false.** Twelve candidates sat in the Timed Actions decomposition's §8 and three came from the session that wrote the D3 help-text commit; the decomp closes with this commit, so they land here or nowhere. **Writing tests and protocols.** New **§11f**: a spy that records what was said *during* the call under test (death sends lines of its own), patching a name where the code looks it up, a method spy that misses class-body aliases, and the single-value test that cannot tell a read from a hard-coded copy. **§11a** gains the `@py`-lowered gauge whose ticker line is the protocol's own echo. **§7** gains where `spawn` puts things. **§11b** gains two harness rules: a mutator applies all of its replacements or none, and a harness that finds no `Ran` line has not read a result — Django's runner writes it on stderr. New **§13**, what a suite run proves: an interrupted run counts for nothing, expected failures depend on the working tree's configuration and are checked by name, and `evennia test -v 2` runs no tests. **Delivering.** New **§14**: `git apply -R --check` locates hunks and proves nothing; a simulation reads its blocks out of the delivered file, where "exactly one match" is a substring count, so an ERSÄTT block that is a prefix of its MED block matches the already-patched file too; receipts quoted in prose are copied after the last regeneration. **The false idiom:** §7's *"deterministic cooldown abort"* stamped `craft:<name>`, a key `craft` has not read since TA2.2. It is struck through rather than deleted, and replaced with the way to make `craft` refuse now.
 > **Rev 8 · 2026-10-08** — **Four findings from Epic A TA1.2, and three of them are Rev 5–7's failure in new clothes: an observation that cannot tell the code working apart from the code not running.** New **§1b**: in `@py`, `self` *is* the caller — the character — not a Command, so `self.caller` raises `AttributeError`. §1 already said `self` is injected; it never said what it is, and a protocol written by someone thinking in `Command.func()` reached for `self.caller` in two steps, one of which had to run inside a 20-second chore window. New **§11d**: `move_to(quiet=True)` silences the *room's* announcements but not the mover's arrival `look`, so "nothing was said during the move" cannot be asserted through it — and the tempting repair, "nothing *interrupt-shaped* was said", passes against a hook that never ran. Call the hook directly; its return value is the receipt. New **§11e**: an absence after a *timer* ("the stale callback paid nothing") reads the same at second 5 as at second 60, so the step needs a stated wall-clock margin or a receipt that cannot predate the timer; and wall-clock numbers in a protocol's expected outcome are read from source — the TA1.2 protocol said a chore's cooldown was five minutes, and `TEMPLE_TASKS` says 3600 seconds. **§11b** gains the harness trap: a mutation loop that restores with `git checkout -- <file>` restores to `HEAD`, which before the commit is the code *without* the change, so every mutant runs against the old code — and a mutator whose "exactly one match" assertion is swallowed by the shell loop lets a mutant that never applied run as a no-op. The tell is distinct mutants producing **identical** failure lists.
 > **Rev 7 · 2026-08-24** — **Three verified findings from the Stage 4.5 D.2 run, and all three are ways a diagnostic can report success while proving nothing.** §1 gains the **exec-mode silence trap**: `py` compiles in `eval` mode and falls back to `exec` the moment the line contains a *statement* — an import, an assignment — and in `exec` mode `eval()` returns `None`, which `py` discards. So `@py from x import y; str(y())` prints **nothing**, and four steps of a protocol read as failures when the code had run correctly. Push the value with `self.msg(str(...))`. New **§11c** covers the prose-verification loop and two ways it lies: unquoted `--include=*.py` under **zsh** triggers `NOMATCH`, which aborts `grep` before it searches while the loop still prints its all-clear (bash passes the unmatched glob through, so the same line behaves differently in the two shells); and a *line*-based loop can never reach silence against a correctly superseded claim, because the superseding convention requires the retired text to stay in the file. The loop has to read a **block**. Also records the rule that makes the loop trustworthy at all: run it once *before* the fix, and confirm it produces hits — otherwise its later silence cannot be told apart from it never having searched.
 > **Rev 6 · 2026-08-15** — **§11 gains two more cases from the Stage 4.5 Component D.1 run, and one of them is the protocol attacking itself.** Rev 5 established that a step expecting an absence needs a receipt that the code ran. D.1 found the mirror image: a step that *writes past a single-writer* manufactures a state production code never promised to handle, and then the prose describing that code reads as a bug report. The protocol told the tester to set `.current` by hand; a later tick moved the skill 40 points at once; the docstring saying "at most ONE point" was the fourth false claim of the epic. **State-mutating cleanup steps must run before the out-of-band writes, not after** — and any protocol step that bypasses a documented writer must say which invariant it is suspending. §11 also records the unit-test twin found by mutation: a guard that looks redundant because a second guard covers every input the tests happen to try (`int(inf * 160)` raises `OverflowError`; nothing else in the class reaches it), and the emptiness-receipt idiom catching a collection comprehension that walked the wrong shape and would otherwise have passed green on an empty set.
@@ -195,7 +196,11 @@ Confirm a render contains only intended colour codes (no stray raw `|`) by echoi
 
 - Known-recipe set: `@py me.tags.clear(category="known_recipe")`
 - Inventory (loop → interactive console): `for o in list(me.contents): o.delete()`
-- Deterministic cooldown abort: `@py me.cooldowns.add("craft:<name>", 9999)`
+- ~~Deterministic cooldown abort: `@py me.cooldowns.add("craft:<name>", 9999)`~~ —
+  **retired (Epic A TA2.2):** `craft` reads no `craft:<name>` cooldown any more, so
+  the stamp changes nothing. To make `craft` refuse deterministically, occupy the
+  timed-action slot first — `rest` (when tired) or `work <chore>` — and `craft`
+  answers `You are already resting.` / `You are already working.`
 - Cooldown **isolation** (e.g. testing a command's own cooldown gate): don't build
   the test item via a craft helper that calls `me.cooldowns.clear()` — that wipes
   the very cooldown under test. Instead spawn + hand-stamp the item
@@ -225,6 +230,11 @@ Confirm a render contains only intended colour codes (no stray raw `|`) by echoi
   survive `@reload` — usually the point, but it means a reload mid-test silently
   clears what you stamped.
 - Retrieve a tagged test object between calls: `search_tag(key)[0]`
+- **`spawn` puts test material in the room, not in your hands.** The `spawn`
+  command places the object at your location unless the prototype names one (none
+  in `world/prototypes.py` does), so a step that spawns an ingredient and then
+  crafts finds nothing to craft with. Pick it up first: `CmdGet` takes a count,
+  `get 3 <name>`.
 
 ## 8. Diagnostic — silent `DefaultObject` fallback
 
@@ -321,6 +331,14 @@ its own spec said could not occur (the first was C.1's F7). Both were found in
 play rather than in review, which is an argument for running the protocol, not
 against writing it.
 
+**A gauge lowered with `@py` echoes back as a game message.** The survival ticker
+(`world/survival_ticker.py`) says `You feel <desc>.` whenever a gauge has dropped
+into a worse `descs` bucket since its last tick, and it cannot tell a drop from
+hunger apart from a drop the protocol wrote. Lower a gauge to set up a step and
+the next tick announces it. That line is the protocol's own echo, not evidence
+that the system under test did anything; a step that reads it as a finding is
+measuring its own setup.
+
 ### 11b. Mutation testing finds guards that only *look* redundant
 
 A unit-test corollary, from the same component.
@@ -360,8 +378,8 @@ before the change is committed, `HEAD` is the code *without* the change. In
 Epic A TA1.2 every mutant therefore ran against the pre-migration code, under
 tests already migrated to the new API: one "survived" with a clean `OK` and
 three "died" with the **same thirteen failures**. The tell is worth knowing on
-sight: **distinct mutants producing identical failure lists.** Two rules make
-the harness trustworthy:
+sight: **distinct mutants producing identical failure lists.** Four rules make
+the harness trustworthy (the last two from Epic A TA2.2 and TA3):
 
 - Snapshot the known-good files *before* the first mutant and restore from the
   snapshot, never from git.
@@ -370,6 +388,15 @@ the harness trustworthy:
   shell loop around it caught the failure (`|| …`) and ran the suite anyway. A
   mutant that did not apply then runs as a no-op, and its "survival" reads as a
   missing test rather than a broken harness.
+- Make the mutator **atomic**: validate *every* replacement in memory before
+  writing any of them. In Epic A TA2.2 a two-replacement mutant whose second
+  replacement missed had already written the first to disk, and `set -e` stopped
+  the loop before the restore; only a `cmp` against the snapshot caught it.
+- Give the harness a **receipt that it read a result**. Django's test runner
+  writes `Ran N tests`, `FAIL` and `OK` to **stderr**, so a harness that captures
+  only stdout reports an empty result for every mutant — a diagnostic that
+  succeeds without having looked. Refuse to report a verdict for any run whose
+  captured output has no `Ran` line.
 
 ### 11c. The prose-verification loop must read blocks, not lines — and must be proven to search
 
@@ -482,6 +509,58 @@ expected values are routinely off trains its reader to wave deviations
 through — the opposite of its job. Read the constant (`TEMPLE_TASKS`,
 `craft_duration`, the `*_COOLDOWN` names) before writing the number.
 
+### 11f. Unit-test spies, patch targets and premises
+
+Four rules from Epic A's unit tests. Each is a way for a test to be green while
+the thing it names goes untested.
+
+**Measure what was said *during* the call, not what the capture holds.**
+`at_character_death()` sends lines of its own besides `You have died.` —
+`DeathWeakness` announces itself — so a TA1.3 test asserting that the capture was
+just the death line failed against correct code, and the tempting repair, "no
+line looks like an interrupt", passes with the `interrupt()` call deleted (§11d's
+trap). Wrap the real function in a spy that slices the capture around its own
+call; the spy's record is also the receipt that the call happened
+(`tests/test_rest.py`, `test_an_idle_death_says_nothing_about_actions`):
+
+```python
+real_interrupt = timed_actions.interrupt
+during = []
+with captured_messages(self.char1) as seen:
+
+    def spy(char, *args, **kwargs):
+        before = len(seen)
+        result = real_interrupt(char, *args, **kwargs)
+        during.append((result, seen[before:]))
+        return result
+
+    with mock.patch("world.timed_actions.interrupt", side_effect=spy):
+        self.char1.at_character_death()
+self.assertEqual(during, [(False, [])])   # called once, on an empty slot, silently
+```
+
+**Patch a name where the code looks it up.** `world/timed_actions.py` and
+`typeclasses/characters.py` each do `from evennia.utils.utils import delay`,
+which binds a separate name in each module; patching `evennia.utils.utils.delay`
+replaces neither. So `start()` is stubbed with
+`mock.patch("world.timed_actions.delay")` and a rest tick's reschedule with
+`mock.patch("typeclasses.characters.delay")`. The spy above is the same rule from
+the other side: `characters.py` calls `timed_actions.interrupt(...)` through the
+module, so patching the module attribute is what it sees.
+
+**A method spy misses aliases bound in the class body.** `CooldownHandler`
+defines `set = add` at class definition, so `mock.patch.object(CooldownHandler,
+"add")` intercepts neither `set()` nor `extend()`, which goes through `set`. When
+the question is "was anything written?", compare the state before and after
+instead of spying on one writer (Epic A T21).
+
+**One expected value cannot tell a read from a hard-coded copy.** A test whose
+only recipe has `craft_duration = 20` passes against a renderer that prints a
+literal 20, and a recipe whose value equals the base default passes against one
+that reads the base. Use two values that differ from each other *and* from the
+default, and assert that premise in the test, so that a recalibration fails the
+test instead of quietly weakening it (Epic A T29: twine 20, cloth 25, base 30).
+
 ## 12. Command-syntax traps that read as bugs
 
 Two argument-shape errors from Stage 4.5's protocol that produce misleading
@@ -495,6 +574,48 @@ messages rather than usage hints:
   `hunt rabbit` return a disambiguation list; `hunt rabbit-1` is the target.
   Evennia's multimatch numbering is per-search, so re-check the list after any
   kill or flight rather than assuming `-1` still names the same animal.
+
+## 13. What a suite run proves
+
+- **An interrupted run counts for nothing.** A suite cut off before it finished —
+  a timeout, a closed terminal, a background job that was killed — has passed
+  nothing, however many dots it printed. The receipt is the final `Ran N tests`
+  line and the verdict under it, from the same run.
+- **Expected failures depend on the working tree's configuration, and are
+  checked by name.** With `TREASURY_DBREF` set in `server/conf/settings.py` —
+  every tree someone plays on — two treasury tests fail (`docs/BACKLOG.md`,
+  *Tooling & Process*, Rev 34); with the line stashed, none do. Read the
+  configuration before judging a red (`git stash list`, the settings file), and
+  compare the failing tests' *names* with the expected list, never their count: a
+  new failure plus a fixed expected one leaves the count unchanged.
+- **`evennia test --settings settings.py -v 2 …` runs no tests.** The `evennia`
+  launcher defines `-v` as `--version` (`evennia_launcher.py`, `v6.1.0`): it
+  prints the version and exits before the test command starts. Run single classes
+  instead (`evennia test --settings settings.py tests.test_rest.TestDeathEndsTheRest`)
+  and read `Ran N` as the receipt that the class ran.
+
+## 14. Verifying a delivery
+
+Receipts for a patch or a guide, taken before it is handed over.
+
+- **`git apply -R --check` locates; it does not prove.** It looks only at the
+  hunks, so it says the patch's changed lines are present — not that the rest of
+  each file matches what was tested. The receipt is a sha256 over the changed
+  files, checked against the patched tree and checked negatively too: against the
+  unpatched files, and against a copy with one byte changed. Both must fail.
+- **A guide simulation reads its blocks out of the delivered guide, not out of
+  memory**, and its "exactly one match" is a count of *substrings*: one line can
+  be the prefix of another and match both.
+- **A guide or patch must fail on second application — try it, do not assume
+  it.** An ERSÄTT block that is a prefix of its MED block (a new method appended
+  at the end of a class is the usual shape) still matches exactly once in the
+  *already patched* file, so applying the guide twice succeeds and doubles the
+  method. After patching, the generator asserts `count(old) == 0`; when that
+  fails, extend the block to a whole unit that the patch changes. A `git am`
+  that applied once must be refused the second time: run it and see.
+- **Receipts quoted in prose are copied from the delivered file after the last
+  regeneration** — the sha256, the tree id, the test count. A receipt written down
+  before the last edit is a receipt for a file nobody received.
 
 ## Domain quick-refs
 

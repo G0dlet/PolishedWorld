@@ -119,7 +119,7 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
     consumable_tags = ["bone"]      # one bone per needle
     output_prototypes = ["needle"]  # the existing NEEDLE prototype (a crafting_tool)
     tool_tag = "knife"              # OPTIONAL: a knife carves it (+20); improvised -20
-    craft_cooldown = 30             # fiddly carving; between cloth (25) and shirt (40)
+    craft_duration = 30             # fiddly carving; between cloth (25) and shirt (40)
 ```
 
 This gives `NEEDLE` the crafting source its prototype comment said was "a future

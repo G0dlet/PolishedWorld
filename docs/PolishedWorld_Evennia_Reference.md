@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 23 · 2026-10-17** — **§11.27 now opens with the slot, not the flag.** Epic A (merged `34b2ee4`) built the pattern this section describes into `world/timed_actions.py` and moved `rest`, `work` and `craft` onto it, which left four sentences describing a repo that no longer exists: the provenance line ("shipped in `commands/work_commands.py`"), the claim that the `rest`/`at_pre_move` interrupt uses `ndb.working`, point 2's "a move hook … does not catch teleport", and point 3's `_rest_tick` guarding itself. The mechanism stays — why a string cannot tell two attempts apart, why the comparison is `is` — because the module depends on it and its reader needs it; what changes is that the section first says *use the slot, do not hand-roll a new flag*. Point 2 was read against Evennia `v6.1.0` rather than copied from the decomp's note: `@tel` moves with hooks, but `CmdTeleport` also has two direct `location =` writes (`tel/tonone`, and teleporting out of a None-location), and neither can reach a character playing in a room. That is said in the text, because a reader who checks the source will find them.
 > **Rev 22 · 2026-08-14** — new **§14: XYZGrid & Wilderness**, pre-implementation source verification for roadmap Stage 6. No code written and neither contrib is in use, so the section carries an explicit status banner — but the reading answered the "verify at source" note that has sat in the Stage 6 entry since Rev 2, so it is written down while it is fresh rather than re-derived later. Read against Evennia `main` and then **diffed against the `v6.1.0` tag: all five relevant files are byte-identical**, so the findings apply to the pinned version rather than only to upstream. Four have teeth. **§14.2** `spawn_nodes()` deletes any XYZRoom whose coordinate has left the map string, and re-applies the prototype over survivors with `exact=False` — a `desc` edited in-game is lost at the next spawn, so grid areas are authored in map modules, not with `dig`/`desc`. **§14.5** wilderness room recycling resets `contents` and exit locks but **not Tags or Attributes**, which is precisely where ExtendedRoom keeps room states and seasonal descs — state leaks between coordinates on a shared shell. **§14.6** `get_objs_at_coordinates()` is an O(n) scan over the whole wilderness and runs on effectively every step, which rules out resource nodes as objects. **§14.7** the grid side composes with ExtendedRoom for free (the two contribs override different hooks and `XYZRoom.return_appearance` calls `super()`), while the wilderness side inherits the behaviour but cannot use the storage. Also §14.3: a misspelled `taget_map_xyz` on the `TransitionMapNode` base class, harmless via the registered legend class and an `AttributeError` if you subclass the base directly.
 > **Rev 21 · 2026-08-05** — **§3.5 contained a statement this repo had already measured to be false.** Its `@py` note said comprehensions and generators both fail in `@py`; Testing Reference Rev 4 established on measurement that **comprehensions work** (PEP 709 gave them their own scope in 3.12) and that generators and lambda bodies are what fail. Two documents contradicting each other is worse than one saying nothing, so §3.5's note is corrected and now points at the Testing Reference rather than restating it. §3.5 also gains the fact that **`CounterTrait.current` returns a float** (20.0, not 20) — harmless until a value is stored or compared, at which point the float propagates somewhere it does not belong. New **§11.28**: Evennia deserialises Attribute containers into `_SaverDict`/`_SaverList`, for which `isinstance(x, dict)` is **False**, and `AttributeHandler.has()` returns a **list**, not a bool. Both verified live against Evennia 6.1.0 during Stage 4.5 Component B (363 tests green, 2026-08-05); the `_SaverDict` trap had bitten this project twice before and was not in this document at all.
 > **Rev 20 · 2026-08-03** — **§7 rewritten; it was not merely stale but actively wrong.** The status line said *Planned* while `world/barter.py` has been merged since Stage 2, but the damage was further down: **§7.2** told the reader to add `CmdOffer`/`CmdAccept`/`CmdDecline`/`CmdEvaluate`/`CmdStatus` to `CharacterCmdSet`, which would make `offer` typable outside a trade and turn the §11.20 `status` collision from scoped into permanent — only `CmdPWTrade` is global, the rest arrive with `CmdsetTrade` at trade start. **§7.4** described coins as typeclassed objects offered like any other item, the architecture S4-2 explicitly rejected; it now documents the handler-level bridge shipped in Stage 4 Component E (digit-first segment classification, gross re-validation, net settlement, one-shot flag, unledgered per S4-4). New **§7.3** documents the module-global patch mechanism and its seven swaps; new **§7.5** tabulates the five confirmed upstream bugs, of which the direct `obj.location` assignment in `finish()` is the one with teeth — **no move hook fires in a trade, ever**. **§7.6** records that the trade cmdset is added rather than Replace, which is why the staleness guards must exist. Also: the contrib status table was wrong on five rows (Barter, CooldownHandler, BuffHandler, Crafting, Clothing all read *Planned* while in use) — corrected against a grep of the repo, not from memory. `TickerHandler` is deliberately left untouched: whether the survival ticker goes through it or through a Script has not been verified, and correcting an unchecked row is the same failure this Rev is fixing.
@@ -1449,8 +1450,17 @@ in as the superuser proves nothing; it needs a second, unprivileged character
 
 ### 11.27 Cancelling a `utils.delay` you have already scheduled — the identity-marker pattern
 
-*(Verified live 2026-08-02 against Evennia 6.1.0; shipped in
-`commands/work_commands.py`, asserted in `tests/test_work_command.py`.)*
+**In this repo: use the slot, do not hand-roll it.** `world/timed_actions.py`
+(Epic A, merged `34b2ee4`) is this pattern, built once: one slot per character,
+`ndb.timed_action`, with `start()`, `is_current()`, `claim()` and `interrupt()`.
+`rest`, `work` and `craft` all run on it, and a new timed action joins by passing
+its own messages to `start()` — it adds no flag and does not edit `at_pre_move`.
+The rest of this section is the mechanism the module is built on: read it to
+understand the module, not as a recipe for a second one.
+
+*(Verified live 2026-08-02 against Evennia 6.1.0; first shipped in
+`commands/work_commands.py` on `ndb.working`, and since Epic A implemented once in
+`world/timed_actions.py`, asserted in `tests/test_timed_actions.py`.)*
 
 `utils.delay(seconds, callback, *args)` returns a task, but in practice a timed
 *player action* is not cancelled by holding the task object — the cancellation
@@ -1487,8 +1497,11 @@ def _finish(caller, task_key, marker):
 ```
 
 Cancelling from anywhere is then a single assignment — `self.ndb.working = None`
-— with no reference to the task and no import of the command module. The
-`rest`/`at_pre_move` interrupt in `typeclasses/characters.py` uses exactly this.
+— with no reference to the task and no import of the command module. In this
+repo that assignment has one home, `timed_actions.interrupt()`, and both
+`at_pre_move` and `at_character_death()` in `typeclasses/characters.py` call it.
+(Before Epic A each action carried its own flag — `ndb.working`, `ndb.resting` —
+and its own `at_pre_move` branch.)
 
 **Four properties of this arrangement worth knowing before reusing it:**
 
@@ -1500,13 +1513,22 @@ Cancelling from anywhere is then a single assignment — `self.ndb.working = Non
    Keep `ndb` and the delay non-persistent **together**, so a `@reload` kills
    both and the action is cleanly abandoned rather than half-alive.
 2. **The callback must re-check the world, not just the marker.** A move hook
-   catches walking out; it does not catch teleport, death, or the target object
-   being moved. The marker proves the *attempt* is current; it proves nothing
-   about whether the preconditions still hold.
+   catches walking out, and it catches `@tel`, which moves with hooks
+   (`CmdTeleport` calls `move_to(..., move_type="teleport")`, `building.py`,
+   `v6.1.0`; its two direct `location =` writes — `tel/tonone`, which refuses a
+   puppeted object, and teleporting out of a None-location — cannot reach a
+   character playing in a room). It does not catch death, which relocates with
+   `move_hooks=False` (in this repo `at_character_death()` interrupts the slot
+   itself, Epic A D7); it does not catch any other direct `location =` or
+   `move_to(..., move_hooks=False)`; and it never catches the target object being
+   moved. The marker proves the *attempt* is current; it proves nothing about
+   whether the preconditions still hold.
 3. **`has_account` is the guard for "still actually playing".** Under a
    statue-logout scheme the body stays in the room, so a callback firing after
-   logout finds a perfectly valid character. `_rest_tick` in `characters.py` has
-   guarded itself this way since Stage 2.
+   logout finds a perfectly valid character. `_rest_tick` in `characters.py`
+   guarded itself this way from Stage 2; since Epic A it is a module-level
+   function (T10) and the guard lives in `timed_actions.is_current()` and
+   `claim()`, which empty the slot when `has_account` is false (T3).
 4. **Make the callback a module-level function, not a closure or a bound
    method.** It is then directly callable from a test, which is the difference
    between testing the action and testing the reactor. Read the marker off the

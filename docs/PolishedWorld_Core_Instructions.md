@@ -1,5 +1,6 @@
 # PolishedWorld Development - Core Custom Instructions
 
+> **Rev 4 · 2026-10-17** — **Current State catches up two merges: Stage 4.5 and Epic A** (timed actions, `34b2ee4`). Rev 3's list stopped at Stage 4, its Active front still named Stage 4's PR, and its test line said *"316 tests green"*. The count is replaced by "full suite green", because a number in a section this short is wrong after the next component, and the section already says the roadmap wins. Also corrected, in *Contribs in Use*: Cooldowns was said to rate-limit `craft`, which has had no cooldown since Epic A TA2.2. The line now names what does read `caller.cooldowns`, from a grep of `commands/` and `typeclasses/` rather than from memory.
 > **Rev 3 · 2026-08-03** — **the working method becomes a delivery contract, and the Current State catches up five stages.** Rev 2 was frozen on `feature/hunting` H7: it listed three open H7 design decisions as the active front, called currency *"design only — not yet in codebase"*, and pointed Next Steps at a **Stage 2** currency epic that shipped as Stage 4 and is merged. New `## Delivery contract` section: Adam asked on 2026-08-03 for step-by-step walkthroughs and a mandatory in-game test protocol alongside the unit tests, and the reason it needed a *section* rather than another bullet is that Rev 2 **already** said "explain WHY", "prefer patch guides so I can learn" and "always suggest `@py` test commands" — as preferences, which sessions drifted away from regardless. Also corrected: fetch discipline is a **clone**, not `raw.githubusercontent.com` (that host caches per path and quietly serves stale files); the contrib list was missing `menu_login` and `containers` (7 listed, 9 in use); nothing pins Evennia at all — there is no `requirements.txt` in the repo; `gametime_utils.py` is on `main`, not on a feature branch. The bottom document list is replaced by a pointer to `docs/README.md`: nine entries mirroring twenty-one files is a second catalogue that is guaranteed to rot, and one already exists. The three docs cited here that live only in project knowledge are now marked per `AGENTS.md` §9 — they are also the only three docs in the project with no Rev header at all.
 > **Rev 2 · 2026-07-03** — synced Current State to `feature/hunting` post-H6 (H1–H6 complete & committed; H7 now the active front); fixed IDE (Neorg → neovim/LazyVim); promoted Cooldowns contrib from *planned* to *in use*; flagged Currency as design-only (not yet in codebase); added `roadmap.md` and `AGENTS.md` to reference list.
 > **Rev 1 · 2026-07-02** — first versioned copy; synced Current State to feature/hunting (H1–H6), updated contrib statuses and GameGold platform.
@@ -140,19 +141,23 @@ See `PolishedWorld_Functional_Decomposition.md` for full methodology *(project-k
 ## Current Development State
 
 ### ✅ Merged on `main`
-- **Stages 0–4 complete** — Hunting (0), Skill Improvement (1), Crafting
+- **Stages 0–4.5 complete** — Hunting (0), Skill Improvement (1), Crafting
   progression & tools (2), Recipe knowledge & discovery (3), In-game currency
-  (4). Per-stage detail and the canonical decomposition doc for each:
-  `docs/roadmap.md`.
+  (4), Skill progression (4.5). Per-stage detail and the canonical
+  decomposition doc for each: `docs/roadmap.md`.
+- **Epic A — timed actions** — `rest`, `work` and `craft` share one
+  interruptible slot (`world/timed_actions.py`); a craft waits its recipe's
+  `craft_duration` up front.
 - **Foundation systems** — character traits/stats/skills, survival loop
   (hunger/thirst/fatigue), gametime (13-month calendar, 4× speed), ExtendedRoom
   time/season descriptions, weather, foraging, crafting, barter, clothing +
   thermal buffs, statue logout, menu login.
-- **316 tests green** — `evennia test --settings settings.py tests`.
+- **Full suite green** — `evennia test --settings settings.py tests`.
 
 ### 🔄 Active front
-**None.** Stage 4 merged (PR #14); no feature branch is open. The next epic is
-chosen at session start from `docs/roadmap.md`.
+**None.** Epic A merged (`34b2ee4`); no unmerged feature branch. The next epic is
+chosen at session start from `docs/roadmap.md`, whose decision log has the alpha
+milestone DUE before Stage 5 planning.
 
 ### ⚠️ Why this section stays short
 This is the part of this file most likely to go stale, because it **duplicates
@@ -173,7 +178,7 @@ month. Keep it to a paragraph.
 - **Barter** — Player-to-player trading ✅
 - **Crafting** — Item creation (foundation; `CRAFT_RECIPE_MODULES`, import from `evennia.contrib.game_systems.crafting.crafting`) ✅
 - **Clothing** — Wearable garments + thermal buffs ✅
-- **Cooldowns** — Rate limiting on harvest / craft / repair (`caller.cooldowns.ready/add`) ✅
+- **Cooldowns** — Rate limiting on hunt / harvest / forage / repair / `work`, the knowledge commands (disassemble / inscribe / scribe / teach) and the skill-improvement window (`caller.cooldowns.ready/add`); **not** on `craft` since Epic A, which waits its `craft_duration` up front instead ✅
 - **Containers** — `ContribContainer` / container get (`evennia.contrib.game_systems.containers`) ✅
 - **Menu login** — custom connection screen (`evennia.contrib.base_systems.menu_login`) ✅
 

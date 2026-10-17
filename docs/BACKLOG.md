@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 37 · 2026-10-17** — **Epic A merged to `main` (`34b2ee4`)**, and the three entries that waited on it move. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* go **SCHEDULED → DONE**: they asked to be done in one pass, and they were — on `feature/timed-actions`, merged together. Their *What* and *Why deferred* text is unchanged: it is the design as settled, including "`craft_duration` replaces `craft_cooldown`", which is what shipped. Both are kept for traceability and pruned at the next sweep, per the legend. *Two-stage healing* loses half of its blocker: Trigger (2), Epic A's timed-action module merged, is met, so the entry is now **BLOCKED (Stage 5 wound tiers)** alone. Its design text — surgery belongs on Epic A's slot rather than a hand-rolled branch — is unchanged, and now describes something that exists.
 > **Rev 36 · 2026-10-17** — two entries **added**, two **annotated**, all found while Epic A's TA2.3 and TA3 were open and none of them Epic A's. They are filed on `main` before the epic merges because each describes behaviour `main` already has. *Tooling & Process* gains **the recipe visibility gate has no test**: `CmdRecipes` writes one rule out twice — the list hides unlearned advanced recipes, the detail view refuses them — and no test would notice the two copies drifting apart. *UX & Item Identity* gains **`look <scroll>` collapses the recipe block's column padding**, confirmed by running Evennia's own `compress_whitespace` on the block's rows rather than by reading its regex. The annotations: *Prototype keys leak into player-facing recipe names* gains a third surface, the craft-outcome line in `MongooseCraftRecipe.post_craft`, which names the product without an article. That is the object's own name, so not a key leak, but it is the article half of the same entry, and the entry's Trigger already says that a fix which leaves one surface behind has only moved the inconsistency. *`_format_wait()` truncates* gains the short end of its arithmetic: the last two minutes of every cooldown read `1 minute`, the rounding the entry proposes still errs by up to thirty seconds there, and one second reads `1 seconds`.
 > **Rev 35 · 2026-10-09** — three entries **added**, one **annotated**, all found during Epic A TA1.3's in-game protocol and none of them Epic A's. *UX & Item Identity* gains two: **`descs` tables are read as upper bounds but shaped like lower bounds**, and **health `descs` use a 0–100 scale against a max of `CON × 2`** — the second is wrong under *either* reading of the first, which is why it is its own entry, and it is the one a player sees: a character at full health is told they are *critically wounded*. *Tooling & Process* gains **`Idmapper flush called more than once`**, the watch item the TA1.3 handoff asked to be filed if it recurred; it recurred, and reading Evennia's source turns it from "check memory usage" into a probable timing artifact with a stated way to confirm it. The annotation is on *Skill `descs` stop at 95*, whose band arithmetic reads the table as lower bounds while `world/improvement.py::tier_for()` reads it — deliberately, by its own docstring — as upper bounds. The two documents cannot both describe intent; the new entry says which decision has to come first, and the annotation stops the skill entry being picked up without it. Rev 35 corrects one claim made in the chat that found these: that the tables *were written* as lower bounds. Their shape suggests it; nothing records it, and `tier_for()`'s author recorded the opposite.
 > **Rev 34 · 2026-10-08** — one entry **added** (*Tooling & Process*): **two treasury tests assume the developer's settings match the shipped ones.** Both test the *unset* state by applying no override at all, so on any working tree with a configured Treasury — which is every tree someone actually plays on — they fail on every local run. Filed rather than fixed because neither file belongs to Epic A, whose branch was open when this was found. Filed rather than tolerated because "expected failures" are the slow form of the Testing Reference's §11 trap: once two reds are normal, a third looks the same. The entry carries one verified detail that makes the obvious fix wrong — `override_settings(TREASURY_DBREF="")`, the pattern `tests/test_work_command.py` already uses, satisfies `resolve_treasury()` but fails `test_unset_is_a_supported_state`'s `assertIsNone(get_configured_dbref())`. The hermetic value there is `None`.
@@ -601,7 +602,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** After Stage 4.5 Component D. Pairs with *Timed player actions have
   a pattern but no shared home* — do both in one pass.
 - **Origin:** Session 2026-08-11 (design settled against live source, no code written).
-- **Status:** SCHEDULED (Epic A, Component TA2 — `PolishedWorld_Timed_Actions_Decomposition.md` Rev 1)
+- **Status:** **DONE** (2026-10-17). Delivered by Epic A Component TA2 and merged to
+  `main` in `34b2ee4`: `craft` waits its recipe's `craft_duration` on the shared
+  timed-action slot and resolves at completion, no recipe defines `craft_cooldown`
+  any more, and `recipes <name>` shows the wait. Decisions T14–T29 in
+  `PolishedWorld_Timed_Actions_Decomposition.md`. Keep for traceability, prune at
+  the next backlog sweep.
 
 ---
 
@@ -705,14 +711,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `world/timed_actions.py` slot rather than as its own hand-rolled branch —
   building it first inverts that dependency.
 - **Trigger:** Both, in order — (1) Stage 5's wound tiers shipped and
-  in-game-verified, (2) Epic A's shared timed-action module merged. Design
+  in-game-verified, (2) Epic A's shared timed-action module merged (**met** —
+  `34b2ee4`, 2026-10-17). Design
   session, not a drop-in: consumable list, skill thresholds, whether stabilise
   is self-applicable, and what a *failed* surgery does are all open, and the
   last one is a player contract that touches **[OPEN] death-consequence policy**.
 - **Origin:** 2026-09-09 organ-damage-model evaluation; the surviving half of the
   proposal rejected in `docs/roadmap.md` Rev 21 (`[RESOLVED]` organ-level damage
   model). Original idea from another Evennia developer's RimWorld-derived system.
-- **Status:** BLOCKED (Stage 5 wound tiers + Epic A timed-action home)
+- **Status:** BLOCKED (Stage 5 wound tiers)
 
 ---
 
@@ -1391,7 +1398,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   guessed at. Build the small `TimedAction` helper in that same pass; a fourth
   hand-written `at_pre_move` branch is the outcome this entry exists to prevent.
 - **Origin:** Stage 4 D.1 (Evennia Reference §11.27 documents the mechanism).
-- **Status:** SCHEDULED (Epic A, Component TA1 — `PolishedWorld_Timed_Actions_Decomposition.md` Rev 1)
+- **Status:** **DONE** (2026-10-17). Delivered by Epic A Component TA1 and merged to
+  `main` in `34b2ee4`: `world/timed_actions.py` holds one slot per character,
+  `ndb.timed_action`; `rest`, `work` and `craft` all run on it; `at_pre_move`
+  makes one `interrupt()` call for every timed action; and `at_character_death()`
+  interrupts the slot itself, because death relocates without move hooks.
+  Decisions D1–D7 and T1–T13 in `PolishedWorld_Timed_Actions_Decomposition.md`.
+  Keep for traceability, prune at the next backlog sweep.
 
 ---
 
