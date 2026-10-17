@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 38 · 2026-10-17** — two entries **annotated**, none added, both from the alpha milestone decision (roadmap Rev 25). *⛔ The recipe catalogue does not span the skill scale* gains the census the roadmap's open question asked for: its 110/152 figures — written here on 2026-08-12 and copied upward — are tag occurrences, not items; at item level the AoL decomposition holds 44 `[DATA]` finished items against 43 `[BLOCKED]`, with the same depth distribution on both sides, and neither the decomposition nor *Arms of Legend* carries a per-item difficulty. The Trigger is unchanged; what changes is *when* E.1 may run — after FAS 1 and tanning, per the roadmap decision — and the entry now says so, because an entry whose trigger can be met by assignment alone would otherwise invite exactly the guessing its own Trigger forbids. *Public test server with nightly reset* gains a conflict note rather than a change: its hosting half is sequenced *after Stage 5*, and its own text says the wiped box cannot test the economy pillar, while the alpha now defined excludes combat and exists to test pillar 1. Status is left as it is — the conflict is sequencing, which is roadmap altitude, and it is settled there with the track order; the annotation is here so the trigger is not read as current by someone who reads only this file.
 > **Rev 37 · 2026-10-17** — **Epic A merged to `main` (`34b2ee4`)**, and the three entries that waited on it move. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* go **SCHEDULED → DONE**: they asked to be done in one pass, and they were — on `feature/timed-actions`, merged together. Their *What* and *Why deferred* text is unchanged: it is the design as settled, including "`craft_duration` replaces `craft_cooldown`", which is what shipped. Both are kept for traceability and pruned at the next sweep, per the legend. *Two-stage healing* loses half of its blocker: Trigger (2), Epic A's timed-action module merged, is met, so the entry is now **BLOCKED (Stage 5 wound tiers)** alone. Its design text — surgery belongs on Epic A's slot rather than a hand-rolled branch — is unchanged, and now describes something that exists.
 > **Rev 36 · 2026-10-17** — two entries **added**, two **annotated**, all found while Epic A's TA2.3 and TA3 were open and none of them Epic A's. They are filed on `main` before the epic merges because each describes behaviour `main` already has. *Tooling & Process* gains **the recipe visibility gate has no test**: `CmdRecipes` writes one rule out twice — the list hides unlearned advanced recipes, the detail view refuses them — and no test would notice the two copies drifting apart. *UX & Item Identity* gains **`look <scroll>` collapses the recipe block's column padding**, confirmed by running Evennia's own `compress_whitespace` on the block's rows rather than by reading its regex. The annotations: *Prototype keys leak into player-facing recipe names* gains a third surface, the craft-outcome line in `MongooseCraftRecipe.post_craft`, which names the product without an article. That is the object's own name, so not a key leak, but it is the article half of the same entry, and the entry's Trigger already says that a fix which leaves one surface behind has only moved the inconsistency. *`_format_wait()` truncates* gains the short end of its arithmetic: the last two minutes of every cooldown read `1 minute`, the rounding the entry proposes still errs by up to thirty seconds there, and one second reads `1 seconds`.
 > **Rev 35 · 2026-10-09** — three entries **added**, one **annotated**, all found during Epic A TA1.3's in-game protocol and none of them Epic A's. *UX & Item Identity* gains two: **`descs` tables are read as upper bounds but shaped like lower bounds**, and **health `descs` use a 0–100 scale against a max of `CON × 2`** — the second is wrong under *either* reading of the first, which is why it is its own entry, and it is the one a player sees: a character at full health is told they are *critically wounded*. *Tooling & Process* gains **`Idmapper flush called more than once`**, the watch item the TA1.3 handoff asked to be filed if it recurred; it recurred, and reading Evennia's source turns it from "check memory usage" into a probable timing artifact with a stated way to confirm it. The annotation is on *Skill `descs` stop at 95*, whose band arithmetic reads the table as lower bounds while `world/improvement.py::tier_for()` reads it — deliberately, by its own docstring — as upper bounds. The two documents cannot both describe intent; the new entry says which decision has to come first, and the annotation stops the skill entry being picked up without it. Rev 35 corrects one claim made in the chat that found these: that the tables *were written* as lower bounds. Their shape suggests it; nothing records it, and `tier_for()`'s author recorded the opposite.
@@ -423,6 +424,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   of the scale to ladder at all. If it tops out below the intended ceiling, the
   gate reproduces this exact dead end one rung higher — a wall at 80 instead of
   61 is still a wall.
+- **Annotation (2026-10-17, alpha decision — roadmap Rev 25):** the figures
+  above are **tag occurrences, not items**. At item level (bold headers with a
+  status tag, categories A–I) the decomposition holds **44 `[DATA]`** finished
+  items against **43 `[BLOCKED]`** — 17 adventuring gear, 1 riding & animal,
+  11 clothing, 4 armour, 8 wooden weapons/ammunition, 3 basic transport (one
+  tagged `[DATA for basic]`), and **none** in *Tools & Utility* —
+  and the two sets have the same tree-depth distribution (depths 1/2/3: 4/34/6
+  vs 6/35/2). What is blocked is blocked on systems (33 of 43 name smithing),
+  not on complexity, and neither this decomposition nor *Arms of Legend* carries
+  a per-item difficulty. So the "spans the scale" question has no answer in
+  the content: `min_skill` is assigned, not read, and the two-jobs hazard in
+  Skill Progression decomp Rev 5 is what E.2 resolves. Of the 44, **10** stand
+  on `[EXISTS]` alone, **22** need a `[NEW MATERIAL]` gathering node and **10**
+  cite leather (`[DECISION #2]`), five with no cloth alternative.
+  **Decided (roadmap Rev 25, B):** E.1 runs after
+  `docs/crafting/PolishedWorld_System_Backlog.md` FAS 1 (Systems 1–3) and
+  System 4 (tanning) are delivered — the subset is laddered as data, not as a
+  promise — and smithing (FAS 3) is outside the alpha. The Trigger below is
+  unchanged.
 - **⚠️ Re-homed (2026-08-24, Stage 4.5 close-out):** Component E has **left the
   epic**. Stage 4.5 closed with A–D delivered, and E was moved out rather than
   holding the stage open — a stage blocked on a content trigger that belongs to
@@ -1229,6 +1249,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** (a) **OPEN** — any light week; doing it first costs nothing twice,
   since (b) needs it anyway. (b) **after Stage 5**, when two accounts in one room
   is a scenario rather than a hypothetical.
+- **Annotation (2026-10-17, alpha decision — roadmap Rev 25):** the alpha
+  milestone is now defined and **excludes combat**, while (b) is sequenced
+  *after Stage 5* — and this entry's own text says the wiped box measures
+  commands, not the market, while the alpha exists to test pillar 1. So a
+  first cohort needs a *persistent* instance that no entry owns. Not resolved
+  here: it is sequencing, settled on the roadmap with the alpha-vs-Stage-5
+  track order. Status unchanged until then; read (b)'s trigger as *contested*,
+  not current.
 - **Origin:** Session 2026-09-09 (test-server discussion; option B chosen —
   build seeding and reset now, host later).
 - **Status:** OPEN (seeding) / BLOCKED on Stage 5 (hosting)
