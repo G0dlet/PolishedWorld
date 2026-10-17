@@ -55,7 +55,7 @@ class Scroll(Object):
         Flavour now derives from db.recipe rather than a baked db.desc, so it is
         correct for every creation path: a blank scroll (no stamp) reads
         "blank", a stamped one reads "inscribed". render_recipe_detail_by_name
-        appends the Needs/Tool/Skill/Output block when the recipe still resolves;
+        appends the Needs/Tool/Skill/Time/Output block when the recipe still resolves;
         a dangling stamp (recipe removed) shows flavour only and never errors on
         `look`.
         """

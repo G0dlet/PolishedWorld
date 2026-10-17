@@ -87,7 +87,7 @@ def _can_transmit(char, recipe_name):
 
 def render_recipe_detail(cls):
     """
-    Render a resolved recipe class as its Needs/Tool/Skill/Output detail block.
+    Render a resolved recipe class as its Needs/Tool/Skill/Time/Output detail block.
 
     Pure presentation: takes an already-resolved recipe CLASS and returns the
     coloured multi-line string, performing NO visibility check. The caller
@@ -126,6 +126,16 @@ def render_recipe_detail(cls):
     floor = getattr(cls, "min_skill", 0) or 0
     skill = f"Craft {floor}% minimum" if floor > 0 else "no minimum"
 
+    # Time: the realtime wait the `craft` command imposes before the craft
+    # resolves (Epic A), shown so the cost is visible before a player commits
+    # to it. Read directly, not via getattr like the lines above: the base
+    # class defines craft_duration and TestOneKnob holds every recipe to > 0,
+    # so a default here could only ever show a number `craft` does not wait.
+    # Plain seconds rather than work's _format_wait: world/ does not import
+    # from commands/ (see world/timed_actions.py). Under a minute the two
+    # read the same; a longer craft would read "90 seconds", still true.
+    duration = f"{cls.craft_duration} seconds"
+
     # Output: output_prototypes holds prototype KEYS, not display names.
     # Prettify the key (underscores -> spaces) for now; resolving the
     # prototype's real key/desc and correct article/pluralisation (e.g.
@@ -139,6 +149,7 @@ def render_recipe_detail(cls):
         f"  |wNeeds:|n   {needs}",
         f"  |wTool:|n    {tool}",
         f"  |wSkill:|n   {skill}",
+        f"  |wTime:|n    {duration}",
         f"  |wOutput:|n  {produced}",
         "|g" + "=" * 50 + "|n",
     ]

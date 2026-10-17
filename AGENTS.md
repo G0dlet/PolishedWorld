@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 6 · 2026-10-14** — §4 recipe schema: `craft_cooldown` → `craft_duration` (Epic A, TA2.2). A craft now takes its time up front, on the shared timed-action slot, and the per-recipe cooldown is gone: one time knob, not two. A recipe that still defines `craft_cooldown` fails `tests/test_craft_command.py`. The template had been stale since TA2.1, which added `craft_duration` without updating it.
 > **Rev 5 · 2026-08-03** — §8 gains a pointer to `docs/PolishedWorld_Core_Instructions.md` (Rev 3), which is where Claude's own delivery contract lives. Deliberately **not** added to §7 Working style: §7 addresses you, a content-generation agent, and a requirement about step-by-step teaching walkthroughs and in-game test protocols is noise there. §8 is already the "who owns what" section, so the cross-reference belongs in it and nowhere else.
 > **Rev 4 · 2026-08-02** — §0A gains the counterpart to Rev 3's separator fix: `.call()` does **not** run command locks, so a test asserting that an unprivileged caller is refused passes *vacuously* — the command simply runs. Permission tests use `Command.access(caller, "cmd")`. Pointer added to Evennia Reference §11.26.
 
@@ -382,7 +383,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     consumable_tags = ["cloth", "cloth"]  # tag-keys; repeat for quantity
     output_prototypes = ["linen_shirt"]   # prototype_keys that MUST exist
     tool_tag = "needle"                   # crafting_tool tag-key, or None
-    craft_cooldown = 40                   # seconds; base is 30
+    craft_duration = 40                   # seconds the craft takes; base is 30
 ```
 
 Rules:
@@ -390,7 +391,10 @@ Rules:
   `crafting_material` tag). Repeat the same key N times to require N units.
 - `tool_tag` is a `crafting_tool` tag-key or `None`. Tools are always
   **optional**: present gives +20, improvised (absent) gives −20. Never required.
-- `craft_cooldown` defaults to 30; override only if requested.
+- `craft_duration` (how long the `craft` command waits before the craft
+  resolves) defaults to 30; override only if requested. There is no
+  `craft_cooldown` any more -- do not add one: nothing reads it, and a test
+  fails if any recipe defines it.
 - Do **not** add a `_finalize_item` method unless explicitly asked — that is
   quality-scaling balance logic. If asked, copy the existing `WaterskinRecipe`
   pattern exactly and FLAG any new thresholds.

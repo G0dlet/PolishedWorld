@@ -23,8 +23,8 @@ from world.crafting_quality import quality_band, SUPERIOR
 from world.thermal import apply_thermal_stress
 from typeclasses.durable import DurableObject
 
-# Realtime seconds before repair can be re-run (in line with tailoring recipes'
-# craft_cooldown ~40).
+# Realtime seconds before repair can be re-run (in line with the tailoring
+# recipes' craft_duration ~40; a craft waits before it resolves, a repair after).
 REPAIR_COOLDOWN = 40
 
 # Default repair materials (a cloth patch stitched with twine), used as the

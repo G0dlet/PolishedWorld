@@ -61,14 +61,21 @@ is it in this room -- because making someone wait to be told there is no temple
 is bad manners, not because it is load-bearing. Both are re-checked afterwards,
 and the re-check is what is trusted.
 
-The other four hazards:
+The other four hazards, and where each is handled now that this command no
+longer owns its own machinery:
 
 1. **Queueing.** Without a guard, `work sweep` five times schedules five
-   payouts. `caller.ndb.working` blocks a second start, in the same shape as
-   `ndb.resting` / `ndb._dying` already used in `typeclasses/characters.py`.
-2. **Walking away mid-task.** `at_pre_move` clears the flag and says so
-   immediately (the `rest` precedent). The location re-check in `_finish_task`
-   is the backstop for the paths a move hook never sees -- teleport, death.
+   payouts. `timed_actions.start()` refuses while the slot is occupied and
+   returns None; it also writes the refusal sentence itself, so the wording
+   lives in one module instead of being retyped at every call site (D3/Q2).
+2. **Walking away mid-task.** `at_pre_move` calls `timed_actions.interrupt()`
+   unconditionally. The sentence the player sees is the `interrupt_msg` this
+   command recorded at start time -- the hook knows that something was
+   interrupted, never what. Death relocates with `move_hooks=False`, so
+   `at_character_death()` calls `interrupt()` itself (D7, TA1.3). The location
+   re-check in `_finish_task` is the backstop for a relocation that skips both:
+   a direct `location` assignment, or another `move_to(..., move_hooks=False)`.
+   (`@tel` is not one of them -- it moves with hooks, so `at_pre_move` runs.)
 3. **`@reload` mid-task.** The delay is NOT persistent, and neither is `ndb`, so
    both die together. The task is silently abandoned; the cooldown was never
    set, so the player simply starts again and loses nothing but the wait. This
@@ -76,16 +83,33 @@ The other four hazards:
    would survive into a process where its in-memory marker did not.
 4. **Logging out mid-task.** Under statue-logout the body stays in the room, so
    a payout would otherwise move coin into an unattended purse with nobody
-   present to have earned it. `_finish_task` requires `has_account`, exactly as
-   `_rest_tick` does.
+   present to have earned it. `timed_actions.claim()` refuses a completion for
+   an unpuppeted character -- and clears the slot anyway, so the body is not
+   left standing busy forever.
+
+⚠️ THIS COMMAND HOLDS NO FLAG OF ITS OWN
+-----------------------------------------
+`work` occupies `character.ndb.timed_action`, the single slot shared by every
+timed action (Epic A, D1). There is no `ndb.working`.
+
+`rest` occupies the same slot since TA1.3, so a chore and a rest are mutually
+exclusive by construction rather than by a cross-check written into either
+command: `rest` during a chore answers "You are already working.", `work`
+during a rest answers "You are already resting.", and both sentences are
+written by `timed_actions.start()` (T2).
 
 A STALE CALLBACK MUST NOT PAY A NEW TASK
 ----------------------------------------
 Start sweeping, walk out, come back, start sweeping again: the first delay is
 still in flight and would land on the second attempt. Each start therefore mints
-a unique in-memory marker object and `_finish_task` refuses to act unless the
-marker it was given is still the one on the character, by identity. A task key
-alone is not enough -- the collision above uses the same key twice.
+a unique in-memory marker object, and the payout is refused unless that marker
+is still the one in the slot, by identity. A task key alone is not enough -- the
+collision above uses the same key twice.
+
+⚠️ The mechanism survived the migration; its OWNER changed. `_finish_task` no
+longer performs the identity check itself -- `timed_actions.claim()` does, and
+`False` is how it reports every reason to stop. Someone reading this file for
+the check will not find it here. It is one call up.
 
 THE COOLDOWN IS ONLY EVER SET BY A PAYOUT THAT HAPPENED
 -------------------------------------------------------
@@ -107,10 +131,10 @@ per-task values meaningless.
 """
 
 from evennia.utils import logger
-from evennia.utils.utils import delay
 
 from commands.command import Command
 from typeclasses.treasury import get_treasury
+from world import timed_actions
 from world.currency import format_copper
 
 # --------------------------------------------------------------------------
@@ -353,8 +377,10 @@ def _finish_task(caller, task_key, marker):
     Args:
         caller (Object): the worker.
         task_key (str): key into `TEMPLE_TASKS`.
-        marker (object): the identity token minted at start time. The payout
-            is refused unless this is still the token on the character.
+        marker (object): the identity token minted by `timed_actions.start()`.
+            The payout is refused unless this is still the token in the
+            character's slot. `start()` appends it after `task_key`, which is
+            why this signature ends the way it does.
 
     ⚠️ EVERY early return in this function leaves the cooldown UNSET. That is
     the locked all-or-nothing rule: an attempt that paid nothing must not cost
@@ -364,15 +390,23 @@ def _finish_task(caller, task_key, marker):
     ⚠️ S4-R1: `transfer_to()` is the only balance operation here, it is called
     once, and nothing is read or decided about the Treasury's balance before it.
     """
-    # The character was deleted, or the marker is stale -- this callback belongs
-    # to an attempt that was cancelled, superseded, or lost to a reload. Silent
-    # on purpose: whoever cleared the marker (at_pre_move, a second `work`) has
-    # already said whatever needed saying, and a second message here would be a
-    # message about an attempt the player has stopped thinking about.
-    if not caller.pk or caller.ndb.working is not marker:
+    # Three refusals in one call: the character was deleted; the marker is stale
+    # (the attempt was cancelled, superseded, or lost to a reload); or nobody is
+    # puppeting the body any more, which under statue-logout would otherwise pay
+    # coin into an unattended purse. On a MATCHING marker `claim()` empties the
+    # slot before it decides, so an attempt that will not be honoured still
+    # stops occupying the slot.
+    #
+    # Silent on purpose: whoever cleared the slot (`at_pre_move`, a second
+    # `work`) has already said whatever needed saying, and a second message here
+    # would be about an attempt the player has stopped thinking about.
+    #
+    # ⚠️ ORDERING: this puts the `has_account` refusal ABOVE the table lookup,
+    # where it used to sit below it. One observable difference, and it is not
+    # about money -- an unknown task key no longer reaches `log_err` when the
+    # worker has logged out. Neither ordering pays.
+    if not timed_actions.claim(caller, marker):
         return
-
-    caller.ndb.working = None
 
     task = TEMPLE_TASKS.get(task_key)
     if not task:
@@ -381,15 +415,11 @@ def _finish_task(caller, task_key, marker):
         logger.log_err(f"work: unknown task key {task_key!r} at payout.")
         return
 
-    # Logged out mid-chore. Under statue-logout the body is still standing in
-    # the room, so without this the temple would pay coin into an unattended
-    # purse. `_rest_tick` guards itself the same way, for the same reason.
-    if not caller.has_account:
-        return
-
     # Re-check, and THIS is the check that counts -- the pre-delay one was
-    # courtesy. Covers walking out by any route a move hook never sees
-    # (teleport, death, the Treasury itself being moved mid-chore).
+    # courtesy. Covers a relocation the slot never hears about (a direct
+    # `location` assignment, a `move_to(..., move_hooks=False)` other than
+    # death, which interrupts explicitly) and the Treasury itself being moved
+    # mid-chore.
     treasury = _temple_here(caller)
     if treasury is None:
         caller.msg("You look up from your work. There is no work to be had here.")
@@ -453,6 +483,9 @@ class CmdWork(Command):
     Chores take a little time to do. Walk out part way through and you have done
     nothing and earned nothing.
 
+    Crafting, working and resting each take time, and you can only be
+    doing one of them at once.
+
     The temple pays out of its own coffers, and those coffers are finite. If
     donations have run thin there may be nothing to pay you with, however
     willing you are.
@@ -507,13 +540,6 @@ class CmdWork(Command):
 
         task = TEMPLE_TASKS[task_key]
 
-        # Already mid-chore. Blocks the queue: without this, five `work sweep`
-        # in a row schedule five payouts and the cooldown gate below never sees
-        # any of them, because none has fired yet.
-        if caller.ndb.working:
-            caller.msg("You are already busy with something.")
-            return
-
         cd_key = _cooldown_key(task_key)
         if not caller.cooldowns.ready(cd_key):
             left = caller.cooldowns.time_left(cd_key, use_int=True)
@@ -528,25 +554,51 @@ class CmdWork(Command):
         # pay?" now and paying later is the check-here-commit-there shape S4-R1
         # exists to forbid, and the gap would be `duration` seconds wide.
 
-        # A fresh identity token per attempt. A task key alone would let a stale
+        # The busy gate and the scheduling are ONE call now. `start()` refuses
+        # while the slot is occupied, says so itself in the one sentence D3/Q2
+        # puts in its keeping, and returns None. That is what blocks the queue:
+        # without it, five `work sweep` in a row schedule five payouts and the
+        # cooldown gate above never sees any of them, because none has fired.
+        #
+        # It also mints the identity token. A task key alone would let a stale
         # callback from an abandoned attempt land on a later one with the same
         # key; `object()` cannot collide with anything, including itself on a
-        # second call.
-        marker = object()
-        caller.ndb.working = marker
+        # second call. `_finish_task` receives it appended after `task_key`.
+        #
+        # ⚠️ PRECEDENCE CHANGED, AND ON PURPOSE. The busy check used to run
+        # BEFORE the cooldown gate. Keeping that order would need either a
+        # second copy of the D3 sentence here or an `is_busy()` branch that
+        # re-decides what `start()` decides -- and a sentence in two places is
+        # two places to forget it. So when both refusals apply (busy with one
+        # chore, naming a second that is on cooldown) the player is now told
+        # about the cooldown. Both answers are true; the one that wins is the
+        # one about the chore they actually named.
+        #
+        # persistent=False is the default and is relied on: the marker is an
+        # in-memory object, so a task that survived a reload would wake holding
+        # a reference to nothing. ndb and the delay die together.
+        if timed_actions.start(
+            caller,
+            "work",
+            task["duration"],
+            _finish_task,
+            task_key,
+            label="working",
+            interrupt_msg="You break off what you were doing.",
+        ) is None:
+            return
 
+        # After the scheduling rather than before it, which is new and is not a
+        # reorder anyone can observe: `delay` hands the call to the reactor and
+        # no chore has a zero duration, so the callback cannot run inside this
+        # block. Announcing first would mean announcing a chore that `start()`
+        # might still refuse.
         caller.msg(task["begin_actor"])
         if caller.location:
             caller.location.msg_contents(
                 f"{caller.get_display_name()} {task['begin_room']}",
                 exclude=caller,
             )
-
-        # persistent=False (the default), stated here because it is a decision
-        # rather than an omission: the marker is an in-memory object, so a task
-        # that survived a reload would wake up holding a reference to nothing.
-        # ndb and the delay are meant to die together. See the module docstring.
-        delay(task["duration"], _finish_task, caller, task_key, marker)
 
     def _show_board(self, caller):
         """
