@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 36 · 2026-10-17** — two entries **added**, two **annotated**, all found while Epic A's TA2.3 and TA3 were open and none of them Epic A's. They are filed on `main` before the epic merges because each describes behaviour `main` already has. *Tooling & Process* gains **the recipe visibility gate has no test**: `CmdRecipes` writes one rule out twice — the list hides unlearned advanced recipes, the detail view refuses them — and no test would notice the two copies drifting apart. *UX & Item Identity* gains **`look <scroll>` collapses the recipe block's column padding**, confirmed by running Evennia's own `compress_whitespace` on the block's rows rather than by reading its regex. The annotations: *Prototype keys leak into player-facing recipe names* gains a third surface, the craft-outcome line in `MongooseCraftRecipe.post_craft`, which names the product without an article. That is the object's own name, so not a key leak, but it is the article half of the same entry, and the entry's Trigger already says that a fix which leaves one surface behind has only moved the inconsistency. *`_format_wait()` truncates* gains the short end of its arithmetic: the last two minutes of every cooldown read `1 minute`, the rounding the entry proposes still errs by up to thirty seconds there, and one second reads `1 seconds`.
 > **Rev 35 · 2026-10-09** — three entries **added**, one **annotated**, all found during Epic A TA1.3's in-game protocol and none of them Epic A's. *UX & Item Identity* gains two: **`descs` tables are read as upper bounds but shaped like lower bounds**, and **health `descs` use a 0–100 scale against a max of `CON × 2`** — the second is wrong under *either* reading of the first, which is why it is its own entry, and it is the one a player sees: a character at full health is told they are *critically wounded*. *Tooling & Process* gains **`Idmapper flush called more than once`**, the watch item the TA1.3 handoff asked to be filed if it recurred; it recurred, and reading Evennia's source turns it from "check memory usage" into a probable timing artifact with a stated way to confirm it. The annotation is on *Skill `descs` stop at 95*, whose band arithmetic reads the table as lower bounds while `world/improvement.py::tier_for()` reads it — deliberately, by its own docstring — as upper bounds. The two documents cannot both describe intent; the new entry says which decision has to come first, and the annotation stops the skill entry being picked up without it. Rev 35 corrects one claim made in the chat that found these: that the tables *were written* as lower bounds. Their shape suggests it; nothing records it, and `tier_for()`'s author recorded the opposite.
 > **Rev 34 · 2026-10-08** — one entry **added** (*Tooling & Process*): **two treasury tests assume the developer's settings match the shipped ones.** Both test the *unset* state by applying no override at all, so on any working tree with a configured Treasury — which is every tree someone actually plays on — they fail on every local run. Filed rather than fixed because neither file belongs to Epic A, whose branch was open when this was found. Filed rather than tolerated because "expected failures" are the slow form of the Testing Reference's §11 trap: once two reds are normal, a third looks the same. The entry carries one verified detail that makes the obvious fix wrong — `override_settings(TREASURY_DBREF="")`, the pattern `tests/test_work_command.py` already uses, satisfies `resolve_treasury()` but fails `test_unset_is_a_supported_state`'s `assertIsNone(get_configured_dbref())`. The hermetic value there is `None`.
 > **Rev 33 · 2026-09-09** — the two **timed-action** entries move **OPEN → SCHEDULED (Epic A)**. Nothing about either has changed; what changed is that the pass they both name now exists as a document instead of as a chat log. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* have been cross-referenced since Rev 24 with the instruction to do both in one pass, and that pass is now decomposed in `docs/PolishedWorld_Timed_Actions_Decomposition.md` (Rev 1), which locks seven decisions (D1–D7) settled in chat and otherwise unrecorded — one slot rather than a flag per action, `rest` migrating rather than staying, explicit mutual exclusion rather than silent interruption, and `craft_duration` fully replacing `craft_cooldown`. They move to SCHEDULED rather than closing because nothing is built: it is the status Rev 23 used for `CmdScribe` in the same situation. The epic is defined at roadmap altitude (Rev 23), which is also where "Epic A" acquires a definition at all — the name was cited by this file's *two-stage healing* entry, Trigger and Status both, before anything defined it.
@@ -329,6 +330,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   keys has moved the inconsistency rather than closed it.
 - **Origin:** Recipe Knowledge decomp §8, Task C.2; error-path half found in
   Stage 4.5 Component D.1's in-game protocol (2026-08-15).
+- ⚠️ **Rev 36 — a third surface: the craft-outcome line.**
+  `world/crafting_base.py::MongooseCraftRecipe.post_craft` fills the
+  `{outputs}` slot of `tier_messages` with each product's `get_display_name()`.
+  That is the spawned object's own key, so the name is right, but it has no
+  article: *"The work fights you; length of twine comes out poorly made."*
+  (seen in play 2026-10-17). All four tier templates have the slot. This is not
+  a prototype-key leak; it is the article half of the first surface above,
+  reached from the other end. Whichever pass takes this entry fixes **all
+  three** surfaces, by the Trigger's own reasoning.
 - **Status:** OPEN
 
 ### Book-channel tuning (`SCRIBE_*` + `BOOK_WEAR_PER_STUDY`)
@@ -1019,6 +1029,37 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `Book`/`Scroll` never become registry consumers (mirrors
   `render_recipe_detail_by_name`, keeping the coupling in one module).
 
+### `look <scroll>` collapses the recipe block's column padding
+- **What:** `world/knowledge.py::render_recipe_detail` pads its labels so every
+  value starts in the same column: `Needs:`, `Tool:`, `Skill:` and `Output:`
+  are followed by 3, 4, 3 and 2 spaces. `recipes <name>` sends the block as
+  written. `look` at a stamped scroll does not:
+  `DefaultObject.format_appearance` returns
+  `compress_whitespace(appearance).strip()`, and `compress_whitespace` cuts
+  every run of two or more spaces that follows a non-space character down to
+  two (`max_spacing=2`) — `evennia/objects/objects.py` and
+  `evennia/utils/utils.py`, pinned `v6.1.0`. Each padding run follows the `|n`
+  that closes its label, so each becomes two spaces. Running Evennia's own
+  function on the block's rows puts the values at columns 11/11/11/11 for
+  `recipes` and 10/9/10/11 for `look`. The two-space indent that opens each
+  row survives, because it follows a newline rather than a character.
+- **Why deferred:** Cosmetic, and present since Recipe Knowledge F.3 put the
+  shared renderer behind `Scroll.get_display_desc`. That is the only step of
+  the appearance chain `Scroll` overrides, so its whole description goes
+  through the compression.
+- **One possible route, not a decision:** Evennia's `|_` markup renders as a
+  space but is not a space character (`evennia/utils/ansi.py`, `ANSI_SPACE`),
+  so the compression leaves it alone — checked: `|_|_|_|_` comes through
+  `compress_whitespace` intact and renders as four spaces. Padding written that
+  way would hold the column in both views. Whether a renderer in `world/`
+  should know about a display quirk of one of its consumers is the question to
+  settle first.
+- **Trigger:** The next change to `render_recipe_detail` or to the scroll's
+  description, whichever comes first.
+- **Origin:** Seen on a stamped cloth scroll during the Epic A TA2.3 in-game
+  protocol; verified against Evennia's source 2026-10-17.
+- **Status:** OPEN
+
 > **Not listed here:** *Search / disambiguation UX + item identity* — already a
 > written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
 > work). It has a safe home in an always-read doc, so per the scope note it is not
@@ -1259,6 +1300,33 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   2026-10-08); recurred during the TA1.3 in-game protocol, 2026-10-09.
 - **Status:** OPEN
 
+### The recipe visibility gate has no test
+- **What:** `commands/crafting_commands.py::CmdRecipes` keeps unlearned
+  advanced recipes out of sight twice. The bare list (`_show_list`) counts them
+  as hidden instead of listing them and, when any exist, ends with *"Whispers
+  speak of crafts beyond your knowing."*; `recipes <name>` (`_show_detail`)
+  refuses them — *"You don't know the recipe for '…'. Seek someone who
+  does."* — before any ingredient is shown. Both apply one rule, *common, or
+  learned by this caller*, written out separately in each method; the detail
+  view's comment asks for exactly that (*"mirror the list exactly"*). No test
+  exercises either half: not the hiding, not the refusal, not the hint line.
+- **Why it matters:** The gate protects what the learn / buy / teach economy
+  trades in, an advanced recipe's ingredients. A change that makes the two
+  copies disagree (the list hiding a recipe whose detail opens, or the
+  reverse) passes the suite in silence.
+- **Why deferred:** Existing behaviour since Recipe Knowledge Component C that
+  Epic A does not touch. TA2.3 kept it out of its own commit for that reason
+  (Timed Actions decomp T29).
+- **Trigger:** The next change to `CmdRecipes`, to `requires_knowledge`, or to
+  how a character comes to know a recipe — or the recipe catalogue expansion,
+  whose advanced recipes are what the gate exists for.
+- **Shape when picked up:** one advanced recipe and two characters, one who
+  has learned it and one who has not, each asking both views: hidden and
+  refused for the one, listed and shown for the other. A test of either view
+  alone cannot see the two drift apart.
+- **Origin:** Epic A TA2.3 (T29), 2026-10-15.
+- **Status:** OPEN
+
 ---
 
 ## Currency
@@ -1276,6 +1344,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Next time anyone touches faucet output, or the first player who
   mentions it.
 - **Origin:** Stage 4 D.1, found in the in-game walkthrough.
+- ⚠️ **Rev 36 — the short end of the same arithmetic.** The floor bites hardest
+  in the last two minutes of *every* cooldown, whatever its length: 60–119 s
+  remaining all render as `1 minute`, so at 119 s both callers — the cooldown
+  reply in `CmdWork.func` and the board in `CmdWork._show_board` — understate
+  the wait by 59 s, half of it. Rounding to the nearest minute, as proposed
+  above, still errs by up to 30 s there (89 s → `1 minute`, 90 s →
+  `2 minutes`). Below a minute the function already prints seconds, and one
+  case of that is wrong too: 1 s renders as `1 seconds`. Keeping seconds below
+  two minutes would remove the tail error; the rounding decision above should
+  be taken with that option on the table. Noted while settling Timed Actions
+  decomp T25, 2026-10-15.
 - **Status:** OPEN
 
 ---
