@@ -1,5 +1,8 @@
 # PolishedWorld — System Backlog (14 Systems Needed)
 
+> **Rev 1 · 2026-10-17** — **Första Rev-headern; FAS 1 får ett alfasnitt och System 4 visar sig redan levererat** (roadmap Rev 27, alfaposten (D)). Filen saknade header trots `AGENTS.md` §9; tidigare ändringar finns i `git log` och i datumnoten nedan. **System 4:** `LeatherRecipe` (`raw_hide` ×2, kniv valfri) skeppades 2026-06-30 (`896ce33`) — garvning finns som soft hand-craft; DECISION #2 ratificeras som skeppad, bark och vatten blir en uppgradering i `docs/BACKLOG.md`. **FAS 1 i alfan** är det sänkbärande snittet: trä, flinta, lera (sten finns); malm, sand, ockra, svavel och salpeter väntar på det system som konsumerar dem. **ESTIMERAD ARBETSMÄNGD** räknar artefakter, inte kostnad — kostnaden står i roadmap, alfaposten (D).
+> **Canonical:** `docs/crafting/PolishedWorld_System_Backlog.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+
 Prioriterad lista över de 14 system som behöver byggas för att låsa upp hela
 crafting-trädet från *Arms of Legend*. Sorterad i byggordning med beroenden.
 
@@ -27,6 +30,8 @@ Spelare kan samla trä från träd (ek, ask, yxe, etc.) via ResourceNodes.
 
 **Prioritet:** KRITISK — trä behövs i nästan allt.
 
+**Alfan (roadmap Rev 27, D2):** ingår. Två val görs i alfans innehållsdecomp: fällningsmodellen (dödfall utan verktyg, som `stick_deadfall`, eller sten-/flintyxa och en verktygskontroll som `CmdForage` saknar idag) och DECISION #10. Generiskt `wood` gäller — `oak_wood`/`ash_wood` är förbjudna varianter i registret, så exemplen ovan är inaktuella — men DECISION #10:s egen omprövningsgrund, bågar i ask eller idegran, ligger inom alfan.
+
 ---
 
 ## SYSTEM 2: Stone/Clay/Sand/Mineral Gathering `[DATA — bygg först]`
@@ -51,6 +56,8 @@ Spelare kan samla sten, lera, sand, flinta, svavel, salpeter, ockra från ytnode
 
 **Prioritet:** HÖG — behövs för pottery, black powder, pigment.
 
+**Alfan (roadmap Rev 27, D2):** bara flinta och lera (sten finns sedan `3caaefc`, `stone_outcrop`). Sand, ockra, svavel och salpeter har ingen sänka inom alfan — inget av alfans 44 `[DATA]`-items använder dem — och väntar på sitt konsumentsystem (glas och pottery, pigment, alkemi). Svavel- och salpeternoderna kräver dessutom en placering som inte finns före biome-lagret.
+
 ---
 
 ## SYSTEM 3: Ore Gathering `[DATA — bygg först]`
@@ -74,9 +81,11 @@ Spelare kan samla malm (järn, koppar, tenn) från ytnoder (bog iron, surface de
 
 **Prioritet:** KRITISK — behövs för hela metallgrenen.
 
+**Alfan (roadmap Rev 27, D2):** ingår inte. Malmens enda sänka är smelting (FAS 3, utanför alfan); byggd nu blir den en källa utan sänka. Byggs med System 6.
+
 ---
 
-## SYSTEM 4: Tanning (DECISION #2) `[DATA — ett beslut bort]`
+## SYSTEM 4: Tanning (DECISION #2) `[LEVERERAD — soft hand-craft, ratificerad 2026-10-17]`
 
 **Vad det gör:**
 Omvandlar `raw_hide` → `leather` genom garvning med oak bark + water.
@@ -104,9 +113,9 @@ Omvandlar `raw_hide` → `leather` genom garvning med oak bark + water.
 
 **Beroenden:** Wood gathering (oak_bark), raw_hide (från creature harvest).
 
-**Prioritet:** KRITISK — raw_hide har ingen sink utan detta.
+**Prioritet:** KRITISK när den skrevs — raw_hide saknade sänka. Uppfylld sedan 2026-06-30.
 
-**Status:** BLOCKAD på DECISION #2 (soft hand-craft vs vat/station).
+**Status:** LEVERERAD som soft hand-craft. `LeatherRecipe` i `world/recipes.py` (`896ce33`, 2026-06-30) tar `raw_hide` ×2, kniv valfri, `craft_duration = 45` — utan bark och vatten, så skissen ovan är inte det som skeppades. DECISION #2 ratificeras som skeppad (roadmap Rev 27, alfaposten D2); bark och vatten (DECISION #6) är en uppgradering i `docs/BACKLOG.md` (*Tanning upgrade*). Registret (`leather` = DECISION, `raw_hide` utan sänka) rättas tillsammans med materialen i alfans innehållsepik.
 
 ---
 
@@ -478,6 +487,8 @@ FAS 5: SPECIALISERAT (beroende på FAS 4)
 └─ 14. Shipbuilding ← carpentry + smithing + massive resources
 ```
 
+> **2026-10-17 (roadmap Rev 27, D2):** alfans FAS 1 är det sänkbärande snittet — trä, flinta, lera (sten finns). Malm, sand, ockra, svavel och salpeter flyttas till det system som konsumerar dem. System 4 är redan levererat (se dess status). Noder placeras bara via versionerad seed, i ett avgränsat authored område (roadmap, Stage 6-posten).
+
 ---
 
 ## IMPLEMENTATIONSPRIORITERING
@@ -524,11 +535,13 @@ FAS 5: SPECIALISERAT (beroende på FAS 4)
 
 **Totalt:** ~20 nya typeclasses, ~60 recipes, ~45 materials
 
+> **2026-10-17:** tabellen räknar artefakter, inte arbete — "LÄTT" säger inget om beslut, placering eller tester. FAS 1:s kostnad i sessioner står i roadmap, alfaposten (D).
+
 ---
 
 ## FLAG: Design decisions needed
 
-**DECISION #2:** Tanning — soft hand-craft (cold soak) eller vat/station?
+**DECISION #2:** Tanning — soft hand-craft (cold soak) eller vat/station? → **BESLUTAD 2026-10-17** (roadmap Rev 27): soft hand-craft, som skeppad i `LeatherRecipe`.
 **DECISION #6:** Water — material eller "near water source" requirement?
 **DECISION #7:** Kiln — shared station (charcoal + pottery) eller separate?
 **DECISION #8:** Furnace — shared station (smelting + glass) eller separate?

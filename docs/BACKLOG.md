@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 40 · 2026-10-17** — four entries **added**, four **annotated**, one status **changed**, all from the track-order decision (roadmap Rev 27). **Added:** *Alpha content epic — decompose before code* (Crafting & Tools, OPEN and due next session) — the FAS 1 cut, the registry corrections, seeding, the catalogue batches and E.1 as one decomposition, because costing showed them to be one epic; *Tanning upgrade — bark and water as `LeatherRecipe` inputs* (OPEN), the System Backlog §4 sketch kept as an upgrade now that tanning is ratified as shipped; *Persistent alpha instance* (Tooling & Process, BLOCKED on the alpha prerequisites), the owner Rev 38 recorded as missing, wiped at alpha close-out; and *Four docs under `docs/crafting/` and `docs/reference/` carry no Rev header*, found while giving the System Backlog its first. **Annotated:** the catalogue entry (a narrower FAS 1, tanning already delivered, catalogue authoring named as a step before E.1); *Public test server* — (a) moves onto the alpha track as the node-placement path, (b) is unchanged, and the entry's claim that world data already exists in `world/testworld_data.py` is corrected, since no such file is on `origin`; *System Backlog altitude* — its trigger is effectively met, and the rev header it cited did not exist until today; *Parchment* — **BLOCKED → OPEN**, because its trigger was tanning landing and tanning landed eighteen days before the entry was written. ⚠️ **One root cause under three of these:** `LeatherRecipe` shipped on 2026-06-30 and `world/material_registry.py` was not updated, so every document that asked the registry whether tanning existed was told no — the parchment entry, the alpha decision's (B) and the System Backlog. Correcting the registry is code and lands with the materials in the alpha content epic; this Rev records how far the drift reached.
 > **Rev 39 · 2026-10-17** — one entry **decided**, one **annotated**, two **added**, all from the death-consequence policy (roadmap Rev 26). *`CoinPile` vs the corpse's atomic content delete* goes **SCHEDULED → DECIDED**, two stages early: its trigger was Stage 5 kickoff, but what it asked was a policy question — does any cleanup path get to destroy currency — and the policy session answered it with a rule rather than a `CoinPile` detail: **never; an abandoned pile is transferred to the Treasury with a ledger entry**. The entry's three candidates are all retired, and the text says why: two of them (exempt the pile, drop it on the floor) leave a `CoinPile` in a room that Stage 6 may recycle, which is the same unlogged burn moved to another file, and the third amends the principle that makes the economy auditable. The trigger for the *code* is unchanged. *Bank / post office* gains the owner-first grace in the sentence that already described the corpse, so it does not promise a risk the policy softened. **Added**, both under *Death & Corpses*: **death contract surfaces** — the owner-first `get_from` lock, the death message that carries the contract, and `help death`, with the seven prose sites in four files that the policy falsifies listed in the entry so they are changed in the same commit and not found afterwards; and **`at_character_death()` restore block vs persistent wound tiers**, BLOCKED on Stage 5, which is the die-to-heal hazard the roadmap entry names — filed now, before the wound model is coded, so the epic that adds locational HP reads it before touching the restore block rather than after.
 > **Rev 38 · 2026-10-17** — two entries **annotated**, none added, both from the alpha milestone decision (roadmap Rev 25). *⛔ The recipe catalogue does not span the skill scale* gains the census the roadmap's open question asked for: its 110/152 figures — written here on 2026-08-12 and copied upward — are tag occurrences, not items; at item level the AoL decomposition holds 44 `[DATA]` finished items against 43 `[BLOCKED]`, with the same depth distribution on both sides, and neither the decomposition nor *Arms of Legend* carries a per-item difficulty. The Trigger is unchanged; what changes is *when* E.1 may run — after FAS 1 and tanning, per the roadmap decision — and the entry now says so, because an entry whose trigger can be met by assignment alone would otherwise invite exactly the guessing its own Trigger forbids. *Public test server with nightly reset* gains a conflict note rather than a change: its hosting half is sequenced *after Stage 5*, and its own text says the wiped box cannot test the economy pillar, while the alpha now defined excludes combat and exists to test pillar 1. Status is left as it is — the conflict is sequencing, which is roadmap altitude, and it is settled there with the track order; the annotation is here so the trigger is not read as current by someone who reads only this file.
 > **Rev 37 · 2026-10-17** — **Epic A merged to `main` (`34b2ee4`)**, and the three entries that waited on it move. *Crafting resolves instantly* and *Timed player actions have a pattern but no shared home* go **SCHEDULED → DONE**: they asked to be done in one pass, and they were — on `feature/timed-actions`, merged together. Their *What* and *Why deferred* text is unchanged: it is the design as settled, including "`craft_duration` replaces `craft_cooldown`", which is what shipped. Both are kept for traceability and pruned at the next sweep, per the legend. *Two-stage healing* loses half of its blocker: Trigger (2), Epic A's timed-action module merged, is met, so the entry is now **BLOCKED (Stage 5 wound tiers)** alone. Its design text — surgery belongs on Epic A's slot rather than a hand-rolled branch — is unchanged, and now describes something that exists.
@@ -221,9 +222,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The tanning chain landing (leather / DECISION #2 resolved), decided
   *together with* the blank-scroll entry below — both answer the same question
   ("what is the physical writing surface, and is it a crafted good?").
+- **Annotation (2026-10-17, roadmap Rev 27 (D2)):** the trigger is met, and the
+  premise under *Why deferred* was false when it was written. `LeatherRecipe`
+  (`raw_hide`×2 → `leather`) shipped on 2026-06-30 (`896ce33`), eighteen days
+  before this entry. The entry read the material registry, where `leather` still
+  said DECISION and `raw_hide` had no sink — the registry was not updated when the
+  recipe shipped. DECISION #2 is ratified as shipped in roadmap Rev 27. Still
+  decided *together with* the blank-scroll entry below, and not part of the alpha
+  scope.
 - **Origin:** Recipe Knowledge decomp §11, Task F.1 (choice (a), locked to cloth);
   §12, Task G.2 (choice (b), book bound from cloth×2 + twine).
-- **Status:** BLOCKED (tanning chain)
+- **Status:** OPEN (trigger met 2026-10-17 — previously BLOCKED on the tanning chain)
 
 ### Blank scroll as a craftable intermediate
 - **What:** Make the writing surface its own craftable good:
@@ -444,6 +453,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   System 4 (tanning) are delivered — the subset is laddered as data, not as a
   promise — and smithing (FAS 3) is outside the alpha. The Trigger below is
   unchanged.
+- **Annotation (2026-10-17, track order — roadmap Rev 27 (D2)):** the ordering
+  above stands, with a narrower FAS 1 and a System 4 that needs no work. FAS 1 for
+  the alpha is the sink-bearing cut — wood, flint, clay (stone exists). Of the 22
+  items that cite a `[NEW MATERIAL]`, only **9** need one the cut provides and
+  **13** need materials FAS 1 does not provide at all. The 10 that cite leather
+  were never gated: tanning shipped on 2026-06-30 (`896ce33`) and is ratified as
+  shipped. **The catalogue is not yet recipes** — `world/recipes.py` holds eight,
+  two of them among the 44 — so E.1 runs after the FAS 1 cut *and* the catalogue
+  batches; both are components of *Alpha content epic* directly below. The
+  Trigger is unchanged.
 - **⚠️ Re-homed (2026-08-24, Stage 4.5 close-out):** Component E has **left the
   epic**. Stage 4.5 closed with A–D delivered, and E was moved out rather than
   holding the stage open — a stage blocked on a content trigger that belongs to
@@ -456,6 +475,55 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
   decomposing Component E; re-homed at Rev 8 close-out.
 - **Status:** BLOCKED
+
+### Alpha content epic — decompose before code (FAS 1 cut → seeding → catalogue → E.1)
+- **What:** The work between the alpha decision and E.1, costed in roadmap Rev 27
+  (alpha entry, (D)) and too large to start from a list. Five components in one
+  decomposition. **(1) The FAS 1 cut** — `wood`, `flint` and `clay` materials and
+  their nodes in the existing `ResourceNode` shape (`stone` exists since
+  `3caaefc`). Two choices are made in the decomposition: the felling model —
+  deadfall with no tool, like `stick_deadfall`, or a stone/flint axe and a tool
+  check that `CmdForage` does not have today, which is typeclass and command code
+  and outside OpenCode's scope — and DECISION #10, confirmed or split, since its
+  own revisit condition (bows needing ash or yew) is inside the alpha. `sinew` as
+  a harvest part, for the bow. **(2) Registry corrections**, in the same commit as
+  the materials they touch: `stone` DATA → EXISTS (prototype live since
+  `3caaefc`), `stick` registered, `leather` DECISION → EXISTS and `raw_hide` given
+  its sink (`LeatherRecipe`, `896ce33`), with
+  `docs/PolishedWorld_SourceSink_Ledger.md` regenerated from `render_ledger()` and
+  the AoL decomposition's `[DECISION #2]` tags swept in the same pass. The registry
+  is what every generator reads, and its drift is how the tanning claim survived
+  four months. **(3) Seeding** — *Public test server* part (a), as the only
+  versioned path for placing nodes (roadmap, Stage 6 entry's interim placement
+  rule). **(4) Catalogue batches** — the roughly 29 reachable `[DATA]` items (the
+  22 that cite no new material, less the two that exist, plus the 9 the FAS 1 cut
+  reaches) as OpenCode batches against
+  `docs/crafting/deer_batch_gold_standard.md`. **(5) E.1** — `min_skill`
+  laddering, as specified in Skill Progression decomp §7.
+- **Why deferred:** Methodology — a feature this size gets Feature → Components →
+  Tasks before code, and the decomposition is where (1)'s two choices are made.
+- **Trigger:** The next PolishedWorld session — the alpha track is coded first
+  (roadmap Rev 27 (D1)). *Death contract surfaces* does not wait on it.
+- **Origin:** FAS 1 costing session (2026-10-17).
+- **Status:** OPEN (due)
+
+### Tanning upgrade — bark and water as `LeatherRecipe` inputs
+- **What:** `LeatherRecipe` tans `raw_hide`×2 with an optional knife. The System
+  Backlog §4 sketch and the AoL decomposition's leather tree add `oak_bark`
+  (tannin) and water. Two questions to settle when it is picked up: where bark
+  comes from — the registry's source is *oak tree + knife*, but `oak_wood` is a
+  forbidden variant of the generic `wood` (DECISION #10), so bark is either its
+  own node yield or `wood` + knife — and DECISION #6 (water as a consumed
+  material or a nearby-source requirement), which sets the pattern for every
+  water-using recipe after it.
+- **Why deferred:** The alpha ratifies tanning as shipped (roadmap Rev 27 (D2)):
+  the leather branch needs no new input to be laddered, and adding bark now would
+  put a second consumer on `wood` before the felling model is decided. Changing
+  what a recipe consumes before launch de-levels no one.
+- **Trigger:** DECISION #6 being taken for any recipe, or the alpha close-out
+  balance pass, whichever comes first.
+- **Origin:** FAS 1 costing session (2026-10-17) — the System Backlog §4 sketch.
+- **Status:** OPEN
 
 ### `SkillXPHandler.add()` does not raise on an unknown skill key
 - **What:** `world/skill_xp.py::SkillXPHandler.add()` accepts any `skill_key`,
@@ -1191,8 +1259,38 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   is the work which will actually read this file. Decide then between three
   homes: leave it and accept the location, promote its list into `roadmap.md`'s
   parallel backlog, or move it to `docs/` proper.
+- **Annotation (2026-10-17, roadmap Rev 27):** the trigger is effectively met —
+  the alpha track picks up the crafting catalogue next, through *Alpha content
+  epic* (*Crafting & Tools*), and that session decides the home. One correction:
+  *Why deferred* says the file's "own rev header names its canonical path". It
+  had no rev header until 2026-10-17, when the roadmap Rev 27 session gave it
+  Rev 1; the sentence was written from the convention, not from the file.
 - **Origin:** roadmap Rev 17 session, 2026-08-12, while fetching `docs/crafting/`
   to check what the catalogue blocker actually needs.
+- **Status:** OPEN
+
+### Four docs under `docs/crafting/` and `docs/reference/` carry no Rev header
+
+- **What:** `AGENTS.md` §9 requires a Rev header on every doc, and
+  `docs/PolishedWorld_Core_Instructions.md` states it twice — *Critical Reminders*
+  says all `docs/` files carry one, and the project-knowledge note calls its three
+  docs the only ones in the project without one. Neither is true against the
+  tree: `docs/crafting/PolishedWorld_Crafting_Decomposition.md`,
+  `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md`,
+  `docs/crafting/deer_batch_gold_standard.md` and `docs/reference/arms_of_legend.md`
+  have none. A fifth, `docs/crafting/PolishedWorld_System_Backlog.md`, got Rev 1
+  on 2026-10-17 because that session edited it. The worked-example decomposition
+  is also stale in content: it still shows tanning pending DECISION #2 and the
+  boots recipe as dormant.
+- **Why deferred:** A header is cheap, but each file's first Rev is a content
+  decision — what does Rev 1 say about a doc edited for months without one? — and
+  `arms_of_legend.md` is OGL rulebook text that may want a *reference* convention
+  rather than a Rev at all.
+- **Trigger:** Each file gets Rev 1 in the next commit that edits it, as the System
+  Backlog did. Core Instructions' two sentences are corrected at its next
+  revision.
+- **Origin:** FAS 1 costing session (2026-10-17), while deciding whether the
+  System Backlog should get a header.
 - **Status:** OPEN
 
 ### Unit-test coverage initiative (`tests/` + OpenCode replication)
@@ -1333,9 +1431,47 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   here: it is sequencing, settled on the roadmap with the alpha-vs-Stage-5
   track order. Status unchanged until then; read (b)'s trigger as *contested*,
   not current.
+- **Annotation (2026-10-17, track order — roadmap Rev 27 (D3)):** the contested
+  trigger is resolved by separating what the alpha needs from what this entry
+  describes. **(a) moves onto the alpha track:** it is the only versioned path for
+  placing the alpha's resource nodes (roadmap, Stage 6 entry's interim placement
+  rule) and the seed the persistent instance starts from — it is a component of
+  *Alpha content epic* (*Crafting & Tools*). **(b) is unchanged** — a wiped
+  smoke-test box after Stage 5 — and the persistent instance the alpha needs has
+  its own entry, *Persistent alpha instance*, directly below. **Correction:** (a)
+  above says the world data "already exists in `world/testworld_data.py`". It is
+  not on `origin` in any commit, and `server/conf/at_initial_setup.py` is the
+  unmodified template. Part (a) therefore authors the world data as well as the
+  hook — the first versioned record of where anything in the world stands.
 - **Origin:** Session 2026-09-09 (test-server discussion; option B chosen —
   build seeding and reset now, host later).
-- **Status:** OPEN (seeding) / BLOCKED on Stage 5 (hosting)
+- **Status:** OPEN (seeding — alpha track) / BLOCKED on Stage 5 (wiped-box hosting)
+
+### Persistent alpha instance
+
+- **What:** A hosted instance for the closed-alpha cohort that is **not** wiped on
+  a cadence: seeded once from an empty database by *Public test server* part (a),
+  then left running for the length of the alpha so that prices can emerge — the
+  one thing the nightly-wiped box cannot measure. **Wiped at alpha close-out**, and
+  the cohort contract says so up front: a closed alpha's world ends with the
+  alpha, which keeps no-backfill free afterwards and means Stage 5's
+  character-state changes (locational Hit Points, wound tiers) never migrate a
+  cohort character. During the alpha the trade-off is real: a schema change on
+  the alpha track is either a migration or an announced wipe, and the contract
+  should say which the cohort can expect. Inherits the wipe box's two
+  constraints — no GameGold wallet or chain node on the machine, not a home IP —
+  and is the natural instance to report to the Evennia Game Index from, for the
+  reason *Public test server* already gives: a wiped box reports a total that
+  resets daily.
+- **Why deferred:** A cohort has nothing to do until the alpha prerequisites exist.
+- **Trigger:** Alpha prerequisites 1–5 (roadmap, alpha entry (A)) on `main`, and
+  *Death contract surfaces* on `main` — the contract must be readable before the
+  first death. The sixth prerequisite, the launch minimum, is decided together
+  with this instance, since moderation tooling only means something on a box
+  players can reach.
+- **Origin:** FAS 1 costing session (2026-10-17), roadmap Rev 27 (D3) — the gap
+  Rev 38 recorded: no entry owned a persistent alpha instance.
+- **Status:** BLOCKED (alpha prerequisites)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
 
