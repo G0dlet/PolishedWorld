@@ -81,8 +81,10 @@ DECISION = "decision"  # gated on an open design decision (see blocked_on / note
 #   "category"      (str) : RAW | INTERMEDIATE.
 #   "status"        (str) : EXISTS | DATA | BLOCKED | DECISION.
 #   "blocked_on"    (str) : the system/decision that gates it ("" if none).
-#   "source"        (str) : how it is obtained (intent).
-#   "sinks"        (list) : what consumes it (intent); [] = orphan to resolve.
+#   "source"        (str) : how it is obtained. For EXISTS entries this is what
+#                           the code does today; for every other status, intent.
+#   "sinks"        (list) : what consumes it (EXISTS: today; else intent);
+#                           [] = orphan to resolve.
 
 MATERIALS = {
 
@@ -112,10 +114,19 @@ MATERIALS = {
         "sinks": ["tanning recipe (-> leather)"],
     },
     "stone": {
-        "prototype_key": "stone", "category": RAW, "status": DATA,
+        "prototype_key": "stone", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "boulder/quarry ResourceNode",
-        "sinks": ["stone tools", "grindstone", "sling bullets", "building"],
+        "source": "stone_outcrop (ResourceNode)",
+        "sinks": ["stone knife recipe", "stone tools", "grindstone", "sling bullets",
+                  "building"],
+    },
+    # stick != wood: a stick is a hand-gathered deadfall piece for hafting, not
+    # timber. Keep the two tags apart (wood is DECISION #10's generic tag).
+    "stick": {
+        "prototype_key": "stick", "category": RAW, "status": EXISTS,
+        "blocked_on": "",
+        "source": "stick_deadfall (ResourceNode)",
+        "sinks": ["stone knife recipe"],
     },
     "flint": {
         "prototype_key": "flint", "category": RAW, "status": DATA,
@@ -182,9 +193,8 @@ MATERIALS = {
     "raw_hide": {
         "prototype_key": "raw_hide", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "thick-hided game harvest (boar, deer; rabbit -> see #1)",
-        "sinks": [],  # ORPHAN until tanning. The DURABLE chain: tan -> leather
-                      # -> boots/bags/armour/straps. Distinct from fur.
+        "source": "rabbit harvest (HARVEST_TEMPLATES)",
+        "sinks": ["leather recipe"],  # the DURABLE chain; distinct from fur (#1)
     },
     "fur": {
         "prototype_key": "fur", "category": RAW, "status": DATA,
@@ -193,9 +203,9 @@ MATERIALS = {
         "sinks": ["fur cloak", "fur-lined warmth garments"],  # WARMTH chain (#1)
     },
     "bone": {
-        "prototype_key": "bone", "category": RAW, "status": DATA,
-        "blocked_on": "",  # in the deer batch — commit to flip to EXISTS
-        "source": "creature harvest (deer, boar)",
+        "prototype_key": "bone", "category": RAW, "status": EXISTS,
+        "blocked_on": "",
+        "source": "rabbit harvest (HARVEST_TEMPLATES)",
         "sinks": ["bone needle recipe", "bone tools/weapons/armour"],
     },
     "sinew": {
@@ -205,15 +215,15 @@ MATERIALS = {
         "sinks": ["bowstring", "strong binding/cordage", "hafting"],
     },
     "tusk": {
-        "prototype_key": "boar_tusk", "category": RAW, "status": EXISTS,
+        "prototype_key": "boar_tusk", "category": RAW, "status": DATA,
         "blocked_on": "",
-        "source": "boar harvest",
+        "source": "boar harvest — no harvest creature yet",
         "sinks": [],  # ORPHAN: needs a carving/ornament recipe
     },
     "feather": {
-        "prototype_key": "feather", "category": RAW, "status": EXISTS,
+        "prototype_key": "feather", "category": RAW, "status": DATA,
         "blocked_on": "",
-        "source": "pheasant (and other birds) harvest",
+        "source": "bird harvest (pheasant...) — no harvest creature yet",
         "sinks": [],  # ORPHAN today: fletching (arrows) and trim — unlock with ammo
     },
     "wool": {
@@ -238,9 +248,9 @@ MATERIALS = {
         "sinks": ["linen shirt recipe", "garments", "sacks/packs", "sails/tents"],
     },
     "leather": {
-        "prototype_key": "leather", "category": INTERMEDIATE, "status": DECISION,
-        "blocked_on": "DECISION #2 (tanning model)",
-        "source": "tanning recipe (raw_hide + oak_bark + water)",
+        "prototype_key": "leather", "category": INTERMEDIATE, "status": EXISTS,
+        "blocked_on": "",
+        "source": "LeatherRecipe (raw_hide x2, knife optional)",
         "sinks": ["leather boots", "soft armour", "bags", "saddles", "straps"],
     },
     "pigment": {
@@ -325,14 +335,13 @@ MATERIALS = {
 
 TOOLS = {
     "knife": {
-        "prototype_key": "knife", "status": EXISTS, "blocked_on": "",
-        "source": "",  # ORPHAN-SOURCE: needs a primitive root (flint/stone knife,
-                       # hand-knapped, no tool required). See DECISION #5.
+        "prototype_key": "stone_knife", "status": EXISTS, "blocked_on": "",
+        "source": "StoneKnifeRecipe (stone + stick + fiber -> stone_knife)",
         "used_by": ["waterskin (optional)", "harvesting", "shaping wood/bone"],
     },
     "needle": {
-        "prototype_key": "needle", "status": DATA, "blocked_on": "",
-        "source": "BoneNeedleRecipe (bone -> needle), in the deer batch",
+        "prototype_key": "bone_needle", "status": EXISTS, "blocked_on": "",
+        "source": "BoneNeedleRecipe (bone -> bone_needle)",
         "used_by": ["garment recipes (optional)"],
     },
     "grindstone": {
@@ -424,6 +433,7 @@ FORBIDDEN_VARIANTS = {
     "bronze_ingot": "bronze", "tin_bronze": "bronze",
     "tendon": "sinew",
     "rock": "stone", "stones": "stone", "boulder": "stone",
+    "sticks": "stick",
     "raw_clay": "clay", "char": "charcoal",
     "canvas": "cloth", "sailcloth": "cloth",
     "bark": "oak_bark",
@@ -452,22 +462,23 @@ OPEN_DECISIONS = """
 1.  [RESOLVED] fur vs raw_hide — kept DISTINCT. fur = warmth chain (pelt kept
     fur-on -> fur garments). raw_hide = durable chain (tan -> leather -> goods).
     Soft-furred animals yield fur; thick-hided yield raw_hide; large may yield both.
-2.  Tanning (raw_hide -> leather): soft hand-craft (cold bark-soak, optional
-    vessel) or a vat/station? Recommend soft craft; it unblocks leather + clears
-    the raw_hide orphan. Gates the whole leather branch.
+2.  [RESOLVED] Tanning (raw_hide -> leather) — soft hand-craft, no station:
+    LeatherRecipe (raw_hide x2, knife optional), commit 896ce33; ratified as
+    shipped in roadmap Rev 27 (D2). Bark and water as inputs are deferred to
+    BACKLOG "Tanning upgrade".
 3.  wool source: needs a shearable animal + husbandry/taming. Likely post-MVP.
 4.  straw source: one grain/dry-grass ResourceNode unblocks straw_hat. Cheap.
-5.  knife source: knife has no recipe. Needs a primitive root — a flint/stone
-    knife, hand-knapped (no tool required). Unblocks the tool bootstrap.
+5.  [RESOLVED] knife source — StoneKnifeRecipe (stone + stick + fiber ->
+    stone_knife, no tool required), commit 643815d. The bootstrap root.
 6.  water as a crafting input: register a "water" material (from the spring node)
     or have water-using recipes require a nearby water source / waterskin charges?
 7.  [NEW] kiln: one shared station for charcoal AND pottery, or separate stations?
 8.  [NEW] furnace: one shared station for smelting AND glassblowing, or separate?
 9.  [NEW] smithing: are forge + anvil STATIONS (room-bound, like Evennia tools) or
     portable required tools? Affects how blacksmithing recipes gate their tools.
-10. [PROVISIONAL] wood: a single generic "wood" tag (decided, to avoid early
-    fragmentation), with species as flavour/quality. Revisit only if bows need a
-    distinct springy wood (ash/yew) mechanically. Confirm.
+10. [PROVISIONAL] wood: a single generic "wood" tag for the alpha, with species
+    as flavour/quality. The revisit (do bows need a distinct springy wood
+    mechanically?) moves to Stage 5 — Alpha Content Decomposition AD2.
 11. [PROVISIONAL] canvas: folded into "cloth" as a heavy grade (decided). Split
     into its own tag only if sail/tent durability needs to differ mechanically.
 """

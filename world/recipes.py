@@ -22,7 +22,6 @@ Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowle
 """
 
 from world.crafting_base import MongooseCraftRecipe
-from world.crafting_base import MongooseCraftRecipe
 from world.crafting_quality import (
     quality_band,
     band_alias,
@@ -258,8 +257,7 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
         # it by _tool_modifier. No db.condition write (start condition prototype-driven,
         # 30, D.5).
         _apply_tool_quality(obj)
-    
+
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)
-# class FurCloakRecipe(MongooseCraftRecipe):    # needs "fur"/"hide" (creature harvesting)
-# class LeatherBootsRecipe(MongooseCraftRecipe):# needs "leather" (creature harvesting)
+# class FurCloakRecipe(MongooseCraftRecipe):    # needs "fur" (no fur source yet)
