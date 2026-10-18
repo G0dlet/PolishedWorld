@@ -12,7 +12,8 @@ not picked up as a phantom recipe.
 
 Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
   common / ungated (inherit requires_knowledge = False) -- survival & tool recipes
-    a fresh character can always make: twine, waterskin, stone knife, bone needle.
+    a fresh character can always make: twine, waterskin, stone knife, bone needle,
+    stone axe, club.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
@@ -81,7 +82,7 @@ def _apply_tool_quality(obj):
     _apply_garment_quality).
 
     Unlike garments, a tool's start condition is PROTOTYPE-driven (STONE_KNIFE 40,
-    BONE_NEEDLE 30 -- the D.5 wear tuning), so this deliberately does NOT touch
+    BONE_NEEDLE 30, STONE_AXE 40 -- the D.5 wear tuning), so this deliberately does NOT touch
     obj.db.condition. Quality is already stamped on the tool by do_craft; all this
     adds is the individuating "superior <key>" alias, so a player can target the
     good tool in a pile and it reads as superior at a glance. The +tool_bonus a
@@ -257,6 +258,43 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
         # it by _tool_modifier. No db.condition write (start condition prototype-driven,
         # 30, D.5).
         _apply_tool_quality(obj)
+
+
+class StoneAxeRecipe(MongooseCraftRecipe):
+    """Knap a flint head, seat it in a stick haft, bind it with twine: a stone axe.
+
+    The felling bootstrap (AC2.2). The tree node will not yield wood without an
+    axe, so the axe itself must be makeable from what grows and lies about --
+    ungated and tool-free, like the stone knife.
+    """
+
+    name = "stone axe"
+    # Flint head + wooden haft + twine lashing, matched by crafting_material
+    # tag-key. Twine, not raw fibre: an axe head takes a heavier binding than a
+    # knife flake, and twine is one quick craft away.
+    consumable_tags = ["flint", "stick", "twine"]
+    output_prototypes = ["stone_axe"]
+    # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty): a
+    # bootstrap tool is never penalised for lacking itself. No min_skill.
+    tool_tag = None
+    craft_duration = 30                 # mirrors the stone knife
+
+    # consume_policy inherits "raw" -> every attempt yields an axe.
+
+    def _finalize_item(self, obj, outcome):
+        # Superior alias only, as the stone knife; start condition stays
+        # prototype-driven (40).
+        _apply_tool_quality(obj)
+
+
+class ClubRecipe(MongooseCraftRecipe):
+    """Shape a length of wood into a club: wood's first consumer (AC2.2)."""
+
+    name = "club"
+    consumable_tags = ["wood"]          # one length, matched by tag-key
+    output_prototypes = ["club"]
+    tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
+    craft_duration = 30
 
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)

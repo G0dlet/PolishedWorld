@@ -102,10 +102,11 @@ MATERIALS = {
         "sinks": ["waterskin recipe"],
     },
     "wood": {
-        "prototype_key": "wood", "category": RAW, "status": DATA,
+        "prototype_key": "wood", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "tree ResourceNodes (oak/ash/yew...). Generic tag — see DECISION #10",
-        "sinks": ["handles", "shafts", "planks", "furniture", "fuel/charcoal"],
+        "source": "tree (ResourceNode, required_tool axe). Generic tag — see DECISION #10",
+        "sinks": ["club recipe", "handles", "shafts", "planks", "furniture",
+                  "fuel/charcoal"],
     },
     "oak_bark": {
         "prototype_key": "oak_bark", "category": RAW, "status": DATA,
@@ -126,13 +127,13 @@ MATERIALS = {
         "prototype_key": "stick", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "stick_deadfall (ResourceNode)",
-        "sinks": ["stone knife recipe"],
+        "sinks": ["stone knife recipe", "stone axe recipe"],
     },
     "flint": {
-        "prototype_key": "flint", "category": RAW, "status": DATA,
+        "prototype_key": "flint", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "surface gather",
-        "sinks": ["flint knife (primitive root)", "fire-starting"],
+        "source": "flint_scatter (ResourceNode)",
+        "sinks": ["stone axe recipe", "fire-starting"],
     },
     "clay": {
         "prototype_key": "clay", "category": RAW, "status": DATA,
@@ -238,7 +239,7 @@ MATERIALS = {
         "prototype_key": "twine", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         "source": "TwineRecipe (fiber x3)",
-        "sinks": ["waterskin recipe", "lashing/binding"],
+        "sinks": ["waterskin recipe", "stone axe recipe", "lashing/binding"],
     },
     "cloth": {
         "prototype_key": "cloth", "category": INTERMEDIATE, "status": EXISTS,
@@ -362,9 +363,11 @@ TOOLS = {
         "used_by": ["smithing", "construction", "driving"],
     },
     "axe": {
-        "prototype_key": "axe", "status": DATA, "blocked_on": "smithing (metal head)",
-        "source": "stone/flint head + haft (primitive); metal head needs smithing",
-        "used_by": ["felling wood", "carpentry"],
+        # TIERED: the stone axe (flint head + stick haft) EXISTS and is what this
+        # entry points at; a metal-headed axe is BLOCKED on smithing (metal head).
+        "prototype_key": "stone_axe", "status": EXISTS, "blocked_on": "",
+        "source": "StoneAxeRecipe (flint + stick + twine -> stone_axe)",
+        "used_by": ["felling wood (tree node, required)", "carpentry"],
     },
     "saw": {
         "prototype_key": "saw", "status": BLOCKED, "blocked_on": "smithing",

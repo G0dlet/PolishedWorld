@@ -16,7 +16,8 @@ the wrong thing. These tests make the registry answer to the code:
   (a') an EXISTS entry's own prototype_key carries the entry's tag.
   (b)  no unregistered tags: every such tag on a prototype is a registry key.
   (c)  every EXISTS material is consumed by some recipe.
-  (d)  every EXISTS tool is some recipe's tool_tag.
+  (d)  every EXISTS tool is used: some recipe's tool_tag, or some node
+       prototype's required_tool (T3).
   (e)  every recipe input (consumable_tags, tool_tag) is an EXISTS entry.
   (f)  every EXISTS prototype_key has a source in code: a node's
        yield_prototype, a harvest part in a template some prototype's
@@ -39,9 +40,9 @@ Each per-entry check runs in a subTest, so one run names every bad entry.
 A guard runs first: an empty prototype or recipe set would make every
 "for each ... assert" loop pass vacuously.
 
-NOT YET COVERED (T3): (d) does not look at a node's `required_tool`. The
-field exists since AC2.1; the branch lands in AC2.2 with TREE, the first node
-prototype to set it, so that it has a real receipt (`axe` fails (d) without it).
+(d)'s node branch (T3) landed in AC2.2 with TREE, the first node prototype to
+set `required_tool`. Its receipt is the `axe` entry: no recipe names the axe as
+its tool_tag, so without the branch (d) fails on it.
 """
 
 from evennia.contrib.game_systems.crafting.crafting import (
@@ -64,7 +65,8 @@ SECTIONS = (
     (reg.TOOLS, TOOL_CATEGORY, "tool"),
 )
 
-# Floors for the vacuity guard. Today: 30 prototypes, 8 recipes.
+# Floors for the vacuity guard, set at AC1.1's counts (30 prototypes, 8
+# recipes). A floor, not a census: content added since does not move it.
 MIN_PROTOTYPES = 30
 MIN_RECIPES = 8
 
@@ -120,6 +122,10 @@ class TestMaterialRegistry(EvenniaTestCase):
         self.consumed = {t for cls in self.recipes for t in (cls.consumable_tags or [])}
         self.tool_tags = {cls.tool_tag for cls in self.recipes
                           if getattr(cls, "tool_tag", None)}
+        # T3: a node's required_tool uses a tool as much as a recipe does.
+        # Read through _attr() -- required_tool arrives as a homogenized attr.
+        self.tool_tags |= {_attr(p, "required_tool") for p in self.prototypes
+                           if _attr(p, "required_tool")}
 
     def _carried(self, category):
         """Every tag key in `category` carried by any prototype."""
@@ -163,7 +169,6 @@ class TestMaterialRegistry(EvenniaTestCase):
                 self.assertIn(key, self.consumed)
 
     def test_d_every_exists_tool_is_used(self):
-        # T3: node `required_tool` is not counted yet -- it lands in AC2.2.
         for key, entry in reg.TOOLS.items():
             if entry["status"] != reg.EXISTS:
                 continue

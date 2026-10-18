@@ -307,6 +307,111 @@ STONE_KNIFE = {
     "condition": 40,
 }
 
+# --- Felling chain: flint, stone axe, wood, tree, club (AC2.2) ---
+# The second bootstrap loop. Flint (gathered bare-handed) + stick + twine make
+# the stone axe; the axe is the only way to take wood from a TREE (its
+# required_tool, checked and worn by `forage`, AC2.1); wood's first consumer is
+# the club. Every item carries Legend ENC (`enc`, AD8): from the rulebook where
+# it gives one, else Q6's rule -- too light to score is stored as 0, and the
+# 20-to-1 counting is left to the weight mechanic. Nothing reads `enc` yet.
+# Nodes carry none: they cannot be picked up.
+
+FLINT = {
+    "prototype_key": "flint",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "flint nodule",
+    "aliases": ["flint"],
+    "desc": (
+        "A knobbly nodule of flint, chalk-white outside and glassy dark within. "
+        "Struck right, it flakes away in sharp-edged shells."
+    ),
+    # tag-key "flint" is what recipes list in consumable_tags. SOURCE: the
+    # flint_scatter node. SINK: StoneAxeRecipe knaps it into the axe head.
+    "tags": [("flint", "crafting_material")],
+    "enc": 0,   # Q6: too light to score (AoL lists flint and tinder as "—")
+}
+
+FLINT_SCATTER = {
+    "prototype_key": "flint_scatter",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "flint scatter",
+    "aliases": ["scatter", "flints"],
+    "desc": (
+        "A spill of pale flint nodules weathering out of a chalky bank, the "
+        "ground around them glittering with old flakes."
+    ),
+    "resource_type": "flint",
+    "max_yield": 4,
+    "regen_interval": 3600,          # game-seconds/nodule; as the stone outcrop
+    "available": 4,
+    "yield_prototype": "flint",      # must equal FLINT's prototype_key
+}
+
+# The felling tool. A Tool (condition via DurableObject), tagged ("axe",
+# "crafting_tool"): the tag `forage` checks against TREE's required_tool, and
+# what the registry's `axe` entry points at. No bare "axe" alias -- the stone
+# knife's lesson: a future metal axe must never multimatch it.
+STONE_AXE = {
+    "prototype_key": "stone_axe",
+    "typeclass": "typeclasses.tools.Tool",
+    "key": "stone axe",
+    "aliases": ["stone hatchet"],
+    "desc": (
+        "A knapped flint head seated in a split wooden haft and bound tight with "
+        "twine. Heavy at the business end, and sharp enough to bite into a trunk."
+    ),
+    # SOURCE: StoneAxeRecipe (flint + stick + twine). Never consumed (a tool).
+    # SINK: wear -- every successful `forage` from a TREE costs it
+    # FORAGE_TOOL_WEAR, and a broken axe is refused until repaired.
+    "tags": [("axe", "crafting_tool")],
+    # Re-hafted, not patched: a fresh stick, lashed with twine (D.4). Without
+    # this CmdRepair falls back to the garment default (cloth/twine + needle).
+    "repair_materials": ("stick", "twine"),
+    "repair_tool_tag": "",           # bare-handed: no tool eases it (G.2)
+    "condition": 40,                 # crude bootstrap tool, as STONE_KNIFE (D.5)
+    "enc": 1,                        # Legend core p. 106: Hatchet, ENC 1
+}
+
+WOOD = {
+    "prototype_key": "wood",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "length of wood",
+    "aliases": ["wood", "log"],
+    "desc": "A length of green timber hacked from a living trunk, heavy and sound.",
+    # tag-key "wood" -- one generic tag, species is flavour (AD2, DECISION #10).
+    # SOURCE: the tree node, axe required. SINK: ClubRecipe.
+    "tags": [("wood", "crafting_material")],
+    "enc": 1,   # Q6: at least the club it is shaped into (club ENC 1)
+}
+
+TREE = {
+    "prototype_key": "tree",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "tree",
+    "aliases": ["trunk"],
+    "desc": (
+        "A tall ash, straight-grained and grey-barked, its lower limbs within "
+        "reach of an axe. Nothing comes off it by hand."
+    ),
+    "resource_type": "wood",
+    "max_yield": 3,
+    "regen_interval": 7200,          # game-seconds/length; scarcer, as the gourd vine
+    "available": 3,
+    "yield_prototype": "wood",       # must equal WOOD's prototype_key
+    "required_tool": "axe",          # crafting_tool tag-key; `forage` refuses without one
+}
+
+CLUB = {
+    "prototype_key": "club",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "club",
+    "aliases": ["cudgel"],
+    "desc": "A length of wood shaped to a heavy, knotted head and a grip worn smooth.",
+    # SOURCE: ClubRecipe (wood). SINK: none in the alpha -- no combat (AD5's
+    # "use in alpha" column; Q1 decides inert goods in AC4.0).
+    "enc": 1,   # Legend core p. 106: Club, ENC 1
+}
+
 RABBIT = {
     "prototype_key": "rabbit",
     "typeclass": "typeclasses.creatures.Creature",
