@@ -10,8 +10,10 @@ Each class pressures one bug:
 
 - TestCrumbleIsTheSingleWriter -- deleting the body before its contents. That
   is the bug harvest had: `DefaultObject.delete()` teleports contents to their
-  `home` instead of deleting them. Also the double-delete crash on a stale
-  reference.
+  `home` instead of deleting them. Even when the contents are deleted
+  afterwards, the teleport has already announced itself in the home room, so
+  that line is asserted absent as well. Also the double-delete crash on a
+  stale reference.
 - TestEveryPathReachesCrumble -- a call site that keeps its own deletion or
   its own message, i.e. a second writer creeping back in.
 - TestHarvestDestroysPlayerLoot -- the observed in-game bug, unmocked, with the
@@ -101,6 +103,21 @@ class TestCrumbleIsTheSingleWriter(_CorpseFixture, EvenniaTest):
         self.assertFalse(exists(ring_id))
         self.assertFalse(exists(corpse_id))
         self.assertFalse(ObjectDB.objects.filter(db_location=self.room2, db_key="janitorring").exists())
+
+    def test_loot_never_passes_through_its_home(self):
+        # The in-game symptom on c49b19f was a line in the item's home room:
+        # "janitorring arrives to Limbo from janitorcorpse." Deleting the body
+        # first teleports the contents home (clear_contents) *before* the loop
+        # deletes them, so the final database looks clean while the move -- and
+        # its arrival announcement and receive hooks -- still happened.
+        corpse = self.make_corpse("janitorcorpse")
+        self.make_ring(corpse, home=self.room2)
+        self.char2.move_to(self.room2, quiet=True)
+
+        with captured_messages(self.char2) as seen:
+            corpse.crumble()
+
+        self.assertFalse(any("arrives" in m for m in seen), seen)
 
     def test_room_hears_one_line_with_the_held_clause(self):
         corpse = self.make_corpse("janitorcorpse")
