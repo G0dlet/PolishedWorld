@@ -212,15 +212,12 @@ class CmdHarvest(Command):
         if not corpse:
             return
 
-        # 4. Lazy cleanup: a fully-spent corpse crumbles on interaction (the
-        #    no-ticker equivalent of the design's decay cleanup).
+        # 4. Lazy expiry: a fully-spent corpse crumbles instead of being
+        #    harvested. `is_expired` decides; `Corpse.crumble()` -- the single
+        #    writer for expiry -- deletes the contents, then the body, and says
+        #    so to the room (the harvester included).
         if corpse.is_expired:
-            name = corpse.get_display_name(caller)
-            caller.msg(f"{name} has rotted away to nothing.")
-            caller.location.msg_contents(
-                f"{name} crumbles away to nothing.", exclude=caller
-            )
-            corpse.delete()
+            corpse.crumble()
             return
 
         # 5. No part named -> just show what's available and stop (free action).

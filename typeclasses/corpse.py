@@ -135,11 +135,63 @@ class Corpse(ObjectParent, DefaultObject):
     @property
     def is_expired(self):
         """
-        True once even the skeleton has lingered out its window. Lets interaction
-        code (look/harvest in H4) lazily delete spent corpses -- the no-ticker
+        True once even the skeleton has lingered out its window -- the no-ticker
         equivalent of the design's "crumbles to dust" cleanup.
+
+        This property *decides*; it never deletes. The callers that act on it
+        (look, harvest, a player entering the room) all hand the deletion to
+        `crumble()`, the single writer for expiry.
         """
         return self._elapsed_game_hours() >= _CORPSE_EXPIRY_HOURS
+
+    # --- Expiry -------------------------------------------------------------
+
+    def crumble(self):
+        """
+        Destroy this corpse and everything inside it. The single writer (P-2)
+        for corpse expiry.
+
+        Callers decide *whether* the corpse has expired (`is_expired`); this
+        method only carries that decision out, and it is the only code that
+        does. Three call sites reach it and do nothing else:
+        `PlayerCorpse.return_appearance` (look), `CmdHarvest` step 4 (harvest)
+        and `Room.at_object_receive` (a player entering the room). There is no
+        ticker.
+
+        Contents are deleted *before* the body. `DefaultObject.delete()` does
+        not delete what an object holds: `clear_contents()` teleports each item
+        to its `home`. Deleting the body first therefore relocates the loot
+        instead of destroying it -- the bug harvest had before this method
+        existed.
+
+        The room line is decided by state, not by which path called: the
+        "lost with it" clause appears only when something was actually held.
+
+        Multiplayer note: commands run one at a time on the reactor, so the
+        risk is not parallel deletion but a stale reference -- a look and a
+        harvest, or a sweep, reaching an instance that is already gone. A
+        second `delete()` on the same instance raises `ObjectDoesNotExist`, and
+        `is_expired` on it raises (its Attributes are cleared). The pk check
+        comes first and turns a repeated call into a quiet no-op.
+
+        Returns:
+            bool: True if the corpse crumbled, False if it was already deleted.
+        """
+        if not self.pk:
+            return False
+        contents = list(self.contents)
+        if self.location:
+            held = ", and what it held is lost with it" if contents else ""
+            self.location.msg_contents(
+                f"|xThe {self.key} finally crumbles to dust{held}.|n"
+            )
+        # Contents first, then the carcass (see docstring). Per-item decay
+        # (loot lingering after the body is gone) is a BACKLOG refinement; it
+        # would land here, once.
+        for obj in contents:
+            obj.delete()
+        self.delete()
+        return True
 
     # --- Appearance ---------------------------------------------------------
 
@@ -192,30 +244,23 @@ class PlayerCorpse(Corpse):
 
     def return_appearance(self, looker, **kwargs):
         """
-        Lazy expiry sink + loot display.
+        Lazy expiry trigger + loot display.
 
         On look: if the corpse has lingered past its recovery window, it -- and
-        every item still inside -- crumbles away here. This is the no-ticker
-        realisation of the loot sink: gear not recovered in time is destroyed
-        with the body. Otherwise we defer to the inherited appearance, which
-        already lists contents via the {things} template slot, so a looter sees
-        exactly what is left to take without needing CmdContainerLook.
+        every item still inside -- crumbles away via `crumble()`, the single
+        writer for expiry. This is one of three no-ticker triggers for the loot
+        sink (harvest and a player entering the room are the others): gear not
+        recovered in time is destroyed with the body. Otherwise we defer to the
+        inherited appearance, which already lists contents via the {things}
+        template slot, so a looter sees exactly what is left to take without
+        needing CmdContainerLook.
 
-        Multiplayer note: if two players look near-simultaneously past expiry,
-        the first triggers the delete; the second's look/get simply finds nothing
-        (a graceful "not found"), never a half-deleted corpse.
+        Multiplayer note: the first trigger past expiry crumbles the corpse;
+        a later look/get finds nothing (a graceful "not found"), and a stale
+        reference reaching `crumble()` again is a no-op, never a half-deleted
+        corpse or a second delete.
         """
         if self.is_expired:
-            if self.location:
-                self.location.msg_contents(
-                    f"|xThe {self.key} finally crumbles to dust, and what it "
-                    f"held is lost with it.|n"
-                )
-            # Contents first, then the carcass. Per-item independent decay (loot
-            # lingering after the body is gone) is a future refinement; today the
-            # sink is atomic -- see decomp section 13.
-            for obj in list(self.contents):
-                obj.delete()
-            self.delete()
+            self.crumble()
             return ""
         return super().return_appearance(looker, **kwargs)

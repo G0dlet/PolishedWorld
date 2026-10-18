@@ -354,3 +354,44 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         # 0 = disabled (no random messages)
         if not self.db.room_message_rate:
             self.db.room_message_rate = 0
+
+    def at_object_receive(self, moved_obj, source_location, move_type="move", **kwargs):
+        """
+        Lazy corpse sweep: crumble expired corpses when a player arrives.
+
+        The third no-ticker trigger for corpse expiry, beside look and harvest.
+        It decides nothing new -- it acts only where `is_expired` is already
+        true -- and hands every deletion to `Corpse.crumble()`, the single
+        writer. The arriving player is already in the room here (`move_to`
+        sets the location before calling this hook), so they see the crumble
+        line before the room description.
+
+        Only puppeted arrivals trigger it. Item moves are excluded on purpose:
+        deleting a container teleports its contents to their `home`, which
+        lands here as a `move_type="teleport"` receive -- sweeping on that
+        would re-enter a sweep from inside a `crumble()`. Wandering creatures
+        and dropped items would also pay the scan without anyone watching.
+
+        Note: `move_to` wraps this hook in try/except and only logs errors, so
+        a crash here never blocks the move. Tests call the hook directly for
+        that reason.
+
+        Args:
+            moved_obj (Object): what arrived.
+            source_location (Object or None): where it came from.
+            move_type (str): passed through to the parent hook.
+            **kwargs: passed through to the parent hook.
+        """
+        super().at_object_receive(
+            moved_obj, source_location, move_type=move_type, **kwargs
+        )
+        if not moved_obj.has_account:
+            return
+        # Iterate a copy: crumble() changes self.contents. Re-check each
+        # candidate just before acting -- pk, then location, then expiry, in
+        # that order, because is_expired raises on an already-deleted corpse.
+        for obj in list(self.contents):
+            if not obj.is_typeclass("typeclasses.corpse.Corpse", exact=False):
+                continue
+            if obj.pk and obj.location == self and obj.is_expired:
+                obj.crumble()
