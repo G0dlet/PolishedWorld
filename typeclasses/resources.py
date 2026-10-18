@@ -14,6 +14,9 @@ Design: lazy simulation.
       * Forageable node (e.g. berry bush): finite `available`, regenerates
         one unit per `regen_interval` game-seconds up to `max_yield`.
         Harvested via the `forage` command, which spawns `yield_prototype`.
+        A node may set `required_tool` to a crafting_tool tag-key (a tree
+        naming "axe"); `forage` then refuses anyone not carrying a usable
+        tool with that tag, and wears the tool on each successful forage.
       * Water source (e.g. spring): `is_water_source=True`. Effectively
         infinite; never depletes or regenerates. Recognised by the
         `refill` command to top up refillable Drink containers.
@@ -42,6 +45,7 @@ class ResourceNode(Object):
     regen_interval = AttributeProperty(3600, autocreate=False)   # game-seconds / unit
     yield_prototype = AttributeProperty(None, autocreate=False)  # prototype spawned on harvest
     is_water_source = AttributeProperty(False, autocreate=False)
+    required_tool = AttributeProperty(None, autocreate=False)    # crafting_tool tag-key, or None
 
     # --- mutable state ---
     available = AttributeProperty(5, autocreate=False)

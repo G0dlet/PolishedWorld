@@ -19,10 +19,12 @@ MRO order (DurableObject, Object) is deliberate:
     * Object second, providing the DefaultObject machinery (attributes handler,
       hooks, locks) a mixin cannot supply on its own.
 
-No wear *trigger* lives here on purpose. What nicks a tool's condition is a
-completed craft, and that belongs to the recipe layer (Component D), not to the
-tool typeclass. Keeping Tool empty of tool-specific logic is a design invariant:
-a Tool is exactly "an Object that can wear down", no more.
+No wear *trigger* lives here on purpose. What nicks a tool's condition is the
+work it is used for -- a completed craft (the recipe layer, Component D) or a
+successful forage from a node that requires it (`forage`, AC2.1) -- and each
+trigger belongs to the system doing the work, not to the tool typeclass.
+Keeping Tool empty of tool-specific logic is a design invariant: a Tool is
+exactly "an Object that can wear down", no more.
 """
 
 from typeclasses.durable import DurableObject
@@ -31,7 +33,7 @@ from typeclasses.objects import Object
 
 class Tool(DurableObject, Object):
     """A durable crafting tool. Inherits condition/apply_wear/is_broken from
-    DurableObject; carries no tool-specific logic of its own (Component D owns
-    the wear trigger)."""
+    DurableObject; carries no tool-specific logic of its own (the systems that
+    use a tool -- crafting, forage -- own its wear triggers)."""
 
     pass

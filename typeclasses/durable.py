@@ -11,8 +11,9 @@ and, later, tools (Tool, Component C) inherit it, so clothing and tools share on
 wear axis, one repair target, and one word for "how worn is this".
 
 No wear *trigger* lives here. What nicks a thing's condition differs per type
-(garments: time/wearing via a future script; tools: per completed craft), so the
-trigger belongs to those systems (Component D), not to the axis itself.
+(garments: time/wearing via a future script; tools: per completed craft or
+per successful forage from a node that requires them), so the trigger belongs
+to those systems (Component D, `forage`), not to the axis itself.
 
 Mixin, not a typeclass: `condition` is an AttributeProperty, which only becomes a
 real db-backed Attribute once this class is mixed into an actual typeclass (one

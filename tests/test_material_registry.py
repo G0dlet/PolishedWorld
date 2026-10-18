@@ -39,8 +39,9 @@ Each per-entry check runs in a subTest, so one run names every bad entry.
 A guard runs first: an empty prototype or recipe set would make every
 "for each ... assert" loop pass vacuously.
 
-NOT YET COVERED (T3): (d) does not look at a node's `required_tool`. That
-field does not exist until AC2.1; the branch lands with it (AC2.2 at latest).
+NOT YET COVERED (T3): (d) does not look at a node's `required_tool`. The
+field exists since AC2.1; the branch lands in AC2.2 with TREE, the first node
+prototype to set it, so that it has a real receipt (`axe` fails (d) without it).
 """
 
 from evennia.contrib.game_systems.crafting.crafting import (
@@ -162,7 +163,7 @@ class TestMaterialRegistry(EvenniaTestCase):
                 self.assertIn(key, self.consumed)
 
     def test_d_every_exists_tool_is_used(self):
-        # T3: node `required_tool` is not counted yet -- it lands in AC2.1.
+        # T3: node `required_tool` is not counted yet -- it lands in AC2.2.
         for key, entry in reg.TOOLS.items():
             if entry["status"] != reg.EXISTS:
                 continue
