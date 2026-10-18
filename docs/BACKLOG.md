@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 41 · 2026-10-18** — one entry **added**, six **annotated**, three statuses **changed**. **Added** (*Containers*): **Weight and encumbrance (Legend ENC) — decompose before code**, OPEN as an alpha prerequisite (roadmap Rev 28 (E)): the data starts in the alpha content epic (AD8), the mechanic gets its own decomposition because the rule does not translate directly, and *Full container support* is folded into it, its trigger (craftable bags) being met by batch AC4.2. *Persistent alpha instance* is annotated with the seventh prerequisite, and *Fatigue-exhaustion consequence* with the weight mechanic's dependency on it and its chosen direction — Legend's Fatigue levels read as penalty bands on the gauge, with an Athletics test at the bottom whose failure forces a short rest (B), the forced rest being the last step rather than the first consequence. The weight entry records the intended direction — overload drains fatigue faster, so a loaded character rests more often, and costs in combat — and how Legend reaches the same place through harder Fatigue tests rather than a faster rate. And the alpha content epic is decomposed in `docs/PolishedWorld_Alpha_Content_Decomposition.md` (Rev 1). *Alpha content epic* goes **OPEN (due) → SCHEDULED**; its annotation records the two choices it left to the decomposition — a stone axe with a tool check in `forage` (AD1), because Flint and Tinder, flint's only consumer among the 44, is blocked on a steel striker; generic `wood` for the alpha with DECISION #10's revisit moved to Stage 5 (AD2), because a bow has no mechanic before combat — and three of its own figures the decomposition corrects: about 29 reachable items is **24** by name, the bow does not need `sinew`, and the registry drift is six entries plus `stick`, including `feather` and `tusk` marked EXISTS with no source since the registry's first commit. *Public test server*'s seeding part becomes component AC3 and *⛔ The recipe catalogue does not span the skill scale*'s E.1 becomes AC5; E.2 and the wiped box keep their statuses. The epic's "registry, ledger and AoL sweep in one commit" is kept for the registry and moved to the docs close-out for the two docs, because `main` does not describe branch code as shipped (decomposition AD6).
 > **Rev 40 · 2026-10-17** — four entries **added**, four **annotated**, one status **changed**, all from the track-order decision (roadmap Rev 27). **Added:** *Alpha content epic — decompose before code* (Crafting & Tools, OPEN and due next session) — the FAS 1 cut, the registry corrections, seeding, the catalogue batches and E.1 as one decomposition, because costing showed them to be one epic; *Tanning upgrade — bark and water as `LeatherRecipe` inputs* (OPEN), the System Backlog §4 sketch kept as an upgrade now that tanning is ratified as shipped; *Persistent alpha instance* (Tooling & Process, BLOCKED on the alpha prerequisites), the owner Rev 38 recorded as missing, wiped at alpha close-out; and *Four docs under `docs/crafting/` and `docs/reference/` carry no Rev header*, found while giving the System Backlog its first. **Annotated:** the catalogue entry (a narrower FAS 1, tanning already delivered, catalogue authoring named as a step before E.1); *Public test server* — (a) moves onto the alpha track as the node-placement path, (b) is unchanged, and the entry's claim that world data already exists in `world/testworld_data.py` is corrected, since no such file is on `origin`; *System Backlog altitude* — its trigger is effectively met, and the rev header it cited did not exist until today; *Parchment* — **BLOCKED → OPEN**, because its trigger was tanning landing and tanning landed eighteen days before the entry was written. ⚠️ **One root cause under three of these:** `LeatherRecipe` shipped on 2026-06-30 and `world/material_registry.py` was not updated, so every document that asked the registry whether tanning existed was told no — the parchment entry, the alpha decision's (B) and the System Backlog. Correcting the registry is code and lands with the materials in the alpha content epic; this Rev records how far the drift reached.
 > **Rev 39 · 2026-10-17** — one entry **decided**, one **annotated**, two **added**, all from the death-consequence policy (roadmap Rev 26). *`CoinPile` vs the corpse's atomic content delete* goes **SCHEDULED → DECIDED**, two stages early: its trigger was Stage 5 kickoff, but what it asked was a policy question — does any cleanup path get to destroy currency — and the policy session answered it with a rule rather than a `CoinPile` detail: **never; an abandoned pile is transferred to the Treasury with a ledger entry**. The entry's three candidates are all retired, and the text says why: two of them (exempt the pile, drop it on the floor) leave a `CoinPile` in a room that Stage 6 may recycle, which is the same unlogged burn moved to another file, and the third amends the principle that makes the economy auditable. The trigger for the *code* is unchanged. *Bank / post office* gains the owner-first grace in the sentence that already described the corpse, so it does not promise a risk the policy softened. **Added**, both under *Death & Corpses*: **death contract surfaces** — the owner-first `get_from` lock, the death message that carries the contract, and `help death`, with the seven prose sites in four files that the policy falsifies listed in the entry so they are changed in the same commit and not found afterwards; and **`at_character_death()` restore block vs persistent wound tiers**, BLOCKED on Stage 5, which is the die-to-heal hazard the roadmap entry names — filed now, before the wound model is coded, so the epic that adds locational HP reads it before touching the restore block rather than after.
 > **Rev 38 · 2026-10-17** — two entries **annotated**, none added, both from the alpha milestone decision (roadmap Rev 25). *⛔ The recipe catalogue does not span the skill scale* gains the census the roadmap's open question asked for: its 110/152 figures — written here on 2026-08-12 and copied upward — are tag occurrences, not items; at item level the AoL decomposition holds 44 `[DATA]` finished items against 43 `[BLOCKED]`, with the same depth distribution on both sides, and neither the decomposition nor *Arms of Legend* carries a per-item difficulty. The Trigger is unchanged; what changes is *when* E.1 may run — after FAS 1 and tanning, per the roadmap decision — and the entry now says so, because an entry whose trigger can be met by assignment alone would otherwise invite exactly the guessing its own Trigger forbids. *Public test server with nightly reset* gains a conflict note rather than a change: its hosting half is sequenced *after Stage 5*, and its own text says the wiped box cannot test the economy pillar, while the alpha now defined excludes combat and exists to test pillar 1. Status is left as it is — the conflict is sequencing, which is roadmap altitude, and it is settled there with the track order; the annotation is here so the trigger is not read as current by someone who reads only this file.
@@ -472,6 +473,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   being read once that decomp is closed; if the trigger below is ever met, start
   here. E's own tasks (E.1 `min_skill` laddering, E.2 the trivial-work gate) are
   specified there in full.
+- **Annotation (2026-10-18, alpha content decomposition):** E.1 is task **AC5.1** of
+  `docs/PolishedWorld_Alpha_Content_Decomposition.md`, after three catalogue batches over the **24**
+  reachable items listed in its §4. The list carries a use-in-alpha column:
+  six are garments that wear, three are containers that matter once *Weight and
+  encumbrance* ships, thirteen are goods nothing in the alpha uses — ladder
+  rungs, or not, is decided before the first batch (its Q1). E.2 and the
+  two-jobs hazard stay here.
 - **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
   decomposing Component E; re-homed at Rev 8 close-out.
 - **Status:** BLOCKED
@@ -504,8 +512,26 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Tasks before code, and the decomposition is where (1)'s two choices are made.
 - **Trigger:** The next PolishedWorld session — the alpha track is coded first
   (roadmap Rev 27 (D1)). *Death contract surfaces* does not wait on it.
+- **Annotation (2026-10-18, decomposed — `docs/PolishedWorld_Alpha_Content_Decomposition.md` Rev 1):** five components and a
+  close-out, AC1–AC6, 12 tasks, 7.5–10 sessions. The two choices are made:
+  **felling** is a stone axe and a hard tool check in `forage`, with wear (AD1) —
+  the only option that gives `flint` a consumer, since Flint and Tinder needs a
+  steel striker that is `[BLOCKED: smithing]`; **DECISION #10** is generic `wood`
+  for the alpha, its revisit re-anchored to Stage 5 (AD2) — the condition is
+  *mechanical* need, and a bow has no mechanic before combat, so it cannot fire
+  inside the alpha as this entry says. **Corrections to the text above:** the
+  reachable catalogue is **24** items, listed by name in the decomposition's §4,
+  not about 29 — five trees do not resolve as written; `sinew` is **not** needed
+  for the bow, whose fiber string is its own `[DATA]` branch (AD4), so
+  `world/harvest_templates.py` is untouched; and the registry corrections are
+  wider than (2) lists — a loop over the whole registry finds `bone` and
+  `needle` live but DATA, and `feather` and `tusk` EXISTS with no prototype or
+  source since `0e0d224` (AD3). (2)'s *same commit* holds for the registry,
+  which is code on the branch; the ledger and the AoL sweep are docs and move
+  to the close-out on `main` (AD6). Every item prototype carries Legend `enc`
+  from AC2.2 on, read by nothing until *Weight and encumbrance* (AD8).
 - **Origin:** FAS 1 costing session (2026-10-17).
-- **Status:** OPEN (due)
+- **Status:** SCHEDULED (`docs/PolishedWorld_Alpha_Content_Decomposition.md` Rev 1)
 
 ### Tanning upgrade — bark and water as `LeatherRecipe` inputs
 - **What:** `LeatherRecipe` tans `raw_hide`×2 with an optional knife. The System
@@ -894,12 +920,88 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   skill penalties, etc.), so fatigue matters like hunger/thirst do.
 - **Why deferred:** Not yet needed for the core loop; unblocks `DeathWeakness`.
 - **Trigger:** None hard; also the prerequisite for the death-weakness re-point.
+- **Annotation (2026-10-18) — direction chosen (B), Legend-faithful:** the
+  gauge is read in bands matching Legend's Fatigue levels (core pp. 89–90) —
+  Winded, Tired, Wearied, Exhausted, Debilitated — each a penalty on skill checks
+  through the resolver, −10 % to −50 %. At the bottom, an Athletics test each
+  survival tick (Legend's skill for activity Fatigue tests; the project has no
+  Persistence), and a failure collapses the character into a short **forced
+  rest**. Legend's own end state is a failed Persistence test and
+  unconsciousness; this is that, with a rest the player recovers from. The ramp
+  comes first so a player feels the edge coming; the forced rest is the last
+  step, not the first consequence. *Rejected:* **A**, a hard forced rest at zero
+  — a cliff with no warning; **C**, refusing physical actions at zero — it never
+  forces the rest. *Why it matters now:* *Weight and encumbrance* (*Containers*)
+  intends overload to drain fatigue faster, which does nothing until this
+  ships; that entry's decomposition decides whether this one is inside it, a
+  dependency of it, or follows. **Open, for this entry's own decomposition:**
+  the forced rest's length — Legend's 1D3×2 hours is 30–90 real minutes at
+  `TIME_FACTOR = 4`, far too long; whether eating and drinking are allowed
+  during it, since the ticker keeps draining hunger and thirst; the band
+  thresholds, and whether the tick test grows harder with depth (Legend's
+  *Debilitated* test is Difficult); that the forced rest **refuses** movement,
+  unlike every timed action today (`at_pre_move` interrupts and allows the move,
+  Epic A D1); and Stage 5 — a collapsed character is defenceless, which is
+  designed with combat, not here. Once this ships, the `DeathWeakness` re-point
+  in *Why deferred* is unblocked.
 - **Origin:** Survival mechanics (core loop).
 - **Status:** OPEN
 
 ---
 
 ## Containers
+
+### Weight and encumbrance (Legend ENC) — decompose before code
+- **What:** Legend's encumbrance rule (core p. 86): every item has an ENC score,
+  and about 20 items too light to score count as 1 ENC when carried in a sack or
+  backpack; a character carries up to STR+SIZ without penalty and is
+  *Overloaded* above it — −20 % to physical tests, Movement halved, −20 % to
+  Fatigue tests; a mount carries its own ENC and never more than double it. Plus
+  storage containers — `CmdPut` and a container whose capacity is ENC, not item
+  count — so *Full container support* below is folded into this entry. The data
+  is not this entry's: from the alpha content epic on, every item prototype
+  carries `enc` (`docs/PolishedWorld_Alpha_Content_Decomposition.md` AD8), and a test keeps it complete.
+- **Why deferred:** The rule does not translate directly, and the translation is
+  design work: a room-based world has no Movement rate to halve (a move cooldown?
+  fatigue per room?); the project's fatigue is a survival counter, not Legend's
+  Fatigue test (see *Fatigue-exhaustion consequence*); coin lives in a wallet
+  attribute, not in objects; STR and SIZ are `static`, base 10, on every
+  character until character creation; and `ContainerCmdSet` cannot be installed
+  whole — it replaces the seasonal `look` — while `ContribContainer.capacity`
+  counts items, with `at_pre_put_in` as the documented override point (Evennia
+  `v6.1.0`, `evennia/contrib/game_systems/containers/containers.py`).
+- **Why it is an alpha prerequisite (roadmap Rev 28, alpha entry (E)):** pillar 1
+  measures emergent prices, and without weight distance costs nothing — one
+  character carries any quantity anywhere, haulage is no service, and a price
+  cannot differ between where a thing is gathered and where it is used. Weight
+  gives the economy a geography, and the alpha's three craftable containers a use.
+- **Trigger:** A decomposition session of its own, any time after the alpha
+  content decomposition; **must be on `main` before *Persistent alpha instance*
+  opens** — objects spawned there before a reader exists would need migrating,
+  while every database before it is wiped by the seed.
+- **Direction (2026-10-18), and how Legend maps it:** overload should drain
+  fatigue faster, so a loaded character must rest more often, and it should cost
+  in combat. Legend reaches the same place through tests rather than a rate:
+  *Overloaded* is −20 % to Fatigue tests (core p. 86), each failed Fatigue test
+  drops one level, and the levels carry −10 % to −50 % on all tests, Strike Rank
+  and Combat Action penalties, and unconsciousness tests from *Exhausted*
+  (pp. 89–90). In the project's gauge model a harder test becomes a faster rate:
+  an `Overloaded` buff with a `fatigue_rate` mult mod, recomputed each tick as
+  `ColdStress` and `HeatStress` already are (`world/survival_buffs.py`). Combat
+  takes Legend's direct −20 % on weapon tests in Stage 5, through the skill-check
+  modifier. The weight mechanic exposes **one** overloaded state that both the
+  survival ticker and the resolver read (P-2), so combat never sums weight
+  itself. Armour's Strike Rank penalty is a separate Legend rule (AP ÷ 5), not
+  ENC.
+- **Open question for the decomposition:** fatigue at zero has no consequence
+  today — `world/survival_ticker.py` defers it to the skill-check resolver, and
+  *Fatigue-exhaustion consequence* (*Survival*) is OPEN — so a faster drain
+  changes nothing on its own. The decomposition decides whether that
+  consequence is inside it, a dependency of it (which would make it an alpha
+  prerequisite in practice), or whether the direct −20 % on physical tests
+  carries the alpha alone.
+- **Origin:** Alpha content decomposition session (2026-10-18), AD8.
+- **Status:** OPEN (alpha prerequisite — decompose before code)
 
 ### Full container support
 - **What:** Generic `CmdPut` + a reusable `ContribContainer` typeclass (bags,
@@ -909,8 +1011,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   deliberately excluded `ContainerCmdSet` to avoid a `look` collision with
   `ExtendedRoomCmdSet`. Full support needs bags/chests to exist first.
 - **Trigger:** Bags/chests as craftable items.
+- **Annotation (2026-10-18):** folded into *Weight and encumbrance* above, which owns
+  `CmdPut` and a container with ENC capacity. This entry's trigger is met inside
+  the alpha content epic — backpack, sack and saddlebag become craftable in batch
+  AC4.2 — so it moves with that entry rather than firing on its own.
 - **Origin:** Hunting / H7.3b decomposition backlog.
-- **Status:** BLOCKED (no container items yet)
+- **Status:** SCHEDULED (with *Weight and encumbrance*)
 
 ---
 
@@ -1443,9 +1549,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   not on `origin` in any commit, and `server/conf/at_initial_setup.py` is the
   unmodified template. Part (a) therefore authors the world data as well as the
   hook — the first versioned record of where anything in the world stands.
+- **Annotation (2026-10-18, alpha content decomposition):** part (a) is component
+  **AC3** of `docs/PolishedWorld_Alpha_Content_Decomposition.md`. Two things the decomposition verified against Evennia
+  `v6.1.0` change its shape. The setup hook's `ImportError` at module import is
+  swallowed and the step still recorded as done — a world that never seeds and
+  never retries — while an exception from the hook function stops startup and
+  re-runs it, so the seeder is imported inside the function and is idempotent.
+  And the seed does not create the Treasury: `typeclasses/treasury.py` forbids a
+  fresh database acquiring a money-holding object nobody placed, so it is a
+  runbook step. The reset script stays (a)'s, built only if the runbook wants it.
 - **Origin:** Session 2026-09-09 (test-server discussion; option B chosen —
   build seeding and reset now, host later).
-- **Status:** OPEN (seeding — alpha track) / BLOCKED on Stage 5 (wiped-box hosting)
+- **Status:** SCHEDULED (seeding — alpha content decomposition, AC3) / BLOCKED on Stage 5 (wiped-box hosting)
 
 ### Persistent alpha instance
 
@@ -1469,6 +1584,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   first death. The sixth prerequisite, the launch minimum, is decided together
   with this instance, since moderation tooling only means something on a box
   players can reach.
+- **Annotation (2026-10-18, roadmap Rev 28 (E)):** the trigger gains a seventh
+  prerequisite, *Weight and encumbrance* on `main`. Like *Death contract
+  surfaces* it sits outside (A)'s chain. It must precede this instance rather
+  than follow it because objects spawned here before `enc` has a reader would
+  need a migration — the cost the close-out wipe exists to avoid.
 - **Origin:** FAS 1 costing session (2026-10-17), roadmap Rev 27 (D3) — the gap
   Rev 38 recorded: no entry owned a persistent alpha instance.
 - **Status:** BLOCKED (alpha prerequisites)

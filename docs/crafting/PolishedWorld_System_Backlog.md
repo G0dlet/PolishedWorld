@@ -1,5 +1,6 @@
 # PolishedWorld — System Backlog (14 Systems Needed)
 
+> **Rev 2 · 2026-10-18** — **System 1:s två val är fattade** i `docs/PolishedWorld_Alpha_Content_Decomposition.md` (Rev 1), och alfanoten säger nu vad som valdes i stället för att något ska väljas. Fällning med stenyxa och verktygskontroll i `forage` (AD1), eftersom flinta annars saknar konsument i alfan; generiskt `wood` (AD2). Rev 1:s mening att DECISION #10:s omprövningsgrund ligger inom alfan stämmer inte: grunden är *mekaniskt* behov, och en båge har ingen mekanik före strid.
 > **Rev 1 · 2026-10-17** — **Första Rev-headern; FAS 1 får ett alfasnitt och System 4 visar sig redan levererat** (roadmap Rev 27, alfaposten (D)). Filen saknade header trots `AGENTS.md` §9; tidigare ändringar finns i `git log` och i datumnoten nedan. **System 4:** `LeatherRecipe` (`raw_hide` ×2, kniv valfri) skeppades 2026-06-30 (`896ce33`) — garvning finns som soft hand-craft; DECISION #2 ratificeras som skeppad, bark och vatten blir en uppgradering i `docs/BACKLOG.md`. **FAS 1 i alfan** är det sänkbärande snittet: trä, flinta, lera (sten finns); malm, sand, ockra, svavel och salpeter väntar på det system som konsumerar dem. **ESTIMERAD ARBETSMÄNGD** räknar artefakter, inte kostnad — kostnaden står i roadmap, alfaposten (D).
 > **Canonical:** `docs/crafting/PolishedWorld_System_Backlog.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -30,7 +31,7 @@ Spelare kan samla trä från träd (ek, ask, yxe, etc.) via ResourceNodes.
 
 **Prioritet:** KRITISK — trä behövs i nästan allt.
 
-**Alfan (roadmap Rev 27, D2):** ingår. Två val görs i alfans innehållsdecomp: fällningsmodellen (dödfall utan verktyg, som `stick_deadfall`, eller sten-/flintyxa och en verktygskontroll som `CmdForage` saknar idag) och DECISION #10. Generiskt `wood` gäller — `oak_wood`/`ash_wood` är förbjudna varianter i registret, så exemplen ovan är inaktuella — men DECISION #10:s egen omprövningsgrund, bågar i ask eller idegran, ligger inom alfan.
+**Alfan (roadmap Rev 27, D2; beslutat 2026-10-18 i `docs/PolishedWorld_Alpha_Content_Decomposition.md`):** ingår. **Fällning med stenyxa** (AD1): trädnoden kräver `axe`, `CmdForage` får en verktygskontroll och sliter yxan — det ger flintan dess enda konsument i alfan, eftersom Flint and Tinder kräver en stålstrikare. **Generiskt `wood`** (DECISION #10, AD2) — `oak_wood`/`ash_wood` är förbjudna varianter i registret, så exemplen ovan är inaktuella. Omprövningsgrunden, bågar i ask eller idegran, gäller *mekaniskt* behov och kan inte utlösas i en alfa utan strid; den flyttas till Stage 5.
 
 ---
 
