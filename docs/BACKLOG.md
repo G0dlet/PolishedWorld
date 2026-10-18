@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 44 · 2026-10-18** — one entry **closed**, one **unblocked**, three **annotated**, all from `feature/janitor`, merged to `main` in `cea296d` (fix `c95eb85`, test `73249d6`, tree `b3f56c3`). *⚠️ Corpse expiry fires only on direct interaction* goes **OPEN → DONE**: `Corpse.crumble()` is the single expiry writer, and look, harvest and a new `Room.at_object_receive` sweep call it and nothing else. Two places where the delivery departs from the entry's text are recorded in its *Status* rather than smoothed over: the sweep fires on **puppeted arrivals only**, not on anything entering, and the entry's *20 expired* receipt overcounted. *Ambient sweeper NPC* goes **BLOCKED → OPEN** and gains the consequence of that scope: the room hook does not fire for it. *`CoinPile` vs the corpse's atomic content delete*, *Death contract surfaces* and *Per-item corpse decay* are re-read against the merged code; the death contract's prose-site count rises from seven to eight.
 > **Rev 43 · 2026-10-18** — two entries **added**, two **annotated**, all from the cozy-NPC design discussion. **Added** (*Death & Corpses*): **⚠️ Corpse expiry fires only on direct interaction — and its two writers disagree**, OPEN as an alpha prerequisite: room `look` never triggers the lazy sink, and `harvest` on an expired `PlayerCorpse` *moves* its loot to `home` via Evennia's `clear_contents()` instead of destroying it; the fix is one `Corpse.crumble()` writer plus a tickerless `Room.at_object_receive` sweep. **Added** (*World & Rooms*): **Ambient sweeper NPC**, BLOCKED on that writer — ambience only, it never decides a deletion. **Annotated:** *`CoinPile` vs the corpse's atomic content delete* (the Treasury sweep lands in `crumble()`) and *Death contract surfaces* (the crumble prose site moves there).
 > **Rev 42 · 2026-10-18** — one entry **annotated**, one status pointer **moved**: *Alpha content epic* — task AC1.1 shipped on `main` (`cb60434`), and the entry now points at the decomposition's Rev 2, which records it. Nothing else changes.
 > **Rev 41 · 2026-10-18** — one entry **added**, six **annotated**, three statuses **changed**. **Added** (*Containers*): **Weight and encumbrance (Legend ENC) — decompose before code**, OPEN as an alpha prerequisite (roadmap Rev 28 (E)): the data starts in the alpha content epic (AD8), the mechanic gets its own decomposition because the rule does not translate directly, and *Full container support* is folded into it, its trigger (craftable bags) being met by batch AC4.2. *Persistent alpha instance* is annotated with the seventh prerequisite, and *Fatigue-exhaustion consequence* with the weight mechanic's dependency on it and its chosen direction — Legend's Fatigue levels read as penalty bands on the gauge, with an Athletics test at the bottom whose failure forces a short rest (B), the forced rest being the last step rather than the first consequence. The weight entry records the intended direction — overload drains fatigue faster, so a loaded character rests more often, and costs in combat — and how Legend reaches the same place through harder Fatigue tests rather than a faster rate. And the alpha content epic is decomposed in `docs/PolishedWorld_Alpha_Content_Decomposition.md` (Rev 1). *Alpha content epic* goes **OPEN (due) → SCHEDULED**; its annotation records the two choices it left to the decomposition — a stone axe with a tool check in `forage` (AD1), because Flint and Tinder, flint's only consumer among the 44, is blocked on a steel striker; generic `wood` for the alpha with DECISION #10's revisit moved to Stage 5 (AD2), because a bow has no mechanic before combat — and three of its own figures the decomposition corrects: about 29 reachable items is **24** by name, the bow does not need `sinew`, and the registry drift is six entries plus `stick`, including `feather` and `tusk` marked EXISTS with no source since the registry's first commit. *Public test server*'s seeding part becomes component AC3 and *⛔ The recipe catalogue does not span the skill scale*'s E.1 becomes AC5; E.2 and the wiped box keep their statuses. The epic's "registry, ledger and AoL sweep in one commit" is kept for the registry and moved to the docs close-out for the two docs, because `main` does not describe branch code as shipped (decomposition AD6).
@@ -776,7 +777,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **What:** Independent decay timers per loot item, so loot lingers after the
   corpse rots (leather before steel) instead of the current atomic delete.
 - **Why deferred:** Current `PlayerCorpse` deletes all loot at expiry; the
-  centralised deletion in H7.3 makes per-item decay a clean later addition.
+  single expiry writer, `Corpse.crumble()` (Rev 44), makes per-item decay a
+  clean later addition: it would land there, once.
 - **Trigger:** None hard; a refinement on the closed H7 loop.
 - **Origin:** Hunting / H7 decomposition backlog.
 - **Status:** OPEN
@@ -818,7 +820,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   sweep lands in the same task that makes the pile droppable, so the rule is
   never false on `main` for a single commit. *(Rev 43:)* it lands in `Corpse.crumble()`,
   the single expiry writer from the entry below, so the room hook and the
-  sweeper NPC inherit it for free.
+  sweeper NPC inherit it for free. *(Rev 44:)* re-read against `cea296d`:
+  `crumble()` exists, and its contents loop is now the only content delete at
+  expiry, so the transfer goes before that loop. The *What*'s address
+  (`PlayerCorpse.return_appearance`) is historical.
 - **Origin:** Found in Stage 4 B.2 while reading corpse behaviour for the
   same-room payment rationale (2026-07-30). Decided in the death-consequence
   policy session (2026-10-17).
@@ -864,7 +869,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   holding. Best before `feature/death-contract`, which rewrites the crumble line
   — after extraction that line lives in one place.
 - **Origin:** Cozy-NPC design discussion (2026-10-18).
-- **Status:** OPEN (alpha prerequisite — implementation)
+- **Status:** **DONE** (2026-10-18). Merged to `main` in `cea296d`
+  (`feature/janitor`: fix `c95eb85`, test `73249d6`). `Corpse.crumble()` deletes
+  the contents, then the body, and prints one room line whose *lost with it*
+  clause appears only when something was held; harvest's own two lines are
+  retired. A pk guard makes a repeat call on a stale reference a no-op: Evennia's
+  second `delete()` on the same instance raises `ObjectDoesNotExist`
+  (`evennia/typeclasses/models.py`), so the guard is load-bearing, not tidy.
+  **Two departures from the text above, recorded rather than smoothed over.**
+  (1) The sweep fires on **puppeted arrivals only** (`moved_obj.has_account`),
+  not when anything enters: `clear_contents()` teleports a deleted container's
+  contents home with `move_type="teleport"`, so sweeping on item arrivals would
+  re-enter a sweep from inside a `crumble()`. (2) The *Receipt* above
+  overcounted: after the fix, walking into Limbo crumbled 14 of the 18 corpses
+  left, and the other 4 measured 64–271 h against a 288 h window — never
+  expired. The harvest relocation **was** observed in-game before the fix
+  (*"janitorring arrives to Limbo from janitorcorpse"*) and is gone after it.
+  `tests/test_corpse_expiry.py`: 14 tests, the first 13 red on `c49b19f`;
+  mutation run 11 of 14 killed, the 3 survivors equivalent (test commit
+  message). Keep for traceability, prune at the next backlog sweep.
 
 ### Death contract surfaces — owner-first loot grace, death message, `help death`
 - **What:** The player-facing half of the death-consequence policy (roadmap Rev
@@ -899,7 +922,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   cannot read is not settled. Does not wait on Stage 5: none of the three touch
   the wound model. *(Rev 43:)* if *Corpse expiry fires only on direct
   interaction* lands first, the crumble line in the prose-site count lives in
-  `Corpse.crumble()` — still one site, new address.
+  `Corpse.crumble()` — still one site, new address. *(Rev 44:)* it did land
+  first (`cea296d`). Recounted against that tree: every quoted phrase is still
+  present, and there is **one new site** — `crumble()`'s docstring describes the
+  *lost with it* clause, which is now printed only when the corpse held
+  something. **Eight sites in four files.**
 - **Origin:** Death-consequence policy session (2026-10-17), point (v); the
   grace from point (iii).
 - **Status:** OPEN (alpha prerequisite — implementation)
@@ -1176,9 +1203,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** *Corpse expiry fires only on direct interaction* merged to
   `main`. Create the NPC object in the DB only **after** its typeclass is on
   `main`: on a branch without it, Evennia falls back to a default typeclass and
-  logs an error on every load.
+  logs an error on every load. *(Rev 44:)* met — merged in `cea296d`.
+- **Room-hook scope (Rev 44):** the merged sweep runs only for puppeted
+  arrivals, so an NPC walking in triggers nothing; the sweeper must run the
+  sweep itself. When the NPC is built, lift the loop out of
+  `Room.at_object_receive` into a `Room` method and have both call it — one
+  home for the loop, as `crumble()` is one home for the deletion — rather than
+  copying the loop into the NPC.
 - **Origin:** Cozy-NPC design discussion (2026-10-18), option B3.
-- **Status:** BLOCKED (corpse-expiry single writer)
+- **Status:** OPEN (Rev 44 — single writer merged in `cea296d`)
 
 ### Builder QoL for dynamic rooms (preview · `roommsg` · authoring convention)
 - **What:** Three small ergonomic fixes to the Extended Room builder surface.

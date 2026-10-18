@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 10 · 2026-10-18** — **New §11g: a final-state assertion cannot see a transient side effect.** From the `feature/janitor` mutation run (BACKLOG Rev 44): the mutant that restored the original bug's order — delete the corpse, *then* its contents — survived every test, because the database ended up clean either way. The teleport had still happened, and announced itself in the item's home. The test that kills it listens for that announcement.
 > **Rev 9 · 2026-10-17** — **Epic A's fifteen candidates, filed in two groups, and one idiom Epic A made false.** Twelve candidates sat in the Timed Actions decomposition's §8 and three came from the session that wrote the D3 help-text commit; the decomp closes with this commit, so they land here or nowhere. **Writing tests and protocols.** New **§11f**: a spy that records what was said *during* the call under test (death sends lines of its own), patching a name where the code looks it up, a method spy that misses class-body aliases, and the single-value test that cannot tell a read from a hard-coded copy. **§11a** gains the `@py`-lowered gauge whose ticker line is the protocol's own echo. **§7** gains where `spawn` puts things. **§11b** gains two harness rules: a mutator applies all of its replacements or none, and a harness that finds no `Ran` line has not read a result — Django's runner writes it on stderr. New **§13**, what a suite run proves: an interrupted run counts for nothing, expected failures depend on the working tree's configuration and are checked by name, and `evennia test -v 2` runs no tests. **Delivering.** New **§14**: `git apply -R --check` locates hunks and proves nothing; a simulation reads its blocks out of the delivered file, where "exactly one match" is a substring count, so an ERSÄTT block that is a prefix of its MED block matches the already-patched file too; receipts quoted in prose are copied after the last regeneration. **The false idiom:** §7's *"deterministic cooldown abort"* stamped `craft:<name>`, a key `craft` has not read since TA2.2. It is struck through rather than deleted, and replaced with the way to make `craft` refuse now.
 > **Rev 8 · 2026-10-08** — **Four findings from Epic A TA1.2, and three of them are Rev 5–7's failure in new clothes: an observation that cannot tell the code working apart from the code not running.** New **§1b**: in `@py`, `self` *is* the caller — the character — not a Command, so `self.caller` raises `AttributeError`. §1 already said `self` is injected; it never said what it is, and a protocol written by someone thinking in `Command.func()` reached for `self.caller` in two steps, one of which had to run inside a 20-second chore window. New **§11d**: `move_to(quiet=True)` silences the *room's* announcements but not the mover's arrival `look`, so "nothing was said during the move" cannot be asserted through it — and the tempting repair, "nothing *interrupt-shaped* was said", passes against a hook that never ran. Call the hook directly; its return value is the receipt. New **§11e**: an absence after a *timer* ("the stale callback paid nothing") reads the same at second 5 as at second 60, so the step needs a stated wall-clock margin or a receipt that cannot predate the timer; and wall-clock numbers in a protocol's expected outcome are read from source — the TA1.2 protocol said a chore's cooldown was five minutes, and `TEMPLE_TASKS` says 3600 seconds. **§11b** gains the harness trap: a mutation loop that restores with `git checkout -- <file>` restores to `HEAD`, which before the commit is the code *without* the change, so every mutant runs against the old code — and a mutator whose "exactly one match" assertion is swallowed by the shell loop lets a mutant that never applied run as a no-op. The tell is distinct mutants producing **identical** failure lists.
 > **Rev 7 · 2026-08-24** — **Three verified findings from the Stage 4.5 D.2 run, and all three are ways a diagnostic can report success while proving nothing.** §1 gains the **exec-mode silence trap**: `py` compiles in `eval` mode and falls back to `exec` the moment the line contains a *statement* — an import, an assignment — and in `exec` mode `eval()` returns `None`, which `py` discards. So `@py from x import y; str(y())` prints **nothing**, and four steps of a protocol read as failures when the code had run correctly. Push the value with `self.msg(str(...))`. New **§11c** covers the prose-verification loop and two ways it lies: unquoted `--include=*.py` under **zsh** triggers `NOMATCH`, which aborts `grep` before it searches while the loop still prints its all-clear (bash passes the unmatched glob through, so the same line behaves differently in the two shells); and a *line*-based loop can never reach silence against a correctly superseded claim, because the superseding convention requires the retired text to stay in the file. The loop has to read a **block**. Also records the rule that makes the loop trustworthy at all: run it once *before* the fix, and confirm it produces hits — otherwise its later silence cannot be told apart from it never having searched.
@@ -560,6 +561,39 @@ literal 20, and a recipe whose value equals the base default passes against one
 that reads the base. Use two values that differ from each other *and* from the
 default, and assert that premise in the test, so that a recalibration fails the
 test instead of quietly weakening it (Epic A T29: twine 20, cloth 25, base 30).
+
+### 11g. A final-state assertion cannot see a transient side effect
+
+From the `feature/janitor` mutation run. `Corpse.crumble()` deletes a corpse's
+contents, then the body. The mutant that swapped the order — the exact bug it
+replaced — **survived every test**. Each one asserted the end state
+(`ObjectDB.objects.filter(id=...).exists()` is `False` for the corpse and the
+ring), and the end state was clean: `crumble()` captures `list(self.contents)`
+before it deletes anything, so the swapped version still deleted the ring.
+
+But between the two steps, `delete()` had run `clear_contents()`, which
+**teleports** every item to its `home` (`move_type="teleport"`). That move fired
+the home room's receive hooks and printed *"janitorring arrives to Limbo from
+janitorcorpse."* there — the very line the in-game protocol had caught on the
+unfixed code. The database forgot the detour; the room did not.
+
+**The rule:** when a bug's symptom is a *passage* rather than a destination —
+something moved, announced or triggered on the way — an assertion on where
+things ended up is not its receipt. Assert the passage itself: listen in the
+place it would have been heard.
+
+```python
+self.char2.move_to(self.room2, quiet=True)      # stand in the ring's home
+with captured_messages(self.char2) as seen:
+    corpse.crumble()
+self.assertFalse(any("arrives" in m for m in seen), seen)
+```
+
+This is §11b from the other side. There, a surviving mutant meant a guard
+covered an input class the tests never tried; here it meant the tests measured
+the wrong *moment*. Either way, a survivor is a question to answer before it is
+filed as equivalent. (Origin: `tests/test_corpse_expiry.py`,
+`test_loot_never_passes_through_its_home`.)
 
 ## 12. Command-syntax traps that read as bugs
 
