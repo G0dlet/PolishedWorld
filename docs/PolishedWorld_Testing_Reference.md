@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 12 · 2026-10-19** — **Five findings from `feature/death-contract` (BACKLOG Rev 46).** **New §11j: a superuser walks through every lock.** Evennia's lock bypass made the developer's own character useless as the looter in the first time-conditioned lock's protocol; the protocol uses a plain account and moves `owner` between characters instead, and the unit tests assert the bypass is off before they assert a refusal. **§11b gains a fifth harness rule:** read *which* tests fell — a mutant that broke the module's syntax "died" by failing every test that imports it, which is a dead harness and not a killed mutant. **§13 names one known line of noise** (`Overwriting existing registered function stopWordFilter`, from `lunr` on the first help search). **§14 gains two delivery traps:** a patch glob that matches two files applies both, and a failed command in a `git stash && … && git stash pop` chain leaves the stash on the stack.
 > **Rev 11 · 2026-10-19** — **Two new sections from the `feature/sweeper` in-game protocol (BACKLOG Rev 45).** **§11h: a unit suite cannot see a reload.** The sweeper's `TICKER_HANDLER` timer passed every unit test, including its registration and cleanup tests, and was gone after the first `reload`, because this project's startup code overwrites ticker storage before Evennia restores it. Persistence is a property of a server restart, so it is receipted in-game or not at all. **§11i: one sample of a periodic process cannot tell zero cycles from two.** A two-room patrol sampled once after "70–100 s" read *unchanged*, which fits both *never ticked* and *ticked twice*; the fix is timestamped polling that sees the change happen.
 > **Rev 10 · 2026-10-18** — **New §11g: a final-state assertion cannot see a transient side effect.** From the `feature/janitor` mutation run (BACKLOG Rev 44): the mutant that restored the original bug's order — delete the corpse, *then* its contents — survived every test, because the database ended up clean either way. The teleport had still happened, and announced itself in the item's home. The test that kills it listens for that announcement.
 > **Rev 9 · 2026-10-17** — **Epic A's fifteen candidates, filed in two groups, and one idiom Epic A made false.** Twelve candidates sat in the Timed Actions decomposition's §8 and three came from the session that wrote the D3 help-text commit; the decomp closes with this commit, so they land here or nowhere. **Writing tests and protocols.** New **§11f**: a spy that records what was said *during* the call under test (death sends lines of its own), patching a name where the code looks it up, a method spy that misses class-body aliases, and the single-value test that cannot tell a read from a hard-coded copy. **§11a** gains the `@py`-lowered gauge whose ticker line is the protocol's own echo. **§7** gains where `spawn` puts things. **§11b** gains two harness rules: a mutator applies all of its replacements or none, and a harness that finds no `Ran` line has not read a result — Django's runner writes it on stderr. New **§13**, what a suite run proves: an interrupted run counts for nothing, expected failures depend on the working tree's configuration and are checked by name, and `evennia test -v 2` runs no tests. **Delivering.** New **§14**: `git apply -R --check` locates hunks and proves nothing; a simulation reads its blocks out of the delivered file, where "exactly one match" is a substring count, so an ERSÄTT block that is a prefix of its MED block matches the already-patched file too; receipts quoted in prose are copied after the last regeneration. **The false idiom:** §7's *"deterministic cooldown abort"* stamped `craft:<name>`, a key `craft` has not read since TA2.2. It is struck through rather than deleted, and replaced with the way to make `craft` refuse now.
@@ -380,8 +381,9 @@ before the change is committed, `HEAD` is the code *without* the change. In
 Epic A TA1.2 every mutant therefore ran against the pre-migration code, under
 tests already migrated to the new API: one "survived" with a clean `OK` and
 three "died" with the **same thirteen failures**. The tell is worth knowing on
-sight: **distinct mutants producing identical failure lists.** Four rules make
-the harness trustworthy (the last two from Epic A TA2.2 and TA3):
+sight: **distinct mutants producing identical failure lists.** Five rules make
+the harness trustworthy (the third and fourth from Epic A TA2.2 and TA3, the
+fifth from `feature/death-contract`):
 
 - Snapshot the known-good files *before* the first mutant and restore from the
   snapshot, never from git.
@@ -399,6 +401,14 @@ the harness trustworthy (the last two from Epic A TA2.2 and TA3):
   only stdout reports an empty result for every mutant — a diagnostic that
   succeeds without having looked. Refuse to report a verdict for any run whose
   captured output has no `Ran` line.
+- **Read which tests fell, not only that some did.** In `feature/death-contract`
+  a mutant meant to delete an `if` and its body removed the line's text but not
+  its indentation. The module no longer compiled, so every lock check in the
+  file failed, and the mutant "died" — to tests that had nothing to do with the
+  owner rule it targeted. A kill is a receipt only when the failing tests are
+  the ones that pressure the mutated behaviour; a kill by everything that imports
+  the file is a broken mutant. Print the failing names per mutant, and match a
+  deletion's search text from the start of the line, indentation included.
 
 ### 11c. The prose-verification loop must read blocks, not lines — and must be proven to search
 
@@ -643,6 +653,29 @@ two timestamped lines. When the process must be exercised *once*, call its
 callback directly in the same `@py` that sets up its input, so no real cycle can
 land in between (the sweeper protocol's B2 step).
 
+### 11j. A superuser walks through every lock
+
+From `feature/death-contract`, the project's first lock with a time term. A
+superuser's `LockHandler` has `lock_bypass` set, and `check()` returns True for
+it before any lock function runs (`evennia/locks/lockhandler.py`, v6.1.0). A
+refusal tested from the developer's own character therefore cannot fail, and a
+pass tested from it proves nothing either. `quell` does drop the bypass — it
+clears `is_superuser` and rebuilds the puppet's lock handler
+(`CmdQuell._recache_locks`, `commands/default/account.py`) — but a quelled step
+still needs its receipt, `@py self.msg(str(self.locks.lock_bypass))` reading
+`False`, because the bypass is computed only when the handler is built.
+
+**The rule:** a lock is exercised by a character whose account is not a
+superuser, and the protocol says which. One plain account is enough when the
+test can move the condition rather than the actor: the grace protocol let the
+plain character die, and then set the corpse's `owner` to another character's
+id and back in `@py`, so the same character played the stranger and the owner.
+Unit tests assert the precondition before the refusal:
+
+```python
+self.assertFalse(self.char2.locks.lock_bypass)
+```
+
 ## 12. Command-syntax traps that read as bugs
 
 Two argument-shape errors from Stage 4.5's protocol that produce misleading
@@ -675,6 +708,14 @@ messages rather than usage hints:
   prints the version and exits before the test command starts. Run single classes
   instead (`evennia test --settings settings.py tests.test_rest.TestDeathEndsTheRest`)
   and read `Ran N` as the receipt that the class ran.
+- **Known noise: `Overwriting existing registered function stopWordFilter`.**
+  A warning from `lunr`, the search library behind `help`, not a failure. `lunr`
+  registers its default stop-word filter on import; Evennia builds its own (so
+  that *get*, *who*, *about* stay searchable, `evennia/help/utils.py`) under the
+  same label, and `lunr` warns as it replaces it. It is printed once per process,
+  on the first help search. In the suite only `TestHelpDeath` searches help, so
+  the line appears where that class runs; in-game it lands in the server log on
+  the first `help` after a start or reload.
 
 ## 14. Verifying a delivery
 
@@ -695,6 +736,16 @@ Receipts for a patch or a guide, taken before it is handed over.
   method. After patching, the generator asserts `count(old) == 0`; when that
   fails, extend the block to a whole unit that the patch changes. A `git am`
   that applied once must be refused the second time: run it and see.
+- **A patch glob must match exactly one file.** Two patches named `0001-feat-…`
+  and `0001-fix-…` both matched `0001-*.patch`, and `git am` applied the fix
+  twice; the second application failed, which is the only reason it showed.
+  Number patches in series (`git format-patch --start-number 2`) and give the
+  receiver a glob that cannot reach a sibling.
+- **A failed link in `git stash && git am … && git stash pop` leaves the stash on
+  the stack.** A glob that matched nothing made zsh abort the chain after the
+  stash had run (`nomatch`). The retry's `git stash` had nothing to save, so its
+  `pop` restored the first attempt's entry — the right result, by luck of the
+  order. After any failed chain, read `git stash list` before running it again.
 - **Receipts quoted in prose are copied from the delivered file after the last
   regeneration** — the sha256, the tree id, the test count. A receipt written down
   before the last edit is a receipt for a file nobody received.
