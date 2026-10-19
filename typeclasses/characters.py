@@ -16,6 +16,7 @@ from .objects import ObjectParent
 from evennia import create_object, AttributeProperty
 from evennia.utils import logger
 from world.survival_buffs import DeathWeakness
+from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import timed_actions
@@ -1070,12 +1071,18 @@ class Character(ObjectParent, ClothedCharacter):
 
     def at_character_death(self, killer=None):
         """
-        Consequence hook for a character hitting 0 HP. NOT permadeath.
+        Consequence hook for a character hitting 0 HP.
+
+        Not permadeath -- by decision, not by default: roadmap decision log,
+        Death-consequence policy (i). This method is the mechanism that policy
+        describes; the player-facing promise is in `world/death_contract.py`.
 
         Spawns a PlayerCorpse where the character fell, moves all non-soulbound
         inventory (worn items stripped first) into it, relocates the character to
         their respawn point, restores health/hunger/thirst, clears survival
-        conditions, and applies a timed post-death weakness.
+        conditions, applies a timed post-death weakness, and tells the player
+        the contract: where the body lies, how long it keeps their belongings
+        (owner-first for a grace window), and that the weakness passes.
 
         This is the single consequence chokepoint (H7.1). In normal play H7.2's
         apply_health_damage is the only caller; the reentrancy guard below is
@@ -1184,7 +1191,9 @@ class Character(ObjectParent, ClothedCharacter):
             self.buffs.remove(DeathWeakness.key)
             self.buffs.add(DeathWeakness)
 
-            self.msg("|RYou have died.|n")
+            # The contract line names the room the corpse is in, read from the
+            # corpse itself, so it is never claimed when no corpse was made.
+            self.msg(death_message(corpse.location if corpse else None))
         finally:
             # Always clear the guard, even on exception, so a later legitimate
             # death is never silently swallowed.
