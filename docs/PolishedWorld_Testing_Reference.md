@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 11 · 2026-10-19** — **Two new sections from the `feature/sweeper` in-game protocol (BACKLOG Rev 45).** **§11h: a unit suite cannot see a reload.** The sweeper's `TICKER_HANDLER` timer passed every unit test, including its registration and cleanup tests, and was gone after the first `reload`, because this project's startup code overwrites ticker storage before Evennia restores it. Persistence is a property of a server restart, so it is receipted in-game or not at all. **§11i: one sample of a periodic process cannot tell zero cycles from two.** A two-room patrol sampled once after "70–100 s" read *unchanged*, which fits both *never ticked* and *ticked twice*; the fix is timestamped polling that sees the change happen.
 > **Rev 10 · 2026-10-18** — **New §11g: a final-state assertion cannot see a transient side effect.** From the `feature/janitor` mutation run (BACKLOG Rev 44): the mutant that restored the original bug's order — delete the corpse, *then* its contents — survived every test, because the database ended up clean either way. The teleport had still happened, and announced itself in the item's home. The test that kills it listens for that announcement.
 > **Rev 9 · 2026-10-17** — **Epic A's fifteen candidates, filed in two groups, and one idiom Epic A made false.** Twelve candidates sat in the Timed Actions decomposition's §8 and three came from the session that wrote the D3 help-text commit; the decomp closes with this commit, so they land here or nowhere. **Writing tests and protocols.** New **§11f**: a spy that records what was said *during* the call under test (death sends lines of its own), patching a name where the code looks it up, a method spy that misses class-body aliases, and the single-value test that cannot tell a read from a hard-coded copy. **§11a** gains the `@py`-lowered gauge whose ticker line is the protocol's own echo. **§7** gains where `spawn` puts things. **§11b** gains two harness rules: a mutator applies all of its replacements or none, and a harness that finds no `Ran` line has not read a result — Django's runner writes it on stderr. New **§13**, what a suite run proves: an interrupted run counts for nothing, expected failures depend on the working tree's configuration and are checked by name, and `evennia test -v 2` runs no tests. **Delivering.** New **§14**: `git apply -R --check` locates hunks and proves nothing; a simulation reads its blocks out of the delivered file, where "exactly one match" is a substring count, so an ERSÄTT block that is a prefix of its MED block matches the already-patched file too; receipts quoted in prose are copied after the last regeneration. **The false idiom:** §7's *"deterministic cooldown abort"* stamped `craft:<name>`, a key `craft` has not read since TA2.2. It is struck through rather than deleted, and replaced with the way to make `craft` refuse now.
 > **Rev 8 · 2026-10-08** — **Four findings from Epic A TA1.2, and three of them are Rev 5–7's failure in new clothes: an observation that cannot tell the code working apart from the code not running.** New **§1b**: in `@py`, `self` *is* the caller — the character — not a Command, so `self.caller` raises `AttributeError`. §1 already said `self` is injected; it never said what it is, and a protocol written by someone thinking in `Command.func()` reached for `self.caller` in two steps, one of which had to run inside a 20-second chore window. New **§11d**: `move_to(quiet=True)` silences the *room's* announcements but not the mover's arrival `look`, so "nothing was said during the move" cannot be asserted through it — and the tempting repair, "nothing *interrupt-shaped* was said", passes against a hook that never ran. Call the hook directly; its return value is the receipt. New **§11e**: an absence after a *timer* ("the stale callback paid nothing") reads the same at second 5 as at second 60, so the step needs a stated wall-clock margin or a receipt that cannot predate the timer; and wall-clock numbers in a protocol's expected outcome are read from source — the TA1.2 protocol said a chore's cooldown was five minutes, and `TEMPLE_TASKS` says 3600 seconds. **§11b** gains the harness trap: a mutation loop that restores with `git checkout -- <file>` restores to `HEAD`, which before the commit is the code *without* the change, so every mutant runs against the old code — and a mutator whose "exactly one match" assertion is swallowed by the shell loop lets a mutant that never applied run as a no-op. The tell is distinct mutants producing **identical** failure lists.
@@ -594,6 +595,53 @@ covered an input class the tests never tried; here it meant the tests measured
 the wrong *moment*. Either way, a survivor is a question to answer before it is
 filed as equivalent. (Origin: `tests/test_corpse_expiry.py`,
 `test_loot_never_passes_through_its_home`.)
+
+### 11h. A unit suite cannot see a reload — persistence is receipted in-game
+
+From the `feature/sweeper` protocol. The NPC's timer was a persistent
+`TICKER_HANDLER` subscription. Its unit tests asserted exactly what they could:
+one subscription after creation, still one after a repeated
+`at_object_creation`, none after deletion. All green. In-game, the first
+`reload` removed it, with no traceback, because `at_server_start` re-adds the
+global tickers — and each `add` saves the handler's storage — before Evennia's
+`TICKER_HANDLER.restore()` runs (BACKLOG, *⚠️ `at_server_start` ticker re-adds
+wipe every other persistent ticker*).
+
+A test process never restarts the server, so it never runs `at_server_start`,
+`at_post_portal_sync`, a Script's resume after restart, or anything else that
+only happens across a restart. **The rule:** anything whose claim is "survives
+`reload`" — a ticker, a Script, an `ndb` vs `db` choice, a cached handler — needs
+an in-game step that reloads and then reads the same expression again, with the
+identity checked (same Script id, not merely "one Script"). Write it in the
+protocol as a mandatory step, not an optional extra, and say in the test
+module's docstring that the unit tests do not cover it.
+
+```text
+@py ... self.msg(str([(x.dbref, x.interval, x.persistent, x.is_active) for x in s.scripts.get("sweeper_tick")]))
+reload
+@py ... (same line)          # same dbref, still active — then watch it act
+```
+
+### 11i. One sample of a periodic process cannot tell zero cycles from two
+
+Same protocol. The sweeper alternates between two rooms once a minute. The step
+"wait 70–100 s, then read his location" returned the starting room — which is
+what *the timer never fired* predicts, and also what *the timer fired twice*
+predicts: in any window between 60 and 120 s a 60 s timer fires once or twice,
+depending on its phase. The step could not fail informatively.
+
+**The rule:** a periodic effect is a passage (§11g), so sample it often enough
+to see a change happen, and put the clock in the output instead of asking for
+it to be noted by hand:
+
+```text
+@py import time; from typeclasses.npcs import Sweeper; self.msg(str((time.strftime("%H:%M:%S"), Sweeper.objects.first().location.dbref)))
+```
+
+Run it every ~20 s for more than two periods; the receipt is a change between
+two timestamped lines. When the process must be exercised *once*, call its
+callback directly in the same `@py` that sets up its input, so no real cycle can
+land in between (the sweeper protocol's B2 step).
 
 ## 12. Command-syntax traps that read as bugs
 

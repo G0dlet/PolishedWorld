@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 45 · 2026-10-19** — one entry **closed**, one **added**, both from `feature/sweeper`, merged to `main` in `1517235` (PR #15; refactor `726390e`, feat `0110922`, fix `66827a0`, tree `9bc9af7`). *Ambient sweeper NPC* goes **OPEN → DONE**: `Room.sweep_expired_corpses()` is the one home of the sweep loop, and the room hook and a `Sweeper` NPC both call it. Its *Status* records the departure from the entry's text rather than smoothing it over: the NPC runs on a **Script, not `TICKER_HANDLER`**, because the in-game protocol found that this project's startup code wipes every persistent ticker it does not itself re-add. **Added** (*Tooling & Process*): **⚠️ `at_server_start` ticker re-adds wipe every other persistent ticker**, OPEN and latent — nothing on `main` subscribes a ticker outside `at_server_start` today; the sweeper was the first and was moved off it.
 > **Rev 44 · 2026-10-18** — one entry **closed**, one **unblocked**, three **annotated**, all from `feature/janitor`, merged to `main` in `cea296d` (fix `c95eb85`, test `73249d6`, tree `b3f56c3`). *⚠️ Corpse expiry fires only on direct interaction* goes **OPEN → DONE**: `Corpse.crumble()` is the single expiry writer, and look, harvest and a new `Room.at_object_receive` sweep call it and nothing else. Two places where the delivery departs from the entry's text are recorded in its *Status* rather than smoothed over: the sweep fires on **puppeted arrivals only**, not on anything entering, and the entry's *20 expired* receipt overcounted. *Ambient sweeper NPC* goes **BLOCKED → OPEN** and gains the consequence of that scope: the room hook does not fire for it. *`CoinPile` vs the corpse's atomic content delete*, *Death contract surfaces* and *Per-item corpse decay* are re-read against the merged code; the death contract's prose-site count rises from seven to eight.
 > **Rev 43 · 2026-10-18** — two entries **added**, two **annotated**, all from the cozy-NPC design discussion. **Added** (*Death & Corpses*): **⚠️ Corpse expiry fires only on direct interaction — and its two writers disagree**, OPEN as an alpha prerequisite: room `look` never triggers the lazy sink, and `harvest` on an expired `PlayerCorpse` *moves* its loot to `home` via Evennia's `clear_contents()` instead of destroying it; the fix is one `Corpse.crumble()` writer plus a tickerless `Room.at_object_receive` sweep. **Added** (*World & Rooms*): **Ambient sweeper NPC**, BLOCKED on that writer — ambience only, it never decides a deletion. **Annotated:** *`CoinPile` vs the corpse's atomic content delete* (the Treasury sweep lands in `crumble()`) and *Death contract surfaces* (the crumble prose site moves there).
 > **Rev 42 · 2026-10-18** — one entry **annotated**, one status pointer **moved**: *Alpha content epic* — task AC1.1 shipped on `main` (`cb60434`), and the entry now points at the decomposition's Rev 2, which records it. Nothing else changes.
@@ -1211,7 +1212,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   home for the loop, as `crumble()` is one home for the deletion — rather than
   copying the loop into the NPC.
 - **Origin:** Cozy-NPC design discussion (2026-10-18), option B3.
-- **Status:** OPEN (Rev 44 — single writer merged in `cea296d`)
+- **Status:** **DONE** (2026-10-19). Merged to `main` in `1517235` (PR #15,
+  `feature/sweeper`: refactor `726390e`, feat `0110922`, fix `66827a0`). The loop
+  now lives in `Room.sweep_expired_corpses() -> int`, which returns how many
+  corpses crumbled; the hook keeps its `has_account` gate and calls it, and the
+  pre-existing `TestRoomSweep` passed unchanged as the refactor's receipt. The
+  NPC is `typeclasses.npcs.Sweeper` (`DefaultObject`, no account, no cmdset):
+  each tick he takes one quiet step (`move_to(..., quiet=True)`) to a room tagged
+  `sweeper_beat` (category `npc_route`) through an exit he may traverse, stays
+  put if there is none, and then calls the sweep where he stands. He adds no
+  line of his own — `crumble()`'s room line is the only one, and an empty sweep
+  says nothing. **One departure from the text above, recorded rather than
+  smoothed over:** the timer is a persistent `SweeperScript` (interval 60 s),
+  **not `TICKER_HANDLER`**. The ticker version passed every unit test and
+  vanished on the first `reload` in-game — see *⚠️ `at_server_start` ticker
+  re-adds wipe every other persistent ticker* (*Tooling & Process*). The Script
+  is created once in `at_object_creation` behind a key guard (`scripts.add()`
+  never deduplicates) and is deleted with the object by `DefaultObject.delete()`.
+  In-game receipts (2026-10-19): the Script survived two reloads with the same
+  id and kept moving him afterwards; an expired corpse placed in the room he was
+  stepping into crumbled with exactly one line; deleting him removed the object
+  and the Script, and nothing remained after a further reload. The NPC object is
+  not left in the dev DB: create one on `main` with
+  `create_object("typeclasses.npcs.Sweeper", key=..., location=...)` and tag the
+  rooms of his beat.
 
 ### Builder QoL for dynamic rooms (preview · `roommsg` · authoring convention)
 - **What:** Three small ergonomic fixes to the Extended Room builder surface.
@@ -1807,6 +1831,43 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   alone cannot see the two drift apart.
 - **Origin:** Epic A TA2.3 (T29), 2026-10-15.
 - **Status:** OPEN
+
+### ⚠️ `at_server_start` ticker re-adds wipe every other persistent ticker
+- **What:** `server/conf/at_server_startstop.py` calls `TICKER_HANDLER.add(...)`
+  in `at_server_start` for the survival and garment-wear tickers, on every
+  start. In Evennia v6.1.0, `at_server_start` runs during server startup
+  (`evennia/server/service.py` l.488), but `TICKER_HANDLER.restore()` runs later,
+  in `at_post_portal_sync` (l.656). Each `add` calls `save()`
+  (`evennia/scripts/tickerhandler.py` l.535), and `save()` (l.400) writes the
+  handler's whole in-memory storage over the stored copy — which, in a fresh
+  process, holds only what was just added. `restore()` then reads back those two
+  tickers and nothing else. **Every persistent ticker subscribed anywhere else is
+  lost on every reload and every cold start.** The survival and garment tickers
+  survive only because they are the ones re-added.
+- **Evidence (2026-10-19, `feature/sweeper` in-game protocol):** E1 — after a
+  sweeper object re-registered its ticker, `TICKER_HANDLER.all_display()` held
+  3 entries including it, and it fired (the NPC moved on its own between two
+  polls). E3 — after one `reload`, the same expression returned the 2 global
+  tickers and no sweeper. No traceback was logged. The unit tests were green
+  throughout: a test process never restarts the server.
+- **Impact today:** latent. Nothing on `main` subscribes a ticker outside
+  `at_server_start`; the sweeper was the first and moved to a Script. The trap
+  is the next per-object ticker, which will pass its unit tests and stop after
+  the first reload. The comment at `at_server_startstop.py` l.44–46 ("re-adding
+  ... is idempotent ... so running this on every start is safe") is true for the
+  re-added ticker itself and false for everything else — a prose site to correct
+  with the fix.
+- **Fix candidates (undecided):** (1) move the survival and garment-wear timers
+  to `GLOBAL_SCRIPTS` in `settings.py`, as `WeatherScript` and
+  `CreatureSpawnScript` already are, so nothing touches ticker storage at
+  startup; (2) keep the tickers but register them once (initial setup) and stop
+  re-adding them on start. Either touches survival, which is alpha-critical, so
+  it gets its own branch and its own receipts.
+- **Receipt when fixed:** in-game only — subscribe a throwaway persistent
+  ticker, `reload`, and show it still listed by `TICKER_HANDLER.all_display()`;
+  plus a cold restart. Testing Reference §11h.
+- **Origin:** `feature/sweeper` in-game protocol, 2026-10-19.
+- **Status:** OPEN (latent)
 
 ---
 
