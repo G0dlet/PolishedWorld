@@ -2,11 +2,11 @@
 Ambient sweeper NPC (BACKLOG Rev 44, feature/sweeper).
 
 Each class pressures one bug:
-- TestSweeperTicker -- a leaked or doubled ticker: registration must happen
-  once, survive a repeated `at_object_creation`, be removed on delete, and a
-  missing ticker must never abort the deletion (`remove` raises KeyError).
-  The receipt is `TICKER_HANDLER.all_display()`, the handler's own view, with
-  the same expression as the in-game protocol.
+- TestSweeperScript -- a leaked or doubled timer: exactly one Script after a
+  repeated `at_object_creation` (`scripts.add` never deduplicates), gone with
+  the object, persistent and on the right interval, and its `at_repeat`
+  reaching the tick. Unit tests cannot reload the server; whether the timer
+  survives `reload` is receipted in-game only (it is what the ticker failed).
 - TestSweeperTick -- a second writer creeping in: the tick must reach
   `Room.sweep_expired_corpses()` (not a copied loop), crumble only expired
   corpses, and add no line of its own. Also the `location=None` crash.
@@ -17,20 +17,21 @@ Each class pressures one bug:
   arrivals sweep. The sweeper sweeps by calling the method; walking in must
   stay a no-op for him, as Rev 44 locked.
 
-The ticker callback is called directly; nothing waits for real time.
+The timer callback is called directly; nothing waits for real time.
 """
 
 from unittest import mock
 
-from evennia import TICKER_HANDLER, create_object
+from evennia import create_object
 from evennia.objects.models import ObjectDB
+from evennia.scripts.models import ScriptDB
 from evennia.utils.test_resources import EvenniaTest
 
 from typeclasses.npcs import (
     SWEEPER_BEAT_CATEGORY,
     SWEEPER_BEAT_TAG,
-    SWEEPER_IDSTRING,
     SWEEPER_INTERVAL,
+    SWEEPER_SCRIPT_KEY,
 )
 
 CHARACTER = "typeclasses.characters.Character"
@@ -44,12 +45,9 @@ def exists(obj_id):
     return ObjectDB.objects.filter(id=obj_id).exists()
 
 
-def sweeper_tickers(sweeper):
-    """This sweeper's subscriptions, as the handler itself reports them."""
-    return [
-        k for k in TICKER_HANDLER.all_display()
-        if k[4] == SWEEPER_IDSTRING and k[0] == sweeper
-    ]
+def sweeper_scripts(sweeper):
+    """This sweeper's timer Scripts, as the database reports them."""
+    return list(sweeper.scripts.get(SWEEPER_SCRIPT_KEY))
 
 
 class _SweeperFixture:
@@ -61,8 +59,8 @@ class _SweeperFixture:
         self.sweeper = create_object(SWEEPER, key="old sweeper", location=self.room1)
 
     def tearDown(self):
-        # The handler's pool is process-global and outlives the test DB
-        # rollback; delete through the real path so no subscription leaks.
+        # Delete through the real path so the Script's timer task is stopped,
+        # not left running past the test DB rollback.
         if self.sweeper.pk:
             self.sweeper.delete()
         super().tearDown()
@@ -87,41 +85,40 @@ class _SweeperFixture:
         return seen
 
 
-class TestSweeperTicker(_SweeperFixture, EvenniaTest):
-    def test_creation_registers_one_persistent_ticker(self):
-        (key,) = sweeper_tickers(self.sweeper)
-        _, callfunc, _, interval, _, persistent = key
+class TestSweeperScript(_SweeperFixture, EvenniaTest):
+    def test_creation_gives_one_persistent_timer(self):
+        (script,) = sweeper_scripts(self.sweeper)
         self.assertEqual(
-            (callfunc, interval, persistent), ("at_sweeper_tick", SWEEPER_INTERVAL, True)
+            (script.typeclass_path, script.interval, script.persistent, script.is_active),
+            ("typeclasses.npcs.SweeperScript", SWEEPER_INTERVAL, True, True),
         )
 
-    def test_repeated_creation_hook_does_not_double_register(self):
+    def test_repeated_creation_hook_does_not_double_the_timer(self):
         self.sweeper.at_object_creation()
-        self.assertEqual(len(sweeper_tickers(self.sweeper)), 1)
+        self.assertEqual(len(sweeper_scripts(self.sweeper)), 1)
 
-    def test_delete_removes_the_ticker(self):
-        sweeper = self.sweeper
-        sweeper_id = sweeper.id
-        before = len(TICKER_HANDLER.all_display())
-
-        sweeper.delete()
-
-        self.assertFalse(exists(sweeper_id))
-        self.assertEqual(len(TICKER_HANDLER.all_display()), before - 1)
-
-    def test_missing_ticker_does_not_block_deletion(self):
-        TICKER_HANDLER.remove(
-            interval=SWEEPER_INTERVAL,
-            callback=self.sweeper.at_sweeper_tick,
-            idstring=SWEEPER_IDSTRING,
-            persistent=True,
-        )
-        self.assertEqual(sweeper_tickers(self.sweeper), [])
-        sweeper_id = self.sweeper.id
+    def test_delete_takes_the_timer_with_it(self):
+        (script,) = sweeper_scripts(self.sweeper)
+        sweeper_id, script_id = self.sweeper.id, script.id
 
         self.sweeper.delete()
 
         self.assertFalse(exists(sweeper_id))
+        self.assertFalse(ScriptDB.objects.filter(id=script_id).exists())
+
+    def test_at_repeat_reaches_the_tick(self):
+        (script,) = sweeper_scripts(self.sweeper)
+        with mock.patch.object(self.sweeper, "at_sweeper_tick") as tick:
+            script.at_repeat()
+        tick.assert_called_once_with()
+
+    def test_tick_error_is_logged_not_raised(self):
+        (script,) = sweeper_scripts(self.sweeper)
+        with mock.patch.object(
+            self.sweeper, "at_sweeper_tick", side_effect=RuntimeError("boom")
+        ), mock.patch("typeclasses.npcs.logger.log_trace") as log_trace:
+            script.at_repeat()
+        log_trace.assert_called_once_with()
 
 
 class TestSweeperTick(_SweeperFixture, EvenniaTest):
