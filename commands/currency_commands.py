@@ -61,8 +61,12 @@ yield -> docs/BACKLOG.md.
 
 WHY PAYMENT IS SAME-ROOM, PERMANENTLY
 -------------------------------------
-Not an MVP shortcut. Coin is carried on the body and stays with the corpse to be
-looted, so carrying a lot is a real risk a player chooses to take. A global
+Not an MVP shortcut. Coin is carried on the body, and the death policy (roadmap,
+Death-consequence policy (ii)) sends it into the corpse with everything else
+once it is a `CoinPile` (Stage 5): the owner gets first claim for a grace
+window, then whoever finds the body may loot it. Today the wallet is an
+Attribute and stays with the character through death -- `help death` says so.
+Carrying a lot is meant to be a real risk a player chooses to take. A global
 `pay` would cancel that risk outright -- empty your pockets remotely before
 walking into the forest and the decision costs nothing. The intended answer to
 "I don't want to carry this" is a bank or a post office: a *place*, reached by a

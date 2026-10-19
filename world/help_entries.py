@@ -24,6 +24,12 @@ Each dict is on the form
 
 """
 
+# Built from live constants (world/death_contract.py), so `help death` and the
+# line a dying character receives say the same thing. If this import ever
+# fails, Evennia logs "Could not find file-help module" and skips EVERY entry in
+# this module -- `help death` answering in-game is the receipt that it loaded.
+from world.death_contract import help_entry as _death_help_entry
+
 HELP_ENTRY_DICTS = [
     {
         "key": "evennia",
@@ -55,4 +61,5 @@ HELP_ENTRY_DICTS = [
 
         """,
     },
+    _death_help_entry(),
 ]

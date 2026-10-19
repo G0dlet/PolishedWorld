@@ -104,16 +104,32 @@ class Corpse(ObjectParent, DefaultObject):
             modifier *= 0.25
         return modifier
 
-    def _elapsed_game_hours(self):
+    def _raw_elapsed_game_hours(self):
         """
-        Effective game-hours since death, scaled by the live decay modifier.
+        Unscaled game-hours since death. Monotone: it only grows while the
+        server runs, and it stands still while the server is down (the game
+        clock is runtime-based).
+
+        Decay does not read this directly -- it reads `_elapsed_game_hours()`.
+        Anything that needs a clock the weather cannot turn back (the owner's
+        loot grace on PlayerCorpse) reads this one.
 
         max(0, ...) guards against a death_time in the apparent future (e.g. a
         gametime reset), clamping to "just died" rather than going negative.
         """
         now = gametime_utils.get_absolute_gametime()
-        raw_hours = max(0, now - int(self.db.death_time)) / _SECONDS_PER_GAME_HOUR
-        return raw_hours * self.decay_modifier
+        return max(0, now - int(self.db.death_time)) / _SECONDS_PER_GAME_HOUR
+
+    def _elapsed_game_hours(self):
+        """
+        Effective game-hours since death, scaled by the live decay modifier.
+
+        The whole elapsed span is multiplied by the modifier as it is *now*, so
+        this value can fall when the weather turns colder. That is acceptable
+        for "how rotten does it look", and it is why nothing that must never
+        run backwards is built on it (see `_raw_elapsed_game_hours`).
+        """
+        return self._raw_elapsed_game_hours() * self.decay_modifier
 
     @property
     def decay_stage(self):
@@ -166,6 +182,11 @@ class Corpse(ObjectParent, DefaultObject):
 
         The room line is decided by state, not by which path called: the
         "lost with it" clause appears only when something was actually held.
+        It is true today because a corpse holds only items. The death policy
+        (roadmap, Death-consequence policy (ii)) says currency is never
+        deleted, so once a `CoinPile` can lie in a corpse (Stage 5) this method
+        must sweep it instead of deleting it, and the clause must stop claiming
+        coin is lost (BACKLOG: `CoinPile` vs the corpse's atomic content delete).
 
         Multiplayer note: commands run one at a time on the reactor, so the
         risk is not parallel deletion but a stale reference -- a look and a
@@ -225,17 +246,44 @@ class PlayerCorpse(Corpse):
     # carcass (144h). The visual decay pace is INHERITED unchanged (skeletal at
     # 96h); only the cleanup window extends, so the corpse -- and the loot it
     # still holds -- lingers as a skeleton until this point, giving a dead player
-    # time to run back. Env-scaled like all decay (cold slows it, heat speeds it).
+    # time to run back, with the first claim theirs (_PLAYER_GRACE_HOURS below).
+    # Env-scaled like all decay (cold slows it, heat speeds it), so the player
+    # contract promises "days", never this number.
     _PLAYER_EXPIRY_HOURS = 288
 
+    # Owner-first loot grace (roadmap, Death-consequence policy (iii)): for this
+    # many game-hours after death only the owner may take from the corpse; then
+    # anyone may. A calibration knob, not a contract term. UNSCALED game-hours
+    # (`_raw_elapsed_game_hours`), so a cold snap can never re-lock an opened
+    # corpse. 72 = 3 game days = 18 real hours at TIME_FACTOR 4, a quarter of
+    # the neutral recovery window. It must stay below the FASTEST possible
+    # expiry (288 / 3.0 in summer rain = 96), or a body could crumble before
+    # anyone but its owner may touch it; tests/test_death_contract.py derives
+    # that bound from the modifier tables.
+    _PLAYER_GRACE_HOURS = 72
+
     def at_object_creation(self):
-        """Inherit the carcass get-lock + death stamp, then open looting."""
+        """Inherit the carcass get-lock + death stamp, then lock looting owner-first."""
         super().at_object_creation()   # get:false() + death_time default
-        # Open looting via CmdContainerGet's get_from check. This is a DIFFERENT
-        # lock from the inherited get:false(): get_from governs taking items OUT
-        # of the corpse, get governs pocketing the carcass itself. Together --
-        # anyone loots the contents, nobody walks off with the body.
-        self.locks.add("get_from:true()")
+        # Owner-first looting via CmdContainerGet's get_from check. This is a
+        # DIFFERENT lock from the inherited get:false(): get_from governs taking
+        # items OUT of the corpse, get governs pocketing the carcass itself.
+        # corpse_grace() (server/conf/lockfuncs.py) reads `owner` and the clock
+        # at access time, so the lock string never changes and nothing has to
+        # fire when the grace ends.
+        self.locks.add("get_from:corpse_grace()")
+        # The command prints this on refusal and is the only writer of that line
+        # (the lockfunc stays silent). Static on purpose: the time left is shown
+        # by `look`, which can compute it.
+        self.db.get_from_err_msg = (
+            "That body's belongings are still its owner's to reclaim. "
+            "You can't take from it yet."
+        )
+
+    @property
+    def grace_active(self):
+        """True while only the owner may loot. Unscaled clock: never re-locks."""
+        return self._raw_elapsed_game_hours() < self._PLAYER_GRACE_HOURS
 
     @property
     def is_expired(self):
@@ -244,16 +292,20 @@ class PlayerCorpse(Corpse):
 
     def return_appearance(self, looker, **kwargs):
         """
-        Lazy expiry trigger + loot display.
+        Lazy expiry trigger + loot display + the owner's claim.
 
         On look: if the corpse has lingered past its recovery window, it -- and
         every item still inside -- crumbles away via `crumble()`, the single
         writer for expiry. This is one of three no-ticker triggers for the loot
-        sink (harvest and a player entering the room are the others): gear not
-        recovered in time is destroyed with the body. Otherwise we defer to the
-        inherited appearance, which already lists contents via the {things}
-        template slot, so a looter sees exactly what is left to take without
-        needing CmdContainerLook.
+        sink (harvest and a player entering the room are the others): items not
+        recovered in time are destroyed with the body. (Coin is not an item in a
+        corpse today; when it becomes one in Stage 5 it is swept, never
+        destroyed -- see `crumble()`.) Otherwise we defer to the inherited
+        appearance, which already lists contents via the {things} template
+        slot, so a looter sees exactly what is left to take without needing
+        CmdContainerLook. While the owner's grace runs, one line says whose
+        claim it is and roughly how long it lasts -- the time-left half of the
+        refusal that `get_from_err_msg` cannot carry.
 
         Multiplayer note: the first trigger past expiry crumbles the corpse;
         a later look/get finds nothing (a graceful "not found"), and a stale
@@ -263,4 +315,15 @@ class PlayerCorpse(Corpse):
         if self.is_expired:
             self.crumble()
             return ""
-        return super().return_appearance(looker, **kwargs)
+        appearance = super().return_appearance(looker, **kwargs)
+        if not self.grace_active:
+            return appearance
+        # Local import: world.death_contract imports this module.
+        from world.death_contract import format_game_span
+
+        left = self._PLAYER_GRACE_HOURS - self._raw_elapsed_game_hours()
+        whose = "Your" if looker.id == self.db.owner else "Its owner's"
+        return (
+            f"{appearance}\n{whose} claim on what it holds lasts about "
+            f"{format_game_span(left)} more."
+        )

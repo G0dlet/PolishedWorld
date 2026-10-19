@@ -28,3 +28,37 @@ lock functions from evennia.locks.lockfuncs.
 #    """
 #    print "%s tried to access %s. Access denied." % (accessing_obj, accessed_obj)
 #    return False
+
+from evennia.utils import logger
+
+
+def corpse_grace(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Owner-first loot grace for a PlayerCorpse (lock string: `corpse_grace()`).
+
+    Passes for the corpse's owner at any time, and for anyone once the grace
+    has run out (`PlayerCorpse.grace_active`, an unscaled clock that never
+    runs backwards). Takes no arguments: the owner is read from the corpse's
+    `owner` Attribute at check time, so the id lives in one place.
+
+    `owner` is a character id, stamped by `at_character_death()`. A deleted
+    owner never matches an id again, so their body simply opens when the grace
+    ends -- no lookup, no special case.
+
+    Silent on purpose: the refusal line is the corpse's `get_from_err_msg`,
+    printed by the command, so there is one writer per line.
+
+    Evennia's LockHandler.check() calls lock functions without a try/except,
+    so an exception here would reach the looter as a traceback. Instead it is
+    logged and the check FAILS CLOSED: a broken corpse stays owner-only rather
+    than being opened to everyone. The owner test runs first and needs no
+    clock, so an owner is never locked out by a bad timestamp.
+    """
+    try:
+        owner_id = accessed_obj.attributes.get("owner")
+        if owner_id is not None and getattr(accessing_obj, "id", None) == owner_id:
+            return True
+        return not accessed_obj.grace_active
+    except Exception:
+        logger.log_trace(f"corpse_grace: check failed for {accessing_obj} on {accessed_obj}")
+        return False
