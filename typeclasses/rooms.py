@@ -360,17 +360,16 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         Lazy corpse sweep: crumble expired corpses when a player arrives.
 
         The third no-ticker trigger for corpse expiry, beside look and harvest.
-        It decides nothing new -- it acts only where `is_expired` is already
-        true -- and hands every deletion to `Corpse.crumble()`, the single
-        writer. The arriving player is already in the room here (`move_to`
-        sets the location before calling this hook), so they see the crumble
-        line before the room description.
+        The sweep itself lives in `sweep_expired_corpses()`; this hook only
+        decides *who* may trigger it. The arriving player is already in the
+        room here (`move_to` sets the location before calling this hook), so
+        they see the crumble line before the room description.
 
         Only puppeted arrivals trigger it. Item moves are excluded on purpose:
         deleting a container teleports its contents to their `home`, which
         lands here as a `move_type="teleport"` receive -- sweeping on that
-        would re-enter a sweep from inside a `crumble()`. Wandering creatures
-        and dropped items would also pay the scan without anyone watching.
+        would re-enter a sweep from inside a `crumble()`. Wandering creatures,
+        NPCs and dropped items would also pay the scan without anyone watching.
 
         Note: `move_to` wraps this hook in try/except and only logs errors, so
         a crash here never blocks the move. Tests call the hook directly for
@@ -387,6 +386,22 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         )
         if not moved_obj.has_account:
             return
+        self.sweep_expired_corpses()
+
+    def sweep_expired_corpses(self):
+        """
+        Crumble every expired corpse in this room; the one home of the sweep.
+
+        It decides nothing new -- it acts only where `is_expired` is already
+        true -- and hands every deletion to `Corpse.crumble()`, the single
+        writer. Callers decide *when* to sweep: the puppeted-arrival hook
+        above, and anything else that wants the same effect, call this
+        method rather than copying the loop.
+
+        Returns:
+            int: how many corpses crumbled (a receipt for callers and tests).
+        """
+        swept = 0
         # Iterate a copy: crumble() changes self.contents. Re-check each
         # candidate just before acting -- pk, then location, then expiry, in
         # that order, because is_expired raises on an already-deleted corpse.
@@ -394,4 +409,6 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
             if not obj.is_typeclass("typeclasses.corpse.Corpse", exact=False):
                 continue
             if obj.pk and obj.location == self and obj.is_expired:
-                obj.crumble()
+                if obj.crumble():
+                    swept += 1
+        return swept

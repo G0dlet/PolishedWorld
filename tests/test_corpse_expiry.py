@@ -20,6 +20,9 @@ Each class pressures one bug:
   same expressions as the in-game protocol.
 - TestRoomSweep -- the lazy sweep: expired corpses only, puppeted arrivals
   only, and wired into `move_to` for real.
+- TestSweepMethod -- `Room.sweep_expired_corpses()` called directly, as any
+  non-hook caller does: its count must be crumbles that happened, not
+  candidates seen, because callers and in-game protocols read it as a receipt.
 
 The ids are captured before deletion and checked with
 `ObjectDB.objects.filter(id=...).exists()`. Asserting `location == home` (or
@@ -259,3 +262,38 @@ class TestRoomSweep(_CorpseFixture, EvenniaTest):
         self.assertFalse(exists(corpse_id))
         # The arriving player sees the line (decision 3B).
         self.assertTrue(any("crumbles to dust" in m for m in seen))
+
+
+class TestSweepMethod(_CorpseFixture, EvenniaTest):
+    """`Room.sweep_expired_corpses()`: the one home of the sweep loop."""
+
+    def test_count_is_expired_corpses_only(self):
+        ids = [self.make_corpse(f"oldcorpse{n}").id for n in range(2)]
+        fresh = self.make_corpse("newcorpse", expired=False)
+
+        swept = self.room1.sweep_expired_corpses()
+
+        self.assertEqual(swept, 2)
+        self.assertEqual([exists(i) for i in ids], [False, False])
+        self.assertTrue(exists(fresh.id))
+
+    def test_nothing_to_sweep_returns_zero(self):
+        fresh = self.make_corpse("newcorpse", expired=False)
+
+        swept = self.room1.sweep_expired_corpses()
+
+        self.assertEqual(swept, 0)
+        # Independent receipt that the loop saw a candidate and spared it.
+        self.assertEqual(fresh.location, self.room1)
+
+    def test_count_follows_crumble_not_candidates(self):
+        corpse = self.make_corpse("oldcorpse")
+
+        # A crumble that reports it did nothing must not be counted.
+        with mock.patch.object(Corpse, "crumble", return_value=False) as crumble:
+            swept = self.room1.sweep_expired_corpses()
+
+        crumble.assert_called_once()
+        self.assertEqual(swept, 0)
+        self.assertTrue(exists(corpse.id))
+

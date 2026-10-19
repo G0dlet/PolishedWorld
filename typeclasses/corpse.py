@@ -139,8 +139,8 @@ class Corpse(ObjectParent, DefaultObject):
         equivalent of the design's "crumbles to dust" cleanup.
 
         This property *decides*; it never deletes. The callers that act on it
-        (look, harvest, a player entering the room) all hand the deletion to
-        `crumble()`, the single writer for expiry.
+        (look, harvest, a player entering the room, the ambient sweeper NPC)
+        all hand the deletion to `crumble()`, the single writer for expiry.
         """
         return self._elapsed_game_hours() >= _CORPSE_EXPIRY_HOURS
 
