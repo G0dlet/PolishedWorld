@@ -1186,14 +1186,18 @@ class Character(ObjectParent, ClothedCharacter):
             for condition_key in ("starving", "dehydrated"):
                 self.buffs.remove(condition_key)
 
+            # The contract line names the room the corpse is in, read from the
+            # corpse itself, so it is never claimed when no corpse was made.
+            # Sent BEFORE the debuff below: DeathWeakness.at_apply messages the
+            # owner at once ("You claw back from the edge of death..."), and a
+            # player must read that they died before they read that they came
+            # back.
+            self.msg(death_message(corpse.location if corpse else None))
+
             # Timed post-death debuff. remove-then-add guarantees a fresh single
             # stack with a fresh duration on re-death (buffs.add otherwise stacks).
             self.buffs.remove(DeathWeakness.key)
             self.buffs.add(DeathWeakness)
-
-            # The contract line names the room the corpse is in, read from the
-            # corpse itself, so it is never claimed when no corpse was made.
-            self.msg(death_message(corpse.location if corpse else None))
         finally:
             # Always clear the guard, even on exception, so a later legitimate
             # death is never silently swallowed.

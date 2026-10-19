@@ -24,7 +24,8 @@ bug:
   crumble before anyone but its owner may touch it. The bound is derived from
   the modifier tables, not typed.
 - TestDeathMessage -- a death line that claims a body that was never made, names
-  the wrong room, hard-codes a number, or loses "You have died." (T13 ordering).
+  the wrong room, hard-codes a number, or loses "You have died." (T13 ordering);
+  or arrives after Death's Chill announces the comeback (seen in-game).
 - TestHelpDeath -- `help death` missing (a failed import silently skips the
   whole help module) or saying different numbers from the death line.
 - TestLookShowsTheClaim -- the time-left line shown after the grace, or worded
@@ -279,6 +280,16 @@ class TestDeathMessage(EvenniaTest):
         self.assertNotIn("Your body lies", lines[0])
         self.assertIn("still with you", lines[0])
         self.assertIn(DeathWeakness.name, lines[0])
+
+    def test_died_is_read_before_the_chill_applies(self):
+        """The death line precedes DeathWeakness.at_apply's own message."""
+        with captured_messages(self.char1) as seen:
+            self.char1.at_character_death()
+        died = [i for i, line in enumerate(seen) if "You have died." in line]
+        chill = [i for i, line in enumerate(seen) if "claw back from the edge" in line]
+        # Receipt that both writers ran, once each, before comparing order.
+        self.assertEqual((len(died), len(chill)), (1, 1), seen)
+        self.assertLess(died[0], chill[0], seen)
 
     def test_line_is_exactly_the_shared_builder(self):
         lines = self._die(self.char1)
