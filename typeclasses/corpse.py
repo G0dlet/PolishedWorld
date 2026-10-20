@@ -232,14 +232,18 @@ class PlayerCorpse(Corpse):
     Unlike a creature Corpse it holds the player's REAL dropped objects, looted
     individually via ordinary get-locks -- not harvestable parts.
 
-    Inherited creature_type/creature_siz defaults (rabbit/4) are meaningless here
-    but harmless: no player-corpse code path reads them. H7.1 keeps this class
+    Inherited creature_type/creature_siz defaults (rabbit/4) are meaningless here,
+    and autocreate stores them on every player corpse. They stay harmless only
+    because CmdHarvest refuses on is_player_corpse right after its expiry check,
+    before any template lookup reads them. H7.1 keeps this class
     minimal; H7.3b adds the loot-access lock (get_from) and the CmdContainerGet
     integration.
     """
 
-    # Distinguishes player corpses from creature corpses for search/loot rules.
-    # autocreate=True so lookups never hit a None-guard.
+    # Distinguishes player corpses from creature corpses: CmdHarvest refuses
+    # on it. autocreate=True stores True on every PlayerCorpse; a creature
+    # Corpse has no such Attribute, so `corpse.db.is_player_corpse` is None
+    # there -- the falsy answer the harvest guard relies on.
     is_player_corpse = AttributeProperty(default=True, autocreate=True)
 
     # Player loot deserves a more forgiving recovery window than a rabbit
