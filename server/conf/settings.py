@@ -143,7 +143,7 @@ GLOBAL_SCRIPTS = {
 # A dbref, not a key: keys are not unique in Evennia, and an ambiguous lookup is
 # not acceptable for the one object money is minted into.
 #
-TREASURY_DBREF = "#10"
+# TREASURY_DBREF = "#42"
 
 # Crafting contrib: where to look for CraftingRecipe subclasses.
 # Verified settings key (singular RECIPE), read in crafting.py.
