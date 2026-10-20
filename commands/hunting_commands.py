@@ -177,6 +177,9 @@ class CmdHarvest(Command):
     lets you try again. Soft parts (meat, hide) spoil as the corpse decays, so
     don't dawdle. A knife in hand makes the work a little easier.
 
+    A person's remains are not quarry: what they carried is taken back with
+    get, not harvest.
+
     You can harvest once every half-minute or so.
     """
 
@@ -218,6 +221,20 @@ class CmdHarvest(Command):
         #    so to the room (the harvester included).
         if corpse.is_expired:
             corpse.crumble()
+            return
+
+        # 4b. A person's remains are not quarry. PlayerCorpse inherits Corpse's
+        #     creature_type default ("rabbit") and every player corpse stores it,
+        #     so the template lookups below would read it. Refuse on the flag,
+        #     not on that data. After step 4, so an expired body still crumbles
+        #     here; before steps 5-6, so neither the listing nor a named part
+        #     ever reaches a template. A free bailout, like a bad part name.
+        if corpse.db.is_player_corpse:
+            corpse_label = corpse.get_display_name(caller)
+            caller.msg(
+                f"That is no quarry, but what remains of someone. "
+                f"To take something back: get <item> from {corpse_label}."
+            )
             return
 
         # 5. No part named -> just show what's available and stop (free action).
