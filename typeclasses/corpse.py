@@ -104,16 +104,32 @@ class Corpse(ObjectParent, DefaultObject):
             modifier *= 0.25
         return modifier
 
-    def _elapsed_game_hours(self):
+    def _raw_elapsed_game_hours(self):
         """
-        Effective game-hours since death, scaled by the live decay modifier.
+        Unscaled game-hours since death. Monotone: it only grows while the
+        server runs, and it stands still while the server is down (the game
+        clock is runtime-based).
+
+        Decay does not read this directly -- it reads `_elapsed_game_hours()`.
+        Anything that needs a clock the weather cannot turn back (the owner's
+        loot grace on PlayerCorpse) reads this one.
 
         max(0, ...) guards against a death_time in the apparent future (e.g. a
         gametime reset), clamping to "just died" rather than going negative.
         """
         now = gametime_utils.get_absolute_gametime()
-        raw_hours = max(0, now - int(self.db.death_time)) / _SECONDS_PER_GAME_HOUR
-        return raw_hours * self.decay_modifier
+        return max(0, now - int(self.db.death_time)) / _SECONDS_PER_GAME_HOUR
+
+    def _elapsed_game_hours(self):
+        """
+        Effective game-hours since death, scaled by the live decay modifier.
+
+        The whole elapsed span is multiplied by the modifier as it is *now*, so
+        this value can fall when the weather turns colder. That is acceptable
+        for "how rotten does it look", and it is why nothing that must never
+        run backwards is built on it (see `_raw_elapsed_game_hours`).
+        """
+        return self._raw_elapsed_game_hours() * self.decay_modifier
 
     @property
     def decay_stage(self):
@@ -135,11 +151,68 @@ class Corpse(ObjectParent, DefaultObject):
     @property
     def is_expired(self):
         """
-        True once even the skeleton has lingered out its window. Lets interaction
-        code (look/harvest in H4) lazily delete spent corpses -- the no-ticker
+        True once even the skeleton has lingered out its window -- the no-ticker
         equivalent of the design's "crumbles to dust" cleanup.
+
+        This property *decides*; it never deletes. The callers that act on it
+        (look, harvest, a player entering the room, the ambient sweeper NPC)
+        all hand the deletion to `crumble()`, the single writer for expiry.
         """
         return self._elapsed_game_hours() >= _CORPSE_EXPIRY_HOURS
+
+    # --- Expiry -------------------------------------------------------------
+
+    def crumble(self):
+        """
+        Destroy this corpse and everything inside it. The single writer (P-2)
+        for corpse expiry.
+
+        Callers decide *whether* the corpse has expired (`is_expired`); this
+        method only carries that decision out, and it is the only code that
+        does. Three call sites reach it and do nothing else:
+        `PlayerCorpse.return_appearance` (look), `CmdHarvest` step 4 (harvest)
+        and `Room.at_object_receive` (a player entering the room). There is no
+        ticker.
+
+        Contents are deleted *before* the body. `DefaultObject.delete()` does
+        not delete what an object holds: `clear_contents()` teleports each item
+        to its `home`. Deleting the body first therefore relocates the loot
+        instead of destroying it -- the bug harvest had before this method
+        existed.
+
+        The room line is decided by state, not by which path called: the
+        "lost with it" clause appears only when something was actually held.
+        It is true today because a corpse holds only items. The death policy
+        (roadmap, Death-consequence policy (ii)) says currency is never
+        deleted, so once a `CoinPile` can lie in a corpse (Stage 5) this method
+        must sweep it instead of deleting it, and the clause must stop claiming
+        coin is lost (BACKLOG: `CoinPile` vs the corpse's atomic content delete).
+
+        Multiplayer note: commands run one at a time on the reactor, so the
+        risk is not parallel deletion but a stale reference -- a look and a
+        harvest, or a sweep, reaching an instance that is already gone. A
+        second `delete()` on the same instance raises `ObjectDoesNotExist`, and
+        `is_expired` on it raises (its Attributes are cleared). The pk check
+        comes first and turns a repeated call into a quiet no-op.
+
+        Returns:
+            bool: True if the corpse crumbled, False if it was already deleted.
+        """
+        if not self.pk:
+            return False
+        contents = list(self.contents)
+        if self.location:
+            held = ", and what it held is lost with it" if contents else ""
+            self.location.msg_contents(
+                f"|xThe {self.key} finally crumbles to dust{held}.|n"
+            )
+        # Contents first, then the carcass (see docstring). Per-item decay
+        # (loot lingering after the body is gone) is a BACKLOG refinement; it
+        # would land here, once.
+        for obj in contents:
+            obj.delete()
+        self.delete()
+        return True
 
     # --- Appearance ---------------------------------------------------------
 
@@ -159,31 +232,62 @@ class PlayerCorpse(Corpse):
     Unlike a creature Corpse it holds the player's REAL dropped objects, looted
     individually via ordinary get-locks -- not harvestable parts.
 
-    Inherited creature_type/creature_siz defaults (rabbit/4) are meaningless here
-    but harmless: no player-corpse code path reads them. H7.1 keeps this class
+    Inherited creature_type/creature_siz defaults (rabbit/4) are meaningless here,
+    and autocreate stores them on every player corpse. They stay harmless only
+    because CmdHarvest refuses on is_player_corpse right after its expiry check,
+    before any template lookup reads them. H7.1 keeps this class
     minimal; H7.3b adds the loot-access lock (get_from) and the CmdContainerGet
     integration.
     """
 
-    # Distinguishes player corpses from creature corpses for search/loot rules.
-    # autocreate=True so lookups never hit a None-guard.
+    # Distinguishes player corpses from creature corpses: CmdHarvest refuses
+    # on it. autocreate=True stores True on every PlayerCorpse; a creature
+    # Corpse has no such Attribute, so `corpse.db.is_player_corpse` is None
+    # there -- the falsy answer the harvest guard relies on.
     is_player_corpse = AttributeProperty(default=True, autocreate=True)
 
     # Player loot deserves a more forgiving recovery window than a rabbit
     # carcass (144h). The visual decay pace is INHERITED unchanged (skeletal at
     # 96h); only the cleanup window extends, so the corpse -- and the loot it
     # still holds -- lingers as a skeleton until this point, giving a dead player
-    # time to run back. Env-scaled like all decay (cold slows it, heat speeds it).
+    # time to run back, with the first claim theirs (_PLAYER_GRACE_HOURS below).
+    # Env-scaled like all decay (cold slows it, heat speeds it), so the player
+    # contract promises "days", never this number.
     _PLAYER_EXPIRY_HOURS = 288
 
+    # Owner-first loot grace (roadmap, Death-consequence policy (iii)): for this
+    # many game-hours after death only the owner may take from the corpse; then
+    # anyone may. A calibration knob, not a contract term. UNSCALED game-hours
+    # (`_raw_elapsed_game_hours`), so a cold snap can never re-lock an opened
+    # corpse. 72 = 3 game days = 18 real hours at TIME_FACTOR 4, a quarter of
+    # the neutral recovery window. It must stay below the FASTEST possible
+    # expiry (288 / 3.0 in summer rain = 96), or a body could crumble before
+    # anyone but its owner may touch it; tests/test_death_contract.py derives
+    # that bound from the modifier tables.
+    _PLAYER_GRACE_HOURS = 72
+
     def at_object_creation(self):
-        """Inherit the carcass get-lock + death stamp, then open looting."""
+        """Inherit the carcass get-lock + death stamp, then lock looting owner-first."""
         super().at_object_creation()   # get:false() + death_time default
-        # Open looting via CmdContainerGet's get_from check. This is a DIFFERENT
-        # lock from the inherited get:false(): get_from governs taking items OUT
-        # of the corpse, get governs pocketing the carcass itself. Together --
-        # anyone loots the contents, nobody walks off with the body.
-        self.locks.add("get_from:true()")
+        # Owner-first looting via CmdContainerGet's get_from check. This is a
+        # DIFFERENT lock from the inherited get:false(): get_from governs taking
+        # items OUT of the corpse, get governs pocketing the carcass itself.
+        # corpse_grace() (server/conf/lockfuncs.py) reads `owner` and the clock
+        # at access time, so the lock string never changes and nothing has to
+        # fire when the grace ends.
+        self.locks.add("get_from:corpse_grace()")
+        # The command prints this on refusal and is the only writer of that line
+        # (the lockfunc stays silent). Static on purpose: the time left is shown
+        # by `look`, which can compute it.
+        self.db.get_from_err_msg = (
+            "That body's belongings are still its owner's to reclaim. "
+            "You can't take from it yet."
+        )
+
+    @property
+    def grace_active(self):
+        """True while only the owner may loot. Unscaled clock: never re-locks."""
+        return self._raw_elapsed_game_hours() < self._PLAYER_GRACE_HOURS
 
     @property
     def is_expired(self):
@@ -192,30 +296,38 @@ class PlayerCorpse(Corpse):
 
     def return_appearance(self, looker, **kwargs):
         """
-        Lazy expiry sink + loot display.
+        Lazy expiry trigger + loot display + the owner's claim.
 
         On look: if the corpse has lingered past its recovery window, it -- and
-        every item still inside -- crumbles away here. This is the no-ticker
-        realisation of the loot sink: gear not recovered in time is destroyed
-        with the body. Otherwise we defer to the inherited appearance, which
-        already lists contents via the {things} template slot, so a looter sees
-        exactly what is left to take without needing CmdContainerLook.
+        every item still inside -- crumbles away via `crumble()`, the single
+        writer for expiry. This is one of three no-ticker triggers for the loot
+        sink (harvest and a player entering the room are the others): items not
+        recovered in time are destroyed with the body. (Coin is not an item in a
+        corpse today; when it becomes one in Stage 5 it is swept, never
+        destroyed -- see `crumble()`.) Otherwise we defer to the inherited
+        appearance, which already lists contents via the {things} template
+        slot, so a looter sees exactly what is left to take without needing
+        CmdContainerLook. While the owner's grace runs, one line says whose
+        claim it is and roughly how long it lasts -- the time-left half of the
+        refusal that `get_from_err_msg` cannot carry.
 
-        Multiplayer note: if two players look near-simultaneously past expiry,
-        the first triggers the delete; the second's look/get simply finds nothing
-        (a graceful "not found"), never a half-deleted corpse.
+        Multiplayer note: the first trigger past expiry crumbles the corpse;
+        a later look/get finds nothing (a graceful "not found"), and a stale
+        reference reaching `crumble()` again is a no-op, never a half-deleted
+        corpse or a second delete.
         """
         if self.is_expired:
-            if self.location:
-                self.location.msg_contents(
-                    f"|xThe {self.key} finally crumbles to dust, and what it "
-                    f"held is lost with it.|n"
-                )
-            # Contents first, then the carcass. Per-item independent decay (loot
-            # lingering after the body is gone) is a future refinement; today the
-            # sink is atomic -- see decomp section 13.
-            for obj in list(self.contents):
-                obj.delete()
-            self.delete()
+            self.crumble()
             return ""
-        return super().return_appearance(looker, **kwargs)
+        appearance = super().return_appearance(looker, **kwargs)
+        if not self.grace_active:
+            return appearance
+        # Local import: world.death_contract imports this module.
+        from world.death_contract import format_game_span
+
+        left = self._PLAYER_GRACE_HOURS - self._raw_elapsed_game_hours()
+        whose = "Your" if looker.id == self.db.owner else "Its owner's"
+        return (
+            f"{appearance}\n{whose} claim on what it holds lasts about "
+            f"{format_game_span(left)} more."
+        )

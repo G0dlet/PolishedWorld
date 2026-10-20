@@ -1,5 +1,10 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 47 · 2026-10-20** — one entry **closed**, one **annotated**, both from `feature/harvest-guard`, merged to `main` in `1c57f0a` (PR #17; fix `08d6c44`, tree `cfb6075`). *⚠️ `harvest` treats a player's body as a rabbit* goes **OPEN → DONE**: a refusal of its own in `CmdHarvest`, placed after the expiry check so an expired body still crumbles. Its *Status* records why neither (A) nor (B) as filed was taken — (A) would have removed one of `crumble()`'s three triggers, and the dev DB showed (B) would have fixed no existing corpse — and that the stored `creature_type` values are deliberately left. **Annotated:** *⚠️ Decay time can run backwards when the weather turns* gains a sighting from this branch's protocol: an untouched corpse read expired one evening and not expired the next morning. It is recorded as a sighting, not a receipt.
+> **Rev 46 · 2026-10-19** — one entry **closed**, one **annotated**, two **added**, all from `feature/death-contract`, merged to `main` in `123ac53` (PR #16; feat `dd5f69e`, fix `2d87533`, tree `18a3d83`). *Death contract surfaces* goes **OPEN → DONE**: an owner-first loot grace on an unscaled clock, a death line and a `help death` topic built from the same live constants. Its *Status* records nine prose sites, not eight, the dev-DB corpses deliberately left unmigrated, and the one thing the in-game protocol found that the suite did not (the death line arrived after *Death's Chill* announced the comeback). **Annotated:** *⚠️ `CoinPile` vs the corpse's atomic content delete* gains two prose sites the Stage 5 task must change. **Added** (*Death & Corpses*): **⚠️ `harvest` treats a player's body as a rabbit**, OPEN, and **⚠️ Decay time can run backwards when the weather turns**, OPEN (latent), both found in this branch's anchor check and both outside its scope.
+> **Rev 45 · 2026-10-19** — one entry **closed**, one **added**, both from `feature/sweeper`, merged to `main` in `1517235` (PR #15; refactor `726390e`, feat `0110922`, fix `66827a0`, tree `9bc9af7`). *Ambient sweeper NPC* goes **OPEN → DONE**: `Room.sweep_expired_corpses()` is the one home of the sweep loop, and the room hook and a `Sweeper` NPC both call it. Its *Status* records the departure from the entry's text rather than smoothing it over: the NPC runs on a **Script, not `TICKER_HANDLER`**, because the in-game protocol found that this project's startup code wipes every persistent ticker it does not itself re-add. **Added** (*Tooling & Process*): **⚠️ `at_server_start` ticker re-adds wipe every other persistent ticker**, OPEN and latent — nothing on `main` subscribes a ticker outside `at_server_start` today; the sweeper was the first and was moved off it.
+> **Rev 44 · 2026-10-18** — one entry **closed**, one **unblocked**, three **annotated**, all from `feature/janitor`, merged to `main` in `cea296d` (fix `c95eb85`, test `73249d6`, tree `b3f56c3`). *⚠️ Corpse expiry fires only on direct interaction* goes **OPEN → DONE**: `Corpse.crumble()` is the single expiry writer, and look, harvest and a new `Room.at_object_receive` sweep call it and nothing else. Two places where the delivery departs from the entry's text are recorded in its *Status* rather than smoothed over: the sweep fires on **puppeted arrivals only**, not on anything entering, and the entry's *20 expired* receipt overcounted. *Ambient sweeper NPC* goes **BLOCKED → OPEN** and gains the consequence of that scope: the room hook does not fire for it. *`CoinPile` vs the corpse's atomic content delete*, *Death contract surfaces* and *Per-item corpse decay* are re-read against the merged code; the death contract's prose-site count rises from seven to eight.
+> **Rev 43 · 2026-10-18** — two entries **added**, two **annotated**, all from the cozy-NPC design discussion. **Added** (*Death & Corpses*): **⚠️ Corpse expiry fires only on direct interaction — and its two writers disagree**, OPEN as an alpha prerequisite: room `look` never triggers the lazy sink, and `harvest` on an expired `PlayerCorpse` *moves* its loot to `home` via Evennia's `clear_contents()` instead of destroying it; the fix is one `Corpse.crumble()` writer plus a tickerless `Room.at_object_receive` sweep. **Added** (*World & Rooms*): **Ambient sweeper NPC**, BLOCKED on that writer — ambience only, it never decides a deletion. **Annotated:** *`CoinPile` vs the corpse's atomic content delete* (the Treasury sweep lands in `crumble()`) and *Death contract surfaces* (the crumble prose site moves there).
 > **Rev 42 · 2026-10-18** — one entry **annotated**, one status pointer **moved**: *Alpha content epic* — task AC1.1 shipped on `main` (`cb60434`), and the entry now points at the decomposition's Rev 2, which records it. Nothing else changes.
 > **Rev 41 · 2026-10-18** — one entry **added**, six **annotated**, three statuses **changed**. **Added** (*Containers*): **Weight and encumbrance (Legend ENC) — decompose before code**, OPEN as an alpha prerequisite (roadmap Rev 28 (E)): the data starts in the alpha content epic (AD8), the mechanic gets its own decomposition because the rule does not translate directly, and *Full container support* is folded into it, its trigger (craftable bags) being met by batch AC4.2. *Persistent alpha instance* is annotated with the seventh prerequisite, and *Fatigue-exhaustion consequence* with the weight mechanic's dependency on it and its chosen direction — Legend's Fatigue levels read as penalty bands on the gauge, with an Athletics test at the bottom whose failure forces a short rest (B), the forced rest being the last step rather than the first consequence. The weight entry records the intended direction — overload drains fatigue faster, so a loaded character rests more often, and costs in combat — and how Legend reaches the same place through harder Fatigue tests rather than a faster rate. And the alpha content epic is decomposed in `docs/PolishedWorld_Alpha_Content_Decomposition.md` (Rev 1). *Alpha content epic* goes **OPEN (due) → SCHEDULED**; its annotation records the two choices it left to the decomposition — a stone axe with a tool check in `forage` (AD1), because Flint and Tinder, flint's only consumer among the 44, is blocked on a steel striker; generic `wood` for the alpha with DECISION #10's revisit moved to Stage 5 (AD2), because a bow has no mechanic before combat — and three of its own figures the decomposition corrects: about 29 reachable items is **24** by name, the bow does not need `sinew`, and the registry drift is six entries plus `stick`, including `feather` and `tusk` marked EXISTS with no source since the registry's first commit. *Public test server*'s seeding part becomes component AC3 and *⛔ The recipe catalogue does not span the skill scale*'s E.1 becomes AC5; E.2 and the wiped box keep their statuses. The epic's "registry, ledger and AoL sweep in one commit" is kept for the registry and moved to the docs close-out for the two docs, because `main` does not describe branch code as shipped (decomposition AD6).
 > **Rev 40 · 2026-10-17** — four entries **added**, four **annotated**, one status **changed**, all from the track-order decision (roadmap Rev 27). **Added:** *Alpha content epic — decompose before code* (Crafting & Tools, OPEN and due next session) — the FAS 1 cut, the registry corrections, seeding, the catalogue batches and E.1 as one decomposition, because costing showed them to be one epic; *Tanning upgrade — bark and water as `LeatherRecipe` inputs* (OPEN), the System Backlog §4 sketch kept as an upgrade now that tanning is ratified as shipped; *Persistent alpha instance* (Tooling & Process, BLOCKED on the alpha prerequisites), the owner Rev 38 recorded as missing, wiped at alpha close-out; and *Four docs under `docs/crafting/` and `docs/reference/` carry no Rev header*, found while giving the System Backlog its first. **Annotated:** the catalogue entry (a narrower FAS 1, tanning already delivered, catalogue authoring named as a step before E.1); *Public test server* — (a) moves onto the alpha track as the node-placement path, (b) is unchanged, and the entry's claim that world data already exists in `world/testworld_data.py` is corrected, since no such file is on `origin`; *System Backlog altitude* — its trigger is effectively met, and the rev header it cited did not exist until today; *Parchment* — **BLOCKED → OPEN**, because its trigger was tanning landing and tanning landed eighteen days before the entry was written. ⚠️ **One root cause under three of these:** `LeatherRecipe` shipped on 2026-06-30 and `world/material_registry.py` was not updated, so every document that asked the registry whether tanning existed was told no — the parchment entry, the alpha decision's (B) and the System Backlog. Correcting the registry is code and lands with the materials in the alpha content epic; this Rev records how far the drift reached.
@@ -775,7 +780,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **What:** Independent decay timers per loot item, so loot lingers after the
   corpse rots (leather before steel) instead of the current atomic delete.
 - **Why deferred:** Current `PlayerCorpse` deletes all loot at expiry; the
-  centralised deletion in H7.3 makes per-item decay a clean later addition.
+  single expiry writer, `Corpse.crumble()` (Rev 44), makes per-item decay a
+  clean later addition: it would land there, once.
 - **Trigger:** None hard; a refinement on the closed H7 loop.
 - **Origin:** Hunting / H7 decomposition backlog.
 - **Status:** OPEN
@@ -815,11 +821,81 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the rule).
 - **Trigger:** **Stage 5 kickoff**, with `CoinPile` — unchanged. The Treasury
   sweep lands in the same task that makes the pile droppable, so the rule is
-  never false on `main` for a single commit.
+  never false on `main` for a single commit. *(Rev 43:)* it lands in `Corpse.crumble()`,
+  the single expiry writer from the entry below, so the room hook and the
+  sweeper NPC inherit it for free. *(Rev 44:)* re-read against `cea296d`:
+  `crumble()` exists, and its contents loop is now the only content delete at
+  expiry, so the transfer goes before that loop. The *What*'s address
+  (`PlayerCorpse.return_appearance`) is historical. *(Rev 46:)* the same task
+  owns two more prose sites, written true for Stage 4 on purpose:
+  `help death`'s *"Coin in your purse stays with you."* (`world/death_contract.py`,
+  `help_text()`) and the *"Today the wallet is an Attribute…"* sentence in
+  `commands/currency_commands.py`'s module docstring. `crumble()`'s docstring
+  already names the change its *lost with it* clause needs.
 - **Origin:** Found in Stage 4 B.2 while reading corpse behaviour for the
   same-room payment rationale (2026-07-30). Decided in the death-consequence
   policy session (2026-10-17).
 - **Status:** DECIDED (roadmap Rev 26) · code SCHEDULED (Stage 5, with `CoinPile`)
+
+### ⚠️ Corpse expiry fires only on direct interaction — and its two writers disagree
+- **What:** Expired corpses are removed only when a player interacts with the
+  body itself, so a corpse nobody looks at lingers forever. Two call sites
+  delete today, and they do **not** do the same thing:
+  `PlayerCorpse.return_appearance` (on `look <corpse>`) deletes every item
+  inside, then the body; `CmdHarvest` step 4 (`commands/hunting_commands.py`)
+  calls `corpse.delete()` on *any* `Corpse`, `PlayerCorpse` included
+  (`_find_corpse` matches `exact=False`). Evennia's `DefaultObject.delete()`
+  runs `clear_contents()`, which **moves** contents to each object's `home`
+  (or `DEFAULT_HOME`) instead of destroying them — so harvesting an expired
+  player corpse teleports its loot out of the sink. Creature corpses have no
+  `look`-path delete at all; only `harvest` removes them. Room `look` never
+  calls any of these.
+  **Fix (decided 2026-10-18, A1 + B3):** extract one method on `Corpse` —
+  call it `crumble()` — that is the **single writer** (P-2) for expiry: it
+  messages the room, deletes the contents, then the body. `return_appearance`,
+  `CmdHarvest` and a new lazy hook, `Room.at_object_receive`, all call it and
+  nothing else. The hook sweeps the room's expired corpses when anything enters
+  it: no ticker, and every room a player visits is covered. The hook only acts
+  on what `is_expired` already says is expired — it decides nothing new.
+- **Why it matters, stated plainly:** gear left in an unvisited corpse is a
+  leak, not a sink — the death contract (roadmap Rev 26) says unrecovered gear
+  is destroyed with the body, and today that is only true for bodies someone
+  happens to look at. The harvest path is worse than a leak: it relocates loot
+  to each item's `home`, wherever that happens to be. And the `CoinPile` rule
+  (entry above) binds *every* cleanup path; with three writers the Treasury sweep
+  would have to land three times. One `crumble()` means it lands once.
+- **Receipt (2026-10-18, local test DB):** 20 expired `PlayerCorpse`s in Limbo
+  survived repeated room `look`s unchanged; `look corpse-1` crumbled one at a
+  time (20 → 19 → 18). Harvest-path relocation is read from source
+  (`evennia/objects/objects.py::clear_contents`) and **not yet observed
+  in-game** — the implementation's protocol must show it before the fix.
+- **Why deferred:** Found during a design discussion; it is code, and code goes
+  on a feature branch.
+- **Trigger:** The alpha track, on its own `feature/janitor` branch (no file
+  overlap with `feature/alpha-content` as of `d70a115`); **must be on `main`
+  before the first test cohort**, since it is part of the death contract
+  holding. Best before `feature/death-contract`, which rewrites the crumble line
+  — after extraction that line lives in one place.
+- **Origin:** Cozy-NPC design discussion (2026-10-18).
+- **Status:** **DONE** (2026-10-18). Merged to `main` in `cea296d`
+  (`feature/janitor`: fix `c95eb85`, test `73249d6`). `Corpse.crumble()` deletes
+  the contents, then the body, and prints one room line whose *lost with it*
+  clause appears only when something was held; harvest's own two lines are
+  retired. A pk guard makes a repeat call on a stale reference a no-op: Evennia's
+  second `delete()` on the same instance raises `ObjectDoesNotExist`
+  (`evennia/typeclasses/models.py`), so the guard is load-bearing, not tidy.
+  **Two departures from the text above, recorded rather than smoothed over.**
+  (1) The sweep fires on **puppeted arrivals only** (`moved_obj.has_account`),
+  not when anything enters: `clear_contents()` teleports a deleted container's
+  contents home with `move_type="teleport"`, so sweeping on item arrivals would
+  re-enter a sweep from inside a `crumble()`. (2) The *Receipt* above
+  overcounted: after the fix, walking into Limbo crumbled 14 of the 18 corpses
+  left, and the other 4 measured 64–271 h against a 288 h window — never
+  expired. The harvest relocation **was** observed in-game before the fix
+  (*"janitorring arrives to Limbo from janitorcorpse"*) and is gone after it.
+  `tests/test_corpse_expiry.py`: 14 tests, the first 13 red on `c49b19f`;
+  mutation run 11 of 14 killed, the 3 survivors equivalent (test commit
+  message). Keep for traceability, prune at the next backlog sweep.
 
 ### Death contract surfaces — owner-first loot grace, death message, `help death`
 - **What:** The player-facing half of the death-consequence policy (roadmap Rev
@@ -852,10 +928,137 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `feature/death-contract` branch; **must be on `main` before the first test
   cohort** — the policy is an alpha prerequisite, and a contract the cohort
   cannot read is not settled. Does not wait on Stage 5: none of the three touch
-  the wound model.
+  the wound model. *(Rev 43:)* if *Corpse expiry fires only on direct
+  interaction* lands first, the crumble line in the prose-site count lives in
+  `Corpse.crumble()` — still one site, new address. *(Rev 44:)* it did land
+  first (`cea296d`). Recounted against that tree: every quoted phrase is still
+  present, and there is **one new site** — `crumble()`'s docstring describes the
+  *lost with it* clause, which is now printed only when the corpse held
+  something. **Eight sites in four files.**
 - **Origin:** Death-consequence policy session (2026-10-17), point (v); the
   grace from point (iii).
-- **Status:** OPEN (alpha prerequisite — implementation)
+- **Status:** **DONE** (2026-10-19). Merged to `main` in `123ac53` (PR #16,
+  `feature/death-contract`: feat `dd5f69e`, fix `2d87533`, tree `18a3d83`).
+  **(1)** `PlayerCorpse` locks with `get_from:corpse_grace()`. The lockfunc
+  (`server/conf/lockfuncs.py`, the project's first) passes the owner at any
+  time — the character id read from `db.owner` at check time, so the id lives in
+  one place and a deleted owner simply never matches — and anyone once
+  `_PLAYER_GRACE_HOURS = 72` **unscaled** game-hours have passed. The clock is
+  the new `_raw_elapsed_game_hours()`, which `_elapsed_game_hours()` now builds
+  on; the grace therefore never re-locks when the weather turns, which a test
+  pins. Evennia's `LockHandler.check()` calls lockfuncs without a `try`, so the
+  lockfunc catches, logs and **fails closed**; the owner test runs first and needs
+  no clock. The bound *grace < fastest possible expiry* (288 / 3.0 = 96) is a
+  test that derives 3.0 from the modifier tables. The refusal is the corpse's
+  static `get_from_err_msg`, printed by the command — one writer; an
+  `at_pre_get_from` hook was rejected because the command adds its own *"You
+  can't get that."* after it, and because it runs only once the lock has already
+  passed. `look` shows how long the claim has left. **(2)** and **(3)** are built
+  in `world/death_contract.py` from the live constants and read by both
+  `at_character_death()` and `world/help_entries.py` (`help death`, alias
+  `dying`, category Survival); every span floors, because each one is a promise.
+  **Prose sites: nine, not eight.** The comment at `characters.py` l.1102 (on
+  `c940c8b`) quotes the death line, and is counted; it stays unchanged and true,
+  because `You have died.` is still the first line the death sends. T17 stays
+  unchanged as planned. `currency_commands.py`'s docstring had been false since
+  Stage 4 (the wallet is an Attribute and stays with the character through
+  death) and now says so. **Not migrated, by decision:** the dev DB's earlier
+  corpses (73/78/79/102/103/104) keep `get_from:true()`. Lock strings are stored
+  per object, no cohort exists, and the in-game protocol's last step lists them
+  as the receipt. **What the in-game protocol found and the suite did not:**
+  `DeathWeakness.at_apply` messages at once, so *"You claw back from the edge of
+  death"* arrived before *"You have died."*; the fix commit sends the death line
+  first and tests the order. **`harvest`** reads a `PlayerCorpse` but moves
+  nothing out of it, so it is no route around the grace; what it does do is filed
+  below as its own entry. Receipts: 28 new tests (`tests/test_death_contract.py`);
+  16 mutants, 16 killed (one first "killed" by an `IndentationError` and rerun —
+  Testing Reference §11b); an in-game protocol with a non-superuser looter
+  (§11j), a `reload` in the middle of the grace and the same corpse observed
+  opening; the full suite on the branch tip, 578 tests, the two expected treasury
+  failures checked by name.
+
+### ⚠️ `harvest` treats a player's body as a rabbit
+- **What:** `CmdHarvest._find_corpse` (`commands/hunting_commands.py`) accepts
+  any `Corpse` subclass (`is_typeclass("typeclasses.corpse.Corpse",
+  exact=False)`), and `PlayerCorpse` inherits `creature_type = "rabbit"`. So
+  `harvest corpse of <player>` reads the rabbit template: it lists the rabbit's
+  parts and, on a successful skill check, spawns them. The `PlayerCorpse` class
+  docstring's *"harmless: no player-corpse code path reads them"* is false. It
+  moves nothing out of the body's contents, which is why *Death contract
+  surfaces* left it out of scope (its decision 7).
+- **Verified:** by reading `main` at `c940c8b`, **not by running it**. The first
+  step of whichever session takes this is the in-game receipt:
+  `harvest corpse of TestChar` in the dev DB.
+- **Options (undecided):** (A) `_find_corpse` skips corpses with
+  `is_player_corpse`, with a refusal line of its own; (B) `PlayerCorpse` clears
+  `creature_type`, so the template lookups find nothing (both the named-part
+  path and the parts listing need checking against `None`);
+  (C) a remains template of its own — a design question (what may be done to a
+  player's body, and whether it is a sink), not a bug fix. The false docstring
+  is corrected in the same commit, whichever option is chosen.
+- **Why deferred:** A different question from the loot contract, and it touches
+  the hunting commands.
+- **Trigger:** Before the first test cohort. In an alpha without combat, a
+  starved player's body is the corpse players will meet most often.
+- **Origin:** Anchor check for *Death contract surfaces* (2026-10-19), decision 7.
+- **Status:** **DONE** (2026-10-20). Merged to `main` in `1c57f0a` (PR #17,
+  `feature/harvest-guard`: fix `08d6c44`, tree `cfb6075`). A variant of (A),
+  put where (A) as filed could not go. `CmdHarvest` step **4b** refuses on
+  `corpse.db.is_player_corpse` **after** step 4, so an expired player body still
+  crumbles on `harvest` (one of `crumble()`'s three triggers, which a skip in
+  `_find_corpse` would have removed, breaking `TestHarvestDestroysPlayerLoot`),
+  and **before** both template lookups. The refusal is a free bailout (no roll,
+  no cooldown) and names the loot path: *"That is no quarry, but what remains of
+  someone. To take something back: get <item> from <corpse>."*
+  `is_player_corpse` gets its first reader. (B) was rejected on the receipt:
+  every player corpse in the dev DB had `creature_type = "rabbit"` **stored**
+  (autocreate), so a changed default would have fixed none of them. They are
+  left unmigrated, because the guard does not read the value; the in-game
+  protocol refused with the data still present. **Prose:** three sites, all in
+  the fix commit: the `PlayerCorpse` docstring's false sentence, the
+  `is_player_corpse` comment (it named "search/loot rules" readers that did not
+  exist), and `CmdHarvest`'s help text. The step is numbered 4b, not 5, because
+  "`CmdHarvest` step 4" is cited elsewhere. **Receipts:** the bug reproduced as
+  TestChar before any code (the rabbit's parts listed on a player corpse, and a
+  named part reached `get_part`). After the fix, as TestChar: two player
+  corpses refused, a named part with `bone` available refused without a roll,
+  an expired player corpse crumbled, and a fresh creature corpse still listed
+  its parts. `tests/test_harvest_guard.py`: 5 tests in 3 classes; 3 of 3 mutants
+  killed by the intended classes (guard above step 4, guard keyed on the
+  `Corpse` typeclass, refusal without `return`). Full suite: 583 tests, the two
+  known treasury failures by name. (C), a remains template, was not taken up:
+  it is a design question and is not filed.
+
+### ⚠️ Decay time can run backwards when the weather turns
+- **What:** `Corpse._elapsed_game_hours()` multiplies the **whole** raw span
+  since death by the decay modifier as it is **now**. A change of weather or
+  season therefore rescales the body's entire history: 100 raw hours read as 300
+  in summer rain (×3.0) and as 200 once the rain stops. `decay_stage` can step
+  backwards (*skeletal* → *rotting*), and `is_expired` can go True → False for a
+  body nobody has touched since. Verified by arithmetic against
+  `typeclasses/corpse.py`, not observed in-game.
+- **Not affected:** the owner-first loot grace. It reads the unscaled
+  `_raw_elapsed_game_hours()` (merge `123ac53`), and a test holds it monotone.
+- **Impact today:** latent. Expiry acts only through `crumble()`, which deletes on
+  the first trigger that sees True, so an un-expiry only postpones a crumble. The
+  visible symptom is a body that looks fresher after the rain stops.
+- **Options (undecided):** (A) integrate — accumulate effective hours whenever
+  the modifier changes, which needs a hook on weather and season changes and
+  state per corpse (or one global log of modifier history); (B) ratchet — store
+  the largest effective age seen and never report less, monotone but dependent
+  on who looked when; (C) accept it and document it.
+- **Trigger:** The next session that touches corpse decay, or a player report of
+  a body that "un-rots".
+- **Origin:** A theory carried into the 2026-10-19 handoff; confirmed by
+  arithmetic in the *Death contract surfaces* anchor check.
+- **Sighting (2026-10-20, `feature/harvest-guard` protocol):** player corpse 73
+  in the dev DB read `is_expired` **True** at 19:16 on 2026-10-19 and **False**
+  at 05:57 the next morning, with weather changes logged in between. No protocol
+  step wrote to it, and it was not crumbled, so no trigger saw it while it was
+  True. This fits the entry, but `death_time` and the modifier were not printed
+  at either moment, so it is a sighting, not a receipt. The session that takes
+  this entry starts by printing both for a corpse across one weather change.
+- **Status:** OPEN (latent)
 
 ### `at_character_death()` restore block vs persistent wound tiers
 - **What:** When Stage 5 ships locational Hit Points and the three wound tiers
@@ -1109,6 +1312,58 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## World & Rooms
+
+### Ambient sweeper NPC
+- **What:** A cozy wandering NPC — an old sweeper with a broom — that walks
+  between rooms on `TICKER_HANDLER` (pattern: `evennia.contrib.tutorials.
+  tutorial_world.mob`, which patrols on a ticker) and "sweeps" by calling the
+  same `crumble()` path as the room hook. **It never makes a deletion decision
+  of its own**: it acts only on what `is_expired` already reports, so it
+  cannot touch anything the death contract protects. Pure ambience; one ticker
+  for one object at ~60 s is negligible load. Not a vendor and not an economic
+  actor, so it does not conflict with pillar 1.
+- **Rejected scope (2026-10-18):** a sweeper that removes *any* floor item
+  (dropped loot, leftovers) would be a new, undesigned economic sink and would
+  break the death contract's grace window and the `CoinPile` rule. Test-server
+  clutter is not this entry's job — it belongs to *Public test server with
+  nightly reset* (one item, one home); until then, `@destroy` with a dbref
+  range (`#X-#Y`) clears a dev DB.
+- **Why deferred:** It adds nothing until the single-writer `crumble()` exists.
+- **Trigger:** *Corpse expiry fires only on direct interaction* merged to
+  `main`. Create the NPC object in the DB only **after** its typeclass is on
+  `main`: on a branch without it, Evennia falls back to a default typeclass and
+  logs an error on every load. *(Rev 44:)* met — merged in `cea296d`.
+- **Room-hook scope (Rev 44):** the merged sweep runs only for puppeted
+  arrivals, so an NPC walking in triggers nothing; the sweeper must run the
+  sweep itself. When the NPC is built, lift the loop out of
+  `Room.at_object_receive` into a `Room` method and have both call it — one
+  home for the loop, as `crumble()` is one home for the deletion — rather than
+  copying the loop into the NPC.
+- **Origin:** Cozy-NPC design discussion (2026-10-18), option B3.
+- **Status:** **DONE** (2026-10-19). Merged to `main` in `1517235` (PR #15,
+  `feature/sweeper`: refactor `726390e`, feat `0110922`, fix `66827a0`). The loop
+  now lives in `Room.sweep_expired_corpses() -> int`, which returns how many
+  corpses crumbled; the hook keeps its `has_account` gate and calls it, and the
+  pre-existing `TestRoomSweep` passed unchanged as the refactor's receipt. The
+  NPC is `typeclasses.npcs.Sweeper` (`DefaultObject`, no account, no cmdset):
+  each tick he takes one quiet step (`move_to(..., quiet=True)`) to a room tagged
+  `sweeper_beat` (category `npc_route`) through an exit he may traverse, stays
+  put if there is none, and then calls the sweep where he stands. He adds no
+  line of his own — `crumble()`'s room line is the only one, and an empty sweep
+  says nothing. **One departure from the text above, recorded rather than
+  smoothed over:** the timer is a persistent `SweeperScript` (interval 60 s),
+  **not `TICKER_HANDLER`**. The ticker version passed every unit test and
+  vanished on the first `reload` in-game — see *⚠️ `at_server_start` ticker
+  re-adds wipe every other persistent ticker* (*Tooling & Process*). The Script
+  is created once in `at_object_creation` behind a key guard (`scripts.add()`
+  never deduplicates) and is deleted with the object by `DefaultObject.delete()`.
+  In-game receipts (2026-10-19): the Script survived two reloads with the same
+  id and kept moving him afterwards; an expired corpse placed in the room he was
+  stepping into crumbled with exactly one line; deleting him removed the object
+  and the Script, and nothing remained after a further reload. The NPC object is
+  not left in the dev DB: create one on `main` with
+  `create_object("typeclasses.npcs.Sweeper", key=..., location=...)` and tag the
+  rooms of his beat.
 
 ### Builder QoL for dynamic rooms (preview · `roommsg` · authoring convention)
 - **What:** Three small ergonomic fixes to the Extended Room builder surface.
@@ -1704,6 +1959,43 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   alone cannot see the two drift apart.
 - **Origin:** Epic A TA2.3 (T29), 2026-10-15.
 - **Status:** OPEN
+
+### ⚠️ `at_server_start` ticker re-adds wipe every other persistent ticker
+- **What:** `server/conf/at_server_startstop.py` calls `TICKER_HANDLER.add(...)`
+  in `at_server_start` for the survival and garment-wear tickers, on every
+  start. In Evennia v6.1.0, `at_server_start` runs during server startup
+  (`evennia/server/service.py` l.488), but `TICKER_HANDLER.restore()` runs later,
+  in `at_post_portal_sync` (l.656). Each `add` calls `save()`
+  (`evennia/scripts/tickerhandler.py` l.535), and `save()` (l.400) writes the
+  handler's whole in-memory storage over the stored copy — which, in a fresh
+  process, holds only what was just added. `restore()` then reads back those two
+  tickers and nothing else. **Every persistent ticker subscribed anywhere else is
+  lost on every reload and every cold start.** The survival and garment tickers
+  survive only because they are the ones re-added.
+- **Evidence (2026-10-19, `feature/sweeper` in-game protocol):** E1 — after a
+  sweeper object re-registered its ticker, `TICKER_HANDLER.all_display()` held
+  3 entries including it, and it fired (the NPC moved on its own between two
+  polls). E3 — after one `reload`, the same expression returned the 2 global
+  tickers and no sweeper. No traceback was logged. The unit tests were green
+  throughout: a test process never restarts the server.
+- **Impact today:** latent. Nothing on `main` subscribes a ticker outside
+  `at_server_start`; the sweeper was the first and moved to a Script. The trap
+  is the next per-object ticker, which will pass its unit tests and stop after
+  the first reload. The comment at `at_server_startstop.py` l.44–46 ("re-adding
+  ... is idempotent ... so running this on every start is safe") is true for the
+  re-added ticker itself and false for everything else — a prose site to correct
+  with the fix.
+- **Fix candidates (undecided):** (1) move the survival and garment-wear timers
+  to `GLOBAL_SCRIPTS` in `settings.py`, as `WeatherScript` and
+  `CreatureSpawnScript` already are, so nothing touches ticker storage at
+  startup; (2) keep the tickers but register them once (initial setup) and stop
+  re-adding them on start. Either touches survival, which is alpha-critical, so
+  it gets its own branch and its own receipts.
+- **Receipt when fixed:** in-game only — subscribe a throwaway persistent
+  ticker, `reload`, and show it still listed by `TICKER_HANDLER.all_display()`;
+  plus a cold restart. Testing Reference §11h.
+- **Origin:** `feature/sweeper` in-game protocol, 2026-10-19.
+- **Status:** OPEN (latent)
 
 ---
 
