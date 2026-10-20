@@ -412,6 +412,56 @@ CLUB = {
     "enc": 1,   # Legend core p. 106: Club, ENC 1
 }
 
+# --- Clay chain: clay, clay bank, sling bullet (AC2.3) ---
+# Clay is dug bare-handed from a CLAY_BANK; its first consumer is the sling
+# bullet, rolled by hand and left to dry in the sun. Sun-dried is a real stage,
+# not a collapsed one (AoL's potter makes "sun-dried" jugs); the fired variant
+# is BLOCKED: kiln, and no drying timer is modelled (a per-object timer, AGENTS
+# section 1 rule 7). Both items carry `enc` (AD8): 0 is Q6's "too light to
+# score", never weightless -- the weight mechanic counts such items 20 to 1.
+
+CLAY = {
+    "prototype_key": "clay",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "lump of clay",
+    "aliases": ["clay"],
+    "desc": (
+        "A fist-sized lump of grey riverbank clay, cold and slick, that keeps "
+        "the print of every finger pressed into it."
+    ),
+    # tag-key "clay" is what recipes list in consumable_tags. SOURCE: the
+    # clay_bank node. SINK: SlingBulletRecipe rolls it into a bullet.
+    "tags": [("clay", "crafting_material")],
+    "enc": 0,   # Q6: at least the bullet it is rolled into (bullet ENC 0)
+}
+
+CLAY_BANK = {
+    "prototype_key": "clay_bank",
+    "typeclass": "typeclasses.resources.ResourceNode",
+    "key": "clay bank",
+    "aliases": ["bank"],
+    "desc": (
+        "A slumped bank of grey clay where the water has cut into the slope, "
+        "smooth and glistening where it is wet."
+    ),
+    "resource_type": "clay",
+    "max_yield": 4,
+    "regen_interval": 3600,          # game-seconds/lump; as the flint scatter
+    "available": 4,
+    "yield_prototype": "clay",       # must equal CLAY's prototype_key
+}
+
+SLING_BULLET = {
+    "prototype_key": "sling_bullet",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "sling bullet",
+    "aliases": ["bullet"],
+    "desc": "A hard oval of sun-dried clay, rolled smooth between the palms.",
+    # SOURCE: SlingBulletRecipe (clay). SINK: none in the alpha -- no sling and
+    # no combat (AD5's "use in alpha" column; Q1 decides inert goods in AC4.0).
+    "enc": 0,   # AoL: Sling Bullets (10), ENC "—" -- too light to score (Q6)
+}
+
 RABBIT = {
     "prototype_key": "rabbit",
     "typeclass": "typeclasses.creatures.Creature",

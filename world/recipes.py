@@ -13,7 +13,7 @@ not picked up as a phantom recipe.
 Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
   common / ungated (inherit requires_knowledge = False) -- survival & tool recipes
     a fresh character can always make: twine, waterskin, stone knife, bone needle,
-    stone axe, club.
+    stone axe, club, sling bullet.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
@@ -295,6 +295,25 @@ class ClubRecipe(MongooseCraftRecipe):
     output_prototypes = ["club"]
     tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
     craft_duration = 30
+
+class SlingBulletRecipe(MongooseCraftRecipe):
+    """Roll a lump of clay into a sling bullet and dry it: clay's first consumer (AC2.3).
+
+    One lump, one bullet. AoL counts bullets in tens, but each bullet is its own
+    object here, and nothing consumes bullets in the alpha (no sling, no combat),
+    so the batch size waits for the mechanic that uses them. The stone variant is
+    decided in AC4.0; the fired variant is BLOCKED: kiln.
+    """
+
+    name = "sling bullet"
+    consumable_tags = ["clay"]          # one lump, matched by tag-key
+    output_prototypes = ["sling_bullet"]
+    # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty): rolled
+    # by hand. The registry's knife shapes wood and bone, not clay.
+    tool_tag = None
+    craft_duration = 20                 # a quick hand-craft; mirrors twine
+
+    # consume_policy inherits "raw" -> every attempt yields a bullet.
 
 # --- Future garments (one-liners once their materials have a source) ---
 # class WoolTunicRecipe(MongooseCraftRecipe):   # needs a "wool" source (shearing)

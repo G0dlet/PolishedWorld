@@ -136,10 +136,10 @@ MATERIALS = {
         "sinks": ["stone axe recipe", "fire-starting"],
     },
     "clay": {
-        "prototype_key": "clay", "category": RAW, "status": DATA,
+        "prototype_key": "clay", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "riverbed/lakeside ResourceNode",
-        "sinks": ["pottery (blocked: kiln)"],
+        "source": "clay_bank (ResourceNode)",
+        "sinks": ["sling bullet recipe", "pottery (blocked: kiln)"],
     },
     "sand": {
         "prototype_key": "sand", "category": RAW, "status": DATA,
