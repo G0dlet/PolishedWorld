@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 47 · 2026-10-20** — one entry **closed**, one **annotated**, both from `feature/harvest-guard`, merged to `main` in `1c57f0a` (PR #17; fix `08d6c44`, tree `cfb6075`). *⚠️ `harvest` treats a player's body as a rabbit* goes **OPEN → DONE**: a refusal of its own in `CmdHarvest`, placed after the expiry check so an expired body still crumbles. Its *Status* records why neither (A) nor (B) as filed was taken — (A) would have removed one of `crumble()`'s three triggers, and the dev DB showed (B) would have fixed no existing corpse — and that the stored `creature_type` values are deliberately left. **Annotated:** *⚠️ Decay time can run backwards when the weather turns* gains a sighting from this branch's protocol: an untouched corpse read expired one evening and not expired the next morning. It is recorded as a sighting, not a receipt.
 > **Rev 46 · 2026-10-19** — one entry **closed**, one **annotated**, two **added**, all from `feature/death-contract`, merged to `main` in `123ac53` (PR #16; feat `dd5f69e`, fix `2d87533`, tree `18a3d83`). *Death contract surfaces* goes **OPEN → DONE**: an owner-first loot grace on an unscaled clock, a death line and a `help death` topic built from the same live constants. Its *Status* records nine prose sites, not eight, the dev-DB corpses deliberately left unmigrated, and the one thing the in-game protocol found that the suite did not (the death line arrived after *Death's Chill* announced the comeback). **Annotated:** *⚠️ `CoinPile` vs the corpse's atomic content delete* gains two prose sites the Stage 5 task must change. **Added** (*Death & Corpses*): **⚠️ `harvest` treats a player's body as a rabbit**, OPEN, and **⚠️ Decay time can run backwards when the weather turns**, OPEN (latent), both found in this branch's anchor check and both outside its scope.
 > **Rev 45 · 2026-10-19** — one entry **closed**, one **added**, both from `feature/sweeper`, merged to `main` in `1517235` (PR #15; refactor `726390e`, feat `0110922`, fix `66827a0`, tree `9bc9af7`). *Ambient sweeper NPC* goes **OPEN → DONE**: `Room.sweep_expired_corpses()` is the one home of the sweep loop, and the room hook and a `Sweeper` NPC both call it. Its *Status* records the departure from the entry's text rather than smoothing it over: the NPC runs on a **Script, not `TICKER_HANDLER`**, because the in-game protocol found that this project's startup code wipes every persistent ticker it does not itself re-add. **Added** (*Tooling & Process*): **⚠️ `at_server_start` ticker re-adds wipe every other persistent ticker**, OPEN and latent — nothing on `main` subscribes a ticker outside `at_server_start` today; the sweeper was the first and was moved off it.
 > **Rev 44 · 2026-10-18** — one entry **closed**, one **unblocked**, three **annotated**, all from `feature/janitor`, merged to `main` in `cea296d` (fix `c95eb85`, test `73249d6`, tree `b3f56c3`). *⚠️ Corpse expiry fires only on direct interaction* goes **OPEN → DONE**: `Corpse.crumble()` is the single expiry writer, and look, harvest and a new `Room.at_object_receive` sweep call it and nothing else. Two places where the delivery departs from the entry's text are recorded in its *Status* rather than smoothed over: the sweep fires on **puppeted arrivals only**, not on anything entering, and the entry's *20 expired* receipt overcounted. *Ambient sweeper NPC* goes **BLOCKED → OPEN** and gains the consequence of that scope: the room hook does not fire for it. *`CoinPile` vs the corpse's atomic content delete*, *Death contract surfaces* and *Per-item corpse decay* are re-read against the merged code; the death contract's prose-site count rises from seven to eight.
@@ -1000,7 +1001,33 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Before the first test cohort. In an alpha without combat, a
   starved player's body is the corpse players will meet most often.
 - **Origin:** Anchor check for *Death contract surfaces* (2026-10-19), decision 7.
-- **Status:** OPEN
+- **Status:** **DONE** (2026-10-20). Merged to `main` in `1c57f0a` (PR #17,
+  `feature/harvest-guard`: fix `08d6c44`, tree `cfb6075`). A variant of (A),
+  put where (A) as filed could not go. `CmdHarvest` step **4b** refuses on
+  `corpse.db.is_player_corpse` **after** step 4, so an expired player body still
+  crumbles on `harvest` (one of `crumble()`'s three triggers, which a skip in
+  `_find_corpse` would have removed, breaking `TestHarvestDestroysPlayerLoot`),
+  and **before** both template lookups. The refusal is a free bailout (no roll,
+  no cooldown) and names the loot path: *"That is no quarry, but what remains of
+  someone. To take something back: get <item> from <corpse>."*
+  `is_player_corpse` gets its first reader. (B) was rejected on the receipt:
+  every player corpse in the dev DB had `creature_type = "rabbit"` **stored**
+  (autocreate), so a changed default would have fixed none of them. They are
+  left unmigrated, because the guard does not read the value; the in-game
+  protocol refused with the data still present. **Prose:** three sites, all in
+  the fix commit: the `PlayerCorpse` docstring's false sentence, the
+  `is_player_corpse` comment (it named "search/loot rules" readers that did not
+  exist), and `CmdHarvest`'s help text. The step is numbered 4b, not 5, because
+  "`CmdHarvest` step 4" is cited elsewhere. **Receipts:** the bug reproduced as
+  TestChar before any code (the rabbit's parts listed on a player corpse, and a
+  named part reached `get_part`). After the fix, as TestChar: two player
+  corpses refused, a named part with `bone` available refused without a roll,
+  an expired player corpse crumbled, and a fresh creature corpse still listed
+  its parts. `tests/test_harvest_guard.py`: 5 tests in 3 classes; 3 of 3 mutants
+  killed by the intended classes (guard above step 4, guard keyed on the
+  `Corpse` typeclass, refusal without `return`). Full suite: 583 tests, the two
+  known treasury failures by name. (C), a remains template, was not taken up:
+  it is a design question and is not filed.
 
 ### ⚠️ Decay time can run backwards when the weather turns
 - **What:** `Corpse._elapsed_game_hours()` multiplies the **whole** raw span
@@ -1024,6 +1051,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   a body that "un-rots".
 - **Origin:** A theory carried into the 2026-10-19 handoff; confirmed by
   arithmetic in the *Death contract surfaces* anchor check.
+- **Sighting (2026-10-20, `feature/harvest-guard` protocol):** player corpse 73
+  in the dev DB read `is_expired` **True** at 19:16 on 2026-10-19 and **False**
+  at 05:57 the next morning, with weather changes logged in between. No protocol
+  step wrote to it, and it was not crumbled, so no trigger saw it while it was
+  True. This fits the entry, but `death_time` and the modifier were not printed
+  at either moment, so it is a sighting, not a receipt. The session that takes
+  this entry starts by printing both for a corpse across one weather change.
 - **Status:** OPEN (latent)
 
 ### `at_character_death()` restore block vs persistent wound tiers

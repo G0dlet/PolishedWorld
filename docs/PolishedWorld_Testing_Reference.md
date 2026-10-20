@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 13 · 2026-10-20** — **Three findings from `feature/harvest-guard` (BACKLOG Rev 47).** **New §11k: a negative case proves its own type.** The protocol's "the fix does not over-reach" step was written against an object called `freshcorpse` on the strength of its name; it was a `PlayerCorpse`, and only the typeclass printed in step 0 showed it. **§13 gains:** the verdict of a piped suite run is read with `grep`, not `tail`, because the launcher's stdout is block-buffered and lands after unittest's stderr summary. **§14 gains:** the tree receipt is `git rev-parse HEAD^{tree}`, which worked in a terminal where `git log --format` printed nothing.
 > **Rev 12 · 2026-10-19** — **Five findings from `feature/death-contract` (BACKLOG Rev 46).** **New §11j: a superuser walks through every lock.** Evennia's lock bypass made the developer's own character useless as the looter in the first time-conditioned lock's protocol; the protocol uses a plain account and moves `owner` between characters instead, and the unit tests assert the bypass is off before they assert a refusal. **§11b gains a fifth harness rule:** read *which* tests fell — a mutant that broke the module's syntax "died" by failing every test that imports it, which is a dead harness and not a killed mutant. **§13 names one known line of noise** (`Overwriting existing registered function stopWordFilter`, from `lunr` on the first help search). **§14 gains two delivery traps:** a patch glob that matches two files applies both, and a failed command in a `git stash && … && git stash pop` chain leaves the stash on the stack.
 > **Rev 11 · 2026-10-19** — **Two new sections from the `feature/sweeper` in-game protocol (BACKLOG Rev 45).** **§11h: a unit suite cannot see a reload.** The sweeper's `TICKER_HANDLER` timer passed every unit test, including its registration and cleanup tests, and was gone after the first `reload`, because this project's startup code overwrites ticker storage before Evennia restores it. Persistence is a property of a server restart, so it is receipted in-game or not at all. **§11i: one sample of a periodic process cannot tell zero cycles from two.** A two-room patrol sampled once after "70–100 s" read *unchanged*, which fits both *never ticked* and *ticked twice*; the fix is timestamped polling that sees the change happen.
 > **Rev 10 · 2026-10-18** — **New §11g: a final-state assertion cannot see a transient side effect.** From the `feature/janitor` mutation run (BACKLOG Rev 44): the mutant that restored the original bug's order — delete the corpse, *then* its contents — survived every test, because the database ended up clean either way. The teleport had still happened, and announced itself in the item's home. The test that kills it listens for that announcement.
@@ -676,6 +677,27 @@ Unit tests assert the precondition before the refusal:
 self.assertFalse(self.char2.locks.lock_bypass)
 ```
 
+### 11k. A negative case proves its own type
+
+From `feature/harvest-guard`. The protocol's over-reach step ("a creature corpse
+still lists its parts") was first written against an object in Limbo called
+`freshcorpse`, chosen because the name said *corpse* and not *corpse of
+<player>*. Step 0 printed its `typeclass_path`, and it was a `PlayerCorpse`
+left over from an earlier protocol. Run as written, the step would have shown
+the refusal a fourth time and been read as proof that creature corpses were
+untouched. The fixture was replaced by one created in the same `@py` that
+printed its type, with the same expression as the unit test's negative case:
+
+```
+@py import time; from evennia import create_object; c = create_object("typeclasses.corpse.Corpse", key="protocol carcass", location=here); self.msg(str((time.strftime("%H:%M:%S"), c.id, c.typeclass_path, c.db.is_player_corpse, c.is_expired)))
+```
+
+**The rule:** a step whose job is to show that a change does *not* reach some
+object prints that object's type (and the attribute the change keys on) before
+it is used. A name is not a type, and dev-DB objects outlive the protocols that
+named them. The unit test carries the same receipt:
+`self.assertIsNone(corpse.db.is_player_corpse)`.
+
 ## 12. Command-syntax traps that read as bugs
 
 Two argument-shape errors from Stage 4.5's protocol that produce misleading
@@ -716,6 +738,15 @@ messages rather than usage hints:
   on the first help search. In the suite only `TestHelpDeath` searches help, so
   the line appears where that class runs; in-game it lands in the server log on
   the first `help` after a start or reload.
+- **Read the verdict with `grep`, not `tail`.** In
+  `evennia test --settings settings.py . 2>&1 | tee /tmp/full.log | tail -4`, the
+  last four lines were the launcher's opening lines (*secret_settings…*,
+  *Found 583 test(s).*, *System check…*), not the verdict. Unittest writes its
+  summary to stderr, which is unbuffered; the launcher prints to stdout, which is
+  block-buffered into a pipe and flushed when the process exits, so it lands
+  last. The verdict is in the log, higher up:
+  `grep -E '^(Ran|OK|FAILED|FAIL:|ERROR:)' /tmp/full.log`. (`PYTHONUNBUFFERED=1`
+  restores the order; the `grep` is the receipt either way.)
 
 ## 14. Verifying a delivery
 
@@ -746,6 +777,11 @@ Receipts for a patch or a guide, taken before it is handed over.
   stash had run (`nomatch`). The retry's `git stash` had nothing to save, so its
   `pop` restored the first attempt's entry — the right result, by luck of the
   order. After any failed chain, read `git stash list` before running it again.
+- **The tree receipt is `git rev-parse HEAD^{tree} | cut -c1-7`.** After `git am`
+  on `feature/harvest-guard`, `git log -1 --format='%h tree %T'` printed nothing,
+  twice, in the developer's zsh; the cause was not established. `rev-parse` printed
+  the tree in the same terminal, before and after, and goes through no pager or
+  format string.
 - **Receipts quoted in prose are copied from the delivered file after the last
   regeneration** — the sha256, the tree id, the test count. A receipt written down
   before the last edit is a receipt for a file nobody received.
