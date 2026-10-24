@@ -15,7 +15,8 @@ Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowle
     a fresh character can always make: twine, waterskin, stone knife, bone needle,
     stone axe, club, sling bullet.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
-    character must LEARN before crafting: cloth, leather, linen shirt, leather boots.
+    character must LEARN before crafting: cloth, leather, linen shirt, leather boots,
+    breeches, robe, hood, reversible clothes, linen cuirass, sack.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
   alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
   economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
@@ -60,8 +61,8 @@ def _apply_garment_quality(obj):
     A plain module-level function, NOT a CraftingRecipe subclass, so Evennia's
     _load_recipes() (which registers only issubclass(CraftingRecipeBase) classes
     *defined* in this module) never picks it up as a phantom recipe. Called from
-    each garment recipe so linen shirt / leather boots share one
-    quality->condition mapping instead of duplicating branches.
+    each garment recipe (every ClothingWithBuffs output) so all garments share
+    one quality->condition mapping instead of duplicating branches.
 
     Writing obj.db.condition overrides the DurableObject autocreate default
     (100); the write lands on the very Attribute apply_wear / is_broken /
@@ -196,6 +197,97 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
         # E.3: same shared quality -> start-condition + superior alias as the
         # linen shirt. See _apply_garment_quality.
         _apply_garment_quality(obj)
+
+
+class BreechesRecipe(MongooseCraftRecipe):
+    """Cut and stitch cloth into a pair of breeches."""
+
+    name = "breeches"
+    requires_knowledge = True
+    consumable_tags = ["cloth", "cloth"]
+    output_prototypes = ["breeches"]
+    tool_tag = "needle"
+    craft_duration = 40
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class RobeRecipe(MongooseCraftRecipe):
+    """Cut and stitch cloth into a full-length robe."""
+
+    name = "robe"
+    requires_knowledge = True
+    consumable_tags = ["cloth", "cloth", "cloth"]
+    output_prototypes = ["robe"]
+    tool_tag = "needle"
+    craft_duration = 45
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class HoodRecipe(MongooseCraftRecipe):
+    """Shape and stitch cloth into a hood."""
+
+    name = "hood"
+    requires_knowledge = True
+    consumable_tags = ["cloth"]
+    output_prototypes = ["hood"]
+    tool_tag = "needle"
+    craft_duration = 30
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class ReversibleClothesRecipe(MongooseCraftRecipe):
+    """Sew a finished garment with two contrasting cloth faces."""
+
+    name = "reversible clothes"
+    requires_knowledge = True
+    consumable_tags = ["cloth", "cloth", "cloth", "cloth"]
+    output_prototypes = ["reversible_clothes"]
+    tool_tag = "needle"
+    craft_duration = 45
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class LinenCuirassRecipe(MongooseCraftRecipe):
+    """Layer and stitch linen into a fitted cuirass."""
+
+    name = "linen cuirass"
+    requires_knowledge = True
+    consumable_tags = ["cloth", "cloth", "cloth", "cloth"]
+    output_prototypes = ["linen_cuirass"]
+    tool_tag = "needle"
+    craft_duration = 45
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class SackRecipe(MongooseCraftRecipe):
+    """Cut and stitch heavy cloth into a large sack."""
+
+    name = "sack"
+    requires_knowledge = True
+    consumable_tags = ["cloth", "cloth"]
+    output_prototypes = ["sack"]
+    tool_tag = "needle"
+    craft_duration = 40
 
 
 class StoneKnifeRecipe(MongooseCraftRecipe):

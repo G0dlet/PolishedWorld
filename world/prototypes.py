@@ -624,6 +624,90 @@ STRAW_HAT = {
     "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 
+# --- Cloth goods (AC4.1) ---
+
+BREECHES = {
+    "prototype_key": "breeches",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "breeches",
+    "aliases": ["pants", "trousers"],
+    "desc": "A plain pair of cloth breeches, cut for movement and stitched hard at the seams.",
+    # SOURCE: BreechesRecipe (cloth x2). SINK: worn for warmth (survival).
+    "clothing_type": "bottom",
+    "warmth": 1,
+    "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
+}
+
+ROBE = {
+    "prototype_key": "robe",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "robe",
+    "aliases": ["dress", "gown"],
+    "desc": (
+        "A full-length cloth robe with a generous cut, deep sleeves and a "
+        "closely stitched hem."
+    ),
+    # SOURCE: RobeRecipe (cloth x3). SINK: worn for warmth (survival).
+    "clothing_type": "fullbody",
+    "warmth": 1,
+    "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
+}
+
+HOOD = {
+    "prototype_key": "hood",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "hood",
+    "aliases": ["cowl"],
+    "desc": "A deep cloth hood with a short shoulder cape and close-stitched seams.",
+    # SOURCE: HoodRecipe (cloth x1). SINK: worn for warmth (survival).
+    "clothing_type": "hat",
+    "warmth": 1,
+    "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
+}
+
+REVERSIBLE_CLOTHES = {
+    "prototype_key": "reversible_clothes",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "reversible clothes",
+    "aliases": ["reversible garment", "clothes"],
+    "desc": (
+        "A carefully finished cloth garment with two contrasting faces and "
+        "clean seams on both sides."
+    ),
+    # SOURCE: ReversibleClothesRecipe (cloth x4). SINK: worn for warmth (survival).
+    "clothing_type": "top",
+    "warmth": 1,
+    "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
+}
+
+LINEN_CUIRASS = {
+    "prototype_key": "linen_cuirass",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "linen cuirass",
+    "aliases": ["cuirass", "linen armour"],
+    "desc": (
+        "Layer upon layer of linen is stitched into a close-fitting chest piece, "
+        "firm to the touch without any metal fittings."
+    ),
+    # SOURCE: LinenCuirassRecipe (cloth x4). SINK: worn for warmth (survival); armour waits for combat (Stage 5).
+    "clothing_type": "top",
+    "warmth": 1,
+    "enc": 1,   # AoL p. 50 / Legend core p. 96: Linen, ENC 1 per chest location
+}
+
+SACK = {
+    "prototype_key": "sack",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "large sack",
+    "aliases": ["sack", "bag"],
+    "desc": (
+        "A broad-mouthed sack of heavy plain cloth, its seams doubled and its "
+        "mouth gathered with a stitched hem."
+    ),
+    # SOURCE: SackRecipe (cloth x2, canvas as cloth #11). SINK: none in the alpha (containers, AD8).
+    "enc": 1,   # AoL p. 29: Sack, large, ENC 1
+}
+
 # --- Hunting: harvestable creature parts (H4.2) ---
 # SOURCE: the harvest command (H4.3) spawns these from a corpse, gated by skill
 # and decay. They are NOT spawned freely in the finished economy -- same as the
