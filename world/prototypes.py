@@ -98,6 +98,7 @@ BERRIES = {
     "desc": "A small handful of wild berries, tart and faintly sweet.",
     "restore_amount": 10,
     "consume_message": "You eat the berries. Tart, but they take the edge off your hunger.",
+    "enc": 0,   # Q6: food carries no ENC (Legend core p. 111)
 }
 
 BERRY_BUSH = {
@@ -135,6 +136,7 @@ PLANT_FIBER = {
     # The crafting contrib matches consumables by tag key within the
     # 'crafting_material' category. "fiber" is what recipes will list.
     "tags": [("fiber", "crafting_material")],
+    "enc": 0,   # Q6: at least the twine it is twisted into (twine ENC 0)
 }
 
 RAW_GOURD = {
@@ -147,6 +149,7 @@ RAW_GOURD = {
         "strap and a stopper, it could be made to hold water."
     ),
     "tags": [("gourd", "crafting_material")],
+    "enc": 1,   # Q6: at least the waterskin it is made into (waterskin ENC 1)
 }
 
 FIBER_PLANT = {
@@ -194,6 +197,7 @@ STONE = {
     # Matched by tag-key "stone" within the crafting_material category, exactly
     # as PLANT_FIBER uses "fiber".
     "tags": [("stone", "crafting_material")],
+    "enc": 1,   # Q6: fist-sized; AoL p. 29 Milling Stones (a pair) ENC 2
 }
 
 STICK = {
@@ -206,6 +210,7 @@ STICK = {
         "enough to serve as a handle or haft."
     ),
     "tags": [("stick", "crafting_material")],
+    "enc": 0,   # Q6: haft-length, short of AoL p. 29 Walking Stick (ENC 1)
 }
 
 STONE_OUTCROP = {
@@ -248,6 +253,7 @@ TWINE = {
     "desc": "A length of twine twisted from plant fibres \u2014 rough but serviceable cordage.",
     # Twine is itself a crafting material (consumed by the waterskin recipe in 3.3).
     "tags": [("twine", "crafting_material")],
+    "enc": 0,   # Q6: too light to score (AoL p. 28 Elfen Bowstring, ENC "—")
 }
 
 WATERSKIN = {
@@ -261,6 +267,7 @@ WATERSKIN = {
     "max_charges": 5,        # quality-scaling deferred to Task 4.1
     "restore_amount": 15,
     "refillable": True,
+    "enc": 1,   # Legend core p. 119 / AoL p. 29: Waterskin, ENC 1
 }
 
 KNIFE = {
@@ -270,6 +277,7 @@ KNIFE = {
     "aliases": ["blade"],
     "desc": "A simple bladed knife, handy for shaping and cutting.",
     "tags": [("knife", "crafting_tool")],
+    "enc": 0,   # Legend core p. 106: Knife, ENC "—" -- too light to score
 }
 
 # --- Bootstrap tool: crude stone knife (crafted, C.3) ---
@@ -305,6 +313,7 @@ STONE_KNIFE = {
     # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
     # DurableObject's autocreate-100. Metal KNIFE stays pristine (no override).
     "condition": 40,
+    "enc": 0,   # Legend core p. 106: Knife, ENC "—" -- too light to score
 }
 
 # --- Felling chain: flint, stone axe, wood, tree, club (AC2.2) ---
@@ -500,6 +509,7 @@ CLOTH = {
         "Cut and stitched, it can be made into a garment."
     ),
     "tags": [("cloth", "crafting_material")],
+    "enc": 0,   # Q6: at least the shirt it is sewn into (shirt ENC 0)
 }
 
 NEEDLE = {
@@ -512,6 +522,7 @@ NEEDLE = {
     # never consumed. Its own crafting source (bone/bronze) is a future task; the
     # garment recipe works WITHOUT it at a -20 improvised penalty until then.
     "tags": [("needle", "crafting_tool")],
+    "enc": 0,   # Q6: too light to score (Legend core p. 112: a craft-tools set is ENC 1)
 }
 
 # --- Bootstrap tool: bone needle (crafted from harvested bone, C.4) ---
@@ -545,6 +556,7 @@ BONE_NEEDLE = {
     # Crude bootstrap tool: short-lived so wear is felt early (D.5). Overrides
     # DurableObject's autocreate-100. Metal NEEDLE stays pristine (no override).
     "condition": 30,
+    "enc": 0,   # Q6: too light to score (Legend core p. 112: a craft-tools set is ENC 1)
 }
 
 # --- Clothing: starter garments (warmth + clothing_type) ---
@@ -563,6 +575,7 @@ FUR_CLOAK = {
     "desc": "A heavy cloak of stitched animal furs, thick enough to turn aside a winter wind.",
     "clothing_type": "fullbody",
     "warmth": 3,
+    "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 
 WOOL_TUNIC = {
@@ -573,6 +586,7 @@ WOOL_TUNIC = {
     "desc": "A coarse woollen tunic, warm and hard-wearing if a little scratchy.",
     "clothing_type": "top",
     "warmth": 2,
+    "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 
 LINEN_SHIRT = {
@@ -583,6 +597,7 @@ LINEN_SHIRT = {
     "desc": "A plain linen shirt, light against the skin and meant to be worn beneath heavier layers.",
     "clothing_type": "undershirt",
     "warmth": 1,
+    "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 
 LEATHER_BOOTS = {
@@ -593,6 +608,7 @@ LEATHER_BOOTS = {
     "desc": "Sturdy boots of oiled leather, laced high against mud and cold.",
     "clothing_type": "shoes",
     "warmth": 1,
+    "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 
 STRAW_HAT = {
@@ -605,6 +621,7 @@ STRAW_HAT = {
     # warmth 0 on purpose: this is a sun/rain piece. Its protection will live on
     # the reserved rain_protection hook once that axis lands -- not warmth.
     "warmth": 0,
+    "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 
 # --- Hunting: harvestable creature parts (H4.2) ---
@@ -629,6 +646,7 @@ RABBIT_MEAT = {
     # to db.restore_amount / db.consume_message, exactly what CmdEat reads.
     "restore_amount": 15,
     "consume_message": "You eat {key}. Gamey and tough raw, but it takes the edge off your hunger.",
+    "enc": 0,   # Q6: food carries no ENC (Legend core p. 111)
 }
 
 RAW_HIDE = {
@@ -645,6 +663,7 @@ RAW_HIDE = {
     # crafting_material tag-key "raw_hide" is what the H5 tanning recipe lists in
     # consumable_tags. Same convention as PLANT_FIBER's "fiber" and CLOTH's "cloth".
     "tags": [("raw_hide", "crafting_material")],
+    "enc": 0,   # Q6: at least the leather it is tanned into (leather ENC 0)
 }
 
 BONE = {
@@ -659,6 +678,7 @@ BONE = {
     # crafting_material tag-key "bone" -> BoneNeedleRecipe consumable_tags.
     # Same convention as RAW_HIDE's "raw_hide" and PLANT_FIBER's "fiber".
     "tags": [("bone", "crafting_material")],
+    "enc": 0,   # Q6: at least the needle it is carved into (needle ENC 0)
 }
 
 LEATHER = {
@@ -674,6 +694,7 @@ LEATHER = {
     # lists in consumable_tags. Same convention as CLOTH's "cloth" and
     # RAW_HIDE's "raw_hide".
     "tags": [("leather", "crafting_material")],
+    "enc": 0,   # Q6: at least the boots it is sewn into (boots ENC 0)
 }
 
 
@@ -693,6 +714,7 @@ SCROLL = {
     # by `learn` (Component F.2), not an ingredient for any recipe. The recipe it
     # teaches is stamped onto the spawned instance by `inscribe`
     # (obj.db.recipe = <name>), NOT baked into the prototype.
+    "enc": 0,   # Q6: lighter than its case (AoL p. 29 Scrollcase, ENC "—")
 }
 
 BOOK = {
@@ -712,4 +734,5 @@ BOOK = {
     # finished knowledge-carrier, not an ingredient. Its recipe list and start
     # condition are stamped/set onto the spawned instance by `scribe` (G.2),
     # NOT baked into the prototype -- the same split the SCROLL prototype uses.
+    "enc": 1,   # Legend core p. 112 / AoL p. 28: Codex, ENC 1
 }

@@ -23,8 +23,14 @@ the wrong thing. These tests make the registry answer to the code:
        yield_prototype, a harvest part in a template some prototype's
        harvest_template names, or a recipe's output_prototypes.
 
+  (g)  every item prototype carries a non-negative int `enc` (AD8): every
+       prototype whose typeclass is not a ResourceNode or a Creature --
+       neither can be picked up -- and those two carry none.
 Checking the consumer without the source (c without f) recreates the feather
-error one layer down; (f) closes that.
+error one layer down; (f) closes that. (g) is AC4.0's: from it on a catalogue
+batch without ENC fails the suite, so the field cannot rot unread until the
+weight mechanic reads it. It is (g), not the decomposition's "(e)": (e) was
+taken by AC1.1.
 
 HOW THE DATA IS READ (same paths production uses)
 -------------------------------------------------
@@ -35,6 +41,10 @@ HOW THE DATA IS READ (same paths production uses)
 * Recipes: `_load_recipes()` then `_RECIPE_CLASSES` -- the registry the
   crafting contrib itself resolves `craft <name>` against (keyed on cls.name),
   as world/knowledge.py and commands/crafting_commands.py already do.
+* Item or not (g): the prototype's typeclass resolved to its class and tested
+  with issubclass, so a subclass of ResourceNode or Creature is excluded by
+  what it is, not by how its path is spelled. `enc` is not a reserved
+  prototype key, so it arrives as a homogenized attr and is read with _attr().
 
 Each per-entry check runs in a subTest, so one run names every bad entry.
 A guard runs first: an empty prototype or recipe set would make every
@@ -49,10 +59,13 @@ from evennia.contrib.game_systems.crafting.crafting import (
     _load_recipes,
     _RECIPE_CLASSES,
 )
-from evennia.prototypes.prototypes import search_prototype
+from evennia.prototypes.prototypes import homogenize_prototype, search_prototype
 from evennia.utils.test_resources import EvenniaTestCase
+from evennia.utils.utils import class_from_module
 
 from world import material_registry as reg
+from typeclasses.creatures import Creature
+from typeclasses.resources import ResourceNode
 from world.harvest_templates import HARVEST_TEMPLATES
 
 MATERIAL_CATEGORY = "crafting_material"
@@ -69,6 +82,12 @@ SECTIONS = (
 # recipes). A floor, not a census: content added since does not move it.
 MIN_PROTOTYPES = 30
 MIN_RECIPES = 8
+# (g)'s floor, set at AC4.0's count (29 item prototypes; 9 nodes and the
+# rabbit excluded). Same rule: a floor, not a census.
+MIN_ITEM_PROTOTYPES = 29
+
+# Typeclasses whose objects cannot be picked up, so they carry no `enc` (AD8).
+NOT_CARRIED = (ResourceNode, Creature)
 
 
 def _prototypes():
@@ -92,6 +111,37 @@ def _attr(proto, name):
     for attr in proto.get("attrs", []):
         if attr[0] == name:
             return attr[1]
+    return None
+
+
+def _is_item(proto):
+    """True if the prototype spawns something a character can carry (g).
+
+    A prototype with no typeclass (one built only from a prototype_parent)
+    cannot be classified here, so it fails loudly instead of being skipped.
+    """
+    path = proto.get("typeclass")
+    if path is None:
+        raise AssertionError(
+            f"{proto['prototype_key']}: no typeclass to classify -- test (g) "
+            "cannot tell whether it is an item"
+        )
+    return not issubclass(class_from_module(path), NOT_CARRIED)
+
+
+def _enc_problem(proto):
+    """Why a prototype's `enc` breaks (g), or None when it is valid.
+
+    `type(...) is int`, not isinstance: True is an int to isinstance and
+    would pass as ENC 1.
+    """
+    enc = _attr(proto, "enc")
+    if enc is None:
+        return "no enc"
+    if type(enc) is not int:
+        return f"enc is {type(enc).__name__} {enc!r}, not int"
+    if enc < 0:
+        return f"enc is negative ({enc})"
     return None
 
 
@@ -194,3 +244,48 @@ class TestMaterialRegistry(EvenniaTestCase):
                     continue
                 with self.subTest(label=label, key=key, proto=entry["prototype_key"]):
                     self.assertIn(entry["prototype_key"], self.sourced)
+
+    def test_g_every_item_prototype_carries_enc(self):
+        items = [p for p in self.prototypes if _is_item(p)]
+        excluded = [p for p in self.prototypes if not _is_item(p)]
+        # Guard: an exclusion that swallowed everything would leave no item
+        # to check, and one that excluded nothing would hide a broken split.
+        self.assertGreaterEqual(len(items), MIN_ITEM_PROTOTYPES)
+        self.assertTrue(excluded)
+        for proto in items:
+            with self.subTest(prototype=proto["prototype_key"]):
+                self.assertIsNone(_enc_problem(proto))
+
+    def test_g_nodes_and_creatures_carry_no_enc(self):
+        excluded = [p for p in self.prototypes if not _is_item(p)]
+        # Receipt that both kinds are in the excluded set, by class.
+        classes = {class_from_module(p["typeclass"]) for p in excluded}
+        for kind in NOT_CARRIED:
+            with self.subTest(kind=kind.__name__):
+                self.assertTrue(any(issubclass(c, kind) for c in classes))
+        for proto in excluded:
+            with self.subTest(prototype=proto["prototype_key"]):
+                self.assertIsNone(_attr(proto, "enc"))
+
+    def test_g_rule_refuses_bad_enc(self):
+        """Negative cases through the production homogenizer (§11k).
+
+        Each fixture first proves it is an item -- the thing (g) checks --
+        before its refusal is read, so a refusal cannot come from it having
+        been excluded.
+        """
+        base = {"typeclass": "typeclasses.objects.Object", "key": "fixture"}
+        cases = {
+            "missing": ({}, "no enc"),
+            "bool": ({"enc": True}, "enc is bool True, not int"),
+            "str": ({"enc": "1"}, "enc is str '1', not int"),
+            "negative": ({"enc": -1}, "enc is negative (-1)"),
+        }
+        for name, (extra, expected) in cases.items():
+            proto = homogenize_prototype(
+                {"prototype_key": f"enc_fixture_{name}", **base, **extra})
+            with self.subTest(case=name):
+                self.assertTrue(_is_item(proto))
+                self.assertEqual(_enc_problem(proto), expected)
+        valid = homogenize_prototype({"prototype_key": "enc_fixture_zero", **base, "enc": 0})
+        self.assertIsNone(_enc_problem(valid))
