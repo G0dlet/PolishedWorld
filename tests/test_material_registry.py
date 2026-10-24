@@ -26,11 +26,20 @@ the wrong thing. These tests make the registry answer to the code:
   (g)  every item prototype carries a non-negative int `enc` (AD8): every
        prototype whose typeclass is not a ResourceNode or a Creature --
        neither can be picked up -- and those two carry none.
+  (h)  a `source` that names a harvest creature (a HARVEST_TEMPLATES key, as
+       a whole word) belongs to an entry that creature's template yields.
 Checking the consumer without the source (c without f) recreates the feather
 error one layer down; (f) closes that. (g) is AC4.0's: from it on a catalogue
 batch without ENC fails the suite, so the field cannot rot unread until the
 weight mechanic reads it. It is (g), not the decomposition's "(e)": (e) was
 taken by AC1.1.
+
+(h) is AC4.0b's. `fur`'s source named the rabbit while the rabbit's template
+yielded raw_hide (Decomp Rev 3 Q7): every other check passed, because `fur`
+is DATA and source is free text. A generator reading the registry would have
+put fur on the rabbit. (h) reads the text against the yield table the harvest
+command reads, so a source cannot claim a creature the code does not harvest
+it from, whatever the entry's status.
 
 HOW THE DATA IS READ (same paths production uses)
 -------------------------------------------------
@@ -54,6 +63,8 @@ A guard runs first: an empty prototype or recipe set would make every
 set `required_tool`. Its receipt is the `axe` entry: no recipe names the axe as
 its tool_tag, so without the branch (d) fails on it.
 """
+
+import re
 
 from evennia.contrib.game_systems.crafting.crafting import (
     _load_recipes,
@@ -85,6 +96,8 @@ MIN_RECIPES = 8
 # (g)'s floor, set at AC4.0's count (29 item prototypes; 9 nodes and the
 # rabbit excluded). Same rule: a floor, not a census.
 MIN_ITEM_PROTOTYPES = 29
+# (h)'s floor, set at AC4.0b's count: raw_hide and bone name the rabbit.
+MIN_CREATURE_SOURCES = 2
 
 # Typeclasses whose objects cannot be picked up, so they carry no `enc` (AD8).
 NOT_CARRIED = (ResourceNode, Creature)
@@ -143,6 +156,16 @@ def _enc_problem(proto):
     if enc < 0:
         return f"enc is negative ({enc})"
     return None
+
+
+def _named_creatures(source):
+    """HARVEST_TEMPLATES keys that a registry `source` names, as words (h).
+
+    Whole word, singular or plural, any case: "rabbit harvest" and "Rabbits"
+    name the rabbit; "jackrabbit" does not.
+    """
+    return {key for key in HARVEST_TEMPLATES
+            if re.search(rf"\b{re.escape(key)}s?\b", source, re.IGNORECASE)}
 
 
 def _sourced_prototype_keys(prototypes, recipes):
@@ -289,3 +312,37 @@ class TestMaterialRegistry(EvenniaTestCase):
                 self.assertEqual(_enc_problem(proto), expected)
         valid = homogenize_prototype({"prototype_key": "enc_fixture_zero", **base, "enc": 0})
         self.assertIsNone(_enc_problem(valid))
+
+    def test_h_a_named_creature_yields_the_entry(self):
+        """A `source` naming a harvest creature is a part that creature yields."""
+        self.assertTrue(HARVEST_TEMPLATES, "no harvest templates -- (h) is vacuous")
+        pairs = []
+        for section, _category, label in SECTIONS:
+            for key, entry in section.items():
+                for creature in sorted(_named_creatures(entry["source"])):
+                    pairs.append((key, creature))
+                    yields = {part["prototype"]
+                              for part in HARVEST_TEMPLATES[creature].values()}
+                    with self.subTest(label=label, key=key, creature=creature):
+                        self.assertIn(
+                            entry["prototype_key"], yields,
+                            f"{key}'s source names the {creature}, whose "
+                            f"template yields {sorted(yields)}")
+        # Receipt: the check ran on real entries, not on an empty match set.
+        self.assertGreaterEqual(
+            len(pairs), MIN_CREATURE_SOURCES,
+            f"only {pairs} name a harvest creature -- matcher or floor broken")
+
+    def test_h_matcher_reads_whole_words(self):
+        """The matcher (h) relies on: whole words, plural and case allowed."""
+        self.assertIn("rabbit", HARVEST_TEMPLATES)  # the fixtures' premise
+        cases = (
+            ("rabbit harvest (HARVEST_TEMPLATES)", {"rabbit"}),
+            ("Rabbits, snared", {"rabbit"}),
+            ("jackrabbit hide", set()),
+            ("rabbitry pens", set()),
+            ("soft-furred animal harvest (fox...)", set()),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(_named_creatures(source), expected)

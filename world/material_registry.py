@@ -200,7 +200,8 @@ MATERIALS = {
     "fur": {
         "prototype_key": "fur", "category": RAW, "status": DATA,
         "blocked_on": "",
-        "source": "soft-furred animal harvest (rabbit, fox...); pelt kept fur-on",
+        "source": "soft-furred animal harvest (fox...; no creature in the alpha "
+                  "yields fur, Q7); pelt kept fur-on",
         "sinks": ["fur cloak", "fur-lined warmth garments"],  # WARMTH chain (#1)
     },
     "bone": {
@@ -465,6 +466,8 @@ OPEN_DECISIONS = """
 1.  [RESOLVED] fur vs raw_hide — kept DISTINCT. fur = warmth chain (pelt kept
     fur-on -> fur garments). raw_hide = durable chain (tan -> leather -> goods).
     Soft-furred animals yield fur; thick-hided yield raw_hide; large may yield both.
+    Q7 (AC4.0, Decomp Rev 3 B3): the alpha rabbit yields raw_hide -- the code
+    wins; the soft-furred rule waits for a creature that yields fur.
 2.  [RESOLVED] Tanning (raw_hide -> leather) — soft hand-craft, no station:
     LeatherRecipe (raw_hide x2, knife optional), commit 896ce33; ratified as
     shipped in roadmap Rev 27 (D2). Bark and water as inputs are deferred to
