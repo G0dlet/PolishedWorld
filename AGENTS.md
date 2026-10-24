@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 7 · 2026-10-24** — §3 schemas carry `enc` (Alpha Content AC4.0, Decomposition Rev 3): every item prototype has a non-negative int Encumbrance with its rulebook page or Q6 reason; §3.1/§3.2/§3.3/§3.6 examples show it, §3.4/§3.5 say creatures and nodes carry none, and §6 gains the line. Test (g) in `tests/test_material_registry.py` enforces it — it lives on `feature/alpha-content` until that branch merges. §3.6 admits `bottom` and `accessory`, which `CLOTHING_TYPE_ORDERED` already holds. §3.2's `KNIFE` now matches the shipped prototype (`typeclasses.tools.Tool`, not `Object`), and §3's table gains `Tool`, `Scroll` and `Book`, which it had missed. §4: a batch brief that gives `craft_duration` is the request.
 > **Rev 6 · 2026-10-14** — §4 recipe schema: `craft_cooldown` → `craft_duration` (Epic A, TA2.2). A craft now takes its time up front, on the shared timed-action slot, and the per-recipe cooldown is gone: one time knob, not two. A recipe that still defines `craft_cooldown` fails `tests/test_craft_command.py`. The template had been stale since TA2.1, which added `craft_duration` without updating it.
 > **Rev 5 · 2026-08-03** — §8 gains a pointer to `docs/PolishedWorld_Core_Instructions.md` (Rev 3), which is where Claude's own delivery contract lives. Deliberately **not** added to §7 Working style: §7 addresses you, a content-generation agent, and a requirement about step-by-step teaching walkthroughs and in-game test protocols is noise there. §8 is already the "who owns what" section, so the cross-reference belongs in it and nowhere else.
 > **Rev 4 · 2026-08-02** — §0A gains the counterpart to Rev 3's separator fix: `.call()` does **not** run command locks, so a test asserting that an unprivileged caller is refused passes *vacuously* — the command simply runs. Permission tests use `Command.access(caller, "cmd")`. Pointer added to Evennia Reference §11.26.
@@ -271,15 +272,29 @@ Only these `typeclass` strings exist — never use any other without FLAGging:
 
 | typeclass | Use for | Required / common keys |
 |---|---|---|
-| `typeclasses.objects.Object` | inert items, materials, tools | `tags` |
+| `typeclasses.objects.Object` | inert items, materials, weapons, containers | `tags` |
+| `typeclasses.tools.Tool` | crafting tools that wear down (an `Object` with `condition`) | `tags` (`crafting_tool`) |
 | `typeclasses.consumables.Food` | edible | `restore_amount`, `consume_message` |
 | `typeclasses.consumables.Drink` | drinkable | `charges`, `max_charges`, `restore_amount`, `refillable` |
 | `typeclasses.clothing.ClothingWithBuffs` | wearables | `clothing_type`, `warmth` |
 | `typeclasses.creatures.Creature` | huntable fauna | `siz`, `harvest_template`, optional `natural_ap`, `flee_skill` |
 | `typeclasses.resources.ResourceNode` | gatherable node | `resource_type`, `max_yield`, `regen_interval`, `available`, `yield_prototype` |
+| `typeclasses.scroll.Scroll` | recipe scrolls — the existing `scroll` prototype only; never author one | — |
+| `typeclasses.books.Book` | recipe books — the existing `book` prototype only; never author one | — |
 
 Every prototype has: `prototype_key`, `typeclass`, `key`, usually `aliases` and
 `desc`.
+
+Every **item** prototype — everything except a `Creature` and a `ResourceNode` —
+also carries `enc`: its Legend Encumbrance as a non-negative `int` (`0`, `1`,
+`2`; never `True`, `"1"` or a float), with a comment naming where the number
+came from — the Legend core or *Arms of Legend* page (`# AoL p. 29: Tent, 4
+person, ENC 2`) or, where the books give none, the Q6 reason (`# Q6: Legend core
+pp. 98-100 give clothing no ENC`). An item the books list as "—" (too light to
+score) is `0`; Legend counts 20 such items as 1 ENC, and that counting belongs
+to the weight mechanic, not to you. An ENC that neither the books nor your batch
+brief gives is a FLAG, not an estimate. Test (g) in
+`tests/test_material_registry.py` fails any item prototype without a valid `enc`.
 
 ### 3.1 Crafting material (consumed by recipes)
 ```python
@@ -292,6 +307,7 @@ RAW_HIDE = {
     # tag-key "raw_hide" is what recipes list in consumable_tags. SOURCE: H5
     # rabbit harvest. SINK: the tanning recipe consumes it into leather.
     "tags": [("raw_hide", "crafting_material")],
+    "enc": 0,   # Q6: at least the leather it is tanned into (leather ENC 0)
 }
 ```
 
@@ -299,11 +315,12 @@ RAW_HIDE = {
 ```python
 KNIFE = {
     "prototype_key": "knife",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.tools.Tool",
     "key": "knife",
     "aliases": ["blade"],
     "desc": "A simple bladed knife, handy for shaping and cutting.",
     "tags": [("knife", "crafting_tool")],   # category MUST be crafting_tool
+    "enc": 0,   # Legend core p. 106: Knife, ENC "—" -- too light to score
 }
 ```
 
@@ -317,10 +334,12 @@ RABBIT_MEAT = {
     "desc": "A portion of raw, dark rabbit meat...",
     "restore_amount": 15,   # hunger restored; raw small-game stays modest
     "consume_message": "You eat {key}. Gamey and tough raw, but it helps.",
+    "enc": 0,   # Q6: food carries no ENC (Legend core p. 111)
 }
 ```
 
 ### 3.4 Creature
+No `enc`: a creature is not an item (its harvested parts are, and carry their own).
 ```python
 RABBIT = {
     "prototype_key": "rabbit",
@@ -337,6 +356,7 @@ RABBIT = {
 ```
 
 ### 3.5 ResourceNode
+No `enc`: a node is not carried (its `yield_prototype` is, and carries its own).
 ```python
 FIBER_PLANT = {
     "prototype_key": "fiber_plant",
@@ -354,7 +374,9 @@ FIBER_PLANT = {
 
 ### 3.6 Clothing
 `clothing_type` must be one of the existing values:
-`fullbody`, `top`, `undershirt`, `shoes`, `hat`. Anything else → FLAG.
+`fullbody`, `top`, `undershirt`, `shoes`, `hat`, `bottom`, `accessory`. Anything
+else → FLAG. (All seven are in `CLOTHING_TYPE_ORDERED` in `server/conf/settings.py`;
+`CLOTHING_TYPE_LIMIT` allows one of each except `accessory`, which takes warmth 0.)
 `warmth` is a small int (0–3 in current content; novel values → FLAG).
 ```python
 LEATHER_BOOTS = {
@@ -365,6 +387,7 @@ LEATHER_BOOTS = {
     "desc": "Sturdy boots of oiled leather...",
     "clothing_type": "shoes",
     "warmth": 1,
+    "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
 ```
 
@@ -392,9 +415,9 @@ Rules:
 - `tool_tag` is a `crafting_tool` tag-key or `None`. Tools are always
   **optional**: present gives +20, improvised (absent) gives −20. Never required.
 - `craft_duration` (how long the `craft` command waits before the craft
-  resolves) defaults to 30; override only if requested. There is no
-  `craft_cooldown` any more -- do not add one: nothing reads it, and a test
-  fails if any recipe defines it.
+  resolves) defaults to 30; override only if requested (a batch brief that gives
+  one is the request). There is no `craft_cooldown` any more -- do not add
+  one: nothing reads it, and a test fails if any recipe defines it.
 - Do **not** add a `_finalize_item` method unless explicitly asked — that is
   quality-scaling balance logic. If asked, copy the existing `WaterskinRecipe`
   pattern exactly and FLAG any new thresholds.
@@ -452,6 +475,8 @@ or `grep` `world/prototypes.py`), not by trusting an example you were shown:
 - [ ] No `value` / price / vendor / "availability" fields anywhere.
 - [ ] Every new tool has a crafting source tracing to base materials (or it's FLAGged).
 - [ ] Every new item has a SOURCE + SINK comment.
+- [ ] Every new item prototype carries a non-negative int `enc` with its rulebook
+      page or Q6 reason in a comment (test (g) in `tests/test_material_registry.py`).
 
 ---
 
