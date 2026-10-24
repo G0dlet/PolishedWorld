@@ -1,12 +1,13 @@
 # PolishedWorld — Alpha Content Decomposition
 
+> **Rev 3 · 2026-10-24** — **AC4.0 shipped on `feature/alpha-content`** (`45b20ea`, tree `9d39f0c`; §9 record) and **its batch brief added** (§9, B1–B9, 18 items): Q1 → ladder rungs with the vessels struck, Q5 → `twine`, Q6 → book ENC per item, Q7 → the rabbit yields `raw_hide`. Breeches and the bandolier take the existing `bottom` and `accessory` slots (§3 finding 4 corrected); new Task AC4.0b corrects the registry's Q7 text before AC4.1. Brief and `AGENTS.md` Rev 7 land on `main` (D1(b)) and reach the branch by merge.
 > **Rev 2 · 2026-10-18** — **AC1.1 shipped** as `cb60434`, on `main` directly rather than through `feature/alpha-content` (lesson 64: `git switch -c X origin/main` tracks `origin/main`); Adam decided it stays there. §6 turns from plan into record: the five decisions taken while building it (**T1–T5** — prototypes read through `search_prototype(no_db=True)` instead of Rev 1's scan of the module's dicts, recipes through the crafting contrib's own registry, the `required_tool` branch of test (d) deferred to AC2.1, a vacuity guard, and `source` meaning *what the code does today* for EXISTS entries, which moved `knife` and `needle` to `stone_knife` and `bone_needle`), the eight tests as shipped with what each one catches, a mutation table that replaces Rev 1's two mutations, and the suite figure, **519**. §2's heading now counts all eight decisions (AD1–AD8) — it was one short of its own content since Rev 1. §3 is marked a snapshot and gains **finding 6**: four things AC1.1 surfaced, each given a home and none resolved here (Q7, Q8, AC6). AD6 records what the direct landing costs: the Source/Sink Ledger on `main` lags the registry on `main` until AC6. AC2.1–2.2 carry T3 and T5 forward. No code.
 > **Rev 1 · 2026-10-18** — first version. Decomposes `docs/BACKLOG.md` *Alpha content epic* (roadmap Rev 27, alpha entry (D)) into five components and a close-out, against live source read the same day (`main` at `5921ed2`, Evennia at the pinned `v6.1.0` tag). Locks **AD1–AD8**: a stone axe with a hard tool check in `forage` (AD1), generic `wood` for the alpha with DECISION #10's revisit re-anchored to Stage 5 (AD2), registry corrections widened to everything a mechanical loop finds (AD3), `sinew` out of the alpha (AD4), a use-in-alpha column now and the inert-goods policy before the first catalogue batch (AD5), registry-with-code on the branch and derived docs at close-out (AD6), a seeding design shaped by what the setup hook actually does (AD7), and Legend ENC carried on every item prototype from now on, with the weight mechanic itself decomposed separately as a seventh alpha prerequisite (AD8). **Three figures the epic was filed with are corrected here** (§3): the reachable catalogue is **24** items as written, not about 29; the bow does **not** need `sinew`; and DECISION #10's revisit condition **cannot** fire inside an alpha with no combat. No code.
 > **Canonical:** `docs/PolishedWorld_Alpha_Content_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
-**Status:** in progress — **AC1.1 shipped** on `main` (`cb60434`, 2026-10-18; §6). AC2.1 onward ride `feature/alpha-content` as planned.
+**Status:** in progress — **AC1.1 shipped** on `main` (`cb60434`, 2026-10-18; §6). AC2.1 onward ride `feature/alpha-content` as planned. The AC4.0 batch brief is in §9 (Rev 3).
 **Feature branch:** `feature/alpha-content` (one branch, one merge, as Epic A).
-**Rough scope:** 12 tasks, 7.5–10 sessions at 5 h/week (AC1 0.5 · AC2 1.5–2 · AC3 1–1.5 · AC4 3.5–4.5 · AC5 0.5–1 · AC6 0.5) — inside the 6–11 that roadmap Rev 27 (D) priced for the same work.
+**Rough scope:** 13 tasks (Rev 3: + AC4.0b), 7.5–10 sessions at 5 h/week (AC1 0.5 · AC2 1.5–2 · AC3 1–1.5 · AC4 3.5–4.5 · AC5 0.5–1 · AC6 0.5) — inside the 6–11 that roadmap Rev 27 (D) priced for the same work.
 **Philosophy:** skynda långsamt — no material lands without the recipe that consumes it.
 
 ---
@@ -78,7 +79,7 @@ Plus two entries that are wrong without being drifted in status: `knife` has `so
 
 **Finding 3 — flint has no consumer in the alpha unless the felling model gives it one.** Flint and Tinder is the only item among the 44 that uses flint, and its steel striker is `[BLOCKED: smithing]`. Clay's only consumer is Sling Bullets. Both are thin; flint's is empty. AD1 answers this.
 
-**Finding 4 — most finished goods have no use in the alpha.** There is no weapon or armour typeclass, `CmdHunt` reads no weapon, combat is excluded, nothing implements `put` containers, mounts, shelter or watercraft, and no object has a weight. Garments are the exception: `ClothingWithBuffs` has warmth and wears. `clothing_type` accepts only `fullbody`, `top`, `undershirt`, `shoes`, `hat` (`AGENTS.md` §3.6), so breeches and a bandolier have no slot and are FLAGs, not data.
+**Finding 4 — most finished goods have no use in the alpha.** There is no weapon or armour typeclass, `CmdHunt` reads no weapon, combat is excluded, nothing implements `put` containers, mounts, shelter or watercraft, and no object has a weight. Garments are the exception: `ClothingWithBuffs` has warmth and wears. `clothing_type` accepts only `fullbody`, `top`, `undershirt`, `shoes`, `hat` (`AGENTS.md` §3.6), so breeches and a bandolier have no slot and are FLAGs, not data. *Rev 3:* the five were `AGENTS.md`'s list, not the game's — `CLOTHING_TYPE_ORDERED` (`server/conf/settings.py`) already holds `bottom` and `accessory`. AGENTS Rev 7 admits both, so breeches and the bandolier are data (§9, B4).
 
 **Finding 5 — the setup hook.** `handle_setup()` runs `create_objects` → `at_initial_setup` → `collectstatic` → `done`, recording each step in `ServerConfig("last_initial_setup_step")` on success. `at_initial_setup()` wraps **only the `__import__`** of `settings.AT_INITIAL_SETUP_HOOK_MODULE` (default `"server.conf.at_initial_setup"`) in `except (ImportError, ValueError): return` — that return is a *success*, so the step is recorded and never retried. Any exception from the hook *function* propagates out of `handle_setup()`, which re-raises: startup stops, the step is not recorded, the hook runs again next start. The template's *"tracebacks in this module will be QUIETLY ignored"* is true of the import and false of the call. Limbo and the superuser's character exist before the hook runs.
 
@@ -103,12 +104,12 @@ After the FAS 1 cut (AD1–AD4) and AC1, a `[DATA]` item is **reachable** when e
 | 4 | Rope, Hemp | 158 | — | material? (Q5) | input (Tent, Raft) if Q5 makes it one |
 | 5 | Tent | 266 | wood | Object | — |
 | 6 | Saddlebag | 352 | — | container (AD8) | carry |
-| 7 | Breeches/Pants | 395 | — | **FLAG** (no `clothing_type`) | wear, if a slot is added |
+| 7 | Breeches/Pants | 395 | — | Clothing `bottom` (Rev 3, B4) | wear |
 | 8 | Dress/Robe | 402 | — | Clothing `fullbody` | wear |
 | 9 | Shoes | 434 | — | Clothing `shoes` | wear |
 | 10 | Hood/Cowl | 451 | — | Clothing `hat` | wear |
 | 11 | Reversible Clothes | 468 | — | Clothing `top` | wear |
-| 12 | Bandolier | 475 | — | **FLAG** (no `clothing_type`) | — |
+| 12 | Bandolier | 475 | — | Clothing `accessory` (Rev 3, B4) | — |
 | 13 | Linen Cuirass | 505 | — | Clothing (armour semantics deferred to Stage 5) | wear |
 | 14 | Bone Armour | 563 | — | Clothing (as 13) | wear |
 | 15 | Sling | 643 | — | Object | — |
@@ -128,6 +129,8 @@ After the FAS 1 cut (AD1–AD4) and AC1, a `[DATA]` item is **reachable** when e
 
 **Supply note:** `bone` and `raw_hide` have one source — the rabbit, one bone and one hide per kill at SIZ 4 — and the list adds Scrollcase, Spear tips and Bone Armour to bone's consumers and four leather goods to hide's. Calibration for AC4, not a blocker.
 
+*Rev 3:* the AC4.0 brief (§9) strikes Rope, Hemp (B2) and Raft, Canoe and Sled (B1), moves Sack to AC4.1, and leaves Club and Sling Bullets out as shipped: **18 items** go to the batches. The counts above are the ones Q1 was decided against and are left as they were.
+
 ---
 
 ## 5. Dependency graph
@@ -141,12 +144,13 @@ graph TD
     AC22 --> AC31
     AC23 --> AC31
     AC31 --> AC32[AC3.2 setup hook + fresh-DB runbook]
-    AC11 --> AC40[AC4.0 batch brief: Q1, Q5, FLAGs]
+    AC11 --> AC40[AC4.0 batch brief + ENC ✅ branch]
     AC22 --> AC40
     AC23 --> AC40
-    AC40 --> AC41[AC4.1 cloth goods]
-    AC40 --> AC42[AC4.2 leather and bone goods]
-    AC40 --> AC43[AC4.3 wood and stone goods]
+    AC40 --> AC40b[AC4.0b registry text for Q7]
+    AC40b --> AC41[AC4.1 cloth goods]
+    AC40b --> AC42[AC4.2 leather and bone goods]
+    AC40b --> AC43[AC4.3 wood and stone goods]
     AC41 --> AC51[AC5.1 E.1 min_skill ladder]
     AC42 --> AC51
     AC43 --> AC51
@@ -267,7 +271,13 @@ AC1.1 first because its tests are what every later task must keep green: from th
 
 ## 9. Component AC4 — Catalogue batches (OpenCode, reviewed by Claude)
 
-### Task AC4.0 — Batch brief and the ENC backfill (Claude/Adam; the backfill is delegable)
+### Task AC4.0 — Batch brief and the ENC backfill (Claude/Adam; the backfill is delegable) — ✅ SHIPPED on the branch
+- **Shipped on `feature/alpha-content`, not on `main`:** `45b20ea`, tree `9d39f0c`, 2026-10-24 — `world/prototypes.py` (`enc` on the 23 item prototypes) and `tests/test_material_registry.py` (test (g), three tests). `main` carries neither until the merge; this brief and `AGENTS.md` Rev 7 describe them ahead of it, by D1(b).
+- **Deviations, locked by Adam 2026-10-24:** **D1(b)** the brief and AGENTS Rev 7 are docs, so they left the commit for a docs commit on `main`, which is merged into the branch before AC4.1 — the *Output* below said one commit. **D2** the ENC commit came first; the brief had its own design session. **D4** the test is **(g)**, not (e): AC1.1 had already taken (e).
+- **Values (D3), each with its page or reason in a comment:** waterskin 1 (core p. 119, AoL p. 29); book 1 (Codex, core p. 112, AoL p. 28); knife and stone knife 0 (core p. 106, "—"); scroll 0 (AoL p. 29, Scrollcase "—"); garments 0 (core pp. 98–100 give clothing no ENC); berries and rabbit meat 0 (p. 111); fiber, twine, cloth, raw hide, leather, bone, needle, bone needle 0 by AC2.2's *input ≥ product*, gourd 1 (the waterskin); judgements: stone 1, stick 0.
+- **Test (g):** walks `search_prototype(no_db=True)`; an item is a prototype whose resolved typeclass is not a subclass of `ResourceNode` or `Creature`, and one with no typeclass fails loudly; `type(enc) is int` (so `True` is refused) and ≥ 0; floor `MIN_ITEM_PROTOTYPES = 29`, with a receipt that both excluded kinds were seen; nodes and creatures carry no `enc`; negative fixtures (missing, `True`, `"1"`, −1) go through `homogenize_prototype`, each first proving it is an item (Testing Reference §11k).
+- **Mutations — 10, all killed:** book without `enc`, waterskin `True`, stone −1, stick `"0"`, `Creature` not excluded (every-item test); tree with `enc` (nodes test); everything excluded (guard, nodes test, fixtures); `isinstance` letting `bool` through, a negative accepted, a missing one accepted (their fixtures).
+- **Testing, as run:** the sandbox (v6.1.0) ran the affected modules green. Adam at home, with the dbref settings in `secret_settings.py`: **629 tests**, exactly the two known treasury FAILs. In game, after `@reload`: a spawned waterskin reads `enc` 1, a stone knife 0, a tree `None` — the value reaches the object as an Attribute. *Not yet run:* the suite without the dbref settings (expected 629 OK).
 - **Goal:** OpenCode receives batches it can complete without inventing anything.
 - **Dependencies:** AC1.1, AC2.2, AC2.3.
 - **Decides:** **Q1** (inert goods, AD5); **Q5** (rope as a registered material, or twine); clothing slots for breeches and bandolier (new `clothing_type` is code, not data); the knowledge partition (`requires_knowledge`) per item; `craft_duration`s, which `AGENTS.md` §0 forbids a generator to invent; Sling Bullets' stone variant; **Q6**, the ENC values the rulebook does not give.
@@ -275,10 +285,72 @@ AC1.1 first because its tests are what every later task must keep green: from th
 - **Output:** the brief, appended to this document; and one commit — `enc` on the 23 existing item prototypes, `AGENTS.md` §3's schemas gain `enc` (AGENTS Rev 7), and test (e) in `tests/test_material_registry.py`: every prototype that is not a `ResourceNode` or `Creature` carries a non-negative integer `enc`. From this commit a batch without ENC fails the suite.
 - **Commit:** `feat(prototypes): carry Legend ENC on every item prototype`
 
+### AC4.0 brief — what every batch follows (Rev 3)
+
+Locked by Adam 2026-10-24. OpenCode reads `AGENTS.md` (Rev 7) in full, then this brief, before each of AC4.1–AC4.3. Where the brief gives a value, the brief is the request `AGENTS.md` §0 and §4 ask for; where it gives none, §0 holds — FLAG, do not invent.
+
+**References.** `world/recipes.py` is the recipe reference: copy the shape of `LinenShirtRecipe` (learnable, needle), `ClubRecipe` (ungated, knife) and `StoneKnifeRecipe` (no tool). `docs/crafting/deer_batch_gold_standard.md` is referenced only for its integrity checklist and its SOURCE/SINK comment style; its BoneNeedle sketch disagrees with the shipped recipe and is not a recipe reference (correcting it is its own item, outside this epic). `world/material_registry.py` decides which tags exist: every input below is EXISTS — materials `cloth`, `leather`, `bone`, `wood`, `stone`, `twine`; tools `needle`, `knife`.
+
+**Decisions (B1–B9):**
+
+- **B1 — Q1, inert goods: ladder rungs; the vessels are struck.** Every carried good in the table is authored although nothing in the alpha uses it: it is a rung for E.1 (AC5) and a sink for its inputs. Its SINK comment says so honestly — `SINK: none in the alpha (<mechanic>, <when>)`, e.g. `(combat, Stage 5)` or `(weight, AD8)` — never an invented use. Accumulation is bounded: the persistent alpha instance is wiped at close-out. Raft, Canoe and Sled are struck: they are vessels and vehicles, not carried items — AoL gives the Raft (p. 106) and the Canoe (p. 101) hull and structure but no ENC (a dugout weighs 200 kg), the dog sled is a vehicle, and the Body Sled (AoL p. 28) is a different item. Modelling one needs an object that cannot be picked up, which is a typeclass decision, not data.
+- **B2 — Q5, rope: `twine`.** The Tent lashes with `twine`. No `rope` material is registered, and Rope, Hemp is struck. The same stance as DECISION #11 (canvas → `cloth`): no new material until a mechanic tells it apart. Revisit with the first mechanic that needs rope (climbing, hauling).
+- **B3 — Q7, the rabbit: `raw_hide`.** The code wins: the rabbit's harvest template yields `raw_hide`, which `LeatherRecipe` consumes. `fur` stays DATA with no source, and no batch references it; Bone Armour's backing is `leather`. DECISION #1's text and `fur`'s source string still name the rabbit until Task AC4.0b corrects them; if you read #1 before then, this line wins.
+- **B4 — Clothing slots.** Breeches are `bottom`; the Bandolier is `accessory`, warmth 0. Both types already exist in `CLOTHING_TYPE_ORDERED` (`server/conf/settings.py`); `CLOTHING_TYPE_LIMIT` allows one `bottom`, and `accessory` is unlimited. No code — `AGENTS.md` Rev 7 §3.6 admits them.
+- **B5 — Knowledge partition.** `requires_knowledge = True` for garments, bags, armour and shelter — learnable goods, as `LinenShirtRecipe`. Tools, weapons and survival goods leave it out (ungated), as `ClubRecipe`. Column *kn*: **L** learnable, **U** ungated.
+- **B6 — `craft_duration` ladder.** 20 hand-rolled · 25 woven · 30 simple shape or assembly · 40 cut and stitch · 45 involved or multi-stage. Column *dur*.
+- **B7 — Sling Bullets: no stone variant.** One output, one recipe: `SlingBulletRecipe` (clay) stays the only way to a sling bullet. A second recipe would need its own name — the crafting contrib keys recipes on `name`, and a duplicate overwrites the first without a word (`crafting.py:156`, v6.1.0) — and `stone` already has a consumer.
+- **B8 — Q6, ENC.** Every output carries the `enc` in the table, with its page or reason as the comment. Where the books score a product higher than its 0-scored inputs add up to (Backpack, Sack, Saddlebag, Linen Cuirass, Bone Armour), the book wins for the product; AC2.2's *the input weighs at least the product* only fills gaps where the books are silent. No shipped value changes.
+- **B9 — `min_skill` is AC5's.** Leave it out; every batch recipe takes the base default.
+
+**The catalogue — 18 items, three batches.** Recipe `name` is the `prototype_key` with spaces. Tags are tag-keys, repeated for quantity. Pages: Legend core (*core*) and *Arms of Legend* (*AoL*).
+
+| # | Item | `prototype_key` | Batch | Typeclass · slot, warmth | `consumable_tags` | `tool_tag` | dur | kn | `enc` (comment) |
+|---|---|---|---|---|---|---|---|---|---|
+| 7 | Breeches | `breeches` | 4.1 | Clothing · `bottom`, 1 | `["cloth", "cloth"]` | `"needle"` | 40 | L | 0 (AoL p. 37, core pp. 98–100: no ENC for clothing) |
+| 8 | Dress/Robe | `robe` | 4.1 | Clothing · `fullbody`, 1 | `["cloth", "cloth", "cloth"]` | `"needle"` | 45 | L | 0 (as 7) |
+| 10 | Hood/Cowl | `hood` | 4.1 | Clothing · `hat`, 1 | `["cloth"]` | `"needle"` | 30 | L | 0 (as 7) |
+| 11 | Reversible Clothes | `reversible_clothes` | 4.1 | Clothing · `top`, 1 | `["cloth"] * 4` | `"needle"` | 45 | L | 0 (as 7) |
+| 13 | Linen Cuirass | `linen_cuirass` | 4.1 | Clothing · `top`, 1 | `["cloth"] * 4` | `"needle"` | 45 | L | 1 (AoL p. 50, core p. 96: Linen, ENC 1 per location; the chest) |
+| 2 | Sack | `sack` | 4.1 | Object | `["cloth", "cloth"]` (canvas → cloth, #11) | `"needle"` | 40 | L | 1 (AoL p. 29: Sack, large) |
+| 1 | Backpack | `backpack` | 4.2 | Object | `["leather", "leather"]` | `"needle"` | 40 | L | 1 (AoL p. 28) |
+| 3 | Scrollcase | `scrollcase` | 4.2 | Object | `["bone"]` | `"knife"` | 30 | L | 0 (AoL p. 29: "—") |
+| 6 | Saddlebag | `saddlebag` | 4.2 | Object | `["leather"] * 3` | `"needle"` | 45 | L | 2 (AoL p. 30) |
+| 9 | Shoes | `shoes` | 4.2 | Clothing · `shoes`, 1 | `["leather"]` | `"needle"` | 40 | L | 0 (as 7) |
+| 12 | Bandolier | `bandolier` | 4.2 | Clothing · `accessory`, 0 | `["leather"]` | `"needle"` | 30 | L | 0 (as 7) |
+| 14 | Bone Armour | `bone_armour` | 4.2 | Clothing · `top`, 1 | `["bone", "bone", "bone", "leather"]` | `"knife"` | 45 | L | 2 (AoL p. 50: Bone, ENC 2 per location; the chest) |
+| 15 | Sling | `sling` | 4.2 | Object | `["leather"]` | `"knife"` | 30 | U | 0 (core p. 109: "—") |
+| 19 | Quarterstaff | `quarterstaff` | 4.3 | Object | `["wood", "wood"]` | `"knife"` | 30 | U | 2 (core p. 107) |
+| 20 | Spear | `spear` | 4.3 | Object | `["wood", "wood", "bone", "twine"]` | `"knife"` | 30 | U | 2 (core p. 107: Short spear) |
+| 21 | Bow | `bow` | 4.3 | Object | `["wood", "twine"]` (fiber string, AD4) | `"knife"` | 45 | U | 1 (core p. 109: Short bow) |
+| 17 | Milling Stones | `milling_stones` | 4.3 | Object | `["stone", "stone"]` | `None` | 30 | U | 2 (AoL p. 29) |
+| 5 | Tent | `tent` | 4.3 | Object | `["cloth"] * 4 + ["wood", "wood", "twine", "twine"]` | `"needle"` | 45 | L | 2 (AoL p. 29: Tent, 4 person) |
+
+Write the lists out in full in the code (`["cloth", "cloth", "cloth", "cloth"]`); the `* 4` in the table is shorthand. *Clothing* is `typeclasses.clothing.ClothingWithBuffs`, *Object* is `typeclasses.objects.Object` (`AGENTS.md` §3). `#` is the row in §4.
+
+**Not in the batches:** Rope, Hemp (B2); Raft, Canoe, Sled (B1); Club and Sling Bullets (shipped in AC2.2 and AC2.3); Arrows, Bolts, Climbing Kit, Fishing Kit, Flint and Tinder (not reachable, §4).
+
+**Supply, for calibration not for the batch:** every `bone` and every `raw_hide` (two per `leather`) comes from one rabbit — one bone and one hide a kill. Scrollcase, Bone Armour and Spear draw on bone; Backpack, Saddlebag, Shoes, Bandolier, Sling and Bone Armour on leather. Sack is cloth for that reason.
+
+**Each batch, in order:**
+1. Read `AGENTS.md` in full, then this brief and your batch's rows.
+2. Add the prototypes — §3.1's shape for Objects, §3.6's for Clothing — each with its `enc` and comment, and a SOURCE + SINK comment (B1). The key, aliases and desc are yours to write; any number the table does not give is a FLAG.
+3. Add the recipes in §4's shape with the table's tags, tool, `craft_duration` and `requires_knowledge`.
+4. Run `AGENTS.md` §6 and paste the result.
+5. Run `tests.test_material_registry` — AC1.1's consistency tests and test (g) — and your own tests; all green before the commit.
+
+### Task AC4.0b — The registry's Q7 text (Claude, on the branch)
+- **Goal:** The registry says what B3 decided: the rabbit yields `raw_hide`, and `fur` has no source in the alpha.
+- **Dependencies:** AC4.0; `main` merged into `feature/alpha-content`, so the branch carries this brief.
+- **Approach:** in `world/material_registry.py`, `fur`'s `source` stops naming the rabbit, and `OPEN_DECISIONS` #1 records the ruling — the alpha rabbit yields `raw_hide` (Q7, AC4.0), so #1's soft-furred rule waits for a creature that yields `fur`. Status stays DATA; no flip and no sink change, so AD6's same-commit rule is not engaged. OpenCode cannot make this edit (`AGENTS.md` §0), which is why it is a task before AC4.1.
+- **Testing:** `tests.test_material_registry` stays green (no status changes); `grep -n rabbit world/material_registry.py` shows `raw_hide`, `bone` and the #1 ruling, and nothing under `fur`.
+- **Commit:** `fix(registry): the rabbit yields raw_hide, not fur (Q7)`
+
 ### Tasks AC4.1–AC4.3 — Three batches
-- **AC4.1 Cloth goods:** Dress/Robe, Hood/Cowl, Reversible Clothes, Linen Cuirass (+ Breeches if a slot exists).
-- **AC4.2 Leather and bone goods:** Backpack, Sack, Scrollcase, Saddlebag, Shoes, Bandolier, Bone Armour, Sling.
-- **AC4.3 Wood and stone goods:** Quarterstaff, Spear, Bow, Milling Stones, Raft, Canoe, Sled, Tent, Rope.
+- *Rev 3, per the brief (B1, B2, the moved Sack):*
+- **AC4.1 Cloth goods:** Breeches, Dress/Robe, Hood/Cowl, Reversible Clothes, Linen Cuirass, Sack.
+- **AC4.2 Leather and bone goods:** Backpack, Scrollcase, Saddlebag, Shoes, Bandolier, Bone Armour, Sling.
+- **AC4.3 Wood and stone goods:** Quarterstaff, Spear, Bow, Milling Stones, Tent.
 - **Each batch:** OpenCode edits `world/prototypes.py`, `world/recipes.py` and its own tests only, gives every output prototype its rulebook `enc`, runs `AGENTS.md` §6 and pastes it; AC1.1's tests must stay green (a recipe consuming an unregistered or non-EXISTS tag fails them). Claude reviews in a session before the commit lands. In-game protocol per batch: craft one item per recipe from gathered inputs.
 - **Commits:** `feat(catalogue): add <batch> recipes` — one per batch.
 
@@ -302,13 +374,13 @@ Merge `feature/alpha-content` (merge commit). Then one docs patch: `docs/Polishe
 
 ## 12. Open questions (each with the task that closes it)
 
-- **Q1 — Inert goods** (AD5): author them as ladder rungs, drop them, or give them a minimal use? → AC4.0.
+- **Q1 — Inert goods** (AD5): author them as ladder rungs, drop them, or give them a minimal use? → AC4.0. **Closed (Rev 3, B1):** ladder rungs with an honest SINK comment; Raft, Canoe and Sled struck as vessels.
 - **Q2 — The authored area:** how many rooms, which node in which room, where the temple stands. Proposed at AC3.1's start for Adam to lock. → AC3.1.
 - **Q3 — Calibration numbers:** node yields and regen, axe start condition, `FORAGE_TOOL_WEAR`. Proposed in AC2.1–2.3, confirmed at each task's start.
 - **Q4 — The ladder's ceiling** for E.1. → AC5.1.
-- **Q5 — Rope:** a registered material for Raft and Tent, or `twine`. → AC4.0.
-- **Q6 — ENC the rulebook does not give:** raw materials (wood, stone, flint, clay, fiber) and items listed with *—* (too light to score). Proposed: Legend's own rule, 20 such items = 1 ENC, stored as `0` with the counting left to the mechanic; raw materials valued at task start. → AC2.2 for the first values, AC4.0 for the rest.
-- **Q7 — DECISION #1 against the rabbit** (§3 finding 6 (ii)): is the rabbit's hide `raw_hide`, as the code says, or `fur`, as #1's rule says — and which text changes? Settled before a batch's generator reads #1. → AC4.0.
+- **Q5 — Rope:** a registered material for Raft and Tent, or `twine`. → AC4.0. **Closed (Rev 3, B2):** `twine`; Rope, Hemp struck.
+- **Q6 — ENC the rulebook does not give:** raw materials (wood, stone, flint, clay, fiber) and items listed with *—* (too light to score). Proposed: Legend's own rule, 20 such items = 1 ENC, stored as `0` with the counting left to the mechanic; raw materials valued at task start. → AC2.2 for the first values, AC4.0 for the rest. **Closed (Rev 3):** the existing items in AC4.0's commit (§9 record, D3), the batch items in the brief's table (B8).
+- **Q7 — DECISION #1 against the rabbit** (§3 finding 6 (ii)): is the rabbit's hide `raw_hide`, as the code says, or `fur`, as #1's rule says — and which text changes? Settled before a batch's generator reads #1. → AC4.0. **Closed (Rev 3, B3):** `raw_hide`; the registry's #1 and `fur` text change in AC4.0b.
 - **Q8 — Tools in the ledger** (§3 finding 6 (iii)): extend `render_ledger()` to print `TOOLS` (code, on the branch), or keep the ledger's tool section by hand. → before AC6.
 
 ## 13. Consequences worth reading twice
