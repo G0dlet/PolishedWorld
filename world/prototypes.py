@@ -809,6 +809,77 @@ SLING = {
     "enc": 0,   # Legend core p. 109: Sling, ENC "—" -- too light to score
 }
 
+# --- Wood and stone goods (AC4.3) ---
+
+QUARTERSTAFF = {
+    "prototype_key": "quarterstaff",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "quarterstaff",
+    "aliases": ["long staff"],
+    "desc": (
+        "A tall wooden staff, shaped and smoothed along its full length, with "
+        "a balanced grip at its middle."
+    ),
+    # SOURCE: QuarterstaffRecipe (wood x2). SINK: none in the alpha (combat, Stage 5).
+    "enc": 2,   # Legend core p. 107: Quarter staff, ENC 2
+}
+
+SPEAR = {
+    "prototype_key": "spear",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "spear",
+    "aliases": ["short spear"],
+    "desc": (
+        "A bone point seated on a long wooden shaft and bound fast with twine. "
+        "Simple, light and balanced for a firm grip."
+    ),
+    # SOURCE: SpearRecipe (wood x2 + bone + twine). SINK: none in the alpha
+    # (combat, Stage 5).
+    "enc": 2,   # Legend core p. 107: Short spear, ENC 2
+}
+
+BOW = {
+    "prototype_key": "bow",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "bow",
+    "aliases": ["short bow"],
+    "desc": (
+        "A supple wooden stave bent into a short bow and strung with taut "
+        "plant-fibre twine."
+    ),
+    # SOURCE: BowRecipe (wood + twine). SINK: none in the alpha (combat, Stage 5).
+    "enc": 1,   # Legend core p. 109: Short bow, ENC 1
+}
+
+MILLING_STONES = {
+    "prototype_key": "milling_stones",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "milling stones",
+    "aliases": ["quern"],
+    "desc": (
+        "A matched pair of heavy stones, one dished and one rounded, their "
+        "grinding faces pecked rough by hand."
+    ),
+    # Plain inert Object, not the registry's separate grindstone tool entry.
+    # SOURCE: MillingStonesRecipe (stone x2). SINK: none in the alpha
+    # (milling, unscheduled).
+    "enc": 2,   # AoL p. 29: Milling Stones, ENC 2
+}
+
+TENT = {
+    "prototype_key": "tent",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "tent",
+    "aliases": ["four-person tent"],
+    "desc": (
+        "Four panels of heavy cloth make a low, broad shelter, held taut over "
+        "wooden poles by doubled twine guys."
+    ),
+    # SOURCE: TentRecipe (cloth x4 + wood x2 + twine x2). SINK: none in the
+    # alpha (shelter, unscheduled).
+    "enc": 2,   # AoL p. 29: Tent, 4 person, ENC 2
+}
+
 # --- Hunting: harvestable creature parts (H4.2) ---
 # SOURCE: the harvest command (H4.3) spawns these from a corpse, gated by skill
 # and decay. They are NOT spawned freely in the finished economy -- same as the

@@ -13,11 +13,11 @@ not picked up as a phantom recipe.
 Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
   common / ungated (inherit requires_knowledge = False) -- survival & tool recipes
     a fresh character can always make: twine, waterskin, stone knife, bone needle,
-    stone axe, club, sling bullet, sling.
+    stone axe, club, sling bullet, sling, quarterstaff, spear, bow, milling stones.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots,
     breeches, robe, hood, reversible clothes, linen cuirass, sack, backpack,
-    scrollcase, saddlebag, shoes, bandolier, bone armour.
+    scrollcase, saddlebag, shoes, bandolier, bone armour, tent.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
   alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
   economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
@@ -380,6 +380,63 @@ class SlingRecipe(MongooseCraftRecipe):
     output_prototypes = ["sling"]
     tool_tag = "knife"
     craft_duration = 30
+
+
+class QuarterstaffRecipe(MongooseCraftRecipe):
+    """Shape two lengths of wood into a balanced quarterstaff."""
+
+    name = "quarterstaff"
+    consumable_tags = ["wood", "wood"]
+    output_prototypes = ["quarterstaff"]
+    tool_tag = "knife"
+    craft_duration = 30
+
+
+class SpearRecipe(MongooseCraftRecipe):
+    """Haft a bone point on wooden shafts and lash it with twine: a spear."""
+
+    name = "spear"
+    consumable_tags = ["wood", "wood", "bone", "twine"]
+    output_prototypes = ["spear"]
+    tool_tag = "knife"
+    craft_duration = 30
+
+
+class BowRecipe(MongooseCraftRecipe):
+    """Shape a wooden stave and string it with twine: a short bow."""
+
+    name = "bow"
+    consumable_tags = ["wood", "twine"]   # AD4: a fibre string, never sinew
+    output_prototypes = ["bow"]
+    tool_tag = "knife"
+    craft_duration = 45
+
+
+class MillingStonesRecipe(MongooseCraftRecipe):
+    """Shape two gathered stones into a matched pair of milling stones."""
+
+    name = "milling stones"
+    consumable_tags = ["stone", "stone"]
+    output_prototypes = ["milling_stones"]
+    # tool_tag=None -> _tool_modifier() returns 0 (NO improvised penalty): a
+    # pair you shape with your hands must not be penalised for lacking a tool.
+    # No min_skill: the base has no skill floor, so ungated is simply the default.
+    tool_tag = None
+    craft_duration = 30
+
+
+class TentRecipe(MongooseCraftRecipe):
+    """Stitch cloth panels, raise wooden poles and lash a tent with twine."""
+
+    name = "tent"
+    requires_knowledge = True
+    consumable_tags = [
+        "cloth", "cloth", "cloth", "cloth",
+        "wood", "wood", "twine", "twine",
+    ]
+    output_prototypes = ["tent"]
+    tool_tag = "needle"
+    craft_duration = 45
 
 
 class StoneKnifeRecipe(MongooseCraftRecipe):

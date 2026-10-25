@@ -105,8 +105,11 @@ MATERIALS = {
         "prototype_key": "wood", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "tree (ResourceNode, required_tool axe). Generic tag — see DECISION #10",
-        "sinks": ["club recipe", "handles", "shafts", "planks", "furniture",
-                  "fuel/charcoal"],
+        "sinks": [
+            "club recipe", "quarterstaff recipe", "spear recipe", "bow recipe",
+            "tent recipe", "handles", "shafts", "planks", "furniture",
+            "fuel/charcoal",
+        ],
     },
     "oak_bark": {
         "prototype_key": "oak_bark", "category": RAW, "status": DATA,
@@ -118,8 +121,8 @@ MATERIALS = {
         "prototype_key": "stone", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "stone_outcrop (ResourceNode)",
-        "sinks": ["stone knife recipe", "stone tools", "grindstone", "sling bullets",
-                  "building"],
+        "sinks": ["stone knife recipe", "milling stones recipe", "stone tools",
+                  "grindstone", "building"],  # no stone sling bullet (B7)
     },
     # stick != wood: a stick is a hand-gathered deadfall piece for hafting, not
     # timber. Keep the two tags apart (wood is DECISION #10's generic tag).
@@ -210,7 +213,7 @@ MATERIALS = {
         "source": "rabbit harvest (HARVEST_TEMPLATES)",
         "sinks": [
             "bone needle recipe", "scrollcase recipe", "bone armour recipe",
-            "bone tools/weapons",
+            "spear recipe", "bone tools/weapons",
         ],
     },
     "sinew": {
@@ -243,14 +246,21 @@ MATERIALS = {
         "prototype_key": "twine", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         "source": "TwineRecipe (fiber x3)",
-        "sinks": ["waterskin recipe", "stone axe recipe", "lashing/binding"],
+        "sinks": [
+            "waterskin recipe", "stone axe recipe", "spear recipe", "bow recipe",
+            "tent recipe", "lashing/binding",
+        ],
     },
     "cloth": {
         "prototype_key": "cloth", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         # NOTE: "canvas"/"sailcloth" map to cloth (a heavy grade) — see DECISION #11
         "source": "ClothRecipe (fiber x3)",
-        "sinks": ["linen shirt recipe", "garments", "sacks/packs", "sails/tents"],
+        "sinks": [
+            "linen shirt recipe", "breeches recipe", "robe recipe", "hood recipe",
+            "reversible clothes recipe", "linen cuirass recipe", "sack recipe",
+            "tent recipe", "garments", "sacks/packs", "sails/tents",
+        ],
     },
     "leather": {
         "prototype_key": "leather", "category": INTERMEDIATE, "status": EXISTS,
@@ -347,7 +357,8 @@ TOOLS = {
         "prototype_key": "stone_knife", "status": EXISTS, "blocked_on": "",
         "source": "StoneKnifeRecipe (stone + stick + fiber -> stone_knife)",
         "used_by": [
-            "waterskin (optional)", "harvesting", "shaping wood/bone",
+            "waterskin (optional)", "harvesting",
+            "shaping wood/bone (club, quarterstaff, spear, bow)",
             "scrollcase", "cutting leather (sling, bone armour)",
         ],
     },
@@ -356,6 +367,7 @@ TOOLS = {
         "source": "BoneNeedleRecipe (bone -> bone_needle)",
         "used_by": [
             "garment recipes (optional)", "backpack, saddlebag (optional)",
+            "tent (optional)",
         ],
     },
     "grindstone": {
