@@ -208,7 +208,10 @@ MATERIALS = {
         "prototype_key": "bone", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "rabbit harvest (HARVEST_TEMPLATES)",
-        "sinks": ["bone needle recipe", "bone tools/weapons/armour"],
+        "sinks": [
+            "bone needle recipe", "scrollcase recipe", "bone armour recipe",
+            "bone tools/weapons",
+        ],
     },
     "sinew": {
         "prototype_key": "sinew", "category": RAW, "status": DATA,
@@ -253,7 +256,11 @@ MATERIALS = {
         "prototype_key": "leather", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         "source": "LeatherRecipe (raw_hide x2, knife optional)",
-        "sinks": ["leather boots", "soft armour", "bags", "saddles", "straps"],
+        "sinks": [
+            "leather boots recipe", "shoes recipe", "backpack recipe",
+            "saddlebag recipe", "bandolier recipe", "sling recipe",
+            "bone armour recipe", "soft armour", "saddles",
+        ],
     },
     "pigment": {
         "prototype_key": "pigment", "category": INTERMEDIATE, "status": DATA,
@@ -339,12 +346,17 @@ TOOLS = {
     "knife": {
         "prototype_key": "stone_knife", "status": EXISTS, "blocked_on": "",
         "source": "StoneKnifeRecipe (stone + stick + fiber -> stone_knife)",
-        "used_by": ["waterskin (optional)", "harvesting", "shaping wood/bone"],
+        "used_by": [
+            "waterskin (optional)", "harvesting", "shaping wood/bone",
+            "scrollcase", "cutting leather (sling, bone armour)",
+        ],
     },
     "needle": {
         "prototype_key": "bone_needle", "status": EXISTS, "blocked_on": "",
         "source": "BoneNeedleRecipe (bone -> bone_needle)",
-        "used_by": ["garment recipes (optional)"],
+        "used_by": [
+            "garment recipes (optional)", "backpack, saddlebag (optional)",
+        ],
     },
     "grindstone": {
         "prototype_key": "grindstone", "status": DATA, "blocked_on": "",

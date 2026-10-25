@@ -466,8 +466,9 @@ SLING_BULLET = {
     "key": "sling bullet",
     "aliases": ["bullet"],
     "desc": "A hard oval of sun-dried clay, rolled smooth between the palms.",
-    # SOURCE: SlingBulletRecipe (clay). SINK: none in the alpha -- no sling and
-    # no combat (AD5's "use in alpha" column; Q1 decides inert goods in AC4.0).
+    # SOURCE: SlingBulletRecipe (clay). SINK: none in the alpha -- the sling
+    # exists, but there is no combat (AD5's "use in alpha" column; Q1 decides
+    # inert goods in AC4.0).
     "enc": 0,   # AoL: Sling Bullets (10), ENC "—" -- too light to score (Q6)
 }
 
@@ -706,6 +707,106 @@ SACK = {
     ),
     # SOURCE: SackRecipe (cloth x2, canvas as cloth #11). SINK: none in the alpha (containers, AD8).
     "enc": 1,   # AoL p. 29: Sack, large, ENC 1
+}
+
+# --- Leather and bone goods (AC4.2) ---
+
+BACKPACK = {
+    "prototype_key": "backpack",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "backpack",
+    "aliases": ["pack"],
+    "desc": (
+        "A squared leather pack with broad shoulder straps and a flap secured "
+        "by a stitched thong."
+    ),
+    # SOURCE: BackpackRecipe (leather x2). SINK: none in the alpha (containers, AD8).
+    "enc": 1,   # AoL p. 28: Backpack, ENC 1
+}
+
+SCROLLCASE = {
+    "prototype_key": "scrollcase",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "scrollcase",
+    "aliases": ["scroll case"],
+    "desc": (
+        "A hollow bone tube fitted with a snug cap, its polished sides guarding "
+        "rolled parchment from creases."
+    ),
+    # SOURCE: ScrollcaseRecipe (bone). SINK: none in the alpha (scroll storage, AD8).
+    "enc": 0,   # AoL p. 29: Scrollcase, ENC "—" -- too light to score
+}
+
+SADDLEBAG = {
+    "prototype_key": "saddlebag",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "saddlebag",
+    "aliases": ["saddle bag"],
+    "desc": (
+        "A deep leather bag with a reinforced spine and long straps, made to "
+        "hang balanced across a mount's flank."
+    ),
+    # SOURCE: SaddlebagRecipe (leather x3). SINK: none in the alpha (containers, AD8).
+    "enc": 2,   # AoL p. 30: Saddlebag, ENC 2
+}
+
+SHOES = {
+    "prototype_key": "shoes",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "shoes",
+    "aliases": ["leather shoes"],
+    "desc": (
+        "A pair of low leather shoes with stitched soles and soft uppers that "
+        "close with narrow thongs."
+    ),
+    # SOURCE: ShoesRecipe (leather). SINK: worn for warmth (survival).
+    "clothing_type": "shoes",
+    "warmth": 1,
+    "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
+}
+
+BANDOLIER = {
+    "prototype_key": "bandolier",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "bandolier",
+    "aliases": ["bandoleer"],
+    "desc": (
+        "A broad leather belt stitched with small loops, cut to cross from one "
+        "shoulder to the opposite hip."
+    ),
+    # SOURCE: BandolierRecipe (leather). SINK: none in the alpha (item storage, AD8).
+    "clothing_type": "accessory",
+    "warmth": 0,
+    "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
+}
+
+BONE_ARMOUR = {
+    "prototype_key": "bone_armour",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "bone armour",
+    "aliases": ["bone armor"],
+    "desc": (
+        "Plates of pale bone are lashed across a shaped leather backing, "
+        "overlapping to shelter the chest without hiding their rough joints."
+    ),
+    # SOURCE: BoneArmourRecipe (bone x3 + leather). SINK: worn for warmth
+    # (survival); armour waits for combat (Stage 5).
+    "clothing_type": "top",
+    "warmth": 1,
+    "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the chest
+}
+
+SLING = {
+    "prototype_key": "sling",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "sling",
+    "aliases": ["leather sling"],
+    "desc": (
+        "A supple leather pouch tapering into two long cords, one looped for a "
+        "finger and the other left free to release."
+    ),
+    # SOURCE: SlingRecipe (leather). SINK: none in the alpha (combat, Stage 5).
+    "enc": 0,   # Legend core p. 109: Sling, ENC "—" -- too light to score
 }
 
 # --- Hunting: harvestable creature parts (H4.2) ---

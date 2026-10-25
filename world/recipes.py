@@ -13,10 +13,11 @@ not picked up as a phantom recipe.
 Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
   common / ungated (inherit requires_knowledge = False) -- survival & tool recipes
     a fresh character can always make: twine, waterskin, stone knife, bone needle,
-    stone axe, club, sling bullet.
+    stone axe, club, sling bullet, sling.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots,
-    breeches, robe, hood, reversible clothes, linen cuirass, sack.
+    breeches, robe, hood, reversible clothes, linen cuirass, sack, backpack,
+    scrollcase, saddlebag, shoes, bandolier, bone armour.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
   alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
   economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
@@ -290,6 +291,97 @@ class SackRecipe(MongooseCraftRecipe):
     craft_duration = 40
 
 
+class BackpackRecipe(MongooseCraftRecipe):
+    """Cut and stitch leather into a strapped backpack."""
+
+    name = "backpack"
+    requires_knowledge = True
+    consumable_tags = ["leather", "leather"]
+    output_prototypes = ["backpack"]
+    tool_tag = "needle"
+    craft_duration = 40
+
+
+class ScrollcaseRecipe(MongooseCraftRecipe):
+    """Carve and cap a bone tube into a scrollcase."""
+
+    name = "scrollcase"
+    requires_knowledge = True
+    consumable_tags = ["bone"]
+    output_prototypes = ["scrollcase"]
+    tool_tag = "knife"
+    craft_duration = 30
+
+
+class SaddlebagRecipe(MongooseCraftRecipe):
+    """Cut, shape and stitch leather into a saddlebag."""
+
+    name = "saddlebag"
+    requires_knowledge = True
+    consumable_tags = ["leather", "leather", "leather"]
+    output_prototypes = ["saddlebag"]
+    tool_tag = "needle"
+    craft_duration = 45
+
+
+class ShoesRecipe(MongooseCraftRecipe):
+    """Cut and stitch leather into a pair of shoes."""
+
+    name = "shoes"
+    requires_knowledge = True
+    consumable_tags = ["leather"]
+    output_prototypes = ["shoes"]
+    tool_tag = "needle"
+    craft_duration = 40
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class BandolierRecipe(MongooseCraftRecipe):
+    """Cut leather and stitch its loops into a bandolier."""
+
+    name = "bandolier"
+    requires_knowledge = True
+    consumable_tags = ["leather"]
+    output_prototypes = ["bandolier"]
+    tool_tag = "needle"
+    craft_duration = 30
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class BoneArmourRecipe(MongooseCraftRecipe):
+    """Lash shaped bone plates to a leather backing as chest armour."""
+
+    name = "bone armour"
+    requires_knowledge = True
+    consumable_tags = ["bone", "bone", "bone", "leather"]
+    output_prototypes = ["bone_armour"]
+    tool_tag = "knife"
+    craft_duration = 45
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_garment_quality.
+        _apply_garment_quality(obj)
+
+
+class SlingRecipe(MongooseCraftRecipe):
+    """Cut and shape a leather pouch and cords into a sling."""
+
+    name = "sling"
+    consumable_tags = ["leather"]
+    output_prototypes = ["sling"]
+    tool_tag = "knife"
+    craft_duration = 30
+
+
 class StoneKnifeRecipe(MongooseCraftRecipe):
     """Knap a stone flake, haft it to a stick, lash it with fibre: a crude knife.
 
@@ -392,9 +484,9 @@ class SlingBulletRecipe(MongooseCraftRecipe):
     """Roll a lump of clay into a sling bullet and dry it: clay's first consumer (AC2.3).
 
     One lump, one bullet. AoL counts bullets in tens, but each bullet is its own
-    object here, and nothing consumes bullets in the alpha (no sling, no combat),
-    so the batch size waits for the mechanic that uses them. The stone variant is
-    decided in AC4.0; the fired variant is BLOCKED: kiln.
+    object here, and nothing consumes bullets in the alpha (the sling exists, but
+    there is no combat), so the batch size waits for the mechanic that uses them.
+    AC4.0 struck the stone variant (B7); the fired variant is BLOCKED: kiln.
     """
 
     name = "sling bullet"
