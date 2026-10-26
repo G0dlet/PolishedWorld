@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 50 · 2026-10-26** — *Weight and encumbrance* decomposed (`docs/PolishedWorld_Weight_Decomposition.md` Rev 1; roadmap Rev 31). **Status changed:** *Weight and encumbrance (Legend ENC)* goes **OPEN → SCHEDULED** (code after character creation, per alpha decision (F)); *Full container support* stays SCHEDULED with it. **Annotated:** the weight entry records the translation (WD1–WD8) and **corrects its own 2026-10-18 direction** — no `Overloaded` buff, no `fatigue_rate` mult; the band costs −20 % on physical tests and one fatigue point per room, read lazily — because the annotation read as an instruction and would have been built. *Fatigue-exhaustion consequence* is annotated with the answer to the question both entries asked: the weight feature neither contains it nor depends on it, since a ceiling at twice the limit prices distance in trips before fatigue has a consequence; the per-room cost and the `physical_modifier()` seam are what this entry's bands will plug into. *`CoinPile` vs the corpse's atomic content delete* is annotated with `CoinPile`'s `enc` (AD8's rule, Stage 5). No new entries: the two rejected penalties (a rate multiplier, a movement delay) and container nesting are decided in the decomposition, not deferred.
 > **Rev 49 · 2026-10-26** — *Legend character creation* decomposed (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 1; roadmap Rev 30, alpha decision (F)). **Scheduled:** *Profession Common-Skill bonuses* — its trigger (*a real chargen with per-character characteristics*) fires; home CC2.1, status BLOCKED → SCHEDULED. *Health `descs` use a 0–100 scale against a max of `CON × 2`* — CON now spans 6–18, so the fix is the epic's CC1.2, OPEN → SCHEDULED. **Added** (*Professions & Chargen*): *Cultural Background* — struck from the alpha chargen, with the trigger it waits on; *Free Skill Points* — replaced for the alpha by the profession bonus, with its trigger. **Annotated:** *Cultural-Background gating of professions* — the chargen the entry was waiting for ships without a Cultural Background; it stays BLOCKED on the new entry above it. No code changes.
 > **Rev 48 · 2026-10-26** — the Alpha Content epic's close-out (Decomp AC6; merged to `main` in `a4bf108`, branch tip `052f1b7`, tree `aea8b40`). **Closed:** *Alpha content epic* goes **SCHEDULED → DONE**. **Narrowed:** *⛔ The recipe catalogue does not span the skill scale* keeps E.2 only — E.1 shipped as AC5.1 (29 recipes, rungs 0/20/40/60, ceiling 60); it stays BLOCKED on E.2's own trigger. *Public test server* part **(a) DONE** (AC3.1–3.2: `world/seed_data.py`, `world/seeding.py`, the setup hook, and a nine-step runbook in the decomposition's AC3.2 record); (b) unchanged. *Four docs … carry no Rev header*: the AoL decomposition gets its Rev 1 in this commit, so three remain. **Annotated:** *Weight and encumbrance* (a test the decomposition must carry). **Added**, all findings from AC2.1–AC5.1 given a home: *Article and number in messages built from item keys* (UX); *`recipes` lists floored recipes under "can craft"* (UX); *`@economy mint` preview suggests the confirm line in copper* (Currency); *Evennia is not pinned in the repo* (Tooling); *The registry's `hammer` is DATA with a `blocked_on`* (Crafting & Tools). Two findings needed no entry: the health and trait `descs` banding is already filed twice (*`descs` tables are read as upper bounds…*, *Health `descs` use a 0–100 scale…*), and `stones` reaching the milling stones belongs to roadmap *Search / disambiguation UX + item identity*, annotated there (roadmap Rev 29) per this file's scope note.
 > **Rev 47 · 2026-10-20** — one entry **closed**, one **annotated**, both from `feature/harvest-guard`, merged to `main` in `1c57f0a` (PR #17; fix `08d6c44`, tree `cfb6075`). *⚠️ `harvest` treats a player's body as a rabbit* goes **OPEN → DONE**: a refusal of its own in `CmdHarvest`, placed after the expiry check so an expired body still crumbles. Its *Status* records why neither (A) nor (B) as filed was taken — (A) would have removed one of `crumble()`'s three triggers, and the dev DB showed (B) would have fixed no existing corpse — and that the stored `creature_type` values are deliberately left. **Annotated:** *⚠️ Decay time can run backwards when the weather turns* gains a sighting from this branch's protocol: an untouched corpse read expired one evening and not expired the next morning. It is recorded as a sighting, not a receipt.
@@ -902,6 +903,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Found in Stage 4 B.2 while reading corpse behaviour for the
   same-room payment rationale (2026-07-30). Decided in the death-consequence
   policy session (2026-10-17).
+- **Annotation (2026-10-26, weight decomposition WD7):** `CoinPile` is an item
+  prototype when Stage 5 writes it and carries `enc` by AD8's rule like any
+  other; the wallet integer weighs nothing. Coin ENC is therefore Stage 5's
+  field, not the weight feature's.
 - **Status:** DECIDED (roadmap Rev 26) · code SCHEDULED (Stage 5, with `CoinPile`)
 
 ### ⚠️ Corpse expiry fires only on direct interaction — and its two writers disagree
@@ -1225,6 +1230,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Epic A D1); and Stage 5 — a collapsed character is defenceless, which is
   designed with combat, not here. Once this ships, the `DeathWeakness` re-point
   in *Why deferred* is unblocked.
+- **Annotation (2026-10-26, weight decomposition):** the question in *Why it
+  matters now* is answered in `docs/PolishedWorld_Weight_Decomposition.md`
+  WD2–WD3: the weight feature **neither contains this entry nor depends on it**.
+  A ceiling at twice STR+SIZ prices distance in trips before fatigue has a
+  consequence, so weight stands alone; what it leaves for this entry are two
+  seams — `Character.physical_modifier()`, where the bands' −10…−50 % plug in
+  beside overload's −20 %, and the one-fatigue-per-room cost of moving
+  overloaded, which becomes a reason to rest once this entry ships. No
+  `Overloaded` buff exists (the direction above is superseded in that entry).
 - **Origin:** Survival mechanics (core loop).
 - **Status:** OPEN
 
@@ -1286,8 +1300,27 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   flint and twine among them. The decomposition must carry a test that **20 items at
   `enc` 0 count as 1 ENC**, or the mechanic ships treating a sack of bullets as
   nothing.
+- **Decomposition (2026-10-26):** `docs/PolishedWorld_Weight_Decomposition.md`
+  Rev 1, six components, eleven tasks, `feature/weight`. **This annotation
+  supersedes *Direction (2026-10-18)* above, which is kept as history:** there
+  is no `Overloaded` buff and no `fatigue_rate` multiplier. The limit is STR+SIZ
+  (WD1); free to the limit, *Overloaded* to twice it, refused above — the
+  refusal in `Character.at_pre_object_receive`, on receiving only, never on a
+  move (WD2); the band costs −20 % on physical tests through a new
+  `Character.physical_modifier()` seam added by every Craft test and the hunt,
+  and one fatigue point per room moved (`at_post_move`), both read lazily from
+  `contents` with no stored state (WD3). The rate multiplier was rejected
+  because it prices time while a cost per room prices distance, pillar 1's
+  quantity, and because a buff is a cache that goes stale on `drop`. Twenty
+  `enc` 0 items count as 1 ENC with or without a container (WD4, the test this
+  entry demanded). Containers hold ENC — backpack 20, sack 10, saddlebag 15
+  (AoL pp.28–30) — their contents count fully for the carrier, and they do not
+  nest (WD5). The open question above is answered: the ceiling prices distance
+  in trips from day one, so *Fatigue-exhaustion consequence* is neither inside
+  this feature nor its dependency. Stage 5 takes its −20 % on weapon tests from
+  the same seam.
 - **Origin:** Alpha content decomposition session (2026-10-18), AD8.
-- **Status:** OPEN (alpha prerequisite — decompose before code)
+- **Status:** SCHEDULED (`docs/PolishedWorld_Weight_Decomposition.md` Rev 1 — code after character creation, alpha decision (F))
 
 ### Full container support
 - **What:** Generic `CmdPut` + a reusable `ContribContainer` typeclass (bags,

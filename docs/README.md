@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 12 · 2026-10-26** — index `PolishedWorld_Weight_Decomposition.md` (weight and encumbrance, the alpha's seventh prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
 > **Rev 11 · 2026-10-26** — index `PolishedWorld_Character_Creation_Decomposition.md` (Legend character creation, the alpha's fourth prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
 > **Rev 10 · 2026-10-18** — index `PolishedWorld_Alpha_Content_Decomposition.md` (the alpha content epic). Added in the same commit as the document, and the directory-vs-list loop was run **after** the file existed in the tree — the step Rev 9 moved from session start to the adding commit. Nothing else about the index changes.
 
@@ -70,6 +71,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Timed actions decomposition (Epic A) | tactical (feature tasks) | `docs/PolishedWorld_Timed_Actions_Decomposition.md` |
 | Alpha content decomposition | tactical (feature tasks) | `docs/PolishedWorld_Alpha_Content_Decomposition.md` |
 | Character creation decomposition | tactical (feature tasks) | `docs/PolishedWorld_Character_Creation_Decomposition.md` |
+| Weight and encumbrance decomposition | tactical (feature tasks) | `docs/PolishedWorld_Weight_Decomposition.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
 | System backlog (14 systems, build order) | strategic (unlocks the crafting tree) | `docs/crafting/PolishedWorld_System_Backlog.md` |
