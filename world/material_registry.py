@@ -559,6 +559,11 @@ def by_status(status):
     return [k for k, d in MATERIALS.items() if d["status"] == status]
 
 
+def tools_by_status(status):
+    """List tool tag-keys with the given status (EXISTS/DATA/BLOCKED/DECISION)."""
+    return [k for k, d in TOOLS.items() if d["status"] == status]
+
+
 def referenceable_materials():
     """Materials a generator may reference today (status EXISTS only)."""
     return by_status(EXISTS)
@@ -569,35 +574,61 @@ def orphan_materials():
     return [k for k, d in MATERIALS.items() if d["status"] == EXISTS and not d["sinks"]]
 
 
+# The four status groups, in ledger order, with the gloss each header carries.
+# Shared by the material and the tool sections so the two cannot diverge.
+_LEDGER_GROUPS = (
+    (EXISTS, "committed & live -- generators may reference"),
+    (DATA, "ratified, buildable now, not yet committed"),
+    (BLOCKED, "needs an unbuilt system/station (see blocked_on)"),
+    (DECISION, "gated on an open design decision"),
+)
+
+
+def _render_groups(table, keys_with, prefix="", show_prototype=False):
+    """
+    Render one registry table as status groups.
+
+    `keys_with(status)` lists the table's keys in that status; `prefix` labels
+    each group header ("" for MATERIALS, "TOOLS " for TOOLS). With
+    `show_prototype`, an entry whose prototype_key differs from its tag key
+    shows it -- for tools that is the crafted item (axe -> stone_axe), which
+    is the name a player meets in game.
+    """
+    lines = []
+    for status, gloss in _LEDGER_GROUPS:
+        keys = sorted(keys_with(status))
+        lines.append(f"{prefix}{status.upper()} ({len(keys)}) -- {gloss}")
+        for k in keys:
+            entry = table[k]
+            proto = entry.get("prototype_key") or k
+            arrow = f" -> {proto}" if show_prototype and proto != k else ""
+            blocked = entry.get("blocked_on") or ""
+            suffix = f"   [blocked_on: {blocked}]" if blocked else ""
+            lines.append(f"  {k}{arrow}{suffix}")
+        lines.append("")
+    return lines
+
+
 def render_ledger():
     """
-    Render the material source/sink ledger as plain text, grouped by status.
+    Render the source/sink ledger as plain text: materials grouped by status,
+    the material orphans, then tools grouped the same way.
 
     Pure string builder -- no I/O, no Evennia import -- so the module stays
     standalone-importable and this stays unit-testable. The CLI (__main__)
     prints it; the ledger doc pastes that output as a clearly-generated
     snapshot, so the snapshot can never drift from the registry (it IS the
-    registry, rendered).
+    registry, rendered). Tools are part of that: before Decomp Q8 the ledger
+    printed MATERIALS only, so no tool reached any ledger line.
     """
-    lines = []
-    order = [
-        (EXISTS, "committed & live -- generators may reference"),
-        (DATA, "ratified, buildable now, not yet committed"),
-        (BLOCKED, "needs an unbuilt system/station (see blocked_on)"),
-        (DECISION, "gated on an open design decision"),
-    ]
-    for status, gloss in order:
-        keys = sorted(by_status(status))
-        lines.append(f"{status.upper()} ({len(keys)}) -- {gloss}")
-        for k in keys:
-            blocked = MATERIALS[k].get("blocked_on") or ""
-            suffix = f"   [blocked_on: {blocked}]" if blocked else ""
-            lines.append(f"  {k}{suffix}")
-        lines.append("")
+    lines = _render_groups(MATERIALS, by_status)
     orphans = sorted(orphan_materials())
     lines.append(f"ORPHANS ({len(orphans)}) -- EXISTS but no sink (economic dead-ends):")
     lines.append("  " + (", ".join(orphans) if orphans else "(none)"))
-    return "\n".join(lines)
+    lines.append("")
+    lines.extend(_render_groups(TOOLS, tools_by_status, prefix="TOOLS ",
+                                show_prototype=True))
+    return "\n".join(lines).rstrip("\n")
 
 
 if __name__ == "__main__":
@@ -610,7 +641,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ledger",
         action="store_true",
-        help="print the source/sink ledger snapshot (status groups + orphans)",
+        help="print the source/sink ledger snapshot (material groups, orphans, tool groups)",
     )
     args = parser.parse_args()
     if args.ledger:

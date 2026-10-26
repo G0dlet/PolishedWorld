@@ -28,6 +28,9 @@ the wrong thing. These tests make the registry answer to the code:
        neither can be picked up -- and those two carry none.
   (h)  a `source` that names a harvest creature (a HARVEST_TEMPLATES key, as
        a whole word) belongs to an entry that creature's template yields.
+  (i)  the rendered ledger lists every MATERIALS and every TOOLS entry, each
+       under its own status header, and an EXISTS tool shows the item it is
+       (axe -> stone_axe).
 Checking the consumer without the source (c without f) recreates the feather
 error one layer down; (f) closes that. (g) is AC4.0's: from it on a catalogue
 batch without ENC fails the suite, so the field cannot rot unread until the
@@ -40,6 +43,14 @@ is DATA and source is free text. A generator reading the registry would have
 put fur on the rabbit. (h) reads the text against the yield table the harvest
 command reads, so a source cannot claim a creature the code does not harvest
 it from, whatever the entry's status.
+
+(i) is AC6's (Decomp Q8). render_ledger() printed MATERIALS only, so the
+ledger doc -- "regenerated, never hand-edited" -- could not name a single
+tool. (i) parses the rendered text back into (section, status) -> keys and
+compares that with the registry, so a dropped section, a tool filed under the
+wrong status, or a tool leaking into the material groups each fail by name.
+The parser refuses any line it does not recognise: a format change has to
+change the parser too, rather than slipping past it.
 
 HOW THE DATA IS READ (same paths production uses)
 -------------------------------------------------
@@ -98,6 +109,10 @@ MIN_RECIPES = 8
 MIN_ITEM_PROTOTYPES = 29
 # (h)'s floor, set at AC4.0b's count: raw_hide and bone name the rabbit.
 MIN_CREATURE_SOURCES = 2
+
+# (i): a status-group header and an entry line, as render_ledger() writes them.
+LEDGER_HEADER = re.compile(r"^(TOOLS )?(EXISTS|DATA|BLOCKED|DECISION) \((\d+)\) -- ")
+LEDGER_ENTRY = re.compile(r"^  ([a-z_]+)(?: -> ([a-z_]+))?(?:   \[blocked_on: .+\])?$")
 
 # Typeclasses whose objects cannot be picked up, so they carry no `enc` (AD8).
 NOT_CARRIED = (ResourceNode, Creature)
@@ -346,3 +361,91 @@ class TestMaterialRegistry(EvenniaTestCase):
         for source, expected in cases:
             with self.subTest(source=source):
                 self.assertEqual(_named_creatures(source), expected)
+
+
+def _parse_ledger(text):
+    """
+    Parse render_ledger() output into {(section, status): {key: shown_proto}}.
+
+    section is "material" or "tool"; shown_proto is the name after "->", or
+    None. Returns (groups, declared) where declared maps the same pairs to the
+    count each header states. Raises AssertionError on any unknown line.
+    """
+    groups, declared = {}, {}
+    current = None
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        header = LEDGER_HEADER.match(line)
+        if header:
+            section = "tool" if header.group(1) else "material"
+            current = (section, header.group(2).lower())
+            assert current not in groups, f"duplicate header: {line!r}"
+            groups[current] = {}
+            declared[current] = int(header.group(3))
+        elif line.startswith("ORPHANS ("):
+            current = None
+            i += 1  # the orphan list is one line, not entries
+        elif line == "":
+            pass
+        else:
+            entry = LEDGER_ENTRY.match(line)
+            assert entry and current, f"unrecognised ledger line: {line!r}"
+            groups[current][entry.group(1)] = entry.group(2)
+        i += 1
+    return groups, declared
+
+
+class TestRenderedLedger(EvenniaTestCase):
+    """(i): the ledger text names every registry entry where it belongs."""
+
+    def setUp(self):
+        super().setUp()
+        self.groups, self.declared = _parse_ledger(reg.render_ledger())
+
+    def test_i_every_entry_under_its_status(self):
+        """Both sections, all four statuses: rendered keys == registry keys."""
+        for table, _category, label in SECTIONS:
+            for status in (reg.EXISTS, reg.DATA, reg.BLOCKED, reg.DECISION):
+                with self.subTest(section=label, status=status):
+                    expected = {k for k, d in table.items() if d["status"] == status}
+                    shown = self.groups.get((label, status))
+                    self.assertIsNotNone(shown, f"no {label} {status} header")
+                    self.assertEqual(set(shown), expected)
+                    self.assertEqual(self.declared[(label, status)], len(shown))
+        # Receipt: the parse saw both whole tables, not two empty sections.
+        for table, _category, label in SECTIONS:
+            seen = set().union(*(set(v) for (sec, _), v in self.groups.items()
+                                 if sec == label))
+            self.assertEqual(seen, set(table), f"{label} section incomplete")
+
+    def test_i_exists_tools_show_their_item(self):
+        """An EXISTS tool whose prototype differs from its tag shows it."""
+        shown = self.groups.get(("tool", reg.EXISTS))
+        self.assertIsNotNone(shown, "no TOOLS EXISTS header")
+        checked = 0
+        for key in shown:
+            proto = reg.TOOLS[key]["prototype_key"]
+            with self.subTest(tool=key):
+                self.assertEqual(shown[key], proto if proto != key else None)
+            checked += proto != key
+        # Receipt: axe, knife and needle all name a crafted item.
+        self.assertEqual(shown.get("axe"), "stone_axe")
+        self.assertGreaterEqual(checked, 3)
+
+    def test_i_materials_show_no_prototype(self):
+        """The material groups stay as they were: no "->" on any line."""
+        shown = [p for (sec, _), v in self.groups.items() if sec == "material"
+                 for p in v.values()]
+        self.assertTrue(shown)  # the premise: material lines were parsed
+        self.assertEqual(set(shown), {None})
+        # fiber's prototype is plant_fiber, so a leak would show here.
+        self.assertNotEqual(reg.MATERIALS["fiber"]["prototype_key"], "fiber")
+
+    def test_i_parser_refuses_unknown_lines(self):
+        """The parser fails loudly on a line it does not know (fixture)."""
+        bad = reg.render_ledger() + "\nTOOL EXISTS (1) -- typo\n  axe"
+        self.assertIn("TOOL EXISTS", bad)  # the fixture is the bad line
+        with self.assertRaises(AssertionError):
+            _parse_ledger(bad)
