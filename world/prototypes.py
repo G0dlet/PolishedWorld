@@ -286,8 +286,8 @@ KNIFE = {
 # ("knife", "crafting_tool") -- the SAME tool-key as the metal KNIFE, so it
 # satisfies every recipe that wants a knife (waterskin, leather). DISTINCT from
 # KNIFE (locked decision a): a named, world-flavoured crude tool and a target for
-# Component D wear balance, while start `condition` stays at the DurableObject
-# default (100) -- start-condition tuning is deferred to when wear is live.
+# Component D wear balance. It starts at `condition` 40, not the DurableObject
+# default (100) -- see the "condition" line below (D.5).
 STONE_KNIFE = {
     "prototype_key": "stone_knife",
     "typeclass": "typeclasses.tools.Tool",

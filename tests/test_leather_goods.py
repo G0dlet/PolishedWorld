@@ -196,6 +196,8 @@ class TestLeatherGoods(EvenniaTest):
                 self.char1.skills.get("craft").current = expected["min_skill"]
                 result = craft(self.char1, expected["recipe"], *materials, tool)
 
+                # A refusal returns None: fail on that, not on a TypeError.
+                self.assertIsNotNone(result)
                 self.assertEqual(len(result), 1)
                 product = result[0]
                 self.assertEqual(product.location, self.char1)
@@ -233,6 +235,8 @@ class TestLeatherGoods(EvenniaTest):
                     self.char1.skills.get("craft").current = expected["min_skill"]
                     result = craft(self.char1, expected["recipe"], *materials, tool)
 
+                # A refusal returns None: fail on that, not on a TypeError.
+                self.assertIsNotNone(result)
                 self.assertEqual(len(result), 1)
                 product = result[0]
                 self.assertEqual(quality_band(product.db.quality), SHODDY)
