@@ -169,7 +169,7 @@ class CmdCraftGated(CmdCraft):
     Craft an item using ingredients and tools.
 
     Usage:
-      craft <recipe> [from <ingredient>,...] [using <tool>, ...]
+      craft <recipe> from <ingredient>, ... [using <tool>, ...]
 
     Crafting takes time. You set to work at once and the item is made when
     you finish; nothing is used up until then. Moving away stops the work,

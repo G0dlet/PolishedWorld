@@ -16,14 +16,41 @@ the wrong thing. These tests make the registry answer to the code:
   (a') an EXISTS entry's own prototype_key carries the entry's tag.
   (b)  no unregistered tags: every such tag on a prototype is a registry key.
   (c)  every EXISTS material is consumed by some recipe.
-  (d)  every EXISTS tool is some recipe's tool_tag.
+  (d)  every EXISTS tool is used: some recipe's tool_tag, or some node
+       prototype's required_tool (T3).
   (e)  every recipe input (consumable_tags, tool_tag) is an EXISTS entry.
   (f)  every EXISTS prototype_key has a source in code: a node's
        yield_prototype, a harvest part in a template some prototype's
        harvest_template names, or a recipe's output_prototypes.
 
+  (g)  every item prototype carries a non-negative int `enc` (AD8): every
+       prototype whose typeclass is not a ResourceNode or a Creature --
+       neither can be picked up -- and those two carry none.
+  (h)  a `source` that names a harvest creature (a HARVEST_TEMPLATES key, as
+       a whole word) belongs to an entry that creature's template yields.
+  (i)  the rendered ledger lists every MATERIALS and every TOOLS entry, each
+       under its own status header, and an EXISTS tool shows the item it is
+       (axe -> stone_axe).
 Checking the consumer without the source (c without f) recreates the feather
-error one layer down; (f) closes that.
+error one layer down; (f) closes that. (g) is AC4.0's: from it on a catalogue
+batch without ENC fails the suite, so the field cannot rot unread until the
+weight mechanic reads it. It is (g), not the decomposition's "(e)": (e) was
+taken by AC1.1.
+
+(h) is AC4.0b's. `fur`'s source named the rabbit while the rabbit's template
+yielded raw_hide (Decomp Rev 3 Q7): every other check passed, because `fur`
+is DATA and source is free text. A generator reading the registry would have
+put fur on the rabbit. (h) reads the text against the yield table the harvest
+command reads, so a source cannot claim a creature the code does not harvest
+it from, whatever the entry's status.
+
+(i) is AC6's (Decomp Q8). render_ledger() printed MATERIALS only, so the
+ledger doc -- "regenerated, never hand-edited" -- could not name a single
+tool. (i) parses the rendered text back into (section, status) -> keys and
+compares that with the registry, so a dropped section, a tool filed under the
+wrong status, or a tool leaking into the material groups each fail by name.
+The parser refuses any line it does not recognise: a format change has to
+change the parser too, rather than slipping past it.
 
 HOW THE DATA IS READ (same paths production uses)
 -------------------------------------------------
@@ -34,23 +61,33 @@ HOW THE DATA IS READ (same paths production uses)
 * Recipes: `_load_recipes()` then `_RECIPE_CLASSES` -- the registry the
   crafting contrib itself resolves `craft <name>` against (keyed on cls.name),
   as world/knowledge.py and commands/crafting_commands.py already do.
+* Item or not (g): the prototype's typeclass resolved to its class and tested
+  with issubclass, so a subclass of ResourceNode or Creature is excluded by
+  what it is, not by how its path is spelled. `enc` is not a reserved
+  prototype key, so it arrives as a homogenized attr and is read with _attr().
 
 Each per-entry check runs in a subTest, so one run names every bad entry.
 A guard runs first: an empty prototype or recipe set would make every
 "for each ... assert" loop pass vacuously.
 
-NOT YET COVERED (T3): (d) does not look at a node's `required_tool`. That
-field does not exist until AC2.1; the branch lands with it (AC2.2 at latest).
+(d)'s node branch (T3) landed in AC2.2 with TREE, the first node prototype to
+set `required_tool`. Its receipt is the `axe` entry: no recipe names the axe as
+its tool_tag, so without the branch (d) fails on it.
 """
+
+import re
 
 from evennia.contrib.game_systems.crafting.crafting import (
     _load_recipes,
     _RECIPE_CLASSES,
 )
-from evennia.prototypes.prototypes import search_prototype
+from evennia.prototypes.prototypes import homogenize_prototype, search_prototype
 from evennia.utils.test_resources import EvenniaTestCase
+from evennia.utils.utils import class_from_module
 
 from world import material_registry as reg
+from typeclasses.creatures import Creature
+from typeclasses.resources import ResourceNode
 from world.harvest_templates import HARVEST_TEMPLATES
 
 MATERIAL_CATEGORY = "crafting_material"
@@ -63,9 +100,22 @@ SECTIONS = (
     (reg.TOOLS, TOOL_CATEGORY, "tool"),
 )
 
-# Floors for the vacuity guard. Today: 30 prototypes, 8 recipes.
+# Floors for the vacuity guard, set at AC1.1's counts (30 prototypes, 8
+# recipes). A floor, not a census: content added since does not move it.
 MIN_PROTOTYPES = 30
 MIN_RECIPES = 8
+# (g)'s floor, set at AC4.0's count (29 item prototypes; 9 nodes and the
+# rabbit excluded). Same rule: a floor, not a census.
+MIN_ITEM_PROTOTYPES = 29
+# (h)'s floor, set at AC4.0b's count: raw_hide and bone name the rabbit.
+MIN_CREATURE_SOURCES = 2
+
+# (i): a status-group header and an entry line, as render_ledger() writes them.
+LEDGER_HEADER = re.compile(r"^(TOOLS )?(EXISTS|DATA|BLOCKED|DECISION) \((\d+)\) -- ")
+LEDGER_ENTRY = re.compile(r"^  ([a-z_]+)(?: -> ([a-z_]+))?(?:   \[blocked_on: .+\])?$")
+
+# Typeclasses whose objects cannot be picked up, so they carry no `enc` (AD8).
+NOT_CARRIED = (ResourceNode, Creature)
 
 
 def _prototypes():
@@ -90,6 +140,47 @@ def _attr(proto, name):
         if attr[0] == name:
             return attr[1]
     return None
+
+
+def _is_item(proto):
+    """True if the prototype spawns something a character can carry (g).
+
+    A prototype with no typeclass (one built only from a prototype_parent)
+    cannot be classified here, so it fails loudly instead of being skipped.
+    """
+    path = proto.get("typeclass")
+    if path is None:
+        raise AssertionError(
+            f"{proto['prototype_key']}: no typeclass to classify -- test (g) "
+            "cannot tell whether it is an item"
+        )
+    return not issubclass(class_from_module(path), NOT_CARRIED)
+
+
+def _enc_problem(proto):
+    """Why a prototype's `enc` breaks (g), or None when it is valid.
+
+    `type(...) is int`, not isinstance: True is an int to isinstance and
+    would pass as ENC 1.
+    """
+    enc = _attr(proto, "enc")
+    if enc is None:
+        return "no enc"
+    if type(enc) is not int:
+        return f"enc is {type(enc).__name__} {enc!r}, not int"
+    if enc < 0:
+        return f"enc is negative ({enc})"
+    return None
+
+
+def _named_creatures(source):
+    """HARVEST_TEMPLATES keys that a registry `source` names, as words (h).
+
+    Whole word, singular or plural, any case: "rabbit harvest" and "Rabbits"
+    name the rabbit; "jackrabbit" does not.
+    """
+    return {key for key in HARVEST_TEMPLATES
+            if re.search(rf"\b{re.escape(key)}s?\b", source, re.IGNORECASE)}
 
 
 def _sourced_prototype_keys(prototypes, recipes):
@@ -119,6 +210,10 @@ class TestMaterialRegistry(EvenniaTestCase):
         self.consumed = {t for cls in self.recipes for t in (cls.consumable_tags or [])}
         self.tool_tags = {cls.tool_tag for cls in self.recipes
                           if getattr(cls, "tool_tag", None)}
+        # T3: a node's required_tool uses a tool as much as a recipe does.
+        # Read through _attr() -- required_tool arrives as a homogenized attr.
+        self.tool_tags |= {_attr(p, "required_tool") for p in self.prototypes
+                           if _attr(p, "required_tool")}
 
     def _carried(self, category):
         """Every tag key in `category` carried by any prototype."""
@@ -162,7 +257,6 @@ class TestMaterialRegistry(EvenniaTestCase):
                 self.assertIn(key, self.consumed)
 
     def test_d_every_exists_tool_is_used(self):
-        # T3: node `required_tool` is not counted yet -- it lands in AC2.1.
         for key, entry in reg.TOOLS.items():
             if entry["status"] != reg.EXISTS:
                 continue
@@ -188,3 +282,170 @@ class TestMaterialRegistry(EvenniaTestCase):
                     continue
                 with self.subTest(label=label, key=key, proto=entry["prototype_key"]):
                     self.assertIn(entry["prototype_key"], self.sourced)
+
+    def test_g_every_item_prototype_carries_enc(self):
+        items = [p for p in self.prototypes if _is_item(p)]
+        excluded = [p for p in self.prototypes if not _is_item(p)]
+        # Guard: an exclusion that swallowed everything would leave no item
+        # to check, and one that excluded nothing would hide a broken split.
+        self.assertGreaterEqual(len(items), MIN_ITEM_PROTOTYPES)
+        self.assertTrue(excluded)
+        for proto in items:
+            with self.subTest(prototype=proto["prototype_key"]):
+                self.assertIsNone(_enc_problem(proto))
+
+    def test_g_nodes_and_creatures_carry_no_enc(self):
+        excluded = [p for p in self.prototypes if not _is_item(p)]
+        # Receipt that both kinds are in the excluded set, by class.
+        classes = {class_from_module(p["typeclass"]) for p in excluded}
+        for kind in NOT_CARRIED:
+            with self.subTest(kind=kind.__name__):
+                self.assertTrue(any(issubclass(c, kind) for c in classes))
+        for proto in excluded:
+            with self.subTest(prototype=proto["prototype_key"]):
+                self.assertIsNone(_attr(proto, "enc"))
+
+    def test_g_rule_refuses_bad_enc(self):
+        """Negative cases through the production homogenizer (§11k).
+
+        Each fixture first proves it is an item -- the thing (g) checks --
+        before its refusal is read, so a refusal cannot come from it having
+        been excluded.
+        """
+        base = {"typeclass": "typeclasses.objects.Object", "key": "fixture"}
+        cases = {
+            "missing": ({}, "no enc"),
+            "bool": ({"enc": True}, "enc is bool True, not int"),
+            "str": ({"enc": "1"}, "enc is str '1', not int"),
+            "negative": ({"enc": -1}, "enc is negative (-1)"),
+        }
+        for name, (extra, expected) in cases.items():
+            proto = homogenize_prototype(
+                {"prototype_key": f"enc_fixture_{name}", **base, **extra})
+            with self.subTest(case=name):
+                self.assertTrue(_is_item(proto))
+                self.assertEqual(_enc_problem(proto), expected)
+        valid = homogenize_prototype({"prototype_key": "enc_fixture_zero", **base, "enc": 0})
+        self.assertIsNone(_enc_problem(valid))
+
+    def test_h_a_named_creature_yields_the_entry(self):
+        """A `source` naming a harvest creature is a part that creature yields."""
+        self.assertTrue(HARVEST_TEMPLATES, "no harvest templates -- (h) is vacuous")
+        pairs = []
+        for section, _category, label in SECTIONS:
+            for key, entry in section.items():
+                for creature in sorted(_named_creatures(entry["source"])):
+                    pairs.append((key, creature))
+                    yields = {part["prototype"]
+                              for part in HARVEST_TEMPLATES[creature].values()}
+                    with self.subTest(label=label, key=key, creature=creature):
+                        self.assertIn(
+                            entry["prototype_key"], yields,
+                            f"{key}'s source names the {creature}, whose "
+                            f"template yields {sorted(yields)}")
+        # Receipt: the check ran on real entries, not on an empty match set.
+        self.assertGreaterEqual(
+            len(pairs), MIN_CREATURE_SOURCES,
+            f"only {pairs} name a harvest creature -- matcher or floor broken")
+
+    def test_h_matcher_reads_whole_words(self):
+        """The matcher (h) relies on: whole words, plural and case allowed."""
+        self.assertIn("rabbit", HARVEST_TEMPLATES)  # the fixtures' premise
+        cases = (
+            ("rabbit harvest (HARVEST_TEMPLATES)", {"rabbit"}),
+            ("Rabbits, snared", {"rabbit"}),
+            ("jackrabbit hide", set()),
+            ("rabbitry pens", set()),
+            ("soft-furred animal harvest (fox...)", set()),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(_named_creatures(source), expected)
+
+
+def _parse_ledger(text):
+    """
+    Parse render_ledger() output into {(section, status): {key: shown_proto}}.
+
+    section is "material" or "tool"; shown_proto is the name after "->", or
+    None. Returns (groups, declared) where declared maps the same pairs to the
+    count each header states. Raises AssertionError on any unknown line.
+    """
+    groups, declared = {}, {}
+    current = None
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        header = LEDGER_HEADER.match(line)
+        if header:
+            section = "tool" if header.group(1) else "material"
+            current = (section, header.group(2).lower())
+            assert current not in groups, f"duplicate header: {line!r}"
+            groups[current] = {}
+            declared[current] = int(header.group(3))
+        elif line.startswith("ORPHANS ("):
+            current = None
+            i += 1  # the orphan list is one line, not entries
+        elif line == "":
+            pass
+        else:
+            entry = LEDGER_ENTRY.match(line)
+            assert entry and current, f"unrecognised ledger line: {line!r}"
+            groups[current][entry.group(1)] = entry.group(2)
+        i += 1
+    return groups, declared
+
+
+class TestRenderedLedger(EvenniaTestCase):
+    """(i): the ledger text names every registry entry where it belongs."""
+
+    def setUp(self):
+        super().setUp()
+        self.groups, self.declared = _parse_ledger(reg.render_ledger())
+
+    def test_i_every_entry_under_its_status(self):
+        """Both sections, all four statuses: rendered keys == registry keys."""
+        for table, _category, label in SECTIONS:
+            for status in (reg.EXISTS, reg.DATA, reg.BLOCKED, reg.DECISION):
+                with self.subTest(section=label, status=status):
+                    expected = {k for k, d in table.items() if d["status"] == status}
+                    shown = self.groups.get((label, status))
+                    self.assertIsNotNone(shown, f"no {label} {status} header")
+                    self.assertEqual(set(shown), expected)
+                    self.assertEqual(self.declared[(label, status)], len(shown))
+        # Receipt: the parse saw both whole tables, not two empty sections.
+        for table, _category, label in SECTIONS:
+            seen = set().union(*(set(v) for (sec, _), v in self.groups.items()
+                                 if sec == label))
+            self.assertEqual(seen, set(table), f"{label} section incomplete")
+
+    def test_i_exists_tools_show_their_item(self):
+        """An EXISTS tool whose prototype differs from its tag shows it."""
+        shown = self.groups.get(("tool", reg.EXISTS))
+        self.assertIsNotNone(shown, "no TOOLS EXISTS header")
+        checked = 0
+        for key in shown:
+            proto = reg.TOOLS[key]["prototype_key"]
+            with self.subTest(tool=key):
+                self.assertEqual(shown[key], proto if proto != key else None)
+            checked += proto != key
+        # Receipt: axe, knife and needle all name a crafted item.
+        self.assertEqual(shown.get("axe"), "stone_axe")
+        self.assertGreaterEqual(checked, 3)
+
+    def test_i_materials_show_no_prototype(self):
+        """The material groups stay as they were: no "->" on any line."""
+        shown = [p for (sec, _), v in self.groups.items() if sec == "material"
+                 for p in v.values()]
+        self.assertTrue(shown)  # the premise: material lines were parsed
+        self.assertEqual(set(shown), {None})
+        # fiber's prototype is plant_fiber, so a leak would show here.
+        self.assertNotEqual(reg.MATERIALS["fiber"]["prototype_key"], "fiber")
+
+    def test_i_parser_refuses_unknown_lines(self):
+        """The parser fails loudly on a line it does not know (fixture)."""
+        bad = reg.render_ledger() + "\nTOOL EXISTS (1) -- typo\n  axe"
+        self.assertIn("TOOL EXISTS", bad)  # the fixture is the bad line
+        with self.assertRaises(AssertionError):
+            _parse_ledger(bad)

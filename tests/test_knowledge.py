@@ -42,6 +42,8 @@ Always pick the LIGHTEST class that can express the test: a plain TestCase that
 never builds the object graph is far cheaper than one that does.
 """
 
+from unittest import mock
+
 from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import (
     EvenniaTestCase,
@@ -55,7 +57,12 @@ from world.knowledge import (
     render_recipe_detail_by_name,
 )
 from world.crafting_base import MongooseCraftRecipe
-from world.recipes import ClothRecipe, LeatherRecipe, TwineRecipe
+from world.recipes import (
+    ClothRecipe,
+    LeatherBootsRecipe,
+    LeatherRecipe,
+    TwineRecipe,
+)
 from commands.crafting_commands import CmdInscribe, CmdLearn, CmdRecipes
 
 
@@ -63,8 +70,8 @@ from commands.crafting_commands import CmdInscribe, CmdLearn, CmdRecipes
 # what the production code passes around: knows_recipe(), _can_transmit() and the
 # scroll's db.recipe stamp all key off the name -- never the class or the
 # prototype_key (which live in a separate namespace).
-CLOTH = "cloth"                  # requires_knowledge=True, NO min_skill -> floor 0
-LEATHER_BOOTS = "leather boots"  # requires_knowledge=True, min_skill=30
+CLOTH = "cloth"                  # requires_knowledge=True, min_skill=20 (E.1)
+LEATHER_BOOTS = "leather boots"  # requires_knowledge=True, min_skill=40 (E.1)
 TWINE = "twine"                  # requires_knowledge=False (common) -> ungated
 
 
@@ -194,21 +201,27 @@ class TestCanTransmit(EvenniaTest):
         self.assertFalse(_can_transmit(self.char1, CLOTH))
 
     def test_known_recipe_with_zero_floor_transmits(self):
-        # cloth has no min_skill (floor 0): knowing it is sufficient.
-        self.char1.learn_recipe(CLOTH)
-        self.assertTrue(_can_transmit(self.char1, CLOTH))
+        # WHY: no alpha learnable recipe sits at 0 after E.1, but the base default
+        # MongooseCraftRecipe.min_skill = 0 is still a supported floor.
+        with mock.patch.object(ClothRecipe, "min_skill", 0):
+            self.char1.learn_recipe(CLOTH)
+            self._set_craft(0)
+            self.assertTrue(_can_transmit(self.char1, CLOTH))
 
     def test_known_but_below_skill_floor_blocks(self):
-        # leather boots demand Craft 30; 20 permanent is not enough.
+        floor = LeatherBootsRecipe.min_skill
+        # One permanent point below the boots' declared Craft floor is not enough.
         self.char1.learn_recipe(LEATHER_BOOTS)
-        self._set_craft(20)
+        self._set_craft(floor - 1)
         self.assertFalse(_can_transmit(self.char1, LEATHER_BOOTS))
 
     def test_known_at_exact_floor_transmits(self):
-        # Boundary: the floor is `>=`, so exactly 30 passes. Testing the
-        # boundary itself (not just 29/31) is where off-by-one gate bugs show.
+        floor = LeatherBootsRecipe.min_skill
+        # Boundary: the floor is `>=`, so exactly the declared floor passes.
+        # Testing the boundary itself, not just one below or above, catches
+        # off-by-one gate bugs.
         self.char1.learn_recipe(LEATHER_BOOTS)
-        self._set_craft(30)
+        self._set_craft(floor)
         self.assertTrue(_can_transmit(self.char1, LEATHER_BOOTS))
 
     def test_buffed_value_does_not_confer_authoring_rights(self):
@@ -216,22 +229,23 @@ class TestCanTransmit(EvenniaTest):
         THE load-bearing test for this whole module.
 
         The gate reads PERMANENT skill (trait.current), NEVER effective
-        trait.value. A +20 buff pushes .value to 40 (over the boots' 30 floor)
-        while .current stays 20 (under it). A fleeting buff must not let you
-        author a lasting scroll -> the gate must still return False.
+        trait.value. A +20 buff pushes .value above the boots' floor while
+        .current stays one below it. A fleeting buff must not let you author a
+        lasting scroll -> the gate must still return False.
 
         If someone ever "simplifies" _can_transmit to read .value, THIS is the
         test that fails. That is precisely its job.
         """
+        floor = LeatherBootsRecipe.min_skill
         self.char1.learn_recipe(LEATHER_BOOTS)
         trait = self.char1.skills.get("craft")
-        trait.current = 20  # permanent: below the 30 floor
-        trait.mod = 20      # simulate a +20 buff -> value == 40
+        trait.current = floor - 1  # permanent: one below the declared floor
+        trait.mod = 20             # simulate a +20 buff to the effective value
 
         # Prove the buff is genuinely active, so the real assertion below can't
         # pass for the wrong reason.
-        self.assertGreaterEqual(trait.value, 30)
-        self.assertLess(trait.current, 30)
+        self.assertGreaterEqual(trait.value, floor)
+        self.assertLess(trait.current, floor)
 
         self.assertFalse(_can_transmit(self.char1, LEATHER_BOOTS))
 

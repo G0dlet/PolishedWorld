@@ -102,10 +102,14 @@ MATERIALS = {
         "sinks": ["waterskin recipe"],
     },
     "wood": {
-        "prototype_key": "wood", "category": RAW, "status": DATA,
+        "prototype_key": "wood", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "tree ResourceNodes (oak/ash/yew...). Generic tag — see DECISION #10",
-        "sinks": ["handles", "shafts", "planks", "furniture", "fuel/charcoal"],
+        "source": "tree (ResourceNode, required_tool axe). Generic tag — see DECISION #10",
+        "sinks": [
+            "club recipe", "quarterstaff recipe", "spear recipe", "bow recipe",
+            "tent recipe", "handles", "shafts", "planks", "furniture",
+            "fuel/charcoal",
+        ],
     },
     "oak_bark": {
         "prototype_key": "oak_bark", "category": RAW, "status": DATA,
@@ -117,8 +121,8 @@ MATERIALS = {
         "prototype_key": "stone", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "stone_outcrop (ResourceNode)",
-        "sinks": ["stone knife recipe", "stone tools", "grindstone", "sling bullets",
-                  "building"],
+        "sinks": ["stone knife recipe", "milling stones recipe", "stone tools",
+                  "grindstone", "building"],  # no stone sling bullet (B7)
     },
     # stick != wood: a stick is a hand-gathered deadfall piece for hafting, not
     # timber. Keep the two tags apart (wood is DECISION #10's generic tag).
@@ -126,19 +130,19 @@ MATERIALS = {
         "prototype_key": "stick", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "stick_deadfall (ResourceNode)",
-        "sinks": ["stone knife recipe"],
+        "sinks": ["stone knife recipe", "stone axe recipe"],
     },
     "flint": {
-        "prototype_key": "flint", "category": RAW, "status": DATA,
+        "prototype_key": "flint", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "surface gather",
-        "sinks": ["flint knife (primitive root)", "fire-starting"],
+        "source": "flint_scatter (ResourceNode)",
+        "sinks": ["stone axe recipe", "fire-starting"],
     },
     "clay": {
-        "prototype_key": "clay", "category": RAW, "status": DATA,
+        "prototype_key": "clay", "category": RAW, "status": EXISTS,
         "blocked_on": "",
-        "source": "riverbed/lakeside ResourceNode",
-        "sinks": ["pottery (blocked: kiln)"],
+        "source": "clay_bank (ResourceNode)",
+        "sinks": ["sling bullet recipe", "pottery (blocked: kiln)"],
     },
     "sand": {
         "prototype_key": "sand", "category": RAW, "status": DATA,
@@ -199,14 +203,18 @@ MATERIALS = {
     "fur": {
         "prototype_key": "fur", "category": RAW, "status": DATA,
         "blocked_on": "",
-        "source": "soft-furred animal harvest (rabbit, fox...); pelt kept fur-on",
+        "source": "soft-furred animal harvest (fox...; no creature in the alpha "
+                  "yields fur, Q7); pelt kept fur-on",
         "sinks": ["fur cloak", "fur-lined warmth garments"],  # WARMTH chain (#1)
     },
     "bone": {
         "prototype_key": "bone", "category": RAW, "status": EXISTS,
         "blocked_on": "",
         "source": "rabbit harvest (HARVEST_TEMPLATES)",
-        "sinks": ["bone needle recipe", "bone tools/weapons/armour"],
+        "sinks": [
+            "bone needle recipe", "scrollcase recipe", "bone armour recipe",
+            "spear recipe", "bone tools/weapons",
+        ],
     },
     "sinew": {
         "prototype_key": "sinew", "category": RAW, "status": DATA,
@@ -238,20 +246,31 @@ MATERIALS = {
         "prototype_key": "twine", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         "source": "TwineRecipe (fiber x3)",
-        "sinks": ["waterskin recipe", "lashing/binding"],
+        "sinks": [
+            "waterskin recipe", "stone axe recipe", "spear recipe", "bow recipe",
+            "tent recipe", "lashing/binding",
+        ],
     },
     "cloth": {
         "prototype_key": "cloth", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         # NOTE: "canvas"/"sailcloth" map to cloth (a heavy grade) — see DECISION #11
         "source": "ClothRecipe (fiber x3)",
-        "sinks": ["linen shirt recipe", "garments", "sacks/packs", "sails/tents"],
+        "sinks": [
+            "linen shirt recipe", "breeches recipe", "robe recipe", "hood recipe",
+            "reversible clothes recipe", "linen cuirass recipe", "sack recipe",
+            "tent recipe", "garments", "sacks/packs", "sails/tents",
+        ],
     },
     "leather": {
         "prototype_key": "leather", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         "source": "LeatherRecipe (raw_hide x2, knife optional)",
-        "sinks": ["leather boots", "soft armour", "bags", "saddles", "straps"],
+        "sinks": [
+            "leather boots recipe", "shoes recipe", "backpack recipe",
+            "saddlebag recipe", "bandolier recipe", "sling recipe",
+            "bone armour recipe", "soft armour", "saddles",
+        ],
     },
     "pigment": {
         "prototype_key": "pigment", "category": INTERMEDIATE, "status": DATA,
@@ -337,12 +356,19 @@ TOOLS = {
     "knife": {
         "prototype_key": "stone_knife", "status": EXISTS, "blocked_on": "",
         "source": "StoneKnifeRecipe (stone + stick + fiber -> stone_knife)",
-        "used_by": ["waterskin (optional)", "harvesting", "shaping wood/bone"],
+        "used_by": [
+            "waterskin (optional)", "harvesting",
+            "shaping wood/bone (club, quarterstaff, spear, bow)",
+            "scrollcase", "cutting leather (sling, bone armour)",
+        ],
     },
     "needle": {
         "prototype_key": "bone_needle", "status": EXISTS, "blocked_on": "",
         "source": "BoneNeedleRecipe (bone -> bone_needle)",
-        "used_by": ["garment recipes (optional)"],
+        "used_by": [
+            "garment recipes (optional)", "backpack, saddlebag (optional)",
+            "tent (optional)",
+        ],
     },
     "grindstone": {
         "prototype_key": "grindstone", "status": DATA, "blocked_on": "",
@@ -362,9 +388,11 @@ TOOLS = {
         "used_by": ["smithing", "construction", "driving"],
     },
     "axe": {
-        "prototype_key": "axe", "status": DATA, "blocked_on": "smithing (metal head)",
-        "source": "stone/flint head + haft (primitive); metal head needs smithing",
-        "used_by": ["felling wood", "carpentry"],
+        # TIERED: the stone axe (flint head + stick haft) EXISTS and is what this
+        # entry points at; a metal-headed axe is BLOCKED on smithing (metal head).
+        "prototype_key": "stone_axe", "status": EXISTS, "blocked_on": "",
+        "source": "StoneAxeRecipe (flint + stick + twine -> stone_axe)",
+        "used_by": ["felling wood (tree node, required)", "carpentry"],
     },
     "saw": {
         "prototype_key": "saw", "status": BLOCKED, "blocked_on": "smithing",
@@ -462,6 +490,8 @@ OPEN_DECISIONS = """
 1.  [RESOLVED] fur vs raw_hide — kept DISTINCT. fur = warmth chain (pelt kept
     fur-on -> fur garments). raw_hide = durable chain (tan -> leather -> goods).
     Soft-furred animals yield fur; thick-hided yield raw_hide; large may yield both.
+    Q7 (AC4.0, Decomp Rev 3 B3): the alpha rabbit yields raw_hide -- the code
+    wins; the soft-furred rule waits for a creature that yields fur.
 2.  [RESOLVED] Tanning (raw_hide -> leather) — soft hand-craft, no station:
     LeatherRecipe (raw_hide x2, knife optional), commit 896ce33; ratified as
     shipped in roadmap Rev 27 (D2). Bark and water as inputs are deferred to
@@ -529,6 +559,11 @@ def by_status(status):
     return [k for k, d in MATERIALS.items() if d["status"] == status]
 
 
+def tools_by_status(status):
+    """List tool tag-keys with the given status (EXISTS/DATA/BLOCKED/DECISION)."""
+    return [k for k, d in TOOLS.items() if d["status"] == status]
+
+
 def referenceable_materials():
     """Materials a generator may reference today (status EXISTS only)."""
     return by_status(EXISTS)
@@ -539,35 +574,61 @@ def orphan_materials():
     return [k for k, d in MATERIALS.items() if d["status"] == EXISTS and not d["sinks"]]
 
 
+# The four status groups, in ledger order, with the gloss each header carries.
+# Shared by the material and the tool sections so the two cannot diverge.
+_LEDGER_GROUPS = (
+    (EXISTS, "committed & live -- generators may reference"),
+    (DATA, "ratified, buildable now, not yet committed"),
+    (BLOCKED, "needs an unbuilt system/station (see blocked_on)"),
+    (DECISION, "gated on an open design decision"),
+)
+
+
+def _render_groups(table, keys_with, prefix="", show_prototype=False):
+    """
+    Render one registry table as status groups.
+
+    `keys_with(status)` lists the table's keys in that status; `prefix` labels
+    each group header ("" for MATERIALS, "TOOLS " for TOOLS). With
+    `show_prototype`, an entry whose prototype_key differs from its tag key
+    shows it -- for tools that is the crafted item (axe -> stone_axe), which
+    is the name a player meets in game.
+    """
+    lines = []
+    for status, gloss in _LEDGER_GROUPS:
+        keys = sorted(keys_with(status))
+        lines.append(f"{prefix}{status.upper()} ({len(keys)}) -- {gloss}")
+        for k in keys:
+            entry = table[k]
+            proto = entry.get("prototype_key") or k
+            arrow = f" -> {proto}" if show_prototype and proto != k else ""
+            blocked = entry.get("blocked_on") or ""
+            suffix = f"   [blocked_on: {blocked}]" if blocked else ""
+            lines.append(f"  {k}{arrow}{suffix}")
+        lines.append("")
+    return lines
+
+
 def render_ledger():
     """
-    Render the material source/sink ledger as plain text, grouped by status.
+    Render the source/sink ledger as plain text: materials grouped by status,
+    the material orphans, then tools grouped the same way.
 
     Pure string builder -- no I/O, no Evennia import -- so the module stays
     standalone-importable and this stays unit-testable. The CLI (__main__)
     prints it; the ledger doc pastes that output as a clearly-generated
     snapshot, so the snapshot can never drift from the registry (it IS the
-    registry, rendered).
+    registry, rendered). Tools are part of that: before Decomp Q8 the ledger
+    printed MATERIALS only, so no tool reached any ledger line.
     """
-    lines = []
-    order = [
-        (EXISTS, "committed & live -- generators may reference"),
-        (DATA, "ratified, buildable now, not yet committed"),
-        (BLOCKED, "needs an unbuilt system/station (see blocked_on)"),
-        (DECISION, "gated on an open design decision"),
-    ]
-    for status, gloss in order:
-        keys = sorted(by_status(status))
-        lines.append(f"{status.upper()} ({len(keys)}) -- {gloss}")
-        for k in keys:
-            blocked = MATERIALS[k].get("blocked_on") or ""
-            suffix = f"   [blocked_on: {blocked}]" if blocked else ""
-            lines.append(f"  {k}{suffix}")
-        lines.append("")
+    lines = _render_groups(MATERIALS, by_status)
     orphans = sorted(orphan_materials())
     lines.append(f"ORPHANS ({len(orphans)}) -- EXISTS but no sink (economic dead-ends):")
     lines.append("  " + (", ".join(orphans) if orphans else "(none)"))
-    return "\n".join(lines)
+    lines.append("")
+    lines.extend(_render_groups(TOOLS, tools_by_status, prefix="TOOLS ",
+                                show_prototype=True))
+    return "\n".join(lines).rstrip("\n")
 
 
 if __name__ == "__main__":
@@ -580,7 +641,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ledger",
         action="store_true",
-        help="print the source/sink ledger snapshot (status groups + orphans)",
+        help="print the source/sink ledger snapshot (material groups, orphans, tool groups)",
     )
     args = parser.parse_args()
     if args.ledger:

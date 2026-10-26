@@ -110,8 +110,8 @@ SHIPPED = dict(SKILL_XP_BASE=6, SKILL_XP_DOUBLING_SPAN=20)
 
 CHARACTER = "typeclasses.characters.Character"
 
-# From tests/test_knowledge.py: requires_knowledge=True and NO min_skill, so the
-# per-recipe mastery floor is 0 and only scribe's own SCRIBE_MIN_CRAFT bites.
+# cloth: requires_knowledge=True with min_skill 20 (E.1, AC5.1) -- below scribe's
+# own SCRIBE_MIN_CRAFT (50), so scribe's bar is the one these tests exercise.
 CLOTH = "cloth"
 
 

@@ -8,10 +8,11 @@ much lifetime XP stands between one whole percentage point and the next. Like
 world/skillcheck.py and world/improvement.py it holds no Evennia objects, does
 no I/O and reads no traits, so it unit-tests in isolation.
 
-NOTHING CALLS THIS MODULE YET. That is deliberate, not an oversight. Component
-A is arithmetic with an exact answer, and arithmetic with an exact answer should
-be provable before anything depends on it. Component B adds storage (still with
-no consumer); only Component C changes what a player experiences.
+Component A shipped this module with no caller, deliberately: it is arithmetic
+with an exact answer, and arithmetic with an exact answer should be provable
+before anything depends on it. Components B and C gave it its callers --
+today world/skill_xp.py, typeclasses/characters.py and
+commands/character_commands.py.
 
 WHY XP AT ALL (roadmap Rev 14 decision log)
 -------------------------------------------
@@ -24,8 +25,12 @@ instead of adding 1D4+1 points, the floor banks 1 XP, and an exponential
 threshold stands between each whole point.
 
 The percentage stays the single mechanical truth. Every skill check, every
-`min_skill` gate, every tool buff still reads `skill.current`; none of them
-learns that XP exists. What changes is only how often `.current` moves.
+`min_skill` gate, every tool buff still reads the skill trait; none of them
+learns that XP exists. What changes is only how often `.current` moves. Which
+part of the trait each reader takes differs: the craft roll and the craft
+floor read the effective `.value` (current + buffs, crafting_base
+`_skill_value`), while teaching a recipe reads the permanent `.current`
+(world/knowledge.py).
 
 THE CURVE
 ---------

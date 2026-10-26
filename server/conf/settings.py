@@ -203,8 +203,8 @@ CLOTHING_TYPE_LIMIT = {
 # Deliberately NOT overriding CLOTHING_TYPE_AUTOCOVER: the contrib reads BOTH
 # autocover AND cant-cover-with from this single key (clothing.py:131-142), so
 # overriding it would clobber cant-cover-with. The default autocover dict
-# (top->undershirt, fullbody->undershirt+underpants, shoes->socks) is already
-# what we want. CLOTHING_OVERALL_LIMIT stays at its default (20).
+# (top->undershirt, bottom->underpants, fullbody->undershirt+underpants,
+# shoes->socks) is already what we want. CLOTHING_OVERALL_LIMIT stays at its default (20).
 
 ######################################################################
 # Settings given in secret_settings.py override those in this file.
