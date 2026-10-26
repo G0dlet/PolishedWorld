@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 49 · 2026-10-26** — *Legend character creation* decomposed (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 1; roadmap Rev 30, alpha decision (F)). **Scheduled:** *Profession Common-Skill bonuses* — its trigger (*a real chargen with per-character characteristics*) fires; home CC2.1, status BLOCKED → SCHEDULED. *Health `descs` use a 0–100 scale against a max of `CON × 2`* — CON now spans 6–18, so the fix is the epic's CC1.2, OPEN → SCHEDULED. **Added** (*Professions & Chargen*): *Cultural Background* — struck from the alpha chargen, with the trigger it waits on; *Free Skill Points* — replaced for the alpha by the profession bonus, with its trigger. **Annotated:** *Cultural-Background gating of professions* — the chargen the entry was waiting for ships without a Cultural Background; it stays BLOCKED on the new entry above it. No code changes.
 > **Rev 48 · 2026-10-26** — the Alpha Content epic's close-out (Decomp AC6; merged to `main` in `a4bf108`, branch tip `052f1b7`, tree `aea8b40`). **Closed:** *Alpha content epic* goes **SCHEDULED → DONE**. **Narrowed:** *⛔ The recipe catalogue does not span the skill scale* keeps E.2 only — E.1 shipped as AC5.1 (29 recipes, rungs 0/20/40/60, ceiling 60); it stays BLOCKED on E.2's own trigger. *Public test server* part **(a) DONE** (AC3.1–3.2: `world/seed_data.py`, `world/seeding.py`, the setup hook, and a nine-step runbook in the decomposition's AC3.2 record); (b) unchanged. *Four docs … carry no Rev header*: the AoL decomposition gets its Rev 1 in this commit, so three remain. **Annotated:** *Weight and encumbrance* (a test the decomposition must carry). **Added**, all findings from AC2.1–AC5.1 given a home: *Article and number in messages built from item keys* (UX); *`recipes` lists floored recipes under "can craft"* (UX); *`@economy mint` preview suggests the confirm line in copper* (Currency); *Evennia is not pinned in the repo* (Tooling); *The registry's `hammer` is DATA with a `blocked_on`* (Crafting & Tools). Two findings needed no entry: the health and trait `descs` banding is already filed twice (*`descs` tables are read as upper bounds…*, *Health `descs` use a 0–100 scale…*), and `stones` reaching the milling stones belongs to roadmap *Search / disambiguation UX + item identity*, annotated there (roadmap Rev 29) per this file's scope note.
 > **Rev 47 · 2026-10-20** — one entry **closed**, one **annotated**, both from `feature/harvest-guard`, merged to `main` in `1c57f0a` (PR #17; fix `08d6c44`, tree `cfb6075`). *⚠️ `harvest` treats a player's body as a rabbit* goes **OPEN → DONE**: a refusal of its own in `CmdHarvest`, placed after the expiry check so an expired body still crumbles. Its *Status* records why neither (A) nor (B) as filed was taken — (A) would have removed one of `crumble()`'s three triggers, and the dev DB showed (B) would have fixed no existing corpse — and that the stored `creature_type` values are deliberately left. **Annotated:** *⚠️ Decay time can run backwards when the weather turns* gains a sighting from this branch's protocol: an untouched corpse read expired one evening and not expired the next morning. It is recorded as a sighting, not a receipt.
 > **Rev 46 · 2026-10-19** — one entry **closed**, one **annotated**, two **added**, all from `feature/death-contract`, merged to `main` in `123ac53` (PR #16; feat `dd5f69e`, fix `2d87533`, tree `18a3d83`). *Death contract surfaces* goes **OPEN → DONE**: an owner-first loot grace on an unscaled clock, a death line and a `help death` topic built from the same live constants. Its *Status* records nine prose sites, not eight, the dev-DB corpses deliberately left unmigrated, and the one thing the in-game protocol found that the suite did not (the death line arrived after *Death's Chill* announced the comeback). **Annotated:** *⚠️ `CoinPile` vs the corpse's atomic content delete* gains two prose sites the Stage 5 task must change. **Added** (*Death & Corpses*): **⚠️ `harvest` treats a player's body as a rabbit**, OPEN, and **⚠️ Decay time can run backwards when the weather turns**, OPEN (latent), both found in this branch's anchor check and both outside its scope.
@@ -785,10 +786,42 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   ("knowledge only, no stat bonuses"). Also meaningless while every character
   has placeholder characteristics -- the bonuses need a real chargen (rolled or
   allocated characteristics) to sit on.
-- **Trigger:** A real chargen with per-character characteristics.
+- **Trigger:** A real chargen with per-character characteristics. *(Fired
+  2026-10-26: `docs/PolishedWorld_Character_Creation_Decomposition.md` CC6 —
+  the profession package carries a Craft bonus; built in CC2.1. The Legend
+  deviation is recorded there: RAW gives the Craftsman no Craft bonus, Free
+  Skill Points do, and those are deferred — see the entry below.)*
 - **Origin:** Stage 3 Component D -- Legend profession analysis (Legend.pdf
   Professions section, verified 2026-07-12).
-- **Status:** BLOCKED (real chargen / characteristic variation)
+- **Status:** SCHEDULED (Character creation CC2.1)
+
+### Free Skill Points (Legend p.25)
+- **What:** Legend's third step of Previous Experience: 250 points the player
+  spends across skills, max 30 per skill, an Advanced skill costing 10 and
+  starting at base. It is where a Legend crafter's Craft score actually comes
+  from.
+- **Why deferred:** A third allocation screen over five skills, for a cohort on
+  phones. For the alpha the profession's skill bonus (CC6) stands in for it;
+  the adaptation is named as one in the decomposition.
+- **Trigger:** More Common skills than the alpha's five, or alpha close-out
+  data showing the profession bonus alone leaves the cohort's skill spread too
+  narrow.
+- **Origin:** Character creation decomposition CC6 (2026-10-26).
+- **Status:** BLOCKED (skill count / alpha data)
+
+### Cultural Background (Legend p.15–18)
+- **What:** Barbarian / Civilised / Nomad / Primitive as a creation choice,
+  carrying Common-skill bonuses and, in RAW, Combat Styles, Advanced Skills and
+  Starting Money.
+- **Why deferred:** Three of the table's four columns are outside the alpha
+  (combat; no starting money — Economic Philosophy §4), and the first has
+  nothing to land on: the culture bonuses go to Culture (Own), Lore (Regional),
+  Survival and weapon styles, none of which exist among the five skills. A
+  culture that changes no number is a label, and labels are not chargen.
+- **Trigger:** Culture / Lore skills exist (or a weapon-style skill does, at
+  Stage 5).
+- **Origin:** Character creation decomposition CC2 (2026-10-26).
+- **Status:** BLOCKED (skills for the bonuses to sit on)
 
 ### Cultural-Background gating of professions
 - **What:** In Legend RAW the only gate on which profession a character may take
@@ -799,7 +832,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   against, and free choice is both Legend-faithful and the only meaningful option
   while characteristics are identical placeholders. Explicitly NOT a
   characteristic-minimum gate -- that would diverge from Legend RAW.
-- **Trigger:** A Cultural Background / chargen system.
+- **Trigger:** A Cultural Background / chargen system. *(2026-10-26: the chargen
+  ships without a Cultural Background — CC2; this entry now waits on the
+  *Cultural Background* entry above.)*
 - **Origin:** Stage 3 Component D.2 -- Legend profession analysis (verified
   2026-07-12).
 - **Status:** BLOCKED (Cultural Background / chargen system)
@@ -1568,9 +1603,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   this is the one to do first.
 - **Trigger:** Together with the decision in the entry above (the health reader
   is one of the three), or the next change to `sheet`/vitals output — whichever
-  comes first.
+  comes first. *(2026-10-26: CON spans 6–18 once character creation ships, so
+  the max spans 12–36 — fixed as CC1.2 of
+  `docs/PolishedWorld_Character_Creation_Decomposition.md`, taking the
+  lower-bound reading for health only.)*
 - **Origin:** Epic A TA1.3 in-game protocol, 2026-10-09.
-- **Status:** OPEN
+- **Status:** SCHEDULED (Character creation CC1.2)
 
 ### `look`-injected condition for non-admin players
 - **What:** Surface the condition line in `look` output for regular players
