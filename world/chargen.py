@@ -183,9 +183,11 @@ def apply_allocation(character, alloc):
 
     Raises:
         ValueError: the allocation is invalid; the character has banked XP
-            (CC7: no re-spec); or a characteristic, health or skill trait the
-            derivation writes is missing. Nothing is written in any of these
-            cases.
+            (CC7: no re-spec); the character already has a profession (its
+            skill bonus sits on the bases this would overwrite -- allocation
+            comes first, CC2.1); or a characteristic, health or skill trait
+            the derivation writes is missing. Nothing is written in any of
+            these cases.
     """
     errors = validate_allocation(alloc)
     if errors:
@@ -196,6 +198,12 @@ def apply_allocation(character, alloc):
         raise ValueError(
             f"{character.key} has banked skill XP; characteristics are set "
             "once, at creation (no re-spec)."
+        )
+
+    if character.db.profession:
+        raise ValueError(
+            f"{character.key} already follows a profession; characteristics "
+            "are set before the profession, never after."
         )
 
     derived = derive_skill_bases(alloc)

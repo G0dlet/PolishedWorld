@@ -367,9 +367,9 @@ class CmdChooseProfession(Command):
     teaches you its recipes.
 
     Choosing a profession is a ONE-TIME decision: once chosen it cannot be
-    changed. It grants recipe *knowledge* only -- it does not alter your
-    characteristics or skills, and how well you craft still depends on your
-    Craft skill. You can always learn other recipes later by being taught
+    changed. It teaches you its recipes and adds a one-time bonus to your
+    Craft skill; your characteristics are not touched, and how well you
+    craft still depends on your Craft skill. You can always learn other recipes later by being taught
     them or by studying a scroll.
     """
 
@@ -392,17 +392,22 @@ class CmdChooseProfession(Command):
             else:
                 msg += "  You have not yet chosen a profession.\n\n"
             for pkey in sorted(PROFESSIONS):
-                recipes = ", ".join(PROFESSIONS[pkey])
-                msg += f"  |y{pkey}|n: {recipes}\n"
+                package = PROFESSIONS[pkey]
+                recipes = ", ".join(package["recipes"])
+                bonus = ", ".join(
+                    f"{skill} +{points}"
+                    for skill, points in sorted(package["skill_bonus"].items())
+                )
+                msg += f"  |y{pkey}|n: {recipes} ({bonus})\n"
             msg += "|g" + "=" * 40 + "|n"
             if not chosen:
                 msg += "\nType |wprofession <name>|n to commit to one. The choice is permanent."
             caller.msg(msg)
             return
 
-        # Already chosen -> refuse. This sentinel is the idempotency guard: it
-        # makes the grant a once-per-character event, safe across @reload and
-        # re-puppet (this command is B's only grant path).
+        # Already chosen -> refuse with a message. grant_profession() guards
+        # the same sentinel itself (it is the sentinel's only writer, CC2.1);
+        # this check exists so the player is told why nothing happened.
         if chosen:
             caller.msg(
                 f"You have already taken up the |y{chosen}|n's craft; "
@@ -416,11 +421,14 @@ class CmdChooseProfession(Command):
             caller.msg(f"There is no '|y{arg}|n' profession. Choose one of: {valid}.")
             return
 
-        # Commit: seed the recipes FIRST, then stamp the sentinel LAST, so a
-        # failure mid-grant leaves the character retry-able (unset sentinel)
-        # rather than committed-but-untaught. grant_profession is idempotent.
-        learned = grant_profession(caller, arg)
-        caller.db.profession = arg
+        # Commit. grant_profession() checks before it writes, applies recipes
+        # and skill bonus, and stamps db.profession LAST. A refusal (a skill
+        # trait missing on this character) has written nothing.
+        try:
+            learned = grant_profession(caller, arg)
+        except ValueError as err:
+            caller.msg(f"|rYour profession could not be granted:|n {err}")
+            return
         if learned:
             caller.msg(
                 f"You take up the |y{arg}|n's craft. "

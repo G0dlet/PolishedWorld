@@ -10,6 +10,7 @@ Each class presses one bug:
     TestApplyAllocation      a forgotten `.current` write, a forgotten health
                              recalculation, a `_SaverDict` refused as a dict
     TestApplyRefuses         a half-applied character; a re-spec over banked XP
+                             or over a profession's bonus (CC2.1)
     TestApplyDoesNotWriteXP  a backfill
 
 THE FIXTURE (lesson 74)
@@ -36,6 +37,7 @@ from world.chargen import (
     derive_skill_bases,
     validate_allocation,
 )
+from world.professions import grant_profession
 from world.progression import xp_threshold
 
 VALID = {"str": 7, "dex": 9, "con": 14, "siz": 8, "int": 12, "pow": 17, "cha": 13}
@@ -216,6 +218,17 @@ class TestApplyRefuses(EvenniaTest):
         with self.assertRaises(ValueError) as caught:
             apply_allocation(self.char1, VALID)
         self.assertIn("banked skill XP", str(caught.exception))
+        self.assertEqual(self._snapshot(), before)
+
+    def test_profession_is_refused_and_writes_nothing(self):
+        # CC2.1: allocation comes before the profession. Seeded through the
+        # real writer, so the bonus this guard protects is really there.
+        grant_profession(self.char1, "weaver")
+        self.assertEqual(self.char1.skills.get("craft").current, 30)  # 20 + 10
+        before = self._snapshot()
+        with self.assertRaises(ValueError) as caught:
+            apply_allocation(self.char1, VALID)
+        self.assertIn("profession", str(caught.exception))
         self.assertEqual(self._snapshot(), before)
 
     def test_missing_skill_is_refused_and_writes_nothing(self):
