@@ -540,6 +540,44 @@ class Character(ObjectParent, ClothedCharacter):
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
 
+    def health_desc(self):
+        """
+        The health label, read against the gauge's percent -- not its value.
+
+        Health's `descs` are keyed 0-100, but its max is CON x 2 (12-36 once
+        character creation varies CON). `GaugeTrait.desc()` compares the keys
+        with the absolute value, so a full 20/20 read `critically wounded`
+        (BACKLOG *Health `descs` use a 0-100 scale*). The scale was the bug,
+        not the bound: this reader keeps Evennia's own rule -- each key is an
+        inclusive UPPER bound, anything above the top key takes the top label
+        -- and only swaps the value for `percent()`. That keeps health on the
+        same reading as the other gauges and the skills, and leaves the open
+        question of which reading is meant (BACKLOG *`descs` tables are read
+        as upper bounds but shaped like lower bounds*) to its own entry.
+
+        Under that rule the stored table reads naturally: `dead` only at
+        exactly 0, `near death` above 0 up to 10%, `healthy` above 90%. The
+        stored table is already percent-shaped, so no character's data
+        changes -- existing characters read right with no migration.
+
+        Keys are walked in sorted order rather than trusting the stored
+        order, so a table written out of order still reads correctly.
+
+        Returns:
+            str: the label, or "" if the trait carries no `descs`.
+        """
+        health = self.traits.health
+        descs = health.descs
+        if not descs:
+            return ""
+        pct = health.percent(formatting=None)
+        label = ""
+        for bound in sorted(descs):
+            label = descs[bound]
+            if pct <= bound:
+                return label
+        return label
+
     def improve_skill_on_use(self, skill_key):
         """
         Attempt one Legend improvement roll on a skill and bank the result as XP.

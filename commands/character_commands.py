@@ -43,7 +43,8 @@ class CmdStatus(Command):
         # Health
         health = char.traits.health
         msg += f"  |yHealth:|n  {health.value:>3}/{health.max:<3} "
-        msg += f"({health.percent():>6}) - {health.desc()}\n"
+        # health_desc(): the label follows percent(), not the absolute value
+        msg += f"({health.percent():>6}) - {char.health_desc()}\n"
         
         # Hunger
         hunger = char.traits.hunger
@@ -331,7 +332,10 @@ class CmdSheet(Command):
             for trait_key in ['health', 'hunger', 'thirst', 'fatigue']:
                 trait = getattr(char.traits, trait_key)
                 msg += f"  |y{trait.name:14}|n {trait.value:>3}/{trait.max:<3} "
-                msg += f"({trait.percent():>6}) - {trait.desc()}\n"
+                # Health only: its max is CON x 2, so its label must follow
+                # percent(); the other gauges keep the trait's own desc().
+                label = char.health_desc() if trait_key == "health" else trait.desc()
+                msg += f"({trait.percent():>6}) - {label}\n"
         
         # === SKILLS ===
         if hasattr(char, 'skills'):
