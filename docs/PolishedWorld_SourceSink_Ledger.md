@@ -1,5 +1,6 @@
 # PolishedWorld — Source / Sink Ledger
 
+> **Rev 3 · 2026-10-26** — **the material snapshot is regenerated whole, and tools join it.** Alpha Content epic close-out (Decomp AC6, Q8). `render_ledger()` now prints `TOOLS` in the same four status groups after the material orphans, so the snapshot names every tool for the first time; the paste is the command's full output, untrimmed, because trimming was a hand-edit the "never hand-edit" rule forbade. Rev 1's snapshot (EXISTS 7, three orphans, `leather` DECISION) was three months stale: today EXISTS 12, DATA 14, BLOCKED 12, DECISION 0, **no orphans**; tools EXISTS 3 (`axe`, `knife`, `needle`), DATA 3, BLOCKED 6. Two prose lines corrected against the code: the pillar-1 audit's orphan list (now none — `raw_hide` feeds `LeatherRecipe`, `feather` and `tusk` are DATA) and the **Book** row (`scribe` ships it: `[EXISTS]`, consumes 2 cloth + twine, worn by `learn` — not "no delete sink by design").
 > **Rev 2 · 2026-08-03** — Stage 4 currency shipped, so the currency row moves off `[BLOCKED]` — and reading it against the code found the row claiming a tighter guarantee than the code provides. **`MINT_SOURCES` has two tags, not one**: `admin_correction` sits beside `crypto_exchange` to repair the exchange path, ledgered and audited identically and never a grant mechanism, with `BURN_REASONS` carrying the matching pair. **The faucet transfers out of the Treasury rather than redistributing** (S4-1) — the distinction matters, because it is why an empty Treasury makes the faucet dry instead of inflationary. **The death-drop was stated in the present tense** and is not shipped: S4-3 keeps the wallet through death, and the drop waits on `CoinPile` in Stage 5 — flagged here rather than only in BACKLOG because it arrives as a *potential second sink*, which is exactly the class of bug this ledger exists to catch. Also added: **barter settlement is a transfer, not a sink** — do not file it as one — and the note that this is why it is deliberately unledgered (S4-4), the invariant `Σ(wallets) + Treasury == Σ(mint) − Σ(burn)` being the proof rather than a transaction history. Status split honestly: wallet, ledger and audit are `[EXISTS]`; the exchange itself remains `[BLOCKED: Stage 8]`.
 > **Rev 1 · 2026-07-19** — first version. Whole-economy source/sink roll-up (pillar 1). Materials delegate to `world/material_registry.py`; currency/goods sinks defer to the economy docs. Uses the `docs/crafting/` status vocabulary.
 > **Canonical:** `docs/PolishedWorld_SourceSink_Ledger.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -25,10 +26,10 @@ intermediate *materials* — each entry carries `source`, `sinks`, `status`,
 `blocked_on`. **The code is the source of truth; duplicating it here would just
 create drift.** So:
 
-- **Materials** → a *script-generated* snapshot (below). Never hand-listed.
+- **Materials and tools** → a *script-generated* snapshot (below). Never hand-listed.
 - **Finished goods & abstract resources** → not in the registry. This doc owns them.
 
-### Material snapshot — GENERATED, never hand-edit
+### Material and tool snapshot — GENERATED, never hand-edit
 
 Regenerate (from repo root):
 
@@ -36,23 +37,78 @@ Regenerate (from repo root):
 python -m world.material_registry --ledger
 ```
 
-Snapshot @ Rev 1 (`feature/recipe-knowledge`) — paste of the command's output,
-trimmed to the load-bearing groups (the script prints all four + every
-`blocked_on`):
+Snapshot @ Rev 3 (`main` after the Alpha Content merge) — the command's full
+output, pasted untrimmed:
 
 ```
-EXISTS  (7) — committed & live: cloth, feather, fiber, gourd, raw_hide, tusk, twine
-DATA    (17) — ratified, buildable now, uncommitted (17 keys; see script)
-BLOCKED (12) — needs an unbuilt system:
-  bronze/copper/iron/tin  [blocked_on: smelting (furnace + process)]
-  charcoal                [blocked_on: kiln/charcoal-burning process]
-  glass                   [blocked_on: glassblowing (furnace + process)]
-  pottery                 [blocked_on: kiln (station + firing)]
-  steel                   [blocked_on: steelmaking (refining process)]
-  planks                  [blocked_on: carpentry (saw + tools)]
-  silk/wool/yarn          [blocked_on: sericulture / husbandry / spinning]
-DECISION (1): leather     [blocked_on: DECISION #2 (tanning model)]
-ORPHANS  (3): feather, raw_hide, tusk   ← EXISTS but no sink
+EXISTS (12) -- committed & live -- generators may reference
+  bone
+  clay
+  cloth
+  fiber
+  flint
+  gourd
+  leather
+  raw_hide
+  stick
+  stone
+  twine
+  wood
+
+DATA (14) -- ratified, buildable now, not yet committed
+  copper_ore
+  feather
+  fur
+  iron_ore
+  oak_bark
+  ochre
+  pigment
+  saltpeter
+  sand
+  sinew
+  straw
+  sulfur
+  tin_ore
+  tusk
+
+BLOCKED (12) -- needs an unbuilt system/station (see blocked_on)
+  bronze   [blocked_on: smelting (furnace + process)]
+  charcoal   [blocked_on: kiln/charcoal-burning process]
+  copper   [blocked_on: smelting (furnace + process)]
+  glass   [blocked_on: glassblowing (furnace + process)]
+  iron   [blocked_on: smelting (furnace + process)]
+  planks   [blocked_on: carpentry (saw + tools)]
+  pottery   [blocked_on: kiln (station + firing)]
+  silk   [blocked_on: sericulture (silkworm lifecycle + reeling)]
+  steel   [blocked_on: steelmaking (refining process)]
+  tin   [blocked_on: smelting (furnace + process)]
+  wool   [blocked_on: husbandry/shearing (no shearable animal yet)]
+  yarn   [blocked_on: spinning (needs wool, which is blocked)]
+
+DECISION (0) -- gated on an open design decision
+
+ORPHANS (0) -- EXISTS but no sink (economic dead-ends):
+  (none)
+
+TOOLS EXISTS (3) -- committed & live -- generators may reference
+  axe -> stone_axe
+  knife -> stone_knife
+  needle -> bone_needle
+
+TOOLS DATA (3) -- ratified, buildable now, not yet committed
+  grindstone
+  hammer   [blocked_on: smithing (metal head)]
+  spindle
+
+TOOLS BLOCKED (6) -- needs an unbuilt system/station (see blocked_on)
+  anvil   [blocked_on: smithing]
+  chisel   [blocked_on: smithing]
+  forge   [blocked_on: station typeclass + heat]
+  furnace   [blocked_on: station typeclass + heat/process]
+  kiln   [blocked_on: station typeclass + firing process]
+  saw   [blocked_on: smithing]
+
+TOOLS DECISION (0) -- gated on an open design decision
 ```
 
 Every `blocked_on` maps to a system in **`docs/crafting/PolishedWorld_System_Backlog.md`**
@@ -71,7 +127,7 @@ Items spawned as end products. The registry does not track these — this does.
 | Food | forage / craft | eat → `consumption_commands.py::delete()` | `[EXISTS]` |
 | Drink (charge-based) | craft (waterskin) | drink decrements charges → delete at 0 | `[EXISTS]` |
 | Scroll | `inscribe` → `spawn("scroll")`, consumes 1 cloth | `learn` → `delete()` (one-shot read) | `[EXISTS]` |
-| Book | scribe (Component G) | reusable — no delete sink *by design* (multi-read) | `[DATA]` |
+| Book | `scribe` → `spawn("book")`, consumes 2 cloth + 1 twine | `learn` wears it (G.3) → break (lingers), as crafted items | `[EXISTS]` |
 | Corpse | death → `create_object` | harvest-then-delete + tickerless decay → `delete()` | `[EXISTS]` |
 
 *The **goods** sink is wear, not any coin cost — `resources → craft → use → wear →
@@ -116,10 +172,10 @@ The per-batch version of this already exists — the integrity checklist in
 `docs/crafting/deer_batch_gold_standard.md` ("every part has a sink; every
 `consumable_tags` has a source"). This section is the *whole-economy* roll-up.
 
-- **Orphans (source, no sink):** `feather`, `raw_hide`, `tusk` (from
-  `orphan_materials()`). `raw_hide` is flagged **KRITISK** in the backlog — it
-  clears when tanning lands (DECISION #2). `feather`/`tusk` need a consuming
-  recipe or a cut.
+- **Orphans (source, no sink):** none (`orphan_materials()`, Rev 3).
+  `raw_hide` cleared when `LeatherRecipe` was ratified (DECISION #2, soft
+  hand-craft); `feather` and `tusk` are DATA with no harvest creature yet, so
+  they cannot be orphans until something yields them.
 - **`[SINK BLOCKED]` finished goods:** swords/armour/lanterns — gated on Stage 5
   combat + glassblowing. Tracked, not built.
 - **Fountains (sink, no source):** none in built systems.

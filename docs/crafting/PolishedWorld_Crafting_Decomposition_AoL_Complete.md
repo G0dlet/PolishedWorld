@@ -1,5 +1,8 @@
 # PolishedWorld — Crafting Decomposition: Arms of Legend (Complete)
 
+> **Rev 1 · 2026-10-26** — first Rev header (BACKLOG, *Four docs under `docs/crafting/` and `docs/reference/` carry no Rev header*), written in the Alpha Content epic's close-out (Decomp AC6) with the statuses the epic's code made false. **Shared nodes:** `wood`, `stone`, `clay`, `flint` and `leather` → `[EXISTS]`, with their sources as the code has them (tree, rocky outcrop, clay bank, flint scatter; `LeatherRecipe`, `raw_hide` ×2, knife optional — no bark, no water); `raw_hide` and `bone` come from the **rabbit**, the only harvest creature; `feather` → `[DATA]` (no creature yields it). **`[DECISION #2]` swept:** every leather leaf → `[EXISTS]` (#2 was answered in code — soft hand-craft — and ratified 2026-10-17); `suede` → `[NEW MATERIAL]`; Soft and Hard Leather Armour → `[DATA]`; the saddle's block narrows to smithing. **Items the epic shipped** → `[EXISTS]`, naming the variant where the heading lists several (22 headings). The rule for every change: what `world/material_registry.py`, `world/prototypes.py` and `world/recipes.py` say on `main` today; component tags (`wood handle [DATA]`) are untouched.
+> **Canonical:** `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` @ G0dlet/PolishedWorld — git wins.
+
 Top-down decomposition of **all** items from *Arms of Legend*, grouped by category
 with shared material nodes identified. Decompose top-down, generate bottom-up.
 
@@ -19,26 +22,26 @@ These materials appear in multiple item trees. Register once, use everywhere.
 
 ### Base Materials (Gatherable)
 - **plant_fiber** `[EXISTS]` ← fiber plant ResourceNode `[EXISTS]`
-- **raw_hide** `[EXISTS]` ← rabbit/deer/boar harvest
-- **bone** `[EXISTS]` ← deer/boar harvest
-- **feather** `[EXISTS]` ← pheasant harvest
-- **wood** `[NEW MATERIAL]` ← oak/ash/yew tree ResourceNode `[DATA]`
-- **stone** `[NEW MATERIAL]` ← surface boulder/quarry ResourceNode `[DATA]`
+- **raw_hide** `[EXISTS]` ← rabbit harvest (deer/boar intended, no creature yet)
+- **bone** `[EXISTS]` ← rabbit harvest (deer/boar intended, no creature yet)
+- **feather** `[DATA]` ← pheasant harvest (no creature yields it yet)
+- **wood** `[EXISTS]` ← tree ResourceNode `[EXISTS]` (needs an axe; generic wood, species wait on DECISION #10)
+- **stone** `[EXISTS]` ← rocky outcrop ResourceNode `[EXISTS]`
 - **iron_ore** `[NEW MATERIAL]` ← bog/surface iron ResourceNode `[DATA]`
 - **copper_ore** `[NEW MATERIAL]` ← surface copper ResourceNode `[DATA]`
 - **tin_ore** `[NEW MATERIAL]` ← surface tin ResourceNode `[DATA]`
-- **clay** `[NEW MATERIAL]` ← riverbed/lakeside ResourceNode `[DATA]`
+- **clay** `[EXISTS]` ← clay bank ResourceNode `[EXISTS]`
 - **sand** `[NEW MATERIAL]` ← riverbed/beach ResourceNode `[DATA]`
 - **ochre** `[NEW MATERIAL]` ← surface mineral ResourceNode `[DATA]`
 - **sulfur** `[NEW MATERIAL]` ← volcanic/hot-spring ResourceNode `[DATA]`
 - **saltpeter** `[NEW MATERIAL]` ← cave floor/urine deposits `[DATA]`
 - **charcoal** `[NEW MATERIAL]` ← wood + kiln process `[BLOCKED: kiln]`
-- **flint** `[NEW MATERIAL]` ← surface gather `[DATA]`
+- **flint** `[EXISTS]` ← flint scatter ResourceNode `[EXISTS]`
 
 ### Intermediate Materials (Crafted)
 - **twine** `[EXISTS]` ← plant fiber
 - **cloth** `[EXISTS]` ← plant fiber
-- **leather** `[NEW MATERIAL]` ← raw_hide + oak_bark + water `[DECISION #2]`
+- **leather** `[EXISTS]` ← raw_hide ×2 (knife optional) — `LeatherRecipe`
 - **oak_bark** `[NEW MATERIAL]` ← oak wood + knife
 - **pigment** `[NEW MATERIAL]` ← ochre + milling
 - **yarn** `[NEW MATERIAL]` ← wool + spinning
@@ -69,18 +72,18 @@ These materials appear in multiple item trees. Register once, use everywhere.
 
 ### A1. Containers & Carrying
 
-**Backpack** `[DATA]`
+**Backpack** `[EXISTS]`
 ```
 backpack
 └─ assembly ← leather/canvas + (tool: needle)
-   ├─ leather `[DECISION #2: tanning]` ← raw_hide + oak_bark + water
+   ├─ leather `[EXISTS]` ← raw_hide ×2
    │  └─ raw_hide `[EXISTS]` ← creature harvest
    ├─ canvas (heavy cloth) `[DATA]` ← plant_fiber -> cloth (multiple bolts)
    │  └─ plant_fiber `[EXISTS]`
    └─ straps ← leather strips
 ```
 
-**Sack (small/large)** `[DATA]`
+**Sack (small/large)** `[EXISTS]` (one size)
 ```
 sack
 └─ assembly ← leather/canvas + (tool: needle)
@@ -105,11 +108,11 @@ glass bottle
    └─ stopper (cork/wood) `[DATA]` ← oak wood + knife
 ```
 
-**Scrollcase** `[DATA]`
+**Scrollcase** `[EXISTS]`
 ```
 scrollcase
 └─ assembly ← leather/bone + (tool: knife, needle)
-   ├─ leather `[DECISION #2]`
+   ├─ leather `[EXISTS]`
    └─ bone tube ← bone + knife
       └─ bone `[EXISTS]`
 ```
@@ -120,7 +123,7 @@ scrollcase
 ```
 torch
 └─ assembly ← wood + cloth + pitch/oil
-   ├─ wood `[NEW MATERIAL]` ← oak tree
+   ├─ wood `[EXISTS]` ← tree
    ├─ cloth `[EXISTS]` ← plant_fiber
    └─ pitch `[NEW MATERIAL]` ← tree resin gather `[DATA]`
 ```
@@ -148,7 +151,7 @@ lantern
 **Flint and Tinder** `[DATA]`
 ```
 flint and tinder
-├─ flint `[NEW MATERIAL]` ← surface gather `[DATA]`
+├─ flint `[EXISTS]` ← flint scatter
 ├─ steel striker `[BLOCKED: smithing]` ← iron/steel
 └─ tinder `[DATA]` ← dried plant_fiber/fungus
 ```
@@ -263,7 +266,7 @@ bedroll
    └─ cord ← twine `[EXISTS]`
 ```
 
-**Tent (4/8 person)** `[DATA]`
+**Tent (4/8 person)** `[EXISTS]` (one tent)
 ```
 tent
 └─ assembly ← canvas + poles + ropes
@@ -291,11 +294,11 @@ fishing kit
 └─ corks ← oak bark
 ```
 
-**Milling Stones** `[DATA]`
+**Milling Stones** `[EXISTS]`
 ```
 milling stones
 └─ carved ← stone (two pieces)
-   └─ stone `[NEW MATERIAL]` ← surface gather
+   └─ stone `[EXISTS]` ← rocky outcrop
 ```
 
 **Preserving Kit** `[DATA]`
@@ -338,18 +341,18 @@ grappling hook
 
 ## CATEGORY B: RIDING & ANIMAL SUPPLIES (~15 items)
 
-**Saddle (Riding/War/Pack/Flight)** `[BLOCKED: leather + smithing]`
+**Saddle (Riding/War/Pack/Flight)** `[BLOCKED: smithing]`
 ```
 saddle
-└─ assembly `[BLOCKED: needs shaped leather + metal fittings]`
-   ├─ leather (shaped) `[DECISION #2: tanning]`
+└─ assembly `[BLOCKED: needs metal fittings]`
+   ├─ leather (shaped) `[EXISTS]`
    ├─ wood frame `[DATA]`
    ├─ padding (wool/fur) `[NEW MATERIAL]`
    ├─ metal fittings `[BLOCKED: smithing]`
    └─ straps ← leather
 ```
 
-**Saddlebag** `[DATA]`
+**Saddlebag** `[EXISTS]`
 ```
 saddlebag
 └─ assembly ← leather/canvas + straps
@@ -384,7 +387,7 @@ barding
 
 ### C1. Basic Garments
 
-**Shirt/Tunic (common/fancy)** `[DATA]`
+**Shirt/Tunic (common/fancy)** `[EXISTS]` (linen shirt)
 ```
 shirt/tunic
 └─ cut + stitch ← cloth + (tool: needle)
@@ -392,14 +395,14 @@ shirt/tunic
    └─ needle `[EXISTS]`
 ```
 
-**Breeches/Pants** `[DATA]`
+**Breeches/Pants** `[EXISTS]` (breeches)
 ```
 breeches
 └─ cut + stitch ← cloth + (tool: needle)
    └─ cloth `[EXISTS]`
 ```
 
-**Dress/Robe** `[DATA]`
+**Dress/Robe** `[EXISTS]` (robe)
 ```
 dress/robe
 └─ cut + stitch ← cloth (multiple bolts) + (tool: needle)
@@ -424,18 +427,18 @@ coat
 
 ### C2. Footwear
 
-**Boots (common/high/riding)** `[DATA]`
+**Boots (common/high/riding)** `[EXISTS]` (leather boots)
 ```
 boots
 └─ cut + stitch ← leather + (tool: knife, needle)
-   └─ leather `[DECISION #2: tanning]`
+   └─ leather `[EXISTS]`
 ```
 
-**Shoes (common/fancy/sandals)** `[DATA]`
+**Shoes (common/fancy/sandals)** `[EXISTS]` (shoes)
 ```
 shoes
 └─ cut + stitch ← leather/cloth + (tool: knife, needle)
-   └─ leather/cloth `[DECISION/EXISTS]`
+   └─ leather/cloth `[EXISTS]`
 ```
 
 ### C3. Headwear
@@ -448,7 +451,7 @@ hat
    └─ felt `[NEW MATERIAL]` ← matted wool/fur
 ```
 
-**Hood/Cowl** `[DATA]`
+**Hood/Cowl** `[EXISTS]` (hood)
 ```
 hood
 └─ cut + stitch ← cloth + (tool: needle)
@@ -462,21 +465,21 @@ hood
 intruder's catsuit
 └─ tailored fit ← silk/suede + (tool: needle)
    ├─ silk `[BLOCKED: sericulture]`
-   └─ suede (soft leather) `[DECISION #2]`
+   └─ suede (soft leather) `[NEW MATERIAL]`
 ```
 
-**Reversible Clothes** `[DATA]`
+**Reversible Clothes** `[EXISTS]`
 ```
 reversible clothes
 └─ assembly ← cloth (two patterns) + (tool: needle)
    └─ cloth `[EXISTS]`
 ```
 
-**Bandolier** `[DATA]`
+**Bandolier** `[EXISTS]`
 ```
 bandolier
 └─ assembly ← leather + loops + (tool: knife, needle)
-   └─ leather `[DECISION #2]`
+   └─ leather `[EXISTS]`
 ```
 
 ---
@@ -485,24 +488,24 @@ bandolier
 
 ### D1. Soft Armour
 
-**Soft Leather Armour** `[DECISION #2]`
+**Soft Leather Armour** `[DATA]`
 ```
 soft leather armour
 └─ cut + stitch ← leather + (tool: knife, needle)
-   └─ leather `[DECISION #2: tanning]`
+   └─ leather `[EXISTS]`
       ├─ raw_hide `[EXISTS]`
       ├─ oak_bark `[NEW MATERIAL]` ← oak wood + knife
       └─ water `[DECISION #6]`
 ```
 
-**Hard Leather Armour** `[DECISION #2]`
+**Hard Leather Armour** `[DATA]`
 ```
 hard leather armour
 └─ treated ← leather (boiled/layered) + (tool: knife)
-   └─ leather `[DECISION #2]`
+   └─ leather `[EXISTS]`
 ```
 
-**Linen Cuirass** `[DATA]`
+**Linen Cuirass** `[EXISTS]`
 ```
 linen cuirass
 └─ quilted ← multiple cloth layers + stitching
@@ -516,7 +519,7 @@ linen cuirass
 ringmail
 └─ assembly `[BLOCKED: needs metal rings + leather backing]`
    ├─ iron/bronze rings `[BLOCKED: smelting + smithing]`
-   └─ leather backing `[DECISION #2]`
+   └─ leather backing `[EXISTS]`
 ```
 
 **Scalemail** `[BLOCKED: smithing]`
@@ -524,7 +527,7 @@ ringmail
 scalemail
 └─ assembly `[BLOCKED: needs metal scales + backing]`
    ├─ iron/bronze scales `[BLOCKED: smithing]`
-   └─ leather backing `[DECISION #2]`
+   └─ leather backing `[EXISTS]`
 ```
 
 **Chainmail** `[BLOCKED: smithing]`
@@ -539,7 +542,7 @@ chainmail
 banded armour
 └─ stitched ← metal plates + leather backing
    ├─ iron/steel plates `[BLOCKED: smithing]`
-   └─ leather backing `[DECISION #2]`
+   └─ leather backing `[EXISTS]`
 ```
 
 **Brigandine** `[BLOCKED: smithing]`
@@ -547,7 +550,7 @@ banded armour
 brigandine
 └─ sandwiched ← metal scales between leather layers + rivets
    ├─ metal scales `[BLOCKED: smithing]`
-   ├─ leather layers `[DECISION #2]`
+   ├─ leather layers `[EXISTS]`
    └─ rivets `[BLOCKED: smithing]`
 ```
 
@@ -560,7 +563,7 @@ plate armour
 
 ### D3. Alternate Materials
 
-**Bone Armour** `[DATA]`
+**Bone Armour** `[EXISTS]`
 ```
 bone armour
 └─ carved + backed ← bone plates + fur/leather backing
@@ -572,7 +575,7 @@ bone armour
 ```
 wooden armour
 └─ carved ← wood (shaped) + lacquer
-   ├─ wood `[NEW MATERIAL]`
+   ├─ wood `[EXISTS]`
    └─ lacquer `[NEW MATERIAL]` ← tree resin + processing
 ```
 
@@ -605,46 +608,46 @@ wintered armour
 
 ### E1. Simple/Wooden Weapons (mostly DATA)
 
-**Club** `[DATA]`
+**Club** `[EXISTS]`
 ```
 club
 └─ shaped ← wood (hardened)
-   └─ wood `[NEW MATERIAL]`
+   └─ wood `[EXISTS]`
 ```
 
-**Quarterstaff** `[DATA]`
+**Quarterstaff** `[EXISTS]`
 ```
 quarterstaff
 └─ shaped + banded ← wood + (optional: metal bands)
-   ├─ wood `[NEW MATERIAL]`
+   ├─ wood `[EXISTS]`
    └─ metal bands `[BLOCKED: smithing]` (optional)
 ```
 
-**Spear (short/long)** `[DATA]`
+**Spear (short/long)** `[EXISTS]` (one spear)
 ```
 spear
 └─ assembly ← wood shaft + tip
-   ├─ wood `[NEW MATERIAL]`
+   ├─ wood `[EXISTS]`
    └─ tip ← bone/iron/steel
       ├─ bone tip `[DATA]` ← bone `[EXISTS]`
       └─ metal tip `[BLOCKED: smithing]`
 ```
 
-**Bow (short/long/recurve)** `[DATA]`
+**Bow (short/long/recurve)** `[EXISTS]` (one bow)
 ```
 bow
 └─ shaped + strung ← wood + bowstring
-   ├─ wood (ash/yew) `[NEW MATERIAL]`
+   ├─ wood (ash/yew) `[EXISTS]` (generic wood in the alpha)
    └─ bowstring ← plant_fiber/sinew/hair
       ├─ fiber string `[DATA]` ← plant_fiber
       └─ sinew `[NEW MATERIAL]` ← creature harvest
 ```
 
-**Sling** `[DATA]`
+**Sling** `[EXISTS]`
 ```
 sling
 └─ braided ← leather/cloth strip
-   └─ leather/cloth `[DECISION/EXISTS]`
+   └─ leather/cloth `[EXISTS]`
 ```
 
 ### E2. Metal Weapons (all BLOCKED on smelting + smithing)
@@ -665,7 +668,7 @@ sword (see decomposition in Example A)
    ├─ guard `[BLOCKED: smithing]`
    ├─ pommel `[BLOCKED: smithing]`
    ├─ handle ← wood `[DATA]`
-   └─ grip wrap ← leather `[DECISION #2]`
+   └─ grip wrap ← leather `[EXISTS]`
 ```
 
 **Axe (hand/battle/great)** `[BLOCKED: smithing]`
@@ -718,7 +721,7 @@ arrow
 └─ assembly ← shaft + head + fletching
    ├─ wood shaft `[DATA]`
    ├─ head ← bone/iron/steel
-   │  ├─ bone `[DATA]`
+   │  ├─ bone `[EXISTS]`
    │  └─ metal `[BLOCKED: smithing]`
    └─ fletching ← feather
       └─ feather `[EXISTS]`
@@ -731,12 +734,12 @@ bolt
    └─ (same as arrow, smaller)
 ```
 
-**Sling Bullets** `[DATA]`
+**Sling Bullets** `[EXISTS]` (clay)
 ```
 sling bullet
 └─ shaped ← clay/stone/lead
-   ├─ clay `[NEW MATERIAL]` (formed, fired optional)
-   ├─ stone `[NEW MATERIAL]` (shaped)
+   ├─ clay `[EXISTS]` (formed, sun-dried; fired waits on a kiln)
+   ├─ stone `[EXISTS]` (shaped; no stone bullet in the alpha, AC4.0 B7)
    └─ lead `[BLOCKED: smelting]`
 ```
 
@@ -815,7 +818,7 @@ raft
 ```
 canoe
 ├─ hide canoe ← hides + frame
-│  ├─ hides (sewn) `[DECISION #2]`
+│  ├─ hides (sewn) `[EXISTS]` (leather)
 │  └─ wood frame `[DATA]`
 └─ dugout ← hollowed log
    └─ log `[NEW MATERIAL]`
@@ -926,10 +929,10 @@ Enchantments are **magical effects**, not crafted items. They require:
 
 ## SYSTEM BACKLOG (in build order)
 
-1. **Wood gathering** — tree ResourceNodes + `wood` material. `[DATA]`
-2. **Stone/clay gathering** — surface nodes. `[DATA]`
+1. **Wood gathering** — tree ResourceNodes + `wood` material. `[EXISTS]`
+2. **Stone/clay gathering** — surface nodes. `[EXISTS]` (stone, clay, flint; sand `[DATA]`)
 3. **Ore gathering** — iron/copper/tin/sulfur nodes. `[DATA]`
-4. **Tanning (DECISION #2)** — raw_hide → leather. `[DATA]` (one decision away)
+4. **Tanning (DECISION #2)** — raw_hide → leather. `[EXISTS]` (soft hand-craft, ratified 2026-10-17)
 5. **Charcoal burning** — wood → charcoal via kiln. `[BLOCKED: kiln station]`
 6. **Smelting** — ore → metal (iron/bronze). `[BLOCKED: furnace + process]`
 7. **Smithing** — metal → tools/weapons/armour. `[BLOCKED: forge + anvil + process]`
@@ -954,7 +957,7 @@ Enchantments are **magical effects**, not crafted items. They require:
 6. Bone items (bone armour, bone tools) `[DATA]`
 7. Arrow/bolt assembly (with bone heads) `[DATA]`
 
-**One decision away (DECISION #2: tanning):**
+**Unblocked by DECISION #2 (tanning ratified 2026-10-17):**
 8. Leather items (boots, soft armour, saddles, bags) `[DATA]`
 
 **Blocked on systems:**

@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 48 · 2026-10-26** — the Alpha Content epic's close-out (Decomp AC6; merged to `main` in `a4bf108`, branch tip `052f1b7`, tree `aea8b40`). **Closed:** *Alpha content epic* goes **SCHEDULED → DONE**. **Narrowed:** *⛔ The recipe catalogue does not span the skill scale* keeps E.2 only — E.1 shipped as AC5.1 (29 recipes, rungs 0/20/40/60, ceiling 60); it stays BLOCKED on E.2's own trigger. *Public test server* part **(a) DONE** (AC3.1–3.2: `world/seed_data.py`, `world/seeding.py`, the setup hook, and a nine-step runbook in the decomposition's AC3.2 record); (b) unchanged. *Four docs … carry no Rev header*: the AoL decomposition gets its Rev 1 in this commit, so three remain. **Annotated:** *Weight and encumbrance* (a test the decomposition must carry). **Added**, all findings from AC2.1–AC5.1 given a home: *Article and number in messages built from item keys* (UX); *`recipes` lists floored recipes under "can craft"* (UX); *`@economy mint` preview suggests the confirm line in copper* (Currency); *Evennia is not pinned in the repo* (Tooling); *The registry's `hammer` is DATA with a `blocked_on`* (Crafting & Tools). Two findings needed no entry: the health and trait `descs` banding is already filed twice (*`descs` tables are read as upper bounds…*, *Health `descs` use a 0–100 scale…*), and `stones` reaching the milling stones belongs to roadmap *Search / disambiguation UX + item identity*, annotated there (roadmap Rev 29) per this file's scope note.
 > **Rev 47 · 2026-10-20** — one entry **closed**, one **annotated**, both from `feature/harvest-guard`, merged to `main` in `1c57f0a` (PR #17; fix `08d6c44`, tree `cfb6075`). *⚠️ `harvest` treats a player's body as a rabbit* goes **OPEN → DONE**: a refusal of its own in `CmdHarvest`, placed after the expiry check so an expired body still crumbles. Its *Status* records why neither (A) nor (B) as filed was taken — (A) would have removed one of `crumble()`'s three triggers, and the dev DB showed (B) would have fixed no existing corpse — and that the stored `creature_type` values are deliberately left. **Annotated:** *⚠️ Decay time can run backwards when the weather turns* gains a sighting from this branch's protocol: an untouched corpse read expired one evening and not expired the next morning. It is recorded as a sighting, not a receipt.
 > **Rev 46 · 2026-10-19** — one entry **closed**, one **annotated**, two **added**, all from `feature/death-contract`, merged to `main` in `123ac53` (PR #16; feat `dd5f69e`, fix `2d87533`, tree `18a3d83`). *Death contract surfaces* goes **OPEN → DONE**: an owner-first loot grace on an unscaled clock, a death line and a `help death` topic built from the same live constants. Its *Status* records nine prose sites, not eight, the dev-DB corpses deliberately left unmigrated, and the one thing the in-game protocol found that the suite did not (the death line arrived after *Death's Chill* announced the comeback). **Annotated:** *⚠️ `CoinPile` vs the corpse's atomic content delete* gains two prose sites the Stage 5 task must change. **Added** (*Death & Corpses*): **⚠️ `harvest` treats a player's body as a rabbit**, OPEN, and **⚠️ Decay time can run backwards when the weather turns**, OPEN (latent), both found in this branch's anchor check and both outside its scope.
 > **Rev 45 · 2026-10-19** — one entry **closed**, one **added**, both from `feature/sweeper`, merged to `main` in `1517235` (PR #15; refactor `726390e`, feat `0110922`, fix `66827a0`, tree `9bc9af7`). *Ambient sweeper NPC* goes **OPEN → DONE**: `Room.sweep_expired_corpses()` is the one home of the sweep loop, and the room hook and a `Sweeper` NPC both call it. Its *Status* records the departure from the entry's text rather than smoothing it over: the NPC runs on a **Script, not `TICKER_HANDLER`**, because the in-game protocol found that this project's startup code wipes every persistent ticker it does not itself re-add. **Added** (*Tooling & Process*): **⚠️ `at_server_start` ticker re-adds wipe every other persistent ticker**, OPEN and latent — nothing on `main` subscribes a ticker outside `at_server_start` today; the sweeper was the first and was moved off it.
@@ -486,9 +487,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   encumbrance* ships, thirteen are goods nothing in the alpha uses — ladder
   rungs, or not, is decided before the first batch (its Q1). E.2 and the
   two-jobs hazard stay here.
+- **Annotation (2026-10-26, E.1 shipped — Alpha Content AC5.1, merged `a4bf108`):**
+  **this entry is now E.2 only.** All 29 recipes carry `min_skill` on rungs
+  0/20/40/60 under a ceiling of 60 (6/10/6/7), no gap wider than 20, pinned by
+  `tests/test_min_skill_ladder.py` against a `TRIVIAL_BAND_PIN` of 30 because
+  `SKILL_TRIVIAL_BAND` does not exist yet. The wall moves: with a 30-point band
+  the ladder teaches to **91**, not 61. What remains is E.2 — the trivial-work
+  gate itself — and the two-jobs hazard, which AC5.1 found is four readers, not
+  two (Skill Progression decomp §7, corrected in the same close-out). The
+  Trigger above is met for E.1; E.2's is the decision to build the gate.
 - **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
   decomposing Component E; re-homed at Rev 8 close-out.
-- **Status:** BLOCKED
+- **Status:** BLOCKED (E.2 only — E.1 DONE, AC5.1)
 
 ### Alpha content epic — decompose before code (FAS 1 cut → seeding → catalogue → E.1)
 - **What:** The work between the alpha decision and E.1, costed in roadmap Rev 27
@@ -547,7 +557,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   registry on `main` until the close-out (decomposition AD6, Rev 2 note). Four
   findings from the task are homed in the decomposition (§3 finding 6, Q7–Q8).
 - **Origin:** FAS 1 costing session (2026-10-17).
-- **Status:** SCHEDULED (`docs/PolishedWorld_Alpha_Content_Decomposition.md` Rev 2; AC1.1 shipped `cb60434`)
+- **Annotation (2026-10-26, closed — decomposition Rev 4):** AC1.1–AC5.1 shipped,
+  14 commits on `feature/alpha-content` merged to `main` as `a4bf108` (tree
+  `aea8b40`). The world has a felling chain (stone axe, tree, wood, club), flint
+  and clay with consumers, a seeded six-room area with a setup hook, 18 catalogue
+  items in three batches, `enc` on every item prototype, and E.1. The derived
+  docs moved in the close-out commit as AD6 planned: the Source/Sink Ledger
+  regenerated (with tools, Q8), the AoL decomposition swept, System Backlog §1–2.
+  Each task's record, with the findings it produced and where each went, is in
+  the decomposition.
+- **Status:** DONE (`a4bf108`; decomposition Rev 4)
 
 ### Tanning upgrade — bark and water as `LeatherRecipe` inputs
 - **What:** `LeatherRecipe` tans `raw_hide`×2 with an optional knife. The System
@@ -739,6 +758,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   any more, and `recipes <name>` shows the wait. Decisions T14–T29 in
   `PolishedWorld_Timed_Actions_Decomposition.md`. Keep for traceability, prune at
   the next backlog sweep.
+
+### The registry's `hammer` is DATA with a `blocked_on`
+- **What:** `world/material_registry.py` `TOOLS["hammer"]` is DATA (the
+  hand-made stone hammer) with `blocked_on: "smithing (metal head)"` (the metal
+  tier). DATA means *buildable now*, so the ledger — which renders `blocked_on`
+  — prints a buildable tool as blocked. The `axe` entry keeps its metal tier in
+  a TIERED comment and `blocked_on` empty (Alpha Content AC2.2, B3).
+- **Why deferred:** Registry prose with no runtime reader; it became visible
+  only when `render_ledger()` started printing tools (Q8).
+- **Trigger:** The next edit to the registry: move the metal tier into the
+  comment, as the axe does, and empty `blocked_on`.
+- **Origin:** Alpha Content AC6 (2026-10-26), first tool ledger.
+- **Status:** OPEN
 
 ---
 
@@ -1214,6 +1246,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   consequence is inside it, a dependency of it (which would make it an alpha
   prerequisite in practice), or whether the direct −20 % on physical tests
   carries the alpha alone.
+- **Annotation (2026-10-26, Alpha Content AC2.3):** `enc` 0 means *too light to
+  score*, never weightless — 30 item prototypes carry it, sling bullets, clay,
+  flint and twine among them. The decomposition must carry a test that **20 items at
+  `enc` 0 count as 1 ENC**, or the mechanic ships treating a sack of bullets as
+  nothing.
 - **Origin:** Alpha content decomposition session (2026-10-18), AD8.
 - **Status:** OPEN (alpha prerequisite — decompose before code)
 
@@ -1603,6 +1640,39 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   protocol; verified against Evennia's source 2026-10-17.
 - **Status:** OPEN
 
+### Article and number in messages built from item keys
+- **What:** Messages that interpolate an item's display name get the grammar
+  wrong for bare and plural keys. Five sites seen in the Alpha Content
+  protocols: *"You forage stick from the test tree."* and *"You forage stone from
+  the rocky outcrop."* (`commands/foraging_commands.py:151`, no article); *"You
+  fell rabbit."* (`typeclasses/creatures.py:87`); *"You see: a fallen branches"*
+  (room contents, plural key `fallen branches`); *"a reversible clothes"* and
+  *"milling stones comes out poorly made"* (`world/crafting_base.py:102`, the
+  tier messages, verb agreement on a plural key).
+- **Why deferred:** Cosmetic, and one fix should serve every site: an
+  article-and-number rule on the item (Evennia's `get_numbered_name` already
+  pluralises; plural keys like `milling stones` need to say they are plural).
+  Fixing each message alone would leave the next one wrong.
+- **Trigger:** The next task that touches item naming, or a UX pass before the
+  alpha cohort plays.
+- **Origin:** Alpha Content AC2.1–AC4.3 in-game protocols.
+- **Status:** OPEN
+
+### `recipes` lists floored recipes under "can craft"
+- **What:** `CmdRecipes` heads its list *"Recipes you can craft:"*
+  (`commands/crafting_commands.py:431`) and, since E.1, appends *"(needs Craft
+  N%)"* to every recipe with a floor (line 442) whatever the player's Craft —
+  23 of the 29 recipes. A new character at Craft 20 sees the tent under
+  "can craft" with a 60 % floor beside it, and a master sees the note on
+  recipes far below them.
+- **Why deferred:** The information is correct, only framed wrong; the fix is a
+  heading and a comparison against the player's `.value` (the floor's own
+  reading, `world/crafting_base.py:265`).
+- **Trigger:** The next change to `CmdRecipes`, or E.2 (which adds a second
+  number worth showing: where a recipe stops teaching).
+- **Origin:** Alpha Content AC5.1 protocol (2026-10-26).
+- **Status:** OPEN
+
 > **Not listed here:** *Search / disambiguation UX + item identity* — already a
 > written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
 > work). It has a safe home in an always-read doc, so per the scope note it is not
@@ -1661,6 +1731,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Each file gets Rev 1 in the next commit that edits it, as the System
   Backlog did. Core Instructions' two sentences are corrected at its next
   revision.
+- **Annotation (2026-10-26):** `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md`
+  got its Rev 1 in the Alpha Content close-out, as the Trigger says. Three remain.
 - **Origin:** FAS 1 costing session (2026-10-17), while deciding whether the
   System Backlog should get a header.
 - **Status:** OPEN
@@ -1826,7 +1898,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   runbook step. The reset script stays (a)'s, built only if the runbook wants it.
 - **Origin:** Session 2026-09-09 (test-server discussion; option B chosen —
   build seeding and reset now, host later).
-- **Status:** SCHEDULED (seeding — alpha content decomposition, AC3) / BLOCKED on Stage 5 (wiped-box hosting)
+- **Annotation (2026-10-26, (a) DONE — Alpha Content AC3.1–3.2):** `world/seed_data.py`
+  and `world/seeding.py` seed six rooms, eleven exits and nine nodes idempotently
+  (skip, never sync), and `server/conf/at_initial_setup.py` runs it once per fresh
+  database, failing loudly. The Treasury and the two dbref settings are runbook
+  steps — nine of them, two in game, run once on 2026-10-24 and written into the
+  decomposition's AC3.2 record. The reset script was not built: the run did not
+  call for one; it is (b)'s to want.
+- **Status:** DONE ((a) seeding — Alpha Content AC3.1–3.2) / BLOCKED on Stage 5 ((b) wiped-box hosting)
 
 ### Persistent alpha instance
 
@@ -1997,6 +2076,20 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** `feature/sweeper` in-game protocol, 2026-10-19.
 - **Status:** OPEN (latent)
 
+### Evennia is not pinned in the repo
+- **What:** No `requirements.txt` or `pyproject.toml` names an Evennia version.
+  The docs verify against `v6.1.0`, but what a machine runs is whatever it
+  installed: the home machine ran a git checkout 43 commits before `v6.1.0`
+  until a pip upgrade during the Alpha Content epic replaced it with the 6.1.0
+  wheel without saying so; the work machine's revision is unread.
+- **Why deferred:** One developer, two machines, read by `pip show evennia` at
+  each session's start — enough until someone else installs the code.
+- **Trigger:** *Public test server* (b) or the persistent alpha instance —
+  the first install nobody watches. Pin `evennia==6.1.0` in a
+  `requirements.txt` then, or earlier if a machine is found off the tag.
+- **Origin:** Alpha Content AC3.2 and AC4.0 (2026-10-24).
+- **Status:** OPEN
+
 ---
 
 ## Currency
@@ -2116,6 +2209,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Status:** SCHEDULED (with the `actor` field)
 
 ---
+
+### `@economy mint` preview suggests the confirm line in copper
+- **What:** `@economy mint 100 gold` previews and ends *"Confirm with: @economy
+  mint 1000000 copper confirm"* (`commands/currency_commands.py:784`): the
+  amount converted to copper, not the line the admin typed. Both lines work,
+  but the suggestion makes the admin re-read a seven-digit number to check it
+  is the same promise.
+- **Why deferred:** Cosmetic; no money moves wrongly.
+- **Trigger:** The next edit to `CmdEconomy`, e.g. the `actor` field above.
+- **Origin:** Alpha Content AC3.2 runbook run (2026-10-24).
+- **Status:** OPEN
 
 ### No command moves money from a player INTO the Treasury
 - **What:** There is no `donate`, and `pay` refuses the Treasury (its

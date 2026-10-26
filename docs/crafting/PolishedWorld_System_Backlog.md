@@ -1,5 +1,6 @@
 # PolishedWorld — System Backlog (14 Systems Needed)
 
+> **Rev 3 · 2026-10-26** — **System 1 och 2 får statusar som stämmer med koden** (Alpha Content-epikens avslut, Decomp AC6). System 1 → `[DELVIS LEVERERAD]`: trädnoden `tree` med stenyxa (AD1) och generiskt `wood` (AD2), levererat i AC2.2; trädslagen och `log` väntar på DECISION #10 (Stage 5). System 2 → `[DELVIS LEVERERAD]`: sten (`stone_outcrop`, sedan `3caaefc`), flinta (`flint_scatter`, AC2.2) och lera (`clay_bank`, AC2.3) finns; sand, svavel, salpeter och ockra är DATA utan sänka inom alfan. Övrig text orörd.
 > **Rev 2 · 2026-10-18** — **System 1:s två val är fattade** i `docs/PolishedWorld_Alpha_Content_Decomposition.md` (Rev 1), och alfanoten säger nu vad som valdes i stället för att något ska väljas. Fällning med stenyxa och verktygskontroll i `forage` (AD1), eftersom flinta annars saknar konsument i alfan; generiskt `wood` (AD2). Rev 1:s mening att DECISION #10:s omprövningsgrund ligger inom alfan stämmer inte: grunden är *mekaniskt* behov, och en båge har ingen mekanik före strid.
 > **Rev 1 · 2026-10-17** — **Första Rev-headern; FAS 1 får ett alfasnitt och System 4 visar sig redan levererat** (roadmap Rev 27, alfaposten (D)). Filen saknade header trots `AGENTS.md` §9; tidigare ändringar finns i `git log` och i datumnoten nedan. **System 4:** `LeatherRecipe` (`raw_hide` ×2, kniv valfri) skeppades 2026-06-30 (`896ce33`) — garvning finns som soft hand-craft; DECISION #2 ratificeras som skeppad, bark och vatten blir en uppgradering i `docs/BACKLOG.md`. **FAS 1 i alfan** är det sänkbärande snittet: trä, flinta, lera (sten finns); malm, sand, ockra, svavel och salpeter väntar på det system som konsumerar dem. **ESTIMERAD ARBETSMÄNGD** räknar artefakter, inte kostnad — kostnaden står i roadmap, alfaposten (D).
 > **Canonical:** `docs/crafting/PolishedWorld_System_Backlog.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -11,7 +12,7 @@ crafting-trädet från *Arms of Legend*. Sorterad i byggordning med beroenden.
 
 ---
 
-## SYSTEM 1: Wood Gathering `[DATA — bygg först]`
+## SYSTEM 1: Wood Gathering `[DELVIS LEVERERAD — tree + generiskt wood, AC2.2; trädslag väntar på DECISION #10]`
 
 **Vad det gör:**
 Spelare kan samla trä från träd (ek, ask, yxe, etc.) via ResourceNodes.
@@ -35,7 +36,7 @@ Spelare kan samla trä från träd (ek, ask, yxe, etc.) via ResourceNodes.
 
 ---
 
-## SYSTEM 2: Stone/Clay/Sand/Mineral Gathering `[DATA — bygg först]`
+## SYSTEM 2: Stone/Clay/Sand/Mineral Gathering `[DELVIS LEVERERAD — sten, flinta, lera; sand/svavel/salpeter/ockra DATA]`
 
 **Vad det gör:**
 Spelare kan samla sten, lera, sand, flinta, svavel, salpeter, ockra från ytnoder.

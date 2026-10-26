@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 9 · 2026-10-26** — **two claims corrected against the code, from the Alpha Content close-out (AC6, finding AC5.1-2/6).** §1 said every `min_skill` gate and tool buff reads `skill.current`; the craft roll and the craft floor read the effective `.value`, and only teaching reads `.current`. §7 said `min_skill` carries *two* jobs; the code reads it **four** ways today — the craft floor, the transmission gate (inscribe, scribe, teach), the disassemble modifier and the displays — and E.2 would make a fifth. §7 also said a *tool* buff may lift you over the floor; a tool's ±20 shifts the roll, never the floor — only a buff on the trait does. E.1 shipped in the Alpha Content epic (AC5.1); E.2 stays homed in BACKLOG. No decision changed.
 > **Rev 8 · 2026-08-24** — **Component D.2 is delivered and Stage 4.5 is closed.** The 100% cap is gone and Legend's second band is live. §6 gains a Delivered block covering the five locked decisions (no numeric ceiling, `descs` untouched, write-time migration, the bar's accepted resolution limit, and `int_bonus` reporting the *applied* INT). The substantive finding is **why a read-time migration was not available here**: B.2 could solve its equivalent problem read-time because *we owned the read*, but a `CounterTrait`'s ceiling is enforced inside **Evennia's own `current` setter**, so a stored `max=100` clamps before any reader sees it. The repair therefore runs at write time through the single writer (P-2) — idempotent by construction, and immune to the restored-backup case a one-shot script cannot cover. Also records that **the cap lived in eight places, not the five that were inventoried**, and that the three extra ones were all prose; that `improvement_roll` had **zero** tests before this task, so the 416-test baseline proved nothing about the arithmetic being changed; the **fifth falsified production claim** (`world/recipes.py`'s *"max craft quality is 110 (skill cap 100)"*) — the first caught *before* it went false rather than after; and a **provably equivalent mutant** (`> 100` vs `>= 100` in the `target` expression differ for no integer input), which corrects a claim this task's own code comment makes about where the band boundary is expressed. **Component E leaves the epic** rather than holding it open: it is BLOCKED on content nobody has scheduled, and a stage held open by an unscheduled trigger blocks Stage 5 without anyone having decided to.
 > **Rev 7 · 2026-08-15** — **Component D.1 is delivered, and the fourth false claim of the epic was produced by this document's own test protocol.** §6 gains a Delivered block covering the four locked decisions (D-1 bar resolution, D-2 when the bar renders, D-3 `CmdProgress`, D-4 captions for bars that cannot move), the evaluation and **rejection** of Evennia's `health_bar` contrib, and the measurement that decided D-1. That measurement is the substantive finding: a whole-cell bar **goes silent at high skill** — 23% of ticks move a 20-cell bar at skill 90 — which is the exact silence D.1 exists to remove, displaced one level down. Eighth-block partials give 8× resolution and resolve every banked XP up to skill ~95. Also records the **fourth falsified production claim**: `_improvement_feedback`'s *"a single tick can now move at most ONE point"*, disproven in-game when a tick took Craft 20 → 60 — because §6's protocol tells the tester to set `.current` by hand, and the claim held only while `.current` had no writer but the engine. Same shape as F7: the spec's own protocol manufactures the state the spec's prose says cannot occur. Two corrections to Rev 6 recorded: the dead SHA `9395ac7` (rewritten to `649224e` before push, cited twice) and the fact that **no recipe in the catalogue requires a tool**, which makes `crafting_base.py`'s `tool_broke` branch unreachable and is a second content dependency alongside §7's.
 > **Rev 6 · 2026-08-13** — **Component C is delivered, and the epic's most expensive finding is a deviation the spec's own test protocol forced.** §5 gains a Delivered block covering C.1, C.2 and the three sub-decisions. The deviation is **F7**: `.current` raised from outside a bank would have *de-levelled* the character on her next use, and the paragraph that guarantees someone will do this is §5's own in-game protocol, which says to craft until the level moves — hours of work anyone will shortcut by setting `.current` by hand. The repair tops the total up to `xp_threshold(.current)` rather than clamping the level down, so P-1's direction is restored rather than suspended. Also records **three false claims found inside production files** in one epic — `world/improvement.py`'s pacing sentence, `_improvement_feedback`'s "rolled=True is a sufficient gate", and the tier celebration's idempotence argument — all the same shape: prose asserting what a mechanism guarantees, left standing after the mechanism changed. And a **false pass**: the F7 step first "succeeded" because the craft it used failed, so the engine never ran and "the level stayed put" was produced by nothing happening. A step expecting *nothing changed* needs an independent receipt that the code ran (Testing Reference Rev 5 §11). Six mutations recorded, one honest gap stated, and the fact that `improve_skill_on_use` had **zero** tests before this — the 363-test baseline would have stayed green if it had been deleted.
@@ -24,9 +25,11 @@ instead of adding 1D4+1 points, and the guaranteed floor banks **1 XP**. Between
 each whole percentage point stands an exponential threshold.
 
 **The percentage remains the single mechanical truth.** Every skill check, every
-`min_skill` gate, every tool buff, every desc-tier still reads `skill.current`
+`min_skill` gate, every tool buff, every desc-tier still reads the skill trait
 and none of them learns that XP exists. What changes is only how often
-`.current` moves.
+`.current` moves. *(Rev 9: which part of the trait each reader takes differs —
+the craft roll and the craft floor read the effective `.value`, current plus
+buffs; teaching a recipe reads the permanent `.current`.)*
 
 ---
 
@@ -1089,10 +1092,21 @@ ladder; until then it is guessing.
 ⚠️ **`min_skill` would be carrying two jobs, and they disagree about which value
 to read.** Today it is a **hard access floor**: `crafting_base.py:263` refuses the
 craft outright when `_skill_value() < min_skill`, and it reads `.value` on
-purpose, so a tool buff may lift you over the bar ("are you good enough to
+purpose, so a buff may lift you over the bar ("are you good enough to
 *attempt* this right now"). E.2 would read the same field as a **difficulty
 datum**, and must read `.current` — a temporary buff must not make a task count
 as harder, and therefore more instructive, than it is.
+
+*(Rev 9, from Alpha Content AC5.1: "two jobs" undercounts. The code reads
+`min_skill` four ways today — (1) the **craft floor**, `.value`
+(`world/crafting_base.py:265`); (2) the **transmission gate** (inscribe, scribe, teach), `.current`, so a
+buff never grants the right to pass a recipe on (`world/knowledge.py`); (3) the
+**disassemble modifier**, `−min_skill` on a `.value` roll
+(`commands/crafting_commands.py:575–578`); (4) the **displays** — `recipes` and
+a recipe's detail line. E.2's difficulty datum would be a fifth. And a tool does
+not lift the floor: its ±20 shifts the roll in `do_craft`; the floor sees only
+buffs on the trait. The choice below is unchanged, with more readers to keep
+coherent.)*
 
 One number, two purposes, two readings. The consequence is not subtle: raise a
 recipe's `min_skill` so that it keeps teaching at higher skill, and you have also

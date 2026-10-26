@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 8 · 2026-10-26** — §4 says **when `_finalize_item` is required, not only when it is forbidden**, and the recipe schema carries **`requires_knowledge` and `min_skill`** (Alpha Content close-out, AC6). AC4.1 found the gap: §4 forbade `_finalize_item` unasked, while every garment output must call `_apply_garment_quality(obj)` — without it a shoddy garment was born at condition 100 while the linen shirt is born at 50. AC5.1 found the schema silent on `min_skill`, which every recipe now declares. The example is `LinenShirtRecipe` as it stands in `world/recipes.py`.
 > **Rev 7 · 2026-10-24** — §3 schemas carry `enc` (Alpha Content AC4.0, Decomposition Rev 3): every item prototype has a non-negative int Encumbrance with its rulebook page or Q6 reason; §3.1/§3.2/§3.3/§3.6 examples show it, §3.4/§3.5 say creatures and nodes carry none, and §6 gains the line. Test (g) in `tests/test_material_registry.py` enforces it — it lives on `feature/alpha-content` until that branch merges. §3.6 admits `bottom` and `accessory`, which `CLOTHING_TYPE_ORDERED` already holds. §3.2's `KNIFE` now matches the shipped prototype (`typeclasses.tools.Tool`, not `Object`), and §3's table gains `Tool`, `Scroll` and `Book`, which it had missed. §4: a batch brief that gives `craft_duration` is the request.
 > **Rev 6 · 2026-10-14** — §4 recipe schema: `craft_cooldown` → `craft_duration` (Epic A, TA2.2). A craft now takes its time up front, on the shared timed-action slot, and the per-recipe cooldown is gone: one time knob, not two. A recipe that still defines `craft_cooldown` fails `tests/test_craft_command.py`. The template had been stale since TA2.1, which added `craft_duration` without updating it.
 > **Rev 5 · 2026-08-03** — §8 gains a pointer to `docs/PolishedWorld_Core_Instructions.md` (Rev 3), which is where Claude's own delivery contract lives. Deliberately **not** added to §7 Working style: §7 addresses you, a content-generation agent, and a requirement about step-by-step teaching walkthroughs and in-game test protocols is noise there. §8 is already the "who owns what" section, so the cross-reference belongs in it and nowhere else.
@@ -403,10 +404,15 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     """Cut and stitch cloth into a linen shirt."""
 
     name = "linen shirt"                  # lowercase, spaces
+    requires_knowledge = True             # learnable good (the brief says which)
     consumable_tags = ["cloth", "cloth"]  # tag-keys; repeat for quantity
     output_prototypes = ["linen_shirt"]   # prototype_keys that MUST exist
     tool_tag = "needle"                   # crafting_tool tag-key, or None
     craft_duration = 40                   # seconds the craft takes; base is 30
+    min_skill = 40                        # Craft floor; the brief gives the rung
+
+    def _finalize_item(self, obj, outcome):
+        _apply_garment_quality(obj)       # required: the output is a garment
 ```
 
 Rules:
@@ -418,9 +424,25 @@ Rules:
   resolves) defaults to 30; override only if requested (a batch brief that gives
   one is the request). There is no `craft_cooldown` any more -- do not add
   one: nothing reads it, and a test fails if any recipe defines it.
-- Do **not** add a `_finalize_item` method unless explicitly asked — that is
+- `requires_knowledge` and `min_skill` are **given by the batch brief**, never
+  chosen: `min_skill` sits on the ladder in
+  `docs/PolishedWorld_Alpha_Content_Decomposition.md` (AC5.1 — rungs 0/20/40/60;
+  a product never below the recipe that makes its input), and
+  `tests/test_min_skill_ladder.py` fails a recipe without its own declaration.
+  Write it directly after `craft_duration`. A brief that gives no value: STOP and
+  FLAG.
+- `_finalize_item` — **required** in two cases, each a one-line call to an
+  existing helper and nothing else:
+  - the output is a garment (a `ClothingWithBuffs` typeclass) →
+    `_apply_garment_quality(obj)`, as above;
+  - the output is a tool whose start condition the prototype sets (stone knife,
+    bone needle, stone axe) → `_apply_tool_quality(obj)`.
+
+  In every other case do **not** add one unless explicitly asked — it is
   quality-scaling balance logic. If asked, copy the existing `WaterskinRecipe`
-  pattern exactly and FLAG any new thresholds.
+  pattern exactly and FLAG any new thresholds. A reviewer checks both
+  directions: a garment or tool recipe without the call is as wrong as a
+  `_finalize_item` nobody asked for.
 
 ---
 

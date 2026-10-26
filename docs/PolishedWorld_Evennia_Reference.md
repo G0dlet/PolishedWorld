@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 24 · 2026-10-26** — new **§11.29: `search_prototype(no_db=True)` returns homogenized prototypes**, verified against the pinned `v6.1.0` (`evennia/prototypes/prototypes.py`). Filed by the Alpha Content epic (Decomp §3 finding 6 (iv)) and written in its close-out (AC6): a test or seeder that reads a loaded prototype by the module dict's top-level keys reads a shape the spawner never sees.
 > **Rev 23 · 2026-10-17** — **§11.27 now opens with the slot, not the flag.** Epic A (merged `34b2ee4`) built the pattern this section describes into `world/timed_actions.py` and moved `rest`, `work` and `craft` onto it, which left four sentences describing a repo that no longer exists: the provenance line ("shipped in `commands/work_commands.py`"), the claim that the `rest`/`at_pre_move` interrupt uses `ndb.working`, point 2's "a move hook … does not catch teleport", and point 3's `_rest_tick` guarding itself. The mechanism stays — why a string cannot tell two attempts apart, why the comparison is `is` — because the module depends on it and its reader needs it; what changes is that the section first says *use the slot, do not hand-roll a new flag*. Point 2 was read against Evennia `v6.1.0` rather than copied from the decomp's note: `@tel` moves with hooks, but `CmdTeleport` also has two direct `location =` writes (`tel/tonone`, and teleporting out of a None-location), and neither can reach a character playing in a room. That is said in the text, because a reader who checks the source will find them.
 > **Rev 22 · 2026-08-14** — new **§14: XYZGrid & Wilderness**, pre-implementation source verification for roadmap Stage 6. No code written and neither contrib is in use, so the section carries an explicit status banner — but the reading answered the "verify at source" note that has sat in the Stage 6 entry since Rev 2, so it is written down while it is fresh rather than re-derived later. Read against Evennia `main` and then **diffed against the `v6.1.0` tag: all five relevant files are byte-identical**, so the findings apply to the pinned version rather than only to upstream. Four have teeth. **§14.2** `spawn_nodes()` deletes any XYZRoom whose coordinate has left the map string, and re-applies the prototype over survivors with `exact=False` — a `desc` edited in-game is lost at the next spawn, so grid areas are authored in map modules, not with `dig`/`desc`. **§14.5** wilderness room recycling resets `contents` and exit locks but **not Tags or Attributes**, which is precisely where ExtendedRoom keeps room states and seasonal descs — state leaks between coordinates on a shared shell. **§14.6** `get_objs_at_coordinates()` is an O(n) scan over the whole wilderness and runs on effectively every step, which rules out resource nodes as objects. **§14.7** the grid side composes with ExtendedRoom for free (the two contribs override different hooks and `XYZRoom.return_appearance` calls `super()`), while the wilderness side inherits the behaviour but cannot use the storage. Also §14.3: a misspelled `taget_map_xyz` on the `TransitionMapNode` base class, harmless via the registered legend class and an `AttributeError` if you subclass the base directly.
 > **Rev 21 · 2026-08-05** — **§3.5 contained a statement this repo had already measured to be false.** Its `@py` note said comprehensions and generators both fail in `@py`; Testing Reference Rev 4 established on measurement that **comprehensions work** (PEP 709 gave them their own scope in 3.12) and that generators and lambda bodies are what fail. Two documents contradicting each other is worse than one saying nothing, so §3.5's note is corrected and now points at the Testing Reference rather than restating it. §3.5 also gains the fact that **`CounterTrait.current` returns a float** (20.0, not 20) — harmless until a value is stored or compared, at which point the float propagates somewhere it does not belong. New **§11.28**: Evennia deserialises Attribute containers into `_SaverDict`/`_SaverList`, for which `isinstance(x, dict)` is **False**, and `AttributeHandler.has()` returns a **list**, not a bool. Both verified live against Evennia 6.1.0 during Stage 4.5 Component B (363 tests green, 2026-08-05); the `_SaverDict` trap had bitten this project twice before and was not in this document at all.
@@ -1592,6 +1593,45 @@ semantically correct. In tests use `assertTrue`/`assertFalse`; in `@py` wrap it 
 what lets a handler reading with `default=` design the backfill away rather than
 merely guard it. §11.28 is the trap you hit *after* taking §11.23's advice: the
 row now exists, and the type it comes back as is not the type you put in.
+
+### 11.29 ⚠️ `search_prototype(no_db=True)` returns homogenized prototypes, not your module dicts
+
+Verified against `v6.1.0`, `evennia/prototypes/prototypes.py`.
+
+`load_module_prototypes()` runs every dict in `settings.PROTOTYPE_MODULES`
+through `homogenize_prototype()` (lines 254, 262) before storing it, and
+`search_prototype()` returns copies of those stored dicts. With `no_db=True`
+it skips the database prototypes and returns module prototypes only — the
+same set the spawner resolves a `prototype_key` against. Two things differ
+from the dict you wrote:
+
+- **Tags arrive as 3-tuples** `(key, category, data)` (lines 120–131). A bare
+  `"knife"` becomes `("knife", None, None)`; a tag's category is `t[1]`.
+- **Every non-reserved key becomes an attr** `(key, value, category,
+  lockstring)` (line 172). Reserved keys (`_PROTOTYPE_RESERVED_KEYS`, line 44:
+  `key`, `typeclass`, `tags`, `aliases`, `prototype_parent`, …) stay top-level;
+  a custom key such as `yield_prototype`, `harvest_template`,
+  `required_tool` or `enc` does not.
+
+```python
+from evennia.prototypes.prototypes import search_prototype
+
+proto = search_prototype("tree", no_db=True)[0]
+proto.get("required_tool")                       # None -- not a top-level key
+dict((a[0], a[1]) for a in proto.get("attrs", []))["required_tool"]  # "axe"
+{t[0] for t in proto.get("tags", []) if t[1] == "crafting_tool"}
+```
+
+Read loaded prototypes through helpers that know the shape — this repo's are
+`_tags()` and `_attr()` in `tests/test_material_registry.py`. Scanning the
+module's own dicts instead would test a different shape than production uses
+(Alpha Content Decomp, T1).
+
+**The copy is shallow** (`match.copy()`, lines 599 and 611). Replacing a
+top-level key on the returned dict is safe — `world/seeding.py` does exactly
+that, adding `location` and its seed tag before `spawn()` — but mutating a
+nested list (`proto["tags"].append(...)`) writes through to the cached
+module prototype for the rest of the process.
 
 ---
 
