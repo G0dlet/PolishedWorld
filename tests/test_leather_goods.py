@@ -8,9 +8,9 @@ world/prototypes.py with one another: a broken spawn path or an Attribute that
 never reaches the object must fail here.
 
 The recipe-detail test goes through the live recipe registry and its production
-renderer. It pins material quantities, optional tools, durations and absence of
-a skill floor from the AC4.0 brief. Six recipes are knowledge-gated; the sling
-is common and must craft without first being learned. Every refused craft first
+renderer. It pins material quantities, optional tools, durations and the E.1
+skill floors. Six recipes are knowledge-gated; the sling is common and must
+craft without first being learned. Every refused craft first
 proves that its recipe is unlearned, then checks that real inputs and the tool
 survive untouched.
 
@@ -44,30 +44,35 @@ LEATHER_GOODS = (
         "typeclass": Object, "materials": (("leather", 2),),
         "tool": "needle", "tool_prototype": "bone_needle", "slot": None,
         "warmth": None, "enc": 1, "duration": 40, "learnable": True,
+        "min_skill": 40,
     },
     {
         "prototype": "scrollcase", "recipe": "scrollcase", "key": "scrollcase",
         "typeclass": Object, "materials": (("bone", 1),),
         "tool": "knife", "tool_prototype": "stone_knife", "slot": None,
         "warmth": None, "enc": 0, "duration": 30, "learnable": True,
+        "min_skill": 20,
     },
     {
         "prototype": "saddlebag", "recipe": "saddlebag", "key": "saddlebag",
         "typeclass": Object, "materials": (("leather", 3),),
         "tool": "needle", "tool_prototype": "bone_needle", "slot": None,
         "warmth": None, "enc": 2, "duration": 45, "learnable": True,
+        "min_skill": 60,
     },
     {
         "prototype": "shoes", "recipe": "shoes", "key": "shoes",
         "typeclass": ClothingWithBuffs, "materials": (("leather", 1),),
         "tool": "needle", "tool_prototype": "bone_needle", "slot": "shoes",
         "warmth": 1, "enc": 0, "duration": 40, "learnable": True,
+        "min_skill": 40,
     },
     {
         "prototype": "bandolier", "recipe": "bandolier", "key": "bandolier",
         "typeclass": ClothingWithBuffs, "materials": (("leather", 1),),
         "tool": "needle", "tool_prototype": "bone_needle", "slot": "accessory",
         "warmth": 0, "enc": 0, "duration": 30, "learnable": True,
+        "min_skill": 20,
     },
     {
         "prototype": "bone_armour", "recipe": "bone armour", "key": "bone armour",
@@ -75,12 +80,14 @@ LEATHER_GOODS = (
         "materials": (("bone", 3), ("leather", 1)),
         "tool": "knife", "tool_prototype": "stone_knife", "slot": "top",
         "warmth": 1, "enc": 2, "duration": 45, "learnable": True,
+        "min_skill": 60,
     },
     {
         "prototype": "sling", "recipe": "sling", "key": "sling",
         "typeclass": Object, "materials": (("leather", 1),),
         "tool": "knife", "tool_prototype": "stone_knife", "slot": None,
         "warmth": None, "enc": 0, "duration": 30, "learnable": False,
+        "min_skill": 20,
     },
 )
 
@@ -89,12 +96,6 @@ class TestLeatherGoods(EvenniaTest):
     """Drive the shipped prototypes, recipe registry and crafting pipeline."""
 
     character_typeclass = "typeclasses.characters.Character"
-
-    def setUp(self):
-        super().setUp()
-        # WHY: B9 leaves min_skill at the base floor of zero. Crafting at zero
-        # makes an accidental batch-specific skill floor fail behaviourally.
-        self.char1.skills.get("craft").current = 0
 
     def give(self, *prototype_keys):
         """Spawn real inputs into char1's inventory."""
@@ -150,7 +151,7 @@ class TestLeatherGoods(EvenniaTest):
                     self.assertIn(f"{quantity}x {material}", detail)
                 self.assertIn(f"{expected['tool']} (optional", detail)
                 self.assertIn(f"{expected['duration']} seconds", detail)
-                self.assertIn("no minimum", detail)
+                self.assertIn(f"Craft {expected['min_skill']}% minimum", detail)
                 self.assertIn(expected["prototype"].replace("_", " "), detail)
 
     def test_unlearned_learnable_recipes_preserve_real_inputs(self):
@@ -180,7 +181,6 @@ class TestLeatherGoods(EvenniaTest):
     def test_recipes_craft_real_goods_and_consume_only_materials(self):
         for expected in LEATHER_GOODS:
             with self.subTest(recipe=expected["recipe"]):
-                self.char1.skills.get("craft").current = 0
                 self.assertFalse(self.char1.knows_recipe(expected["recipe"]))
                 if expected["learnable"]:
                     self.assertTrue(self.char1.learn_recipe(expected["recipe"]))
@@ -190,6 +190,10 @@ class TestLeatherGoods(EvenniaTest):
                 tool = self.tool_for(expected)
                 condition = tool.condition
 
+                # WHY: crafting at exactly the brief's floor proves the floor is
+                # inclusive (>=), and the brief's rung, not a higher skill, admits
+                # the craft.
+                self.char1.skills.get("craft").current = expected["min_skill"]
                 result = craft(self.char1, expected["recipe"], *materials, tool)
 
                 self.assertEqual(len(result), 1)
@@ -216,7 +220,6 @@ class TestLeatherGoods(EvenniaTest):
         self.assertEqual(len(garments), 3)  # guard against a vacuous loop
         for expected in garments:
             with self.subTest(recipe=expected["recipe"]):
-                self.char1.skills.get("craft").current = 0
                 # Receipt: an uncrafted spawn sits at the default, so 50 below
                 # can only come from the finalize hook.
                 self.assertEqual(spawn(expected["prototype"])[0].condition, 100)
@@ -227,6 +230,7 @@ class TestLeatherGoods(EvenniaTest):
 
                 # 100 is the "00" face: a fumble at any target below 100.
                 with mock.patch("world.skillcheck.randint", return_value=100):
+                    self.char1.skills.get("craft").current = expected["min_skill"]
                     result = craft(self.char1, expected["recipe"], *materials, tool)
 
                 self.assertEqual(len(result), 1)

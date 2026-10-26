@@ -11,9 +11,11 @@ only registers classes whose __module__ is this module, so the imported base is
 not picked up as a phantom recipe.
 
 Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
-  common / ungated (inherit requires_knowledge = False) -- survival & tool recipes
-    a fresh character can always make: twine, waterskin, stone knife, bone needle,
+  common / ungated (inherit requires_knowledge = False) -- survival, tool and
+    weapon recipes nobody has to LEARN: twine, waterskin, stone knife, bone needle,
     stone axe, club, sling bullet, sling, quarterstaff, spear, bow, milling stones.
+    Not having to learn a recipe is not the same as being able to make it: the
+    skill ladder below still floors some of them.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots,
     breeches, robe, hood, reversible clothes, linen cuirass, sack, backpack,
@@ -22,6 +24,18 @@ Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowle
   alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
   economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
   the enforcing gate lives in Component B.
+
+Skill ladder (E.1, AC5.1 -- Skill Progression decomp section 7; Alpha Content
+decomp Q4): every recipe declares its own min_skill on the rungs 0 / 20 / 40 /
+60, ceiling 60 (journeyman). The rung follows craft_duration (20 s -> 0; 25 and
+30 s -> 20; 40 s -> 40; 45 s -> 60) with three exceptions: the bootstrap tools
+(stone knife, bone needle, stone axe) and the waterskin sit at 0 so no character
+is locked out of survival, and leather sits at 20 because the sling and the
+bandolier consume it. No product sits below a recipe that makes one of its
+inputs. min_skill is read four ways: the craft floor (crafting_base, .value),
+the transmission gate (world/knowledge.py, .current), disassemble's modifier
+(commands/crafting_commands.py) and the recipe displays.
+tests/test_min_skill_ladder.py pins the ladder.
 """
 
 from world.crafting_base import MongooseCraftRecipe
@@ -105,6 +119,7 @@ class TwineRecipe(MongooseCraftRecipe):
     output_prototypes = ["twine"]
     tool_tag = None                                 # handcraft; no tool benefit
     craft_duration = 20                             # quick craft (overrides base 30)
+    min_skill = 0                                # E.1 rung 0 (AC5.1)
 
 
 class WaterskinRecipe(MongooseCraftRecipe):
@@ -115,6 +130,7 @@ class WaterskinRecipe(MongooseCraftRecipe):
     output_prototypes = ["waterskin"]
     tool_tag = "knife"                     # OPTIONAL: knife shapes the gourd (baseline 0); improvised -20
     craft_duration = 45                    # more involved than twine
+    min_skill = 0                          # E.1 rung 0: survival bootstrap, never floored (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Quality -> capacity (draughts) + durability (lifespan in refills),
@@ -149,6 +165,7 @@ class ClothRecipe(MongooseCraftRecipe):
     output_prototypes = ["cloth"]
     tool_tag = None                                 # handwoven; no tool benefit
     craft_duration = 25                             # between twine (20) and waterskin (45)
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class LeatherRecipe(MongooseCraftRecipe):
@@ -160,6 +177,7 @@ class LeatherRecipe(MongooseCraftRecipe):
     output_prototypes = ["leather"]               # the new H5.1 prototype
     tool_tag = "knife"                            # OPTIONAL: knife scrapes/cuts the hide (baseline 0); absent = -20
     craft_duration = 45                           # involved work (soak/scrape/tan); overrides base 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class LinenShirtRecipe(MongooseCraftRecipe):
@@ -171,6 +189,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
     tool_tag = "needle"                    # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # E.3: quality -> garment start-condition (+ superior alias) via the
@@ -188,11 +207,8 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     output_prototypes = ["leather_boots"]        # existing Component B prototype
     tool_tag = "needle"                          # OPTIONAL: needle eases stitching (baseline 0); improvised -20
     craft_duration = 40                          # mirrors linen shirt
-    min_skill = 30                               # Component F.2: HARD floor. Boots sit above
-                                                 # the survival tier (hide->leather->boots), so
-                                                 # a developing crafter must show competence to
-                                                 # attempt them. Conservative; rebalanced vs
-                                                 # Legend later. All other recipes stay ungated (0).
+    min_skill = 40                               # E.1 rung 40: cut & stitch (AC5.1). Was the
+                                                 # Component F.2 placeholder 30.
 
     def _finalize_item(self, obj, outcome):
         # E.3: same shared quality -> start-condition + superior alias as the
@@ -209,6 +225,7 @@ class BreechesRecipe(MongooseCraftRecipe):
     output_prototypes = ["breeches"]
     tool_tag = "needle"
     craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -225,6 +242,7 @@ class RobeRecipe(MongooseCraftRecipe):
     output_prototypes = ["robe"]
     tool_tag = "needle"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -241,6 +259,7 @@ class HoodRecipe(MongooseCraftRecipe):
     output_prototypes = ["hood"]
     tool_tag = "needle"
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -257,6 +276,7 @@ class ReversibleClothesRecipe(MongooseCraftRecipe):
     output_prototypes = ["reversible_clothes"]
     tool_tag = "needle"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -273,6 +293,7 @@ class LinenCuirassRecipe(MongooseCraftRecipe):
     output_prototypes = ["linen_cuirass"]
     tool_tag = "needle"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -289,6 +310,7 @@ class SackRecipe(MongooseCraftRecipe):
     output_prototypes = ["sack"]
     tool_tag = "needle"
     craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
 
 
 class BackpackRecipe(MongooseCraftRecipe):
@@ -300,6 +322,7 @@ class BackpackRecipe(MongooseCraftRecipe):
     output_prototypes = ["backpack"]
     tool_tag = "needle"
     craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
 
 
 class ScrollcaseRecipe(MongooseCraftRecipe):
@@ -311,6 +334,7 @@ class ScrollcaseRecipe(MongooseCraftRecipe):
     output_prototypes = ["scrollcase"]
     tool_tag = "knife"
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class SaddlebagRecipe(MongooseCraftRecipe):
@@ -322,6 +346,7 @@ class SaddlebagRecipe(MongooseCraftRecipe):
     output_prototypes = ["saddlebag"]
     tool_tag = "needle"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
 
 class ShoesRecipe(MongooseCraftRecipe):
@@ -333,6 +358,7 @@ class ShoesRecipe(MongooseCraftRecipe):
     output_prototypes = ["shoes"]
     tool_tag = "needle"
     craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -349,6 +375,7 @@ class BandolierRecipe(MongooseCraftRecipe):
     output_prototypes = ["bandolier"]
     tool_tag = "needle"
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -365,6 +392,7 @@ class BoneArmourRecipe(MongooseCraftRecipe):
     output_prototypes = ["bone_armour"]
     tool_tag = "knife"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
@@ -380,6 +408,7 @@ class SlingRecipe(MongooseCraftRecipe):
     output_prototypes = ["sling"]
     tool_tag = "knife"
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class QuarterstaffRecipe(MongooseCraftRecipe):
@@ -390,6 +419,7 @@ class QuarterstaffRecipe(MongooseCraftRecipe):
     output_prototypes = ["quarterstaff"]
     tool_tag = "knife"
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class SpearRecipe(MongooseCraftRecipe):
@@ -400,6 +430,7 @@ class SpearRecipe(MongooseCraftRecipe):
     output_prototypes = ["spear"]
     tool_tag = "knife"
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class BowRecipe(MongooseCraftRecipe):
@@ -410,6 +441,7 @@ class BowRecipe(MongooseCraftRecipe):
     output_prototypes = ["bow"]
     tool_tag = "knife"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
 
 class MillingStonesRecipe(MongooseCraftRecipe):
@@ -420,9 +452,9 @@ class MillingStonesRecipe(MongooseCraftRecipe):
     output_prototypes = ["milling_stones"]
     # tool_tag=None -> _tool_modifier() returns 0 (NO improvised penalty): a
     # pair you shape with your hands must not be penalised for lacking a tool.
-    # No min_skill: the base has no skill floor, so ungated is simply the default.
     tool_tag = None
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 
 class TentRecipe(MongooseCraftRecipe):
@@ -437,6 +469,7 @@ class TentRecipe(MongooseCraftRecipe):
     output_prototypes = ["tent"]
     tool_tag = "needle"
     craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
 
 
 class StoneKnifeRecipe(MongooseCraftRecipe):
@@ -454,10 +487,10 @@ class StoneKnifeRecipe(MongooseCraftRecipe):
     output_prototypes = ["stone_knife"]
     # tool_tag=None -> _tool_modifier() returns 0 (NO improvised penalty): a
     # bootstrap you make with your hands must not be penalised for lacking the
-    # very tool it exists to give you. No min_skill: the base has no skill floor,
-    # so ungated is simply the default.
+    # very tool it exists to give you.
     tool_tag = None
     craft_duration = 30                 # base default; a first-tool assembly
+    min_skill = 0                       # E.1 rung 0: survival bootstrap, never floored (AC5.1)
 
     # consume_policy inherits "raw" -> every attempt yields a knife (quality scales
     # with the roll), so a new player never loses gathered materials to a bad roll
@@ -484,11 +517,11 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
     name = "bone needle"
     consumable_tags = ["bone"]          # one harvested bone, matched by tag-key
     output_prototypes = ["bone_needle"]
-    # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty). No
-    # min_skill: the base has no skill floor, so ungated is the default. (A future
+    # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty). (A future
     # tool_tag="knife" -- carving needs a blade -- is a deliberate deferral.)
     tool_tag = None
     craft_duration = 30                 # small, fiddly assembly; mirrors stone knife
+    min_skill = 0                       # E.1 rung 0: survival bootstrap, never floored (AC5.1)
 
     # consume_policy inherits "raw" -> a hunt is never wasted on a bad roll.
 
@@ -516,9 +549,10 @@ class StoneAxeRecipe(MongooseCraftRecipe):
     consumable_tags = ["flint", "stick", "twine"]
     output_prototypes = ["stone_axe"]
     # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty): a
-    # bootstrap tool is never penalised for lacking itself. No min_skill.
+    # bootstrap tool is never penalised for lacking itself.
     tool_tag = None
     craft_duration = 30                 # mirrors the stone knife
+    min_skill = 0                       # E.1 rung 0: survival bootstrap, never floored (AC5.1)
 
     # consume_policy inherits "raw" -> every attempt yields an axe.
 
@@ -536,6 +570,7 @@ class ClubRecipe(MongooseCraftRecipe):
     output_prototypes = ["club"]
     tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
     craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
 
 class SlingBulletRecipe(MongooseCraftRecipe):
     """Roll a lump of clay into a sling bullet and dry it: clay's first consumer (AC2.3).
@@ -553,6 +588,7 @@ class SlingBulletRecipe(MongooseCraftRecipe):
     # by hand. The registry's knife shapes wood and bone, not clay.
     tool_tag = None
     craft_duration = 20                 # a quick hand-craft; mirrors twine
+    min_skill = 0                       # E.1 rung 0 (AC5.1)
 
     # consume_policy inherits "raw" -> every attempt yields a bullet.
 

@@ -8,10 +8,10 @@ another: a broken spawn path or an Attribute that never reaches the object must
 fail here.
 
 The recipe-detail test goes through the live recipe registry and its production
-renderer. It pins the cloth quantities, optional needle, durations and absence
-of a skill floor from the AC4.0 brief. The crafting tests also exercise the
-knowledge gate: an unlearned recipe consumes nothing, while a learned recipe
-runs at Craft 0 and always yields under the inherited raw consume policy.
+renderer. It pins the cloth quantities, optional needle, durations and E.1 skill
+floors. The crafting tests also exercise the knowledge gate: an unlearned recipe
+consumes nothing, while a learned recipe runs at exactly its brief's Craft floor
+and always yields under the inherited raw consume policy.
 
 The garment-quality test pins the d100 to a fumble and reads the crafted
 garment's condition: each of the five garments must route through
@@ -44,32 +44,34 @@ CLOTH_GOODS = (
     {
         "prototype": "breeches", "recipe": "breeches", "key": "breeches",
         "typeclass": ClothingWithBuffs, "cloth": 2, "slot": "bottom",
-        "warmth": 1, "enc": 0, "duration": 40,
+        "warmth": 1, "enc": 0, "duration": 40, "min_skill": 40,
     },
     {
         "prototype": "robe", "recipe": "robe", "key": "robe",
         "typeclass": ClothingWithBuffs, "cloth": 3, "slot": "fullbody",
-        "warmth": 1, "enc": 0, "duration": 45,
+        "warmth": 1, "enc": 0, "duration": 45, "min_skill": 60,
     },
     {
         "prototype": "hood", "recipe": "hood", "key": "hood",
         "typeclass": ClothingWithBuffs, "cloth": 1, "slot": "hat",
-        "warmth": 1, "enc": 0, "duration": 30,
+        "warmth": 1, "enc": 0, "duration": 30, "min_skill": 20,
     },
     {
         "prototype": "reversible_clothes", "recipe": "reversible clothes",
         "key": "reversible clothes", "typeclass": ClothingWithBuffs,
         "cloth": 4, "slot": "top", "warmth": 1, "enc": 0, "duration": 45,
+        "min_skill": 60,
     },
     {
         "prototype": "linen_cuirass", "recipe": "linen cuirass",
         "key": "linen cuirass", "typeclass": ClothingWithBuffs,
         "cloth": 4, "slot": "top", "warmth": 1, "enc": 1, "duration": 45,
+        "min_skill": 60,
     },
     {
         "prototype": "sack", "recipe": "sack", "key": "large sack",
         "typeclass": Object, "cloth": 2, "slot": None,
-        "warmth": None, "enc": 1, "duration": 40,
+        "warmth": None, "enc": 1, "duration": 40, "min_skill": 40,
     },
 )
 
@@ -78,12 +80,6 @@ class TestClothGoods(EvenniaTest):
     """Drive the shipped prototypes, recipe registry and crafting pipeline."""
 
     character_typeclass = "typeclasses.characters.Character"
-
-    def setUp(self):
-        super().setUp()
-        # WHY: every AC4.1 recipe inherits the base floor of zero. Crafting at
-        # zero makes an accidental batch-specific min_skill fail behaviourally.
-        self.char1.skills.get("craft").current = 0
 
     def give(self, *prototype_keys):
         """Spawn real inputs into char1's inventory."""
@@ -131,7 +127,7 @@ class TestClothGoods(EvenniaTest):
                 self.assertIn(f"{expected['cloth']}x cloth", detail)
                 self.assertIn("needle (optional", detail)
                 self.assertIn(f"{expected['duration']} seconds", detail)
-                self.assertIn("no minimum", detail)
+                self.assertIn(f"Craft {expected['min_skill']}% minimum", detail)
                 self.assertIn(expected["prototype"].replace("_", " "), detail)
 
     def test_unlearned_recipes_preserve_real_inputs(self):
@@ -164,6 +160,10 @@ class TestClothGoods(EvenniaTest):
                 (needle,) = self.give("bone_needle")
                 condition = needle.condition
 
+                # WHY: crafting at exactly the brief's floor proves the floor is
+                # inclusive (>=), and the brief's rung, not a higher skill, admits
+                # the craft.
+                self.char1.skills.get("craft").current = expected["min_skill"]
                 result = craft(self.char1, expected["recipe"], *cloth, needle)
 
                 self.assertEqual(len(result), 1)
@@ -200,6 +200,7 @@ class TestClothGoods(EvenniaTest):
 
                 # 100 is the "00" face: a fumble at any target below 100.
                 with mock.patch("world.skillcheck.randint", return_value=100):
+                    self.char1.skills.get("craft").current = expected["min_skill"]
                     result = craft(self.char1, expected["recipe"], *cloth, needle)
 
                 self.assertEqual(len(result), 1)
