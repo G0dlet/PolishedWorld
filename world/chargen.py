@@ -42,6 +42,9 @@ the first write, so a refused call leaves the character exactly as it was.
 
 from collections.abc import Mapping
 
+from evennia.utils import logger
+from evennia.utils.evmenu import EvMenu
+
 # Legend p.9 -- rules, not knobs.
 DESIGN_POINTS = 80
 CHAR_MIN = 6
@@ -247,3 +250,96 @@ def apply_allocation(character, alloc):
         skill.current = base
 
     return derived
+
+
+# --- CC3.2: the menu meets a pending character on puppet --------------------
+
+CHARGEN_MENU = "world.chargen_menu"
+
+
+def mark_chargen_pending(character):
+    """
+    Stamp a character born through an account as not yet made (CC3.2).
+
+    `db.chargen_complete` has three states:
+
+        None   -- the character predates character creation, or was made
+                  without an account (`create`, test fixtures): no menu.
+        False  -- born through `Account.create_character`, not yet made: the
+                  menu meets it on every puppet until it is done.
+        True   -- made. Written once, by `world.chargen_menu.node_done`.
+
+    This function writes False and `node_done` writes True; nothing else
+    writes the flag. Absent means "no menu" on purpose -- no backfill
+    (decision 10), so characters that existed before this task play on as
+    they are, and every test fixture's `char1` (auto-puppeted in setUp by
+    `EvenniaTestMixin`) is not dropped into a menu. A made character is never
+    stamped back to pending.
+    """
+    if character.db.chargen_complete is None:
+        character.db.chargen_complete = False
+
+
+def start_or_resume_chargen(character):
+    """
+    Put a pending character in the creation menu: resume the saved one, or
+    start a new one. Returns the menu, or None for a character not pending.
+
+    Called last in `Character.at_post_puppet`. Three cases (spiked against
+    6.1.0 on 2026-10-28):
+
+    (a) Reconnect without a reload: the old menu is still in `ndb._evmenu`.
+        A new EvMenu would call `close_menu()` on it -- deleting the saved
+        state and running `cmd_on_exit` -- and start over at ten in
+        everything. So the reference is dropped and the menu rebuilt from
+        the saved state instead.
+    (b) After a reload, the player reconnecting: `ndb` is empty, while the
+        persistent cmdset and `_menutree_saved*` remain. Rebuilt the same
+        way. (A reload itself does not call `at_post_puppet`; a player who
+        stays connected gets EvMenu's own lazy restore in
+        `CmdEvMenuNode.func`, which rebuilds the menu on the first line typed
+        and swallows that line.)
+    (c) Nothing saved: a new persistent menu at `node_allocate`.
+
+    The rebuild mirrors 6.1.0's `CmdEvMenuNode.func._restore`, which is a
+    nested function and cannot be called from here. The draft rides in the
+    saved goto kwargs, so the running total survives (a) and (b). If the
+    saved state cannot be rebuilt, the trace is logged and a new menu starts:
+    the draft is lost, the gate is not.
+
+    `auto_quit=False` leaves no way out but `node_done`; `look` and `help`
+    stay as menu commands. Multiplayer: the menu and its saved state are the
+    character's own, so ten first logins at once share nothing.
+    """
+    if character.db.chargen_complete is not False:
+        return None
+
+    saved = character.attributes.get("_menutree_saved")
+    if saved:
+        try:
+            menu_class, args, calldict = saved
+            startnode = character.attributes.get("_menutree_saved_startnode")
+            try:
+                node, node_input = startnode
+            except (TypeError, ValueError):  # the old single-value form
+                node, node_input = startnode, ""
+            calldict = dict(calldict)
+            if node:
+                calldict.update(startnode=node, startnode_input=node_input)
+            if character.ndb._evmenu:
+                del character.ndb._evmenu
+            return menu_class(character, *args, **calldict)
+        except Exception:
+            logger.log_trace(
+                f"chargen: could not resume {character.key}'s saved menu; "
+                "starting a new one."
+            )
+
+    return EvMenu(
+        character,
+        CHARGEN_MENU,
+        startnode="node_allocate",
+        persistent=True,
+        auto_quit=False,
+        cmd_on_exit="look",
+    )

@@ -27,7 +27,7 @@ from world.progression import (
     xp_threshold,
 )
 from world.skill_xp import SkillXPHandler
-from world.chargen import derive_health_max
+from world.chargen import derive_health_max, start_or_resume_chargen
 
 from django.conf import settings
 from evennia.utils import search
@@ -458,7 +458,11 @@ class Character(ObjectParent, ClothedCharacter):
             )
 
     def at_post_puppet(self, **kwargs):
-        """Broadcast awakening when a player re-takes control."""
+        """
+        Broadcast awakening when a player re-takes control; then, for a
+        character born through an account and not yet made, the creation
+        menu (CC3.2) -- started, or resumed where it was left.
+        """
         super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
 
         # C.3: the `progress` baseline is taken at every puppet.
@@ -470,6 +474,10 @@ class Character(ObjectParent, ClothedCharacter):
                 "into their flesh as they draw breath.",
                 exclude=[self],
             )
+
+        # CC3.2: last, so the menu is the final thing on the screen. Its
+        # cmdset replaces the character's until node_done -- that is the gate.
+        start_or_resume_chargen(self)
       
     # === Display & Appearance ===
 

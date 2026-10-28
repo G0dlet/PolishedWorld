@@ -235,7 +235,12 @@ class TestHappyPath(_MenuFixture):
 
 
 class TestDoneRefuses(_MenuFixture):
-    """node_done's refusal paths: flag unset unless everything landed."""
+    """
+    node_done's refusal paths: flag unset unless everything landed, and the
+    menu closes only for a character already made. Any other refusal keeps
+    it open with `back` and the draft (CC3.2's gate): a closed menu would let
+    an unmade character into the world until its next puppet.
+    """
 
     def test_finished_character_is_not_rebuilt(self):
         # No profession on purpose: apply_allocation would accept this
@@ -246,6 +251,7 @@ class TestDoneRefuses(_MenuFixture):
         text = self.send("yes")
         self.assertIn("already made", text)
         self.assertEqual(self.state(), before)
+        self.assertIsNone(self.node())
 
     def test_apply_refusal_changes_nothing(self):
         self.char1.attributes.add("skill_xp", {"craft": 1})
@@ -254,7 +260,8 @@ class TestDoneRefuses(_MenuFixture):
         text = self.send("yes")
         self.assertIn("Nothing was changed", text)
         self.assertEqual(self.state(), before)
-        self.assertIsNone(self.node())
+        self.assertEqual(self.node(), "node_done")
+        self.assertIn("Spent 80 of 80.", self.send("back"))
 
     def test_grant_error_leaves_flag_unset(self):
         self.walk_to_last_confirm()
@@ -272,3 +279,20 @@ class TestDoneRefuses(_MenuFixture):
             text = self.send("yes")
         self.assertIn("could not be granted", text)
         self.assertFalse(self.char1.db.chargen_complete)
+        self.assertEqual(self.node(), "node_done")
+
+    def test_half_done_recovers_in_the_same_menu(self):
+        # The stats land, the grant fails; `back` and the same walk again
+        # must finish the character -- apply_allocation accepts a second run
+        # because there is still no profession and no banked XP.
+        self.walk_to_last_confirm()
+        with mock.patch(
+            "world.professions.grant_profession", side_effect=ValueError("boom")
+        ):
+            self.send("yes")
+        self.assertEqual(self.node(), "node_done")
+        self.send("back", "next", "yes", "tanner", "yes")
+        self.assertIsNone(self.node())
+        self.assertIs(self.char1.db.chargen_complete, True)
+        self.assertEqual(self.state()["profession"], "tanner")
+        self.assertEqual(self.state()["skills"]["craft"], (31, 31))

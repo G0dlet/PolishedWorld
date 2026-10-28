@@ -6,8 +6,9 @@ Task CC3.1).
                   -> node_confirm_profession -> node_done
 
 Started with `EvMenu(character, "world.chargen_menu",
-startnode="node_allocate")`. Launching it on first puppet, with
-`persistent=True` and `auto_quit=False`, is CC3.2's job, not this module's.
+startnode="node_allocate")`. Launching it on puppet, with `persistent=True`
+and `auto_quit=False`, and resuming it after a disconnect or a reload, is
+`chargen.start_or_resume_chargen()`'s job (CC3.2), not this module's.
 
 HOW THE MODULE IS READ
 ----------------------
@@ -163,16 +164,31 @@ def _goto_confirm_allocation(caller, raw_string, **kwargs):
     return "node_confirm_allocation", {"draft": draft}
 
 
+def _back_to_allocation(draft):
+    """
+    The one way on from a refusal that leaves the character unmade (CC3.2).
+
+    Closing the menu there would release a pending character into the world
+    until its next puppet -- the gate would leak. Back to the allocation with
+    the draft, so the player can try again.
+    """
+    return {
+        "key": ("back", "b"),
+        "desc": "return to your characteristics",
+        "goto": ("node_allocate", {"draft": draft}),
+    }
+
+
 def _half_done(character, reason):
     """The honest message when the stats landed but the profession did not."""
     logger.log_err(
         f"chargen: {character.key}'s characteristics were applied but the "
-        f"profession was not ({reason}); chargen_complete left unset."
+        f"profession was not ({reason}); chargen_complete not set."
     )
     return (
         "Your characteristics are set, but your profession could not be "
-        f"granted ({reason}). Character creation is not complete -- please "
-        "tell a builder."
+        f"granted ({reason}). Character creation is not complete: go back and "
+        "confirm again, and if this repeats, tell a builder."
     )
 
 
@@ -320,16 +336,20 @@ def node_confirm_profession(caller, raw_string, **kwargs):
 
 def node_done(caller, raw_string, **kwargs):
     """
-    Every write, in one place, then close the menu.
+    Every write, in one place; on success, close the menu.
 
     Order: refuse a finished character (this node writes the flag, so the
     guard lives here -- the helpers' own refusals key on other stamps);
     refuse an unknown profession; `apply_allocation` (refuses before its first
     write); `grant_profession`; the flag; the `progress` baseline. A refusal
     by `apply_allocation` changes nothing. A refusal by `grant_profession`
-    after the stats landed leaves the flag unset: the character has no
-    profession and no banked XP, so a fresh run of the menu may apply again.
-    Returning no options closes the menu, and `cmd_on_exit` shows the room.
+    after the stats landed leaves the flag not set: the character has no
+    profession and no banked XP, so going `back` and confirming again may
+    apply again.
+    Returning no options closes the menu, and `cmd_on_exit` shows the room:
+    that happens on success and for a character already made. Every other
+    refusal keeps the menu open with one option, `back` to the allocation
+    (CC3.2 -- a closed menu would let an unmade character into the world).
     """
     draft = kwargs.get("draft")
     key = kwargs.get("profession")
@@ -337,19 +357,22 @@ def node_done(caller, raw_string, **kwargs):
     if caller.db.chargen_complete:
         return "Your character is already made; nothing was changed.", None
     if key not in professions.PROFESSIONS:
-        return f"Nothing was changed: there is no profession '{key}'.", None
+        return (
+            f"Nothing was changed: there is no profession '{key}'.",
+            _back_to_allocation(draft),
+        )
 
     try:
         chargen.apply_allocation(caller, draft)
     except ValueError as err:
-        return f"Nothing was changed: {err}", None
+        return f"Nothing was changed: {err}", _back_to_allocation(draft)
 
     try:
         professions.grant_profession(caller, key)
     except ValueError as err:
-        return _half_done(caller, str(err)), None
+        return _half_done(caller, str(err)), _back_to_allocation(draft)
     if caller.db.profession != key:
-        return _half_done(caller, "the grant was refused"), None
+        return _half_done(caller, "the grant was refused"), _back_to_allocation(draft)
 
     caller.db.chargen_complete = True
     caller.snapshot_skill_baseline()
