@@ -15,6 +15,9 @@ Each class presses one bug:
                          sentinel stamped before a missing skill is found)
     TestProfessionList   the `profession` list printing the package's keys
                          instead of its recipes
+    TestProfessionRegistry  a skill_bonus key that is no skill ("crafting"
+                         for "craft") -- caught here, by profession name,
+                         instead of as a ValueError at a player's grant (CC2.2)
 
 These are the first tests of grant_profession(): before CC2.1 it had none.
 
@@ -29,11 +32,15 @@ PROFESSIONS: a test that read the table it checks would prove nothing
 
 from unittest import mock
 
-from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
+from evennia.utils.test_resources import (
+    EvenniaCommandTest,
+    EvenniaTest,
+    EvenniaTestCase,
+)
 
 from commands.character_commands import CmdChooseProfession
-from world.chargen import apply_allocation
-from world.professions import grant_profession
+from world.chargen import STAT_KEYS, apply_allocation, derive_skill_bases
+from world.professions import PROFESSIONS, grant_profession
 from world.progression import xp_threshold
 
 # chargen's test fixture (tests/test_chargen.py), repeated here on purpose:
@@ -44,6 +51,10 @@ CRAFT_AFTER_ALLOCATION = 21   # DEX 9 + INT 12
 CRAFT_AFTER_BONUS = 31        # + 10, every profession (CC2.1, L1)
 
 UNTOUCHED_SKILLS = ("athletics", "perception", "stealth", "hunting")
+
+# CC2.2 guard: the four seeded professions. Fewer means the data failed to
+# load and the per-profession loop would pass vacuously.
+MIN_PROFESSIONS = 4
 
 
 def _skill_pairs(character):
@@ -176,3 +187,25 @@ class TestProfessionList(EvenniaCommandTest):
             caller=self.char1,
         )
         self.assertEqual(_skill_pairs(self.char1), after_first)
+
+
+class TestProfessionRegistry(EvenniaTestCase):
+    """Every skill_bonus key is a skill chargen derives (CC2.2)."""
+
+    def setUp(self):
+        super().setUp()
+        # The key set comes from the derivation, not from PROFESSIONS: a test
+        # that read the table it checks would prove nothing (lesson 74). Any
+        # allocation gives the same keys; the values are irrelevant here.
+        self.skill_keys = set(derive_skill_bases({key: 10 for key in STAT_KEYS}))
+
+    def test_guard_data_is_not_empty(self):
+        """Without data the loop below passes vacuously -- refuse that."""
+        self.assertGreaterEqual(len(PROFESSIONS), MIN_PROFESSIONS)
+        self.assertIn("craft", self.skill_keys)
+
+    def test_every_bonus_key_is_a_derived_skill(self):
+        for profession, package in sorted(PROFESSIONS.items()):
+            for skill in package["skill_bonus"]:
+                with self.subTest(profession=profession, skill=skill):
+                    self.assertIn(skill, self.skill_keys)
