@@ -2,10 +2,10 @@
 Legend character creation: Points Build validation, derived skill bases, and
 applying an allocation to a character (Character Creation, Task CC1.1).
 
-The first two functions are pure -- no database, no typeclass -- which is why
-they are testable with `EvenniaTestCase`. `apply_allocation()` is the one
-stateful entry point and the only code in the project that re-bases a
-character's characteristics.
+Everything but `apply_allocation()` is pure -- no database, no typeclass --
+which is why it is testable with `EvenniaTestCase`. `apply_allocation()` is
+the one stateful entry point and the only code in the project that re-bases
+a character's characteristics.
 
 THE RULE (Legend p.9, Points Build; decision CC1)
 -------------------------------------------------
@@ -162,6 +162,25 @@ def derive_skill_bases(stats):
         for skill, (first, second) in SKILL_BASE_PAIRS.items()
     }
 
+
+
+def derive_health_max(con):
+    """
+    Hit Points maximum from Constitution (decision CC9: CON x 2).
+
+    The one home of the formula: `Character.at_object_creation`,
+    `Character.update_health_max()` and the chargen menu's confirmation
+    screen all call it, so the number the player is shown is the number the
+    character gets. Legend's CON+SIZ table belongs to hit locations (p.11,
+    Stage 5). Integers in give integers out; a trait's `.value` is a float.
+
+    Args:
+        con (int or float): the Constitution value.
+
+    Returns:
+        int or float: the maximum, the same type as `con`.
+    """
+    return con * 2
 
 def apply_allocation(character, alloc):
     """

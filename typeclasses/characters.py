@@ -27,6 +27,7 @@ from world.progression import (
     xp_threshold,
 )
 from world.skill_xp import SkillXPHandler
+from world.chargen import derive_health_max
 
 from django.conf import settings
 from evennia.utils import search
@@ -301,7 +302,7 @@ class Character(ObjectParent, ClothedCharacter):
             "health", "Health",
             trait_type="gauge",
             # Base health derived from CON (Mongoose Legend: HP based on CON)
-            base=self.stats.con.value * 2,
+            base=derive_health_max(self.stats.con.value),
             mod=0,
             min=0,
             rate=0,  # Natural healing rate can be set later
@@ -460,16 +461,8 @@ class Character(ObjectParent, ClothedCharacter):
         """Broadcast awakening when a player re-takes control."""
         super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
 
-        # C.3: snapshot each skill's permanent level (.current, never .value --
-        # a tool buff worn at login must not skew the baseline) so `progress` can
-        # report growth since this login. A fresh dict every puppet also resets
-        # the baseline on reconnect -- the "since login" semantics we want. Cheap
-        # (a handful of skills) and per-character, so no shared state across
-        # concurrent players. (Comprehension is fine here: real method code, not
-        # an @py exec, so the §11.16 exec-locals gotcha does not apply.)
-        self.login_skill_snapshot = {
-            key: self.skills.get(key).current for key in self.skills.all()
-        }
+        # C.3: the `progress` baseline is taken at every puppet.
+        self.snapshot_skill_baseline()
 
         if self.location:
             self.location.msg_contents(
@@ -529,12 +522,29 @@ class Character(ObjectParent, ClothedCharacter):
         """
         return not self.has_account
 
+    def snapshot_skill_baseline(self):
+        """
+        Record each skill's permanent level as the `progress` baseline (C.3).
+
+        Reads `.current`, never `.value` -- a tool buff worn at login must not
+        skew the baseline. Called from `at_post_puppet`, so a fresh dict every
+        puppet resets the baseline on reconnect (the "since login" semantics
+        we want), and from the chargen menu's last node, so the derived bases
+        and the profession bonus are not reported as growth (CC3.1). Cheap (a
+        handful of skills) and per-character, so no shared state across
+        concurrent players. (Comprehension is fine here: real method code, not
+        an @py exec, so the §11.16 exec-locals gotcha does not apply.)
+        """
+        self.login_skill_snapshot = {
+            key: self.skills.get(key).current for key in self.skills.all()
+        }
+
     def update_health_max(self):
         """
         Helper method to recalculate max health when CON changes.
         Should be called whenever CON is modified.
         """
-        new_max = self.stats.con.value * 2
+        new_max = derive_health_max(self.stats.con.value)
         current_percent = self.traits.health.percent(formatting=None)
         
         self.traits.health.base = new_max
