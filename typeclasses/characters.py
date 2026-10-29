@@ -7,7 +7,7 @@ Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 
 from evennia.contrib.game_systems.clothing import ClothedCharacter
 from evennia.utils import lazy_property
-from evennia.utils.utils import delay
+from evennia.utils.utils import delay, inherits_from
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
@@ -47,6 +47,10 @@ from evennia.utils import search
 # registry key, e.g. "cloth" or "linen shirt"), never a prototype_key.
 KNOWN_RECIPE_CATEGORY = "known_recipe"
 
+# Who counts as a giver when a receive is refused (W2.1): the same path the
+# encumbrance walk skips characters by, so a statue or an NPC counts too.
+_CHARACTER_PATH = "evennia.objects.objects.DefaultCharacter"
+
 
 class Character(ObjectParent, ClothedCharacter):
     """
@@ -58,7 +62,8 @@ class Character(ObjectParent, ClothedCharacter):
     - skills: Learnable skills using percentile system (0-100%)
 
     Encumbrance: read-only `carried_enc`, `enc_limit`, `encumbrance_state`,
-    computed on every read (world/encumbrance.py).
+    computed on every read (world/encumbrance.py). A move that would put the
+    character above twice the limit is refused (`at_pre_object_receive`).
     """
 
     @lazy_property
@@ -1401,6 +1406,43 @@ class Character(ObjectParent, ClothedCharacter):
         """
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
+
+    def at_pre_object_receive(self, arriving_object, source_location, **kwargs):
+        """
+        Refuse anything that would put this character above the ceiling (W2.1).
+
+        The ceiling is OVERLOAD_FACTOR x the limit (WD2). The sum after the
+        move comes from the reader (`encumbrance.enc_after_receiving`), never
+        from arithmetic here: the twenty-to-one rule, a container's contents
+        and an item already carried are the reader's business.
+
+        `move_to` asks this hook before every move into the character
+        (`get`, `give`, `get ... from`, forage, harvest), passes `move_type`
+        in `kwargs`, and logs and refuses if the hook raises -- so there is no
+        `try/except` here. It does not run for a direct `location =`
+        assignment or `move_hooks=False` (craft output and barter, W5.1).
+
+        On a refusal the character is told; a giving character is told too,
+        since `CmdGive` prints only its generic line.
+
+        Returns:
+            bool: False refuses the move; the object stays where it was.
+        """
+        if not super().at_pre_object_receive(arriving_object, source_location, **kwargs):
+            return False
+        ceiling = encumbrance.OVERLOAD_FACTOR * encumbrance.enc_limit(self)
+        if encumbrance.enc_after_receiving(self, arriving_object) > ceiling:
+            self.msg("You cannot carry any more.")
+            if (
+                source_location is not None
+                and source_location != self
+                and inherits_from(source_location, _CHARACTER_PATH)
+            ):
+                source_location.msg(
+                    f"{self.get_display_name(source_location)} cannot carry any more."
+                )
+            return False
+        return True
 
 
 # --- Rest callbacks (Epic A, TA1.3) -------------------------------------------

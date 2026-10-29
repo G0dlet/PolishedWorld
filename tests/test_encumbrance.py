@@ -30,6 +30,19 @@ Each class presses one bug:
                           longer reach (Testing Reference §11f)
     TestReadOnly          a setter, or an assignment that lands in `db`
 
+  W2.1 -- the ceiling:
+
+    TestEncAfterReceiving the hook's old formula (`carried_enc + item_enc`),
+                          which misses the twentieth item at `enc` 0 (the rule
+                          over the merged count, WD4) and a holder's contents;
+                          an item already carried counted twice; a character
+                          or an exit counted as cargo
+    TestCeilingHook       `>=` for `>` (38/20 must get in); a lost giver
+                          message; a `try/except` that swallows a raising
+                          reader and lets the item in; `super()` ignored.
+                          Every refusal also asserts `location`: `.call()`
+                          runs no locks, and the message alone is not the move
+
 THE FIXTURE
 -----------
 Every test loads `char1` (or a holder) with objects created in place, `enc`
@@ -40,13 +53,17 @@ number: a sack at enc 1 holding enc 3 is 4 with the recursion and 1 without.
 from unittest import mock
 
 from evennia import create_object
-from evennia.utils.test_resources import EvenniaTest
+from evennia.commands.default.general import CmdGive
+from evennia.contrib.game_systems.containers.containers import CmdContainerGet
+from evennia.objects.objects import DefaultObject
+from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from world.encumbrance import (
     CEILING,
     FREE,
     OVERLOADED,
     carried_enc,
+    enc_after_receiving,
     enc_limit,
     encumbrance_state,
     item_enc,
@@ -303,3 +320,128 @@ class TestReadOnly(EvenniaTest):
                     setattr(self.char1, name, 5)
                 self.assertFalse(self.char1.attributes.has(name))
         self.assertEqual(self.char1.carried_enc, 0)
+
+
+# --- W2.1 -- the ceiling ---------------------------------------------------
+
+
+class TestEncAfterReceiving(EvenniaTest):
+    """The reader's answer for a move that has not happened yet."""
+
+    def _zeros(self, location, n):
+        for i in range(n):
+            _make(location, key=f"pebble{i}", enc=0)
+
+    def test_twentieth_item_at_zero_tips_the_merged_count(self):
+        _make(self.char1, key="load", enc=40)
+        self._zeros(self.char1, 19)
+        pebble = _make(self.room1, key="last pebble", enc=0)
+        self.assertEqual(carried_enc(self.char1), 40)  # premise: 19 // 20 == 0
+        self.assertEqual(enc_after_receiving(self.char1, pebble), 41)
+
+    def test_nineteenth_item_at_zero_does_not(self):
+        _make(self.char1, key="load", enc=40)
+        self._zeros(self.char1, 18)
+        pebble = _make(self.room1, key="last pebble", enc=0)
+        self.assertEqual(enc_after_receiving(self.char1, pebble), 40)
+
+    def test_a_holder_counts_with_its_contents(self):
+        sack = _make(self.room1, key="sack", enc=1)
+        _make(sack, key="stone", enc=3)
+        self.assertEqual(enc_after_receiving(self.char1, sack), 4)
+
+    def test_an_item_already_carried_changes_nothing(self):
+        _make(self.char1, key="load", enc=36)
+        sack = _make(self.char1, key="sack", enc=1)
+        stone = _make(sack, key="stone", enc=3)
+        self.assertEqual(carried_enc(self.char1), 40)  # premise
+        self.assertEqual(enc_after_receiving(self.char1, stone), 40)
+
+    def test_a_character_is_never_cargo(self):
+        self.char2.db.enc = 5
+        _make(self.char2, key="anvil", enc=5)
+        self.assertEqual(enc_after_receiving(self.char1, self.char2), 0)
+
+    def test_nothing_moves(self):
+        sack = _make(self.room1, key="sack", enc=1)
+        enc_after_receiving(self.char1, sack)
+        self.assertEqual(sack.location, self.room1)
+        self.assertEqual(carried_enc(self.char1), 0)
+
+
+class TestCeilingHook(EvenniaCommandTest):
+    """`at_pre_object_receive` on the paths a player uses: get, give, move_to."""
+
+    REFUSED = "You cannot carry any more."
+
+    def _load(self, total):
+        _make(self.char1, key="load", enc=total)
+
+    def test_get_above_the_ceiling_is_refused(self):
+        self._load(39)
+        anvil = _make(self.room1, key="anvil", enc=2)
+        out = self.call(CmdContainerGet(), "anvil")
+        self.assertIn(self.REFUSED, out)
+        self.assertEqual(anvil.location, self.room1)
+        self.assertEqual(carried_enc(self.char1), 39)
+
+    def test_get_up_to_the_ceiling_is_let_in(self):
+        self._load(38)
+        anvil = _make(self.room1, key="anvil", enc=2)
+        out = self.call(CmdContainerGet(), "anvil")
+        self.assertNotIn(self.REFUSED, out)
+        self.assertEqual(anvil.location, self.char1)
+        self.assertEqual(carried_enc(self.char1), 40)
+
+    def test_give_across_the_ceiling_stays_with_the_giver_and_tells_both(self):
+        self._load(39)
+        anvil = _make(self.char2, key="anvil", enc=2)
+        with mock.patch.object(self.char1, "msg") as receiver_msg:
+            out = self.call(CmdGive(), "anvil = Char", caller=self.char2)
+        self.assertEqual(anvil.location, self.char2)
+        receiver_msg.assert_any_call(self.REFUSED)
+        self.assertIn(
+            f"{self.char1.get_display_name(self.char2)} cannot carry any more.", out
+        )
+
+    def test_the_twentieth_item_at_zero_is_refused_at_the_ceiling(self):
+        self._load(40)
+        for i in range(19):
+            _make(self.char1, key=f"pebble{i}", enc=0)
+        pebble = _make(self.room1, key="last pebble", enc=0)
+        self.assertFalse(pebble.move_to(self.char1, quiet=True))
+        self.assertEqual(pebble.location, self.room1)
+
+    def test_a_sack_is_weighed_with_its_contents(self):
+        self._load(37)
+        sack = _make(self.room1, key="sack", enc=1)
+        _make(sack, key="stone", enc=3)
+        self.assertFalse(sack.move_to(self.char1, quiet=True))
+        self.assertEqual(sack.location, self.room1)
+
+    def test_moving_an_item_out_of_a_carried_sack_at_the_ceiling(self):
+        self._load(36)
+        sack = _make(self.char1, key="sack", enc=1)
+        stone = _make(sack, key="stone", enc=3)
+        self.assertTrue(stone.move_to(self.char1, quiet=True))
+        self.assertEqual(stone.location, self.char1)
+
+    def test_a_raising_reader_raises_and_move_to_refuses(self):
+        anvil = _make(self.room1, key="anvil", enc=2)
+        with mock.patch(
+            "world.encumbrance.enc_limit", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                self.char1.at_pre_object_receive(anvil, self.room1)
+            with mock.patch("evennia.objects.objects.logger.log_trace") as trace:
+                self.assertFalse(anvil.move_to(self.char1, quiet=True))
+            trace.assert_called()
+        self.assertEqual(anvil.location, self.room1)
+
+    def test_a_refusal_from_super_is_kept(self):
+        pebble = _make(self.room1, key="pebble", enc=0)
+        with mock.patch.object(
+            DefaultObject, "at_pre_object_receive", return_value=False
+        ), mock.patch.object(self.char1, "msg") as msg:
+            self.assertFalse(self.char1.at_pre_object_receive(pebble, self.room1))
+        msg.assert_not_called()

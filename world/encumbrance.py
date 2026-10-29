@@ -14,6 +14,7 @@ compared against STR+SIZ:
 
     item       : item_enc(obj)              -> int   (the `enc` Attribute)
     holder     : carried_enc(holder)        -> int   (recursive sum, WD4, WD5)
+                 enc_after_receiving(holder, obj) -> int   (the sum with obj in, W2.1)
     character  : enc_limit(char)            -> int   (STR+SIZ, WD1)
                  encumbrance_state(char)    -> FREE | OVERLOADED | CEILING (WD2)
 
@@ -135,6 +136,57 @@ def carried_enc(holder):
         int
     """
     total, zeros = _walk(holder, 1)
+    return total + zeros // SMALL_ITEMS_PER_ENC
+
+
+def _is_carried_by(obj, holder):
+    """
+    True when `obj`'s location chain reaches `holder` within MAX_DEPTH hops.
+
+    One hop is depth 1 (directly in `holder`), so this reaches exactly the
+    objects `_walk(holder, 1)` counts: moving one of them to `holder` does not
+    change `holder`'s sum.
+    """
+    loc = obj.location
+    for _ in range(MAX_DEPTH):
+        if loc is None:
+            return False
+        if loc == holder:
+            return True
+        loc = loc.location
+    return False
+
+
+def enc_after_receiving(holder, obj):
+    """
+    The value `carried_enc(holder)` would have with `obj` in `holder` (W2.1).
+
+    `obj` counts as one more item at depth 1: its own ENC, its contents
+    through the same walk, and the twenty-to-one rule applied once over the
+    merged count of items at `enc` 0 (WD4) -- the sum of two rounded-down
+    parts would undercount. Two cases change nothing and return the current
+    sum: `obj` is already in `holder`'s carried tree (a `get` from a carried
+    sack), or `obj` is something the walk never counts (a character, an exit).
+
+    Args:
+        holder (Object): the would-be carrier.
+        obj (Object): the arriving object.
+
+    Returns:
+        int
+    """
+    if _is_skipped(obj) or _is_carried_by(obj, holder):
+        return carried_enc(holder)
+    total, zeros = _walk(holder, 1)
+    enc = item_enc(obj)
+    if enc:
+        total += enc
+    else:
+        zeros += 1
+    if obj.contents:
+        sub_total, sub_zeros = _walk(obj, 2)
+        total += sub_total
+        zeros += sub_zeros
     return total + zeros // SMALL_ITEMS_PER_ENC
 
 
