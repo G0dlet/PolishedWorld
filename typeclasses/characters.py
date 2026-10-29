@@ -19,6 +19,7 @@ from world.survival_buffs import DeathWeakness
 from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
+from world import encumbrance
 from world import timed_actions
 from world.progression import (
     level_for_xp,
@@ -55,6 +56,9 @@ class Character(ObjectParent, ClothedCharacter):
     - stats: Mongoose Legend characteristics (STR, DEX, CON, SIZ, INT, POW, CHA)
     - traits: Survival gauges (hunger, thirst, fatigue, health)
     - skills: Learnable skills using percentile system (0-100%)
+
+    Encumbrance: read-only `carried_enc`, `enc_limit`, `encumbrance_state`,
+    computed on every read (world/encumbrance.py).
     """
 
     @lazy_property
@@ -531,6 +535,42 @@ class Character(ObjectParent, ClothedCharacter):
         Used by display/appearance overrides for the statue logout system.
         """
         return not self.has_account
+
+    @property
+    def carried_enc(self):
+        """
+        Total ENC this character carries, read live (W1.1, WD4).
+
+        Read-only and uncached (WD3 b): every read walks the inventory
+        through `world.encumbrance.carried_enc`, the single reader.
+
+        Returns:
+            int
+        """
+        return encumbrance.carried_enc(self)
+
+    @property
+    def enc_limit(self):
+        """
+        This character's carrying limit, STR + SIZ, read live (WD1).
+
+        Returns:
+            int
+        """
+        return encumbrance.enc_limit(self)
+
+    @property
+    def encumbrance_state(self):
+        """
+        FREE, OVERLOADED or CEILING (WD2), computed on every read.
+
+        Nothing is stored: the band follows the inventory and the
+        characteristics the moment either changes.
+
+        Returns:
+            str: one of the constants in `world.encumbrance`.
+        """
+        return encumbrance.encumbrance_state(self)
 
     def snapshot_skill_baseline(self):
         """

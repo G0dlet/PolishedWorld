@@ -1,5 +1,6 @@
 """
-Tests for world/encumbrance.py (Weight and Encumbrance, Task W1.1).
+Tests for world/encumbrance.py and the Character properties over it
+(Weight and Encumbrance, Tasks W1.1 and W1.2).
 
 Each class presses one bug:
 
@@ -17,6 +18,17 @@ Each class presses one bug:
     TestEncLimit          a constant 20 instead of a live STR+SIZ read
     TestEncumbranceState  `>=` for `>` at either boundary; a ceiling that is
                           not twice the limit
+
+  W1.2 -- the properties on Character:
+
+    TestPropertiesAgree   a property that drifts from its module function in
+                          one band only, or returns a float
+    TestStateIsRead       a stored or hard-coded state: the spy feeds two
+                          different loads and expects two different bands
+    TestPatchTarget       a name import (`from world.encumbrance import ...`)
+                          of any one function, which a module patch can no
+                          longer reach (Testing Reference §11f)
+    TestReadOnly          a setter, or an assignment that lands in `db`
 
 THE FIXTURE
 -----------
@@ -219,3 +231,75 @@ class TestEncumbranceState(EvenniaTest):
         self.assertEqual(encumbrance_state(self.char1), OVERLOADED)
         _make(self.char1, key="straw", enc=1)
         self.assertEqual(encumbrance_state(self.char1), CEILING)
+
+
+# --- W1.2: Character properties -------------------------------------------
+
+PATCH = "world.encumbrance.{}"
+
+
+class TestPropertiesAgree(EvenniaTest):
+    def _triple(self):
+        c = self.char1
+        return (c.carried_enc, c.enc_limit, c.encumbrance_state)
+
+    def _module(self):
+        c = self.char1
+        return (carried_enc(c), enc_limit(c), encumbrance_state(c))
+
+    def test_properties_match_the_module_in_every_band(self):
+        self.assertEqual(self._triple(), (0, 20, FREE))
+        _make(self.char1, key="load", enc=30)
+        self.assertEqual(self._triple(), (30, 20, OVERLOADED))
+        _make(self.char1, key="more", enc=20)
+        self.assertEqual(self._triple(), (50, 20, CEILING))
+        self.assertEqual(self._triple(), self._module())
+
+    def test_properties_follow_a_new_limit(self):
+        _make(self.char1, key="load", enc=50)
+        self.char1.stats.str.base = 18
+        self.char1.stats.siz.base = 18
+        self.assertEqual(self._triple(), (50, 36, OVERLOADED))
+        self.assertEqual(self._triple(), self._module())
+
+    def test_numbers_are_ints(self):
+        _make(self.char1, key="load", enc=3)
+        self.assertIsInstance(self.char1.carried_enc, int)
+        self.assertIsInstance(self.char1.enc_limit, int)
+
+
+class TestStateIsRead(EvenniaTest):
+    def test_state_reads_carried_enc_on_every_call(self):
+        # premises: an empty inventory, limit 20, so the real band is FREE
+        self.assertEqual(self.char1.carried_enc, 0)
+        self.assertEqual(self.char1.enc_limit, 20)
+        self.assertEqual(self.char1.encumbrance_state, FREE)
+        with mock.patch(PATCH.format("carried_enc"), return_value=41) as spy:
+            self.assertEqual(self.char1.encumbrance_state, CEILING)
+            self.assertTrue(spy.called)
+        with mock.patch(PATCH.format("carried_enc"), return_value=21) as spy:
+            self.assertEqual(self.char1.encumbrance_state, OVERLOADED)
+            self.assertTrue(spy.called)
+
+
+class TestPatchTarget(EvenniaTest):
+    def test_each_property_goes_through_the_module(self):
+        c = self.char1
+        # premise: the sentinels differ from the real answers
+        self.assertEqual((c.carried_enc, c.enc_limit, c.encumbrance_state), (0, 20, FREE))
+        with mock.patch(PATCH.format("carried_enc"), return_value=7), mock.patch(
+            PATCH.format("enc_limit"), return_value=13
+        ), mock.patch(PATCH.format("encumbrance_state"), return_value="sentinel"):
+            self.assertEqual(
+                (c.carried_enc, c.enc_limit, c.encumbrance_state), (7, 13, "sentinel")
+            )
+
+
+class TestReadOnly(EvenniaTest):
+    def test_assignment_raises_and_stores_nothing(self):
+        for name in ("carried_enc", "enc_limit", "encumbrance_state"):
+            with self.subTest(name=name):
+                with self.assertRaises(AttributeError):
+                    setattr(self.char1, name, 5)
+                self.assertFalse(self.char1.attributes.has(name))
+        self.assertEqual(self.char1.carried_enc, 0)
