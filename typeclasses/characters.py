@@ -318,15 +318,16 @@ class Character(ObjectParent, ClothedCharacter):
         )
 
         # === SKILLS ===
-        # Skills start empty and are added as character learns them
-        # Using Counter type allows for base skill + improvements (current)
-        # Example initialization of common starting skills:
-        
-        # Basic survival skills everyone starts with
+        # Placeholder bases. A character born through an account has every
+        # base below re-derived from its characteristics by the chargen menu
+        # (world.chargen.SKILL_BASE_PAIRS, CC5) before it can play; these
+        # numbers survive only on characters made without one (test
+        # fixtures, a builder's `create`). Counter traits: `.base` is the
+        # starting score, `.current` the score after improvement.
         self.skills.add(
             "perception", "Perception",
             trait_type="counter",
-            base=25,  # 25% base chance (INT + POW based in Mongoose Legend)
+            base=25,  # placeholder; chargen derives INT + POW (Legend p.13)
             current=25,
             mod=0,
             min=0,
@@ -347,7 +348,7 @@ class Character(ObjectParent, ClothedCharacter):
         self.skills.add(
             "stealth", "Stealth", 
             trait_type="counter",
-            base=20,  # DEX + INT based
+            base=20,  # placeholder; chargen derives DEX + INT
             current=20,
             mod=0,
             min=0,
@@ -365,7 +366,7 @@ class Character(ObjectParent, ClothedCharacter):
         self.skills.add(
             "athletics", "Athletics",
             trait_type="counter", 
-            base=25,  # STR + DEX based
+            base=25,  # placeholder; chargen derives STR + DEX
             current=25,
             mod=0,
             min=0,
@@ -383,8 +384,9 @@ class Character(ObjectParent, ClothedCharacter):
         # Generic Craft skill. Mongoose Legend: Craft is an Advanced skill with
         # base = DEX + INT. MVP uses ONE generic Craft skill; Legend's
         # specialised Craft (Weaver), Craft (Cooper), etc. are a post-MVP
-        # upgrade. base/current are read from stats so the skill scales if
-        # starting characteristics ever change.
+        # upgrade. base/current are read from the placeholder stats here; the
+        # chargen menu re-derives both from the characteristics the player
+        # chose (CC5), as it does every skill above.
         craft_base = self.stats.dex.value + self.stats.int.value
         self.skills.add(
             "craft", "Crafting",
@@ -410,9 +412,9 @@ class Character(ObjectParent, ClothedCharacter):
         # Common skill; its nearest analogue is the Advanced "Track" skill
         # (base INT+CON). Named "hunting" deliberately to avoid colliding with
         # the "survival" trait-gauge category (hunger/thirst/fatigue). Flat
-        # base=25 follows the perception/athletics baseline convention -- every
-        # character starts with a little woodcraft. Drives the hunt skill-check
-        # (H2.2) and, later, hide-harvesting (H4.1).
+        # base=25 is a placeholder like those above; chargen derives INT + CON,
+        # Track's pair (CC5). Drives the hunt skill-check (H2.2) and, later,
+        # hide-harvesting (H4.1).
         #
         # NOTE: keep these values in sync with HUNTING_SKILL_DEFAULTS in
         # world/character_migrations.py so backfilled characters are identical

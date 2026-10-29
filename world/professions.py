@@ -78,7 +78,8 @@ def grant_profession(character, key):
     Once per character. `character.db.profession` is the sentinel, and this
     function is its only writer (P-2): a character that already has a
     profession gets nothing, whatever key is passed. The sentinel used to be
-    stamped by the `profession` command after the call; with a skill bonus in
+    stamped after the call by the `profession` command (retired in CC3.3; the
+    chargen menu is the caller now); with a skill bonus in
     the package a second call would add the bonus twice, so the guard has to
     live where the bonus is applied.
 

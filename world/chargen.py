@@ -45,6 +45,8 @@ from collections.abc import Mapping
 from evennia.utils import logger
 from evennia.utils.evmenu import EvMenu
 
+from world.professions import PROFESSIONS
+
 # Legend p.9 -- rules, not knobs.
 DESIGN_POINTS = 80
 CHAR_MIN = 6
@@ -175,15 +177,19 @@ def derive_health_max(con):
     `Character.update_health_max()` and the chargen menu's confirmation
     screen all call it, so the number the player is shown is the number the
     character gets. Legend's CON+SIZ table belongs to hit locations (p.11,
-    Stage 5). Integers in give integers out; a trait's `.value` is a float.
+    Stage 5). Always an int: callers pass a trait's `.value`, which is a
+    float, and the stored `health.base` must stay whole -- the survival
+    ticker's integer damage relies on it (world/survival_ticker.py,
+    STARVE_DAMAGE). A fractional CON is truncated, as `_whole()` truncates
+    for display.
 
     Args:
         con (int or float): the Constitution value.
 
     Returns:
-        int or float: the maximum, the same type as `con`.
+        int: the maximum.
     """
-    return con * 2
+    return int(con * 2)
 
 def apply_allocation(character, alloc):
     """
@@ -343,3 +349,49 @@ def start_or_resume_chargen(character):
         auto_quit=False,
         cmd_on_exit="look",
     )
+
+
+def help_text():
+    """
+    The full `help chargen` text, built from the values the menu enforces.
+
+    Every number and name comes from this module's constants or from
+    `PROFESSIONS`, so the help cannot drift from the menu. It promises only
+    what the code does: characteristics do NOT improve in play here (Legend's
+    Adventurer Advancement, p.68ff, is not built), so the text says they stay.
+    """
+    stats = " ".join(key.upper() for key in STAT_KEYS)
+    skills = ", ".join(
+        f"{skill.capitalize()} ({first.upper()}+{second.upper()})"
+        for skill, (first, second) in SKILL_BASE_PAIRS.items()
+    )
+    professions = ", ".join(sorted(PROFESSIONS))
+    return (
+        "Every new character is made once, in a short menu that meets you the "
+        "first time you enter the world. The menu stays until you finish it, "
+        "even if you log out.\n\n"
+        f"|wCharacteristics|n: spread {DESIGN_POINTS} points over the seven "
+        f"characteristics ({stats}). Each must end between {CHAR_MIN} and "
+        f"{CHAR_MAX}, and every point must be spent. Your skills start from "
+        f"them -- {skills} -- and your Hit Points follow your CON (CON 10 "
+        f"gives {derive_health_max(10)}).\n\n"
+        f"|wProfession|n: choose one of {professions}. It teaches you its "
+        "recipes and adds its skill bonus.\n\n"
+        "|wNo do-overs|n: characteristics and profession are chosen once and "
+        "cannot be changed. Your characteristics stay as you set them; your "
+        "skills grow as you use them.\n\n"
+        "Other recipes are learned later, from a teacher, a scroll or a book "
+        "(see |whelp learn|n)."
+    )
+
+
+def help_entry():
+    """The file-help dict for `world/help_entries.py`."""
+    return {
+        "key": "chargen",
+        # The `profession` command is retired (CC3.3); its name still finds
+        # the topic that now explains the choice.
+        "aliases": ["profession", "professions"],
+        "category": "Character",
+        "text": help_text(),
+    }

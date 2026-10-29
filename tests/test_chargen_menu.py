@@ -177,6 +177,9 @@ class TestConfirmScreens(_MenuFixture):
         self.assertIn("tanner", text)
         self.assertIn("linen shirt", text)
         self.assertIn("craft +10", text)
+        # Moved from test_professions' TestProfessionList (CC3.3): the
+        # package's dict keys never reach the player.
+        self.assertNotIn("skill_bonus", text)
 
     def test_profession_confirm_shows_base_and_bonus(self):
         text = self.walk_to_last_confirm()

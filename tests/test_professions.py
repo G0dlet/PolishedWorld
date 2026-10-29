@@ -13,11 +13,14 @@ Each class presses one bug:
                          call with another key that changes the trade
     TestGrantRefuses     a half-applied profession (recipes learned or the
                          sentinel stamped before a missing skill is found)
-    TestProfessionList   the `profession` list printing the package's keys
-                         instead of its recipes
     TestProfessionRegistry  a skill_bonus key that is no skill ("crafting"
                          for "craft") -- caught here, by profession name,
                          instead of as a ValueError at a player's grant (CC2.2)
+
+TestProfessionList went with the `profession` command (CC3.3). Its two claims
+have other homes: the list shows recipes and bonus, never package keys
+(tests/test_chargen_menu.py, test_profession_list_names_recipes_and_bonus), and
+a bonus is granted once (TestGrantOnce, here).
 
 These are the first tests of grant_profession(): before CC2.1 it had none.
 
@@ -32,13 +35,8 @@ PROFESSIONS: a test that read the table it checks would prove nothing
 
 from unittest import mock
 
-from evennia.utils.test_resources import (
-    EvenniaCommandTest,
-    EvenniaTest,
-    EvenniaTestCase,
-)
+from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
-from commands.character_commands import CmdChooseProfession
 from world.chargen import STAT_KEYS, apply_allocation, derive_skill_bases
 from world.professions import PROFESSIONS, grant_profession
 from world.progression import xp_threshold
@@ -166,27 +164,6 @@ class TestGrantRefuses(EvenniaTest):
         self.assertIn("craft", str(caught.exception))
         self.assertEqual(self.char1.known_recipes(), [])
         self.assertIsNone(self.char1.db.profession)
-
-
-class TestProfessionList(EvenniaCommandTest):
-    """`profession` with no argument lists recipes and bonus, not dict keys."""
-
-    def test_list_shows_recipes_and_bonus(self):
-        out = self.call(CmdChooseProfession(), "", caller=self.char1)
-        self.assertIn("weaver: cloth, linen shirt (craft +10)", out)
-        self.assertIn("generalist: cloth, leather (craft +10)", out)
-        self.assertNotIn("skill_bonus", out)
-
-    def test_command_grants_bonus_once(self):
-        self.call(CmdChooseProfession(), "cobbler", caller=self.char1)
-        self.assertEqual(self.char1.db.profession, "cobbler")
-        after_first = _skill_pairs(self.char1)
-        self.assertEqual(after_first["craft"], (30, 30))  # default 20 + 10
-        self.call(
-            CmdChooseProfession(), "cobbler", "You have already taken up",
-            caller=self.char1,
-        )
-        self.assertEqual(_skill_pairs(self.char1), after_first)
 
 
 class TestProfessionRegistry(EvenniaTestCase):
