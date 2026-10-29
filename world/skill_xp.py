@@ -43,14 +43,16 @@ and **never written**.
 
 This is the whole of Component B.2, and it replaces the decomposition's
 "one-time backfill" with a fallback. The reason is a measurement, not a
-preference: `at_object_creation` gives every new character non-zero skills
-(perception 25, stealth 20, athletics 25, hunting 25, craft = DEX + INT = 20 at
-default stats). A one-shot migration is therefore one-shot only for the
-characters that existed when it ran; every character created afterwards would
-stand at craft 20 with 0 XP, and Component C -- which makes `.current` a
-materialised cache of `level_for_xp(total)` -- would de-level her to 0 on her
-first craft. That is precisely the data loss B.2 exists to prevent, and a
-migration cannot prevent it because the population it must cover has no end.
+preference: every new character starts with non-zero skills (measured when
+B.2 shipped: `at_object_creation`'s perception 25, stealth 20, athletics 25,
+hunting 25, craft 20; since chargen, CC5, each is the sum of two
+characteristics and never below 12). A one-shot migration is therefore one-shot
+only for the characters that existed when it ran; every character created
+afterwards would stand at a non-zero craft with 0 XP, and Component C -- which
+makes `.current` a materialised cache of `level_for_xp(total)` -- would
+de-level her to 0 on her first craft. That is precisely the data loss B.2
+exists to prevent, and a migration cannot prevent it because the population it
+must cover has no end.
 
 Deriving on read closes it permanently and for free:
 

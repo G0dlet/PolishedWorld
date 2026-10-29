@@ -24,6 +24,8 @@ several more options for customizing the Guest account system.
 
 from evennia.accounts.accounts import DefaultAccount, DefaultGuest
 
+from world import chargen
+
 
 class Account(DefaultAccount):
     """
@@ -136,7 +138,18 @@ class Account(DefaultAccount):
 
     """
 
-    pass
+    def at_post_create_character(self, character, **kwargs):
+        """
+        After the default (last puppet, puppet lock), stamp the new character
+        pending so the creation menu meets it on first puppet (CC3.2).
+
+        Every door that makes a character *for an account* in 6.1.0 passes
+        here: auto-create at account creation and `charcreate`, both through
+        `DefaultAccount.create_character`. A character made any other way --
+        `create`, test fixtures -- is never stamped and never sees the menu.
+        """
+        super().at_post_create_character(character, **kwargs)
+        chargen.mark_chargen_pending(character)
 
 
 class Guest(DefaultGuest):

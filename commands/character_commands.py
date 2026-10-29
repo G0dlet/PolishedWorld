@@ -6,8 +6,22 @@ Commands for viewing character stats, skills, and vital status.
 
 from evennia import Command
 
-from world.professions import PROFESSIONS, grant_profession
 from world.progression import progress_within_level, render_progress_bar
+
+
+def _whole(number):
+    """
+    A trait number as the player reads it: a whole number, truncated.
+
+    Every trait's `.value` (and a gauge's `.max`) is `(...) * mult`, and
+    `mult` defaults to the float 1.0, so a CON stored as 7 reads back as 7.0
+    (evennia/contrib/rpg/traits/traits.py, StaticTrait/CounterTrait/
+    GaugeTrait). The one exception: a gauge whose `.base` is an int rounds
+    its own `.current` on read (`GaugeTrait._update_current`), so a hunger of
+    99.6 already reads 100 before it gets here. Truncated, not rounded, as
+    `progress` and `Character.update_health_max()` already do.
+    """
+    return int(number)
 
 
 class CmdStatus(Command):
@@ -42,22 +56,23 @@ class CmdStatus(Command):
         
         # Health
         health = char.traits.health
-        msg += f"  |yHealth:|n  {health.value:>3}/{health.max:<3} "
-        msg += f"({health.percent():>6}) - {health.desc()}\n"
+        msg += f"  |yHealth:|n  {_whole(health.value):>3}/{_whole(health.max):<3} "
+        # health_desc(): the label follows percent(), not the absolute value
+        msg += f"({health.percent():>6}) - {char.health_desc()}\n"
         
         # Hunger
         hunger = char.traits.hunger
-        msg += f"  |yHunger:|n  {hunger.value:>3}/{hunger.max:<3} "
+        msg += f"  |yHunger:|n  {_whole(hunger.value):>3}/{_whole(hunger.max):<3} "
         msg += f"({hunger.percent():>6}) - {hunger.desc()}\n"
         
         # Thirst
         thirst = char.traits.thirst
-        msg += f"  |yThirst:|n  {thirst.value:>3}/{thirst.max:<3} "
+        msg += f"  |yThirst:|n  {_whole(thirst.value):>3}/{_whole(thirst.max):<3} "
         msg += f"({thirst.percent():>6}) - {thirst.desc()}\n"
         
         # Fatigue
         fatigue = char.traits.fatigue
-        msg += f"  |yFatigue:|n {fatigue.value:>3}/{fatigue.max:<3} "
+        msg += f"  |yFatigue:|n {_whole(fatigue.value):>3}/{_whole(fatigue.max):<3} "
         msg += f"({fatigue.percent():>6}) - {fatigue.desc()}\n"
         
         msg += "|g" + "=" * 40 + "|n"
@@ -96,7 +111,7 @@ class CmdStats(Command):
         # Mongoose Legend characteristics
         for stat_key in ['str', 'dex', 'con', 'siz', 'int', 'pow', 'cha']:
             stat = getattr(char.stats, stat_key)
-            msg += f"  |y{stat.name:14}|n {stat.value:>3}"
+            msg += f"  |y{stat.name:14}|n {_whole(stat.value):>3}"
             
             # Show breakdown if there's a modifier
             if stat.mod != 0:
@@ -148,14 +163,14 @@ class CmdSkills(Command):
             skill = getattr(char.skills, skill_key)
             
             # Skill name and value
-            msg += f"  |y{skill.name:14}|n {skill.value:>3}%  "
+            msg += f"  |y{skill.name:14}|n {_whole(skill.value):>3}%  "
             
             # Description
             msg += f"({skill.desc()})"
             
             # Show breakdown if there's a modifier
             if skill.mod != 0:
-                msg += f"\n    └─ base {skill.base:>2} + current {skill.current - skill.base:>+3} + mod {skill.mod:>+3}"
+                msg += f"\n    └─ base {_whole(skill.base):>2} + current {_whole(skill.current - skill.base):>+3} + mod {skill.mod:>+3}"
             
             msg += "\n"
         
@@ -316,7 +331,7 @@ class CmdSheet(Command):
             
             for stat_key in ['str', 'dex', 'con', 'siz', 'int', 'pow', 'cha']:
                 stat = getattr(char.stats, stat_key)
-                msg += f"  |y{stat.name:14}|n {stat.value:>3}"
+                msg += f"  |y{stat.name:14}|n {_whole(stat.value):>3}"
                 
                 if stat.mod != 0:
                     msg += f"  (base {stat.base} + mod {stat.mod:>+2})"
@@ -330,8 +345,11 @@ class CmdSheet(Command):
             
             for trait_key in ['health', 'hunger', 'thirst', 'fatigue']:
                 trait = getattr(char.traits, trait_key)
-                msg += f"  |y{trait.name:14}|n {trait.value:>3}/{trait.max:<3} "
-                msg += f"({trait.percent():>6}) - {trait.desc()}\n"
+                msg += f"  |y{trait.name:14}|n {_whole(trait.value):>3}/{_whole(trait.max):<3} "
+                # Health only: its max is CON x 2, so its label must follow
+                # percent(); the other gauges keep the trait's own desc().
+                label = char.health_desc() if trait_key == "health" else trait.desc()
+                msg += f"({trait.percent():>6}) - {label}\n"
         
         # === SKILLS ===
         if hasattr(char, 'skills'):
@@ -343,86 +361,8 @@ class CmdSheet(Command):
                 
                 for skill_key in skill_keys:
                     skill = getattr(char.skills, skill_key)
-                    msg += f"  |y{skill.name:14}|n {skill.value:>3}%  ({skill.desc()})\n"
+                    msg += f"  |y{skill.name:14}|n {_whole(skill.value):>3}%  ({skill.desc()})\n"
         
         msg += "\n" + "|w" + "=" * 60 + "|n"
         
         self.caller.msg(msg)
-
-
-class CmdChooseProfession(Command):
-    """
-    Choose your starting profession
-
-    Usage:
-        profession
-        profession <name>
-
-    With no argument, lists the professions you can choose and the advanced
-    recipes each one teaches. With a name, commits you to that trade and
-    teaches you its recipes.
-
-    Choosing a profession is a ONE-TIME decision: once chosen it cannot be
-    changed. It grants recipe *knowledge* only -- it does not alter your
-    characteristics or skills, and how well you craft still depends on your
-    Craft skill. You can always learn other recipes later by being taught
-    them or by studying a scroll.
-    """
-
-    key = "profession"
-    aliases = ["professions"]
-    locks = "cmd:all()"
-    help_category = "Character"
-
-    def func(self):
-        caller = self.caller
-        chosen = caller.db.profession
-        arg = self.args.strip().lower()
-
-        # No argument -> show current choice (if any) and the available list.
-        if not arg:
-            msg = "\n|wProfessions:|n\n"
-            msg += "|g" + "=" * 40 + "|n\n"
-            if chosen:
-                msg += f"  You follow the |y{chosen}|n's craft.\n\n"
-            else:
-                msg += "  You have not yet chosen a profession.\n\n"
-            for pkey in sorted(PROFESSIONS):
-                recipes = ", ".join(PROFESSIONS[pkey])
-                msg += f"  |y{pkey}|n: {recipes}\n"
-            msg += "|g" + "=" * 40 + "|n"
-            if not chosen:
-                msg += "\nType |wprofession <name>|n to commit to one. The choice is permanent."
-            caller.msg(msg)
-            return
-
-        # Already chosen -> refuse. This sentinel is the idempotency guard: it
-        # makes the grant a once-per-character event, safe across @reload and
-        # re-puppet (this command is B's only grant path).
-        if chosen:
-            caller.msg(
-                f"You have already taken up the |y{chosen}|n's craft; "
-                "a profession is chosen only once. Type |wprofession|n to review it."
-            )
-            return
-
-        # Unknown key -> reject by name, listing the valid choices.
-        if arg not in PROFESSIONS:
-            valid = ", ".join(sorted(PROFESSIONS))
-            caller.msg(f"There is no '|y{arg}|n' profession. Choose one of: {valid}.")
-            return
-
-        # Commit: seed the recipes FIRST, then stamp the sentinel LAST, so a
-        # failure mid-grant leaves the character retry-able (unset sentinel)
-        # rather than committed-but-untaught. grant_profession is idempotent.
-        learned = grant_profession(caller, arg)
-        caller.db.profession = arg
-        if learned:
-            caller.msg(
-                f"You take up the |y{arg}|n's craft. "
-                f"You now know how to make: {', '.join(learned)}."
-            )
-        else:
-            caller.msg(
-                f"You take up the |y{arg}|n's craft. You already knew its recipes."
-            )

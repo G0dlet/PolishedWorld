@@ -27,6 +27,7 @@ from world.progression import (
     xp_threshold,
 )
 from world.skill_xp import SkillXPHandler
+from world.chargen import derive_health_max, start_or_resume_chargen
 
 from django.conf import settings
 from evennia.utils import search
@@ -301,7 +302,7 @@ class Character(ObjectParent, ClothedCharacter):
             "health", "Health",
             trait_type="gauge",
             # Base health derived from CON (Mongoose Legend: HP based on CON)
-            base=self.stats.con.value * 2,
+            base=derive_health_max(self.stats.con.value),
             mod=0,
             min=0,
             rate=0,  # Natural healing rate can be set later
@@ -317,15 +318,16 @@ class Character(ObjectParent, ClothedCharacter):
         )
 
         # === SKILLS ===
-        # Skills start empty and are added as character learns them
-        # Using Counter type allows for base skill + improvements (current)
-        # Example initialization of common starting skills:
-        
-        # Basic survival skills everyone starts with
+        # Placeholder bases. A character born through an account has every
+        # base below re-derived from its characteristics by the chargen menu
+        # (world.chargen.SKILL_BASE_PAIRS, CC5) before it can play; these
+        # numbers survive only on characters made without one (test
+        # fixtures, a builder's `create`). Counter traits: `.base` is the
+        # starting score, `.current` the score after improvement.
         self.skills.add(
             "perception", "Perception",
             trait_type="counter",
-            base=25,  # 25% base chance (INT + POW based in Mongoose Legend)
+            base=25,  # placeholder; chargen derives INT + POW (Legend p.13)
             current=25,
             mod=0,
             min=0,
@@ -346,7 +348,7 @@ class Character(ObjectParent, ClothedCharacter):
         self.skills.add(
             "stealth", "Stealth", 
             trait_type="counter",
-            base=20,  # DEX + INT based
+            base=20,  # placeholder; chargen derives DEX + INT
             current=20,
             mod=0,
             min=0,
@@ -364,7 +366,7 @@ class Character(ObjectParent, ClothedCharacter):
         self.skills.add(
             "athletics", "Athletics",
             trait_type="counter", 
-            base=25,  # STR + DEX based
+            base=25,  # placeholder; chargen derives STR + DEX
             current=25,
             mod=0,
             min=0,
@@ -382,8 +384,9 @@ class Character(ObjectParent, ClothedCharacter):
         # Generic Craft skill. Mongoose Legend: Craft is an Advanced skill with
         # base = DEX + INT. MVP uses ONE generic Craft skill; Legend's
         # specialised Craft (Weaver), Craft (Cooper), etc. are a post-MVP
-        # upgrade. base/current are read from stats so the skill scales if
-        # starting characteristics ever change.
+        # upgrade. base/current are read from the placeholder stats here; the
+        # chargen menu re-derives both from the characteristics the player
+        # chose (CC5), as it does every skill above.
         craft_base = self.stats.dex.value + self.stats.int.value
         self.skills.add(
             "craft", "Crafting",
@@ -409,9 +412,9 @@ class Character(ObjectParent, ClothedCharacter):
         # Common skill; its nearest analogue is the Advanced "Track" skill
         # (base INT+CON). Named "hunting" deliberately to avoid colliding with
         # the "survival" trait-gauge category (hunger/thirst/fatigue). Flat
-        # base=25 follows the perception/athletics baseline convention -- every
-        # character starts with a little woodcraft. Drives the hunt skill-check
-        # (H2.2) and, later, hide-harvesting (H4.1).
+        # base=25 is a placeholder like those above; chargen derives INT + CON,
+        # Track's pair (CC5). Drives the hunt skill-check (H2.2) and, later,
+        # hide-harvesting (H4.1).
         #
         # NOTE: keep these values in sync with HUNTING_SKILL_DEFAULTS in
         # world/character_migrations.py so backfilled characters are identical
@@ -457,19 +460,15 @@ class Character(ObjectParent, ClothedCharacter):
             )
 
     def at_post_puppet(self, **kwargs):
-        """Broadcast awakening when a player re-takes control."""
+        """
+        Broadcast awakening when a player re-takes control; then, for a
+        character born through an account and not yet made, the creation
+        menu (CC3.2) -- started, or resumed where it was left.
+        """
         super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
 
-        # C.3: snapshot each skill's permanent level (.current, never .value --
-        # a tool buff worn at login must not skew the baseline) so `progress` can
-        # report growth since this login. A fresh dict every puppet also resets
-        # the baseline on reconnect -- the "since login" semantics we want. Cheap
-        # (a handful of skills) and per-character, so no shared state across
-        # concurrent players. (Comprehension is fine here: real method code, not
-        # an @py exec, so the §11.16 exec-locals gotcha does not apply.)
-        self.login_skill_snapshot = {
-            key: self.skills.get(key).current for key in self.skills.all()
-        }
+        # C.3: the `progress` baseline is taken at every puppet.
+        self.snapshot_skill_baseline()
 
         if self.location:
             self.location.msg_contents(
@@ -477,6 +476,10 @@ class Character(ObjectParent, ClothedCharacter):
                 "into their flesh as they draw breath.",
                 exclude=[self],
             )
+
+        # CC3.2: last, so the menu is the final thing on the screen. Its
+        # cmdset replaces the character's until node_done -- that is the gate.
+        start_or_resume_chargen(self)
       
     # === Display & Appearance ===
 
@@ -529,16 +532,71 @@ class Character(ObjectParent, ClothedCharacter):
         """
         return not self.has_account
 
+    def snapshot_skill_baseline(self):
+        """
+        Record each skill's permanent level as the `progress` baseline (C.3).
+
+        Reads `.current`, never `.value` -- a tool buff worn at login must not
+        skew the baseline. Called from `at_post_puppet`, so a fresh dict every
+        puppet resets the baseline on reconnect (the "since login" semantics
+        we want), and from the chargen menu's last node, so the derived bases
+        and the profession bonus are not reported as growth (CC3.1). Cheap (a
+        handful of skills) and per-character, so no shared state across
+        concurrent players. (Comprehension is fine here: real method code, not
+        an @py exec, so the §11.16 exec-locals gotcha does not apply.)
+        """
+        self.login_skill_snapshot = {
+            key: self.skills.get(key).current for key in self.skills.all()
+        }
+
     def update_health_max(self):
         """
         Helper method to recalculate max health when CON changes.
         Should be called whenever CON is modified.
         """
-        new_max = self.stats.con.value * 2
+        new_max = derive_health_max(self.stats.con.value)
         current_percent = self.traits.health.percent(formatting=None)
         
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
+
+    def health_desc(self):
+        """
+        The health label, read against the gauge's percent -- not its value.
+
+        Health's `descs` are keyed 0-100, but its max is CON x 2 (12-36 once
+        character creation varies CON). `GaugeTrait.desc()` compares the keys
+        with the absolute value, so a full 20/20 read `critically wounded`
+        (BACKLOG *Health `descs` use a 0-100 scale*). The scale was the bug,
+        not the bound: this reader keeps Evennia's own rule -- each key is an
+        inclusive UPPER bound, anything above the top key takes the top label
+        -- and only swaps the value for `percent()`. That keeps health on the
+        same reading as the other gauges and the skills, and leaves the open
+        question of which reading is meant (BACKLOG *`descs` tables are read
+        as upper bounds but shaped like lower bounds*) to its own entry.
+
+        Under that rule the stored table reads naturally: `dead` only at
+        exactly 0, `near death` above 0 up to 10%, `healthy` above 90%. The
+        stored table is already percent-shaped, so no character's data
+        changes -- existing characters read right with no migration.
+
+        Keys are walked in sorted order rather than trusting the stored
+        order, so a table written out of order still reads correctly.
+
+        Returns:
+            str: the label, or "" if the trait carries no `descs`.
+        """
+        health = self.traits.health
+        descs = health.descs
+        if not descs:
+            return ""
+        pct = health.percent(formatting=None)
+        label = ""
+        for bound in sorted(descs):
+            label = descs[bound]
+            if pct <= bound:
+                return label
+        return label
 
     def improve_skill_on_use(self, skill_key):
         """

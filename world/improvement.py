@@ -29,8 +29,10 @@ current skill with the roll earns the larger 1D4+1 jump.
 
 Self-throttling by design: because the roll must *exceed* the current skill, a
 low skill is beaten easily (frequent 1D4+1 jumps) while a high skill is beaten
-rarely (mostly the +1 floor). Measured over 400 simulated careers at INT 10, the
-mean grain falls from 3.25 at skill 20 to 1.38 at skill 95 -- a factor of ~2.4.
+rarely (mostly the +1 floor). Measured over 400 simulated careers with INT held
+at 10 -- every character's value before chargen; INT now spans 6-18 and moves
+every roll -- the mean grain fell from 3.25 at skill 20 to 1.38 at skill 95, a
+factor of ~2.4.
 
 SUPERSEDED (Stage 4.5, 2026-08-05): this docstring used to continue "This is the
 pacing engine -- no hidden XP accumulator is needed", and that claim is now

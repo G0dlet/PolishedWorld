@@ -22,13 +22,14 @@ Decomposition section 4 specifies for B.1 that "reading an unbanked skill
 returns 0", and for B.2 a written one-time backfill whose headline property is
 idempotence. Neither is tested here, because neither is what was built.
 
-The reason is a measurement. `at_object_creation` gives every new character
-non-zero skills -- perception 25, stealth 20, athletics 25, hunting 25, craft =
-DEX + INT = 20 at default stats. A one-shot migration is therefore one-shot only
+The reason is a measurement. Every new character starts with non-zero skills
+-- when B.2 shipped, `at_object_creation`'s perception 25, stealth 20,
+athletics 25, hunting 25, craft 20; since chargen (CC5), each the sum of two
+characteristics, never below 12. A one-shot migration is therefore one-shot only
 for the characters alive when it ran; every character created afterwards would
-stand at craft 20 with 0 XP, and Component C would de-level her to 0 on her first
-craft. The population a migration must cover has no end, so a migration cannot
-close the hole.
+stand at a non-zero craft with 0 XP, and Component C would de-level her to 0 on
+her first craft. The population a migration must cover has no end, so a
+migration cannot close the hole.
 
 Component B therefore derives an absent entry on read (`xp_threshold(.current)`)
 and writes nothing. That converts B.2's idempotence from a property a guard must
