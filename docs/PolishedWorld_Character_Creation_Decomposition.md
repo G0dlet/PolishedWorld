@@ -1,10 +1,11 @@
 # PolishedWorld — Character Creation Decomposition
 
+> **Rev 3 · 2026-10-29** — **merged** to `main` as `24e9dd0` (PR #18; parents `217740d`, `87bacfd`; tree `2cdbf58`); `feature/character-creation` deleted on origin. Suite on the branch tip with `TREASURY_DBREF = "#10"` added for the run: 759, exactly the two known dbref FAILs (`test_unset_is_a_supported_state`, `test_unconfigured_treasury_names_the_setting_and_the_fix`). CC4.1's heading reads *(Rev 2)* instead of *(this revision)*, which this revision made false. No other change.
 > **Rev 2 · 2026-10-29** — **code complete on `feature/character-creation`** (`87bacfd`, tree `a655ad0`; seven commits over `92fb792`); CC4.2 merges it, and Rev 3 records the merge. Every task CC1.1–CC3.3 now carries its record (§5–§7): what shipped, the 22 build decisions **B1–B22**, tests, mutations, protocols and where each finding went. Approach sentences the build proved false are struck through, not deleted, each pointing at the record that replaces it; §3's misread test anchors are corrected in place, and its p.68ff row is marked *not built*. §12: OQ1–OQ4 closed, OQ5 open. §13: the rung-20 bullet is superseded by B6 — with `craft +10` in every package, no new character starts below rung 20; the prose-site count is recorded. CC4.1's Rev targets corrected — they named the Revs current when this was written. Suite 656 → 759 at home without `TREASURY_DBREF`; the dbref variant runs before the merge (CC4.2). Docs moved in the same commit: Evennia Ref 25, Testing Ref 14, roadmap 32, BACKLOG 51, Recipe Knowledge 12.
 > **Rev 1 · 2026-10-26** — first version. Decomposes the roadmap's *Legend character creation* alpha prerequisite (alpha entry (A), order fixed by (F)) into four components and ten tasks, against live source read the same day (`main` at `a60b73f`, tree `a25c1c9`; Evennia 6.1.0 from PyPI; `Legend.pdf` core rules). The framing decision is the one that matters: **no dice.** Legend's chargen was written for a table with a Games Master; this is an always-online world with free characters, so the design borrows from the games that solved the same problem (OSRS, Tibia, Albion) and keeps Legend where Legend still fits. Decisions CC1–CC10 in §2.
 > **Canonical:** `docs/PolishedWorld_Character_Creation_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
-**Status:** **CODE COMPLETE** (2026-10-29) — CC1.1–CC3.3 on `feature/character-creation` (`87bacfd`, tree `a655ad0`), each with its record below; CC4.1 is Rev 2; CC4.2 (merge) pending.
+**Status:** **DONE** (2026-10-29). CC1.1–CC3.3 rode `feature/character-creation`, merged to `main` as `24e9dd0` (tree `2cdbf58`); CC4.1 is Rev 2, CC4.2 Rev 3. Every task carries its record.
 **Feature branch:** `feature/character-creation` (one branch, one merge, as the alpha content epic). Create it with `git switch -c feature/character-creation --no-track origin/main` (lesson 64).
 **Rough scope:** 10 tasks, 3–4 sessions at 5 h/week (CC1 1 · CC2 0.5–1 · CC3 1.5–2 · CC4 0.5). Smaller than the roadmap entry feared, because §2 removes the roller, the reroll policy and the backfill.
 **Philosophy:** skynda långsamt — variation comes from two choices the player makes on purpose, and from play; nothing is rolled.
@@ -169,16 +170,17 @@ CC1.1 world/chargen.py (pure: validate + derive + apply)
 
 ## 8. Component CC4 — Docs close-out and merge (Claude, on `main`)
 
-### Task CC4.1 — Documentation — ✅ SHIPPED (this revision)
+### Task CC4.1 — Documentation — ✅ SHIPPED (Rev 2)
 - **Goal:** Every document that described the static character describes the built one.
 - **Dependencies:** CC3.3 on the branch.
 - **Approach:** Evennia Ref gains an EvMenu section (persistent mode, the cmdset shadow, the first-puppet hook) — Rev 25; Testing Ref takes the epic's candidates (the one-write-node pattern, the C.3 re-snapshot) — Rev 14; roadmap: the alpha prerequisite marked met, the chargen entry turned to a record — Rev 32; BACKLOG: *Health `descs`* and *Profession Common-Skill bonuses* closed, *Cultural-Background gating* and the two Rev 49 deferrals re-pointed — Rev 51; this decomposition to DONE. Catalogue loop against the tree as it will be (README Rev 9's lesson).
 - **Commit:** `docs: close out character creation (CC4)`
 - **Record:** one commit on `main`: this document Rev 2; Evennia Ref Rev 25 (§3.6, §11.30–§11.33, §15 EvMenu); Testing Ref Rev 14 (§7, §11b, §11c, §11f, §11h, new §11l, §12, §14); roadmap Rev 32; BACKLOG Rev 51; Recipe Knowledge Rev 12. *Rev 31/50 in the approach were the Revs current at writing* — corrected above. The System Map is not edited: it names none of the systems built since Stage 4, so a chargen line alone would not make it true (BACKLOG *System Map describes the world as of Stage 4*). README is unchanged (no new document); catalogue loop 26/0 against the new tree.
 
-### Task CC4.2 — Merge
+### Task CC4.2 — Merge — ✅ SHIPPED
 - **Goal:** `feature/character-creation` on `main` via merge commit; branch deleted on origin; `git ls-remote` per ref.
 - **Commit:** the merge commit (PR).
+- **Record:** PR #18, merge commit `24e9dd0` (parents `217740d`, the CC4.1 docs commit, and `87bacfd`, the branch tip), tree `2cdbf58` — the same tree a local `git merge --no-ff` of the two parents produces, and `git merge-tree --write-tree` agrees. No conflicts were possible: after `92fb792`, `main` touched only `docs/` and the branch touched no docs. The subject is GitHub's default (*Merge pull request #18 …*). Suite on `87bacfd`, with `TREASURY_DBREF = "#10"` added to `server/conf/settings.py` for the run and restored after: `Ran 759 tests`, `FAILED (failures=2)`, and the two by name are the known dbref FAILs — `tests.test_treasury.TestResolveTreasury.test_unset_is_a_supported_state` and `tests.test_economy_command.TestEconomyOverview.test_unconfigured_treasury_names_the_setting_and_the_fix` (Testing Ref §13). Both read only whether the setting is set — the test database is fresh on every run — so the line reproduces a played-on tree's configuration on any machine. `git ls-remote`: `refs/heads/main` = `24e9dd0`; `refs/heads/feature/character-creation` absent.
 
 ## 9–11. (reserved for records as tasks ship, as the alpha content decomposition did)
 
