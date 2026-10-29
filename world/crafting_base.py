@@ -115,6 +115,17 @@ class MongooseCraftRecipe(CraftingRecipe):
         trait = skills.get(self.skill_name) if skills else None
         return trait.value if trait else 0
 
+    def _physical_modifier(self):
+        """
+        The crafter's physical-test modifier (W3.1), 0 without the seam.
+
+        getattr-guarded like `_skill_value`: a crafter that is not a
+        Character (no `physical_modifier`) rolls without the penalty instead
+        of crashing the craft.
+        """
+        reader = getattr(self.crafter, "physical_modifier", None)
+        return reader() if reader else 0
+
     def _used_tool(self):
         """The supplied *usable* tool matching this recipe's tool_tag, or None.
 
@@ -257,7 +268,8 @@ class MongooseCraftRecipe(CraftingRecipe):
         # post_craft consumes nothing. Reads EFFECTIVE skill
         # (_skill_value() = counter .value = current + mod), so a temporary buff can
         # lift someone over the bar -- intended: the gate asks "are you good enough
-        # to *attempt* this right now". Deliberately does NOT apply the tool modifier:
+        # to *attempt* this right now". Deliberately does NOT apply the tool modifier
+        # (nor the overload penalty, W3.1 -- same reasoning):
         # that penalty shifts the ROLL in do_craft ("how well"), not the gate ("may
         # you try"), so a skilled but tool-less crafter passes here and then rolls at
         # -20. Orthogonal to Stage 3's knowledge-gate. min_skill defaults to 0
@@ -269,7 +281,11 @@ class MongooseCraftRecipe(CraftingRecipe):
     def do_craft(self, **kwargs):
         # A real attempt is happening.
         self.rolled = True
-        outcome = skill_check(self._skill_value(), self._tool_modifier())
+        # Tool modifier plus the crafter's overload penalty (W3.1), both read
+        # here at the roll -- for a timed craft, when the timer completes.
+        outcome = skill_check(
+            self._skill_value(), self._tool_modifier() + self._physical_modifier()
+        )
         self.skill_outcome = outcome
         tier = outcome["result"]
 

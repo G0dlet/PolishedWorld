@@ -55,6 +55,12 @@ OVERLOAD_FACTOR = 2
 # Recursion guard. Depth is 2 in practice (a container on a character, WD5).
 MAX_DEPTH = 4
 
+# Legend core p.86: -20% to "all tests that require physical actions,
+# including Weapon Skill Tests and most tests that have DEX or STR" while the
+# character carries more than its limit (W3.1). OVERLOADED and CEILING alike;
+# read through Character.physical_modifier() at the moment of each roll.
+OVERLOAD_PENALTY = -20
+
 FREE = "free"
 OVERLOADED = "overloaded"
 CEILING = "ceiling"

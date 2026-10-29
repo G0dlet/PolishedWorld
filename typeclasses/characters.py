@@ -581,6 +581,30 @@ class Character(ObjectParent, ClothedCharacter):
         """
         return encumbrance.encumbrance_state(self)
 
+    def physical_modifier(self):
+        """
+        The modifier on this character's physical skill tests (W3.1).
+
+        Legend core p.86: an overloaded character takes -20% on every test
+        that requires a physical action. Past the limit means OVERLOADED or
+        CEILING; at or under it the modifier is 0. Read live at the moment of
+        each roll and never stored, so the penalty follows the load (a timed
+        craft reads it when it completes, not when it starts).
+
+        The six physical rolls add this to their own modifiers: craft
+        (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
+        `hunt` (as `attacker_mod`) and `harvest`. A new skill test decides
+        whether it is physical (the census in tests/test_encumbrance.py).
+        Later penalties of the same kind (the fatigue levels, BACKLOG) are
+        added here, so the call sites never change again.
+
+        Returns:
+            int: 0 when FREE, `encumbrance.OVERLOAD_PENALTY` otherwise.
+        """
+        if self.encumbrance_state != encumbrance.FREE:
+            return encumbrance.OVERLOAD_PENALTY
+        return 0
+
     def snapshot_skill_baseline(self):
         """
         Record each skill's permanent level as the `progress` baseline (C.3).

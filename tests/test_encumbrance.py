@@ -1,6 +1,6 @@
 """
 Tests for world/encumbrance.py and the Character properties over it
-(Weight and Encumbrance, Tasks W1.1, W1.2, W2.1 and W2.2).
+(Weight and Encumbrance, Tasks W1.1, W1.2, W2.1, W2.2 and W3.1).
 
 Each class presses one bug:
 
@@ -71,21 +71,47 @@ number: a sack at enc 1 holding enc 3 is 4 with the recursion and 1 without.
 From W2.2 on, an object that has to *move* is created outside the character
 and brought in with `move_to`: creation in place runs `at_object_receive`
 before `enc` is set (objects.py:1975), so it is not the move under test.
+
+  W3.1 -- the overload penalty (Legend core p.86):
+
+    TestPhysicalModifier  `>=` for `>` at the limit (20/20 must be 0); a
+                          penalty only at CEILING, or only at OVERLOADED; a
+                          cached value that outlives the load
+    TestPenaltyReachesRoll one class per call site, each run at 20/20 and at
+                          21/20 through the real command: a site that never
+                          adds the penalty; a penalty that replaces the site's
+                          own modifier (tool, -min_skill, part difficulty)
+                          instead of adding to it; hunt's penalty on the
+                          quarry's side. The spy wraps the real roll, so the
+                          site's call shape (positional or keyword) is bound
+                          by signature, not guessed
+    TestRollCensus        a new skill test that nobody decided about: the
+                          count of `skill_check(` / `opposed_check(` calls per
+                          production module must stay the six W3.1 classified
 """
 
+import ast
+from inspect import signature
+from pathlib import Path
 from unittest import mock
 
 from evennia import create_object
 from evennia.commands.default.general import CmdGive
 from evennia.contrib.game_systems.containers.containers import CmdContainerGet
+from evennia.contrib.game_systems.crafting import craft
 from evennia.objects.objects import DefaultObject
+from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
+from commands.crafting_commands import CmdDisassemble, CmdScribe
+from commands.hunting_commands import CmdHarvest, CmdHunt
 from commands.inventory_commands import CONTRIB_REFUSAL, CmdGet, CmdInventory
+from commands.repair_commands import CmdRepair
 
 from world.encumbrance import (
     CEILING,
     FREE,
+    OVERLOAD_PENALTY,
     OVERLOADED,
     carried_enc,
     enc_after_receiving,
@@ -94,6 +120,8 @@ from world.encumbrance import (
     encumbrance_state,
     item_enc,
 )
+from world.harvest_templates import get_part
+from world.skillcheck import opposed_check, skill_check
 
 OBJ = "typeclasses.objects.Object"
 WARN = "world.encumbrance.logger.log_warn"
@@ -682,3 +710,275 @@ class TestRefusalLine(EvenniaCommandTest):
         commands = {cmd.key: cmd for cmd in CharacterCmdSet().commands}
         self.assertIsInstance(commands["get"], CmdGet)
         self.assertIsInstance(commands["inventory"], CmdInventory)
+
+
+# --- W3.1 -- the overload penalty -------------------------------------------
+
+CHARACTER = "typeclasses.characters.Character"
+ROOM = "typeclasses.rooms.Room"
+TOOL = "typeclasses.tools.Tool"   # a DurableObject: repair accepts it
+CREATURE = "typeclasses.creatures.Creature"
+CORPSE = "typeclasses.corpse.Corpse"
+LIMIT = 20
+LOAD_KEY = "w31load"
+PLAIN_FAILURE = 98   # fails every target below 98, and is no fumble (99+)
+
+
+class TestPhysicalModifier(EvenniaTest):
+    """`Character.physical_modifier()`: -20 past the limit, 0 at or under it."""
+
+    character_typeclass = CHARACTER
+
+    def test_the_penalty_is_legends_twenty(self):
+        self.assertEqual(OVERLOAD_PENALTY, -20)   # Legend core p.86
+
+    def test_at_the_limit_is_free(self):
+        _make(self.char1, key="load", enc=LIMIT)
+        self.assertEqual((carried_enc(self.char1), self.char1.physical_modifier()), (20, 0))
+
+    def test_one_over_the_limit_is_penalised(self):
+        _make(self.char1, key="load", enc=LIMIT + 1)
+        self.assertEqual(self.char1.physical_modifier(), -20)
+
+    def test_past_the_ceiling_is_penalised_too(self):
+        _make(self.char1, key="load", enc=2 * LIMIT + 1)
+        self.assertEqual(
+            (self.char1.encumbrance_state, self.char1.physical_modifier()), (CEILING, -20)
+        )
+
+    def test_read_live_not_cached(self):
+        load = _make(self.char1, key="load", enc=LIMIT + 1)
+        self.assertEqual(self.char1.physical_modifier(), -20)
+        load.delete()
+        self.assertEqual(self.char1.physical_modifier(), 0)
+
+
+class _PenaltyFixture:
+    """Shared driver: one roll at 20/20 and one at 21/20, the modifier recorded."""
+
+    character_typeclass = CHARACTER
+    room_typeclass = ROOM
+
+    def load_to(self, total):
+        """Top char1 up to exactly `total` ENC with one load item (earlier loads go)."""
+        for old in [obj for obj in self.char1.contents if obj.key == LOAD_KEY]:
+            old.delete()
+        have = carried_enc(self.char1)
+        self.assertLessEqual(have, total)   # the fixture alone must fit under 20
+        if total > have:
+            _make(self.char1, key=LOAD_KEY, enc=total - have)
+        self.assertEqual((carried_enc(self.char1), enc_limit(self.char1)), (total, LIMIT))
+
+    def rolled(self, target, run, real=skill_check, arg="modifier"):
+        """
+        Run once with the RNG pinned to a plain failure; return the modifier
+        the call site passed. The spy wraps the real roll, so the command runs
+        on as usual, and the call is bound by the real signature (a site may
+        pass the modifier positionally or by keyword, or not at all).
+        """
+        with mock.patch("world.skillcheck.randint", return_value=PLAIN_FAILURE), \
+                mock.patch(target, wraps=real) as spy:
+            run()
+        self.assertEqual(spy.call_count, 1)   # receipt: the command reached its roll
+        bound = signature(real).bind(*spy.call_args.args, **spy.call_args.kwargs)
+        bound.apply_defaults()
+        return bound.arguments[arg]
+
+    def free_and_overloaded(self, target, build, run, **kwargs):
+        """The modifier at 20/20, then at 21/20 on a fresh fixture."""
+        mods = []
+        for total in (LIMIT, LIMIT + 1):
+            self.char1.cooldowns.clear()
+            built = build()
+            self.load_to(total)
+            mods.append(self.rolled(target, lambda: run(built), **kwargs))
+        return tuple(mods)
+
+
+class TestPenaltyReachesCraft(_PenaltyFixture, EvenniaCommandTest):
+    """craft: `do_craft` adds the penalty to the tool modifier (0 here, no tool)."""
+
+    def test_craft(self):
+        def build():
+            clay = spawn("clay")[0]
+            clay.move_to(self.char1, quiet=True)
+            return clay
+
+        mods = self.free_and_overloaded(
+            "world.crafting_base.skill_check",
+            build,
+            lambda clay: craft(self.char1, "sling bullet", clay),
+        )
+        self.assertEqual(mods, (0, -20))
+
+
+class TestPenaltyReachesDisassemble(_PenaltyFixture, EvenniaCommandTest):
+    """disassemble: the penalty adds to `-min_skill` (cloth: 20), it does not replace it."""
+
+    def test_disassemble(self):
+        def build():
+            piece = _make(self.char1, key="w31bolt", enc=0)
+            piece.db.recipe = "cloth"   # requires_knowledge, min_skill 20
+            return piece
+
+        mods = self.free_and_overloaded(
+            "commands.crafting_commands.skill_check",
+            build,
+            lambda piece: self.call(CmdDisassemble(), "w31bolt", caller=self.char1),
+        )
+        self.assertEqual(mods, (-20, -40))
+
+
+class TestPenaltyReachesScribe(_PenaltyFixture, EvenniaCommandTest):
+    """scribe: a Craft roll (DEX+INT) -- no longer unmodified."""
+
+    def setUp(self):
+        super().setUp()
+        self.char1.skills.get("craft").current = 60   # SCRIBE_MIN_CRAFT is 50
+        self.char1.learn_recipe("cloth")
+
+    def test_scribe(self):
+        def build():
+            for proto in ("cloth", "cloth", "twine"):
+                spawn(proto)[0].move_to(self.char1, quiet=True)
+
+        mods = self.free_and_overloaded(
+            "commands.crafting_commands.skill_check",
+            build,
+            lambda _: self.call(CmdScribe(), "cloth", caller=self.char1),
+        )
+        self.assertEqual(mods, (0, -20))
+
+
+class TestPenaltyReachesRepair(_PenaltyFixture, EvenniaCommandTest):
+    """repair: the penalty adds to the tool modifier (0: this item needs no tool)."""
+
+    def test_repair(self):
+        def build():
+            knife = create_object(TOOL, key="w31knife", location=self.char1)
+            knife.db.condition = 50
+            knife.db.repair_materials = ["w31patch"]
+            knife.db.repair_tool_tag = ""   # bare-handed re-haft -> tool modifier 0
+            patch = _make(self.char1, key="w31rag", enc=0)
+            patch.tags.add("w31patch", category="crafting_material")
+            return knife
+
+        def run(knife):
+            self.call(CmdRepair(), "w31knife", caller=self.char1)
+            knife.delete()   # repair keeps it; the next run makes its own
+
+        mods = self.free_and_overloaded(
+            "commands.repair_commands.skill_check",
+            build,
+            run,
+        )
+        self.assertEqual(mods, (0, -20))
+
+
+class TestPenaltyReachesHunt(_PenaltyFixture, EvenniaCommandTest):
+    """hunt: the penalty is the hunter's `attacker_mod`; the quarry's side stays 0."""
+
+    def test_hunt(self):
+        def build():
+            deer = create_object(CREATURE, key="w31deer", location=self.room1)
+            deer.db.flee_skill = 30
+            return deer
+
+        def run(deer):
+            self.call(CmdHunt(), "w31deer", caller=self.char1)
+            if deer.pk:
+                deer.delete()   # a stalemate leaves it; the next run makes its own
+
+        mods = self.free_and_overloaded(
+            "commands.hunting_commands.opposed_check",
+            build,
+            run,
+            real=opposed_check,
+            arg="attacker_mod",
+        )
+        self.assertEqual(mods, (0, -20))
+
+    def test_the_quarry_is_not_penalised(self):
+        create_object(CREATURE, key="w31deer", location=self.room1).db.flee_skill = 30
+        self.load_to(LIMIT + 1)
+        mod = self.rolled(
+            "commands.hunting_commands.opposed_check",
+            lambda: self.call(CmdHunt(), "w31deer", caller=self.char1),
+            real=opposed_check,
+            arg="defender_mod",
+        )
+        self.assertEqual(mod, 0)
+
+
+class TestPenaltyReachesHarvest(_PenaltyFixture, EvenniaCommandTest):
+    """harvest: the penalty adds to the part's difficulty (+ knife bonus, none here)."""
+
+    def test_harvest(self):
+        difficulty = get_part("rabbit", "meat")["difficulty"]
+        made = []
+
+        def build():
+            corpse = create_object(CORPSE, key=f"w31carcass{len(made)}", location=self.room1)
+            made.append(corpse)
+            return corpse
+
+        mods = self.free_and_overloaded(
+            "commands.hunting_commands.skill_check",
+            build,
+            lambda corpse: self.call(CmdHarvest(), f"meat from {corpse.key}", caller=self.char1),
+        )
+        self.assertEqual(mods, (difficulty, difficulty - 20))
+
+
+# The six physical rolls W3.1 classified (Rev 5, Q1-Q3), counted per module.
+# forage rolls nothing; world/skillcheck.py is the roll itself (opposed_check
+# calls skill_check twice) and is not a call site.
+ROLL_SITES = {
+    "commands/crafting_commands.py": 2,   # disassemble, scribe
+    "commands/hunting_commands.py": 2,    # hunt (opposed), harvest
+    "commands/repair_commands.py": 1,     # repair
+    "world/crafting_base.py": 1,          # craft (do_craft)
+}
+ROLL_NAMES = ("skill_check", "opposed_check")
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _roll_census():
+    """Calls to skill_check / opposed_check per production module (ast, not grep)."""
+    counts = {}
+    for top in ("commands", "world", "typeclasses"):
+        for path in sorted((REPO / top).rglob("*.py")):
+            rel = path.relative_to(REPO).as_posix()
+            if rel == "world/skillcheck.py":
+                continue
+            n = 0
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Call):
+                    func = node.func
+                    name = getattr(func, "id", None) or getattr(func, "attr", None)
+                    n += name in ROLL_NAMES
+            if n:
+                counts[rel] = n
+    return counts
+
+
+class TestRollCensus(EvenniaTest):
+    """Every skill test in production code is one W3.1 decided about."""
+
+    def test_the_six_sites_and_no_others(self):
+        counts = _roll_census()
+        changed = sorted(
+            f"{module}: {counts.get(module, 0)}, expected {ROLL_SITES.get(module, 0)}"
+            for module in set(counts) | set(ROLL_SITES)
+            if counts.get(module, 0) != ROLL_SITES.get(module, 0)
+        )
+        self.assertEqual(
+            changed, [], "new skill test: decide physical or not (W3.1 OQ2): " + "; ".join(changed)
+        )
+
+    def test_the_census_sees_through_docstrings(self):
+        # Receipt for the ast form: repair_commands.py names `skill_check` in a
+        # docstring and in its import, and still counts once.
+        source = (REPO / "commands/repair_commands.py").read_text(encoding="utf-8")
+        self.assertGreater(source.count("skill_check"), 1)
+        self.assertEqual(_roll_census()["commands/repair_commands.py"], 1)
