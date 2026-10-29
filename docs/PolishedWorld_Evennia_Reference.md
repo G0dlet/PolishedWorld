@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 25 · 2026-10-29** — **what character creation learned, verified against the pinned `v6.1.0`** (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2). New **§3.6**: trait numbers — `.value` is a float whenever `mult` is (always, by default), counters and gauges round `.current` on read only when `.base` is an int, `GaugeTrait.value` is `.current`, `base` setters drop or clamp silently, and any property set on a trait is stored. New **§11.30** `utils.percent()` never divides by zero; **§11.31** `move_to`'s nine hooks and the containers contrib's two (filed from the weight decomposition's §3); **§11.32** which doors call `at_post_puppet` — login does, every `EvenniaTest` setUp does, `@reload` does not — and the one door every account-born character passes; **§11.33** file-help entries and the unknown-command line. New **§15 EvMenu**: the node contract, the cmdset that is the gate and shadows `py`, and persistent menus — what is saved, what a second `EvMenu` destroys, and the lazy restore that swallows a line. §13 gains two rows.
 > **Rev 24 · 2026-10-26** — new **§11.29: `search_prototype(no_db=True)` returns homogenized prototypes**, verified against the pinned `v6.1.0` (`evennia/prototypes/prototypes.py`). Filed by the Alpha Content epic (Decomp §3 finding 6 (iv)) and written in its close-out (AC6): a test or seeder that reads a loaded prototype by the module dict's top-level keys reads a shape the spawner never sees.
 > **Rev 23 · 2026-10-17** — **§11.27 now opens with the slot, not the flag.** Epic A (merged `34b2ee4`) built the pattern this section describes into `world/timed_actions.py` and moved `rest`, `work` and `craft` onto it, which left four sentences describing a repo that no longer exists: the provenance line ("shipped in `commands/work_commands.py`"), the claim that the `rest`/`at_pre_move` interrupt uses `ndb.working`, point 2's "a move hook … does not catch teleport", and point 3's `_rest_tick` guarding itself. The mechanism stays — why a string cannot tell two attempts apart, why the comparison is `is` — because the module depends on it and its reader needs it; what changes is that the section first says *use the slot, do not hand-roll a new flag*. Point 2 was read against Evennia `v6.1.0` rather than copied from the decomp's note: `@tel` moves with hooks, but `CmdTeleport` also has two direct `location =` writes (`tel/tonone`, and teleporting out of a None-location), and neither can reach a character playing in a room. That is said in the text, because a reader who checks the source will find them.
 > **Rev 22 · 2026-08-14** — new **§14: XYZGrid & Wilderness**, pre-implementation source verification for roadmap Stage 6. No code written and neither contrib is in use, so the section carries an explicit status banner — but the reading answered the "verify at source" note that has sat in the Stage 6 entry since Rev 2, so it is written down while it is fresh rather than re-derived later. Read against Evennia `main` and then **diffed against the `v6.1.0` tag: all five relevant files are byte-identical**, so the findings apply to the pinned version rather than only to upstream. Four have teeth. **§14.2** `spawn_nodes()` deletes any XYZRoom whose coordinate has left the map string, and re-applies the prototype over survivors with `exact=False` — a `desc` edited in-game is lost at the next spawn, so grid areas are authored in map modules, not with `dig`/`desc`. **§14.5** wilderness room recycling resets `contents` and exit locks but **not Tags or Attributes**, which is precisely where ExtendedRoom keeps room states and seasonal descs — state leaks between coordinates on a shared shell. **§14.6** `get_objs_at_coordinates()` is an O(n) scan over the whole wilderness and runs on effectively every step, which rules out resource nodes as objects. **§14.7** the grid side composes with ExtendedRoom for free (the two contribs override different hooks and `XYZRoom.return_appearance` calls `super()`), while the wilderness side inherits the behaviour but cannot use the storage. Also §14.3: a misspelled `taget_map_xyz` on the `TransitionMapNode` base class, harmless via the registered legend class and an `AttributeError` if you subclass the base directly.
@@ -398,6 +399,16 @@ inte hör hemma. Coerca explicit vid anropsstället, inte inuti mottagaren, så 
 den sker: `improve_skill_on_use` skriver `int(skill.current)`, och `world/skill_xp.py` gör samma sak
 innan nivån går in i `xp_threshold()`. Riktningen spelar roll där: `int()` trunkerar nedåt, vilket är
 rätt för ett golv som ska vara det *minsta* värde som är förenligt med nivån.
+
+### 3.6 ⚠️ Trait numbers: floats, read-time rounding, silent setters
+
+*(Verified against the pinned `v6.1.0`, `evennia/contrib/rpg/traits/traits.py`, 2026-10-29. Filed by character creation.)*
+
+- **`.value` is a float even when every input is an int.** `mult` defaults to `1.0` (`default_keys` at `:1183`, and the counter and gauge defaults at `:1274`, `:1563`). `StaticTrait.value` is `(base + mod) * mult` (`:1228`), `CounterTrait.value` is `(current + mod) * mult` (`:1466`), `GaugeTrait.max` is `(base + mod) * mult` (`:1663`). So a base-10 characteristic reads `10.0`, and anything built from `.value` — a skill base of `dex.value + int.value`, a health base of `con.value * 2` — is a float as well. A sheet then prints `10.0` and `28.0/28.0`. Fix it at the home: write ints into `.base`, and truncate for display in one helper. `assertEqual(30.0, 30)` passes, so only a typed protocol prediction sees this (Testing Ref §11l).
+- **Counters and gauges round `.current` on read — only when `.base` is an int.** `_update_current()` ends `if self.base is not None and isinstance(self.base, int): return round(current)` (`:1373` counter, `:1594` gauge). The stored current keeps its fraction: the read path rounds, the write path does not. With a float base, fractional depletion shows (`27.5`); with an int base it does not, which is what the survival ticker's per-tick arithmetic assumes.
+- **`GaugeTrait.value` is `.current`** (`:1695`) — no `mod` or `mult` on that read. §3.5's `(current + mod) * mult` is `CounterTrait`'s formula; the gauge overrides it and applies `mod`/`mult` to `.max` instead.
+- **`base` setters drop or clamp, silently.** `StaticTrait.base` stores only an `int` or `float` (`:1197`): `= "12"` does nothing and raises nothing; `= None` resets to the default. `CounterTrait.base` clamps so that `base + mod` stays inside `[min, max]` (`:1383`); `GaugeTrait.base` clamps against `min` only (`:1615`). A write that "did not take" is usually one of these.
+- **Any property set on a trait is stored.** `Trait.allow_extra_properties = True` (`:859`): `stats.str.current = 12` on a `StaticTrait` raises nothing and is saved as an extra key that no getter reads — and a test that reads it back passes. Know the trait's class before writing a property a plan prescribes (character creation CC1.1, B3).
 
 ---
  
@@ -1633,6 +1644,44 @@ that, adding `location` and its seed tag before `spawn()` — but mutating a
 nested list (`proto["tags"].append(...)`) writes through to the cached
 module prototype for the rest of the process.
 
+### 11.30 `utils.percent()` never divides by zero
+
+`evennia.utils.utils.percent(value, minval, maxval, formatting="{:3.1f}%")` (`utils/utils.py:1905`, `v6.1.0`) answers every degenerate interval instead of raising: a `None` bound → `100.0`; `minval > maxval` → `0.0`; `minval == maxval == value` → `100.0`; `minval == maxval != value` → `0.0`; a value outside the interval is clamped to it first. `GaugeTrait.percent()` calls it with `(current, min, max)`. So a reader that maps `percent()` onto a table (`Character.health_desc()`) needs no zero-max guard of its own, and a test expecting `ZeroDivisionError` from an empty gauge will never see one. `formatting=None` returns the raw float.
+
+### 11.31 `move_to`'s hook order — and the two hooks only the containers contrib's commands call
+
+*(Verified against `v6.1.0`, 2026-10-29; the anchors were first read for `docs/PolishedWorld_Weight_Decomposition.md` §3.)*
+
+`DefaultObject.move_to()` (`objects/objects.py:1173`) runs, in order, with `move_hooks=True`:
+
+1. `self.at_pre_move(destination)` — abort on `False`
+2. `source_location.at_pre_object_leave(self, destination)` — abort on `False`
+3. `destination.at_pre_object_receive(self, source_location)` — abort on `False`
+4. `source_location.at_object_leave(self, destination)`
+5. `self.announce_move_from(destination)` — skipped when `quiet`
+6. the move (`self.location = destination`)
+7. `self.announce_move_to(source_location)` — skipped when `quiet`
+8. `destination.at_object_receive(self, source_location)`
+9. `self.at_post_move(source_location)`
+
+`quiet=True` silences only 5 and 7 (Testing Ref §11d). `move_hooks=False` skips 1–4, 8 and 9. A plain assignment `obj.location = x` runs none of them — crafting output arrives that way (`world/crafting_base.py:324`).
+
+The containers contrib adds two hooks that `move_to` never calls: `ContribContainer.at_pre_get_from(getter, target)` (`contrib/game_systems/containers/containers.py:66`), called by `CmdContainerGet` (`:205`), and `at_pre_put_in(putter, target)` (`:83`), called by `CmdPut` (`:279`) — the default refuses when `len(self.contents) >= self.capacity`, with `capacity = AttributeProperty(default=20)`. `give`, `@py obj.move_to(...)` and any other path into the container pass neither. A rule that must hold for *every* way in belongs in `at_pre_object_receive` (step 3).
+
+### 11.32 ⚠️ Which doors call `at_post_puppet` — and the one door every account-born character passes
+
+*(Verified against `v6.1.0`, 2026-10-29; filed by character creation CC3.2.)*
+
+- **Login puppets.** `AUTO_PUPPET_ON_LOGIN = True` (`settings_default.py:809`); `Account.at_post_login` puppets the last character (`accounts/accounts.py:1735`), and `puppet_object` ends with `obj.at_post_puppet()` (`:554`) — called without a session, so the hook cannot address the session that caused it.
+- **Every `EvenniaTest` setUp runs it.** The fixture logs in through `SESSION_HANDLER.login(session, account, testmode=True)` (`utils/test_resources.py:244`); `testmode` skips only the portal sync (`server/sessionhandler.py:547`) and still calls `account.at_post_login`, so `char1.at_post_puppet()` runs before every test. A hook meant for real players keys on a stamp the creation door writes, not on a flag being absent (Testing Ref §11f).
+- **`@reload` does not.** `ServerSession.at_sync()` re-attaches the puppet after a reload "without any hooks, echoes or access checks" (`server/serversession.py`, the `if self.puid:` branch). Anything that must happen whenever a player is in the character cannot live in `at_post_puppet` alone (§15.3 for how EvMenu covers the reload).
+- **Character creation's door.** `Account.create_character()` (`accounts.py:931`) creates through `Character.create()` and then calls `self.at_post_create_character(character)` (`:974`). Every account-born character passes it: auto-create at account creation (`:1120`; `AUTO_CREATE_CHARACTER_WITH_ACCOUNT = True`, `settings_default.py:802`), guest login (`:2045`) and `charcreate` (`commands/default/account.py:152`). `create_object`, `@create` and test fixtures do not. Guests are `DefaultGuest`, which does not inherit the project's `Account`, so an override on `typeclasses/accounts.py` does not reach them.
+
+### 11.33 File-help entries, and the unknown-command line
+
+- `FILE_HELP_ENTRY_MODULES = ["world.help_entries"]` is Evennia's default (`settings_default.py:731`): a module-level `HELP_ENTRY_DICTS` list of dicts (`key`, `aliases`, `category`, `text`) becomes help topics with no database row (`help/filehelp.py`). An alias finds the topic under its key: `help profession` renders *Help for chargen (aliases: profession, professions)* (`commands/default/help.py:175`). Build the text from the constants it describes and it cannot drift from them (`world/chargen.py::help_entry()`).
+- An unknown command answers *Command 'x' is not available.* and adds *Maybe you meant …?* when `string_suggestions` finds a key or alias within a cutoff of 0.7 (`commands/cmdhandler.py:745`, `:755`). A test for a retired command asserts the first sentence; the suggestion depends on what else is installed.
+
 ---
 
 ## 12. Search multimatch & disambiguation UX
@@ -1740,6 +1789,8 @@ Roadmap cross-ref: backlog item *"Search / disambiguation UX + item identity"*.
 | Search multimatch UX | settings `SEARCH_MULTIMATCH_*` / `SEARCH_AT_RESULT` | Backlog — item-identity + optional reskin (§12) |
 | XYZGrid | `evennia.contrib.grid.xyzgrid` | Not in use — source-verified for Stage 6 (§14) |
 | Wilderness | `evennia.contrib.grid.wilderness` | Not in use — source-verified for Stage 6 (§14) |
+| EvMenu | `evennia.utils.evmenu` (built-in) | In use (`world/chargen_menu.py`, `world/chargen.py`; §15) |
+| File help entries | `FILE_HELP_ENTRY_MODULES` (built-in) | In use (`world/help_entries.py`; §11.33) |
  
 ---
  
@@ -1916,6 +1967,37 @@ straightforward to route into its own client pane later.
 
 Pathfinding across a map is also built in — `InterruptMapNode` (`I`) marks a node the auto-stepper
 stops at, `InterruptMapLink` (`i`) the same for a link.
+
+---
+
+## 15. EvMenu (`evennia.utils.evmenu`)
+
+*(Verified against the pinned `v6.1.0`, `evennia/utils/evmenu.py`, 2026-10-29. First used by character creation — `world/chargen_menu.py`, `world/chargen.py`; its decomposition's B11–B18 are the decisions this section explains.)*
+
+### 15.1 The node contract
+
+- A node is `def node(caller, raw_string, **kwargs)` returning `(text, options)`; `text` may be `(text, helptext)`. Fewer parameters also work: `_safe_call` reads the signature with `getfullargspec` (`:776`) and passes what fits.
+- `options` is a list of dicts (`key`, `desc`, `goto`). The key `_default` catches any input no other key matched, and its goto receives `raw_string` with its case intact — only the matching is lowercased.
+- `goto` is a node name or a callable `(caller, raw_string, **kwargs)` returning `"node"` or `("node", kwargs)`. Returning `None` re-runs the current node; raising `EvMenuGotoAbortMessage(text)` stays and shows `text` (`:345`, `:1134`).
+- **A node that returns no options closes the menu** after it is shown (`:999`), and `cmd_on_exit` runs. A refusal node without options therefore ends the menu.
+- `_safe_call` catches only `EvMenuError` (`:804`); any other exception in a node propagates.
+- **Every public function in the menu module is a node.** `_parse_menudata` takes each `isfunction` whose name does not start with `_` (`:745`) — functions *imported* into the module included. Prefix helpers with `_`, and import modules rather than functions.
+
+### 15.2 The cmdset is the gate — and it shadows `py`
+
+`EvMenuCmdSet` is `Replace` at priority 1 (`:453–461`), added with `persistent=persistent` (`:702`). It holds one command, `CmdEvMenuNode`, whose alias is the no-match command (`:372`), so every line the player types goes to `menu.parse_input()`. The character's own commands — `inventory`, `quit`, and `py` for a builder inside the menu — are shadowed while it is up. The escape runs from another character (Testing Ref §7).
+
+`parse_input` (`:1096`) tries, in order: an option key → `look`/`l` if `auto_look` → `help`/`h` if `auto_help` → `quit`/`q`/`exit` if `auto_quit` → `_default` → a no-match line. `auto_look`, `auto_help` and `auto_quit` all default to `True` (`:497–499`). With `auto_quit=False`, `quit` falls through to `_default`; `look` and `help` stay with the menu.
+
+### 15.3 Persistent menus: what is saved, what a second menu destroys, how a reload comes back
+
+- `persistent=True` saves `_menutree_saved = (MenuClass, (menudata,), calldict)` when the menu starts (`:687`) and `_menutree_saved_startnode = (nodename, (raw_string, kwargs))` at every goto (`:930`). Goto kwargs survive a reload; `caller.ndb._evmenu` does not — keep menu state in kwargs.
+- `close_menu()` (`:1002`) removes the cmdset, deletes `ndb._evmenu`, removes both saved attributes, then runs `cmd_on_exit(caller, menu)`.
+- ⚠️ **A new `EvMenu` on a caller that has `ndb._evmenu` closes the old one first** (`:659–663`): its saved attributes are deleted and its `cmd_on_exit` runs. "Start the menu again" on reconnect throws the player's progress away. To resume, read `_menutree_saved*`, drop the reference (`del caller.ndb._evmenu`) so `__init__` finds nothing to close, and construct `MenuClass(caller, *saved[1], **saved[2])` with `startnode`/`startnode_input` taken from the saved tuple — what the contrib's own `_restore` does (`world/chargen.py::start_or_resume_chargen`).
+- `_restore` is nested inside `CmdEvMenuNode.func` (`:400`) and cannot be called from outside; resuming code mirrors it.
+- ⚠️ **After `@reload` the restore is lazy and eats a line.** Nothing rebuilds the menu at reload (`at_post_puppet` does not run, §11.32). The persistent cmdset is back, `ndb` is empty; the first line the player sends reaches `func`, which finds no menu, calls `_restore` and **returns without `parse_input`** (`:423–426`). The menu reappears at its saved node and that line is lost.
+- Restoring replays the saved kwargs exactly — including a stale one-off message carried in them.
+- `menu._session` is set at construction (`:612`) and again on every command (`:448`); after a reconnect it names the old session until the next command.
 
 ---
 

@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 51 · 2026-10-29** — *Legend character creation* is code complete on `feature/character-creation` (`87bacfd`; `docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2; roadmap Rev 32; merge pending as CC4.2). **Closed:** *Profession Common-Skill bonuses* (CC2.1, `craft +10` for all four) and *Health `descs` use a 0–100 scale* (CC1.2) go **SCHEDULED → DONE**; the health entry's annotation said CC1.2 would take the lower-bound reading — it kept the upper-bound one and swapped the value for `percent()`, corrected. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* (health has its own reader now, a fourth to change with the other three); *Cultural-Background gating of professions* (the chargen shipped; characteristics no longer identical); *Free Skill Points* and *Cultural Background* (shipped without them). **Added** (*Professions & Chargen*): *A `hunter` profession* (OQ3); *Characteristic improvement (Legend p.68ff)*; *Chargen resume replays the last notice*; *Dev characters keep a float `health.base`*; *Placeholder skill bases in `at_object_creation`*. **Added** (*Tooling & Process*): *System Map describes the world as of Stage 4*. No code changes.
 > **Rev 50 · 2026-10-26** — *Weight and encumbrance* decomposed (`docs/PolishedWorld_Weight_Decomposition.md` Rev 1; roadmap Rev 31). **Status changed:** *Weight and encumbrance (Legend ENC)* goes **OPEN → SCHEDULED** (code after character creation, per alpha decision (F)); *Full container support* stays SCHEDULED with it. **Annotated:** the weight entry records the translation (WD1–WD8) and **corrects its own 2026-10-18 direction** — no `Overloaded` buff, no `fatigue_rate` mult; the band costs −20 % on physical tests and one fatigue point per room, read lazily — because the annotation read as an instruction and would have been built. *Fatigue-exhaustion consequence* is annotated with the answer to the question both entries asked: the weight feature neither contains it nor depends on it, since a ceiling at twice the limit prices distance in trips before fatigue has a consequence; the per-room cost and the `physical_modifier()` seam are what this entry's bands will plug into. *`CoinPile` vs the corpse's atomic content delete* is annotated with `CoinPile`'s `enc` (AD8's rule, Stage 5). No new entries: the two rejected penalties (a rate multiplier, a movement delay) and container nesting are decided in the decomposition, not deferred.
 > **Rev 49 · 2026-10-26** — *Legend character creation* decomposed (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 1; roadmap Rev 30, alpha decision (F)). **Scheduled:** *Profession Common-Skill bonuses* — its trigger (*a real chargen with per-character characteristics*) fires; home CC2.1, status BLOCKED → SCHEDULED. *Health `descs` use a 0–100 scale against a max of `CON × 2`* — CON now spans 6–18, so the fix is the epic's CC1.2, OPEN → SCHEDULED. **Added** (*Professions & Chargen*): *Cultural Background* — struck from the alpha chargen, with the trigger it waits on; *Free Skill Points* — replaced for the alpha by the profession bonus, with its trigger. **Annotated:** *Cultural-Background gating of professions* — the chargen the entry was waiting for ships without a Cultural Background; it stays BLOCKED on the new entry above it. No code changes.
 > **Rev 48 · 2026-10-26** — the Alpha Content epic's close-out (Decomp AC6; merged to `main` in `a4bf108`, branch tip `052f1b7`, tree `aea8b40`). **Closed:** *Alpha content epic* goes **SCHEDULED → DONE**. **Narrowed:** *⛔ The recipe catalogue does not span the skill scale* keeps E.2 only — E.1 shipped as AC5.1 (29 recipes, rungs 0/20/40/60, ceiling 60); it stays BLOCKED on E.2's own trigger. *Public test server* part **(a) DONE** (AC3.1–3.2: `world/seed_data.py`, `world/seeding.py`, the setup hook, and a nine-step runbook in the decomposition's AC3.2 record); (b) unchanged. *Four docs … carry no Rev header*: the AoL decomposition gets its Rev 1 in this commit, so three remain. **Annotated:** *Weight and encumbrance* (a test the decomposition must carry). **Added**, all findings from AC2.1–AC5.1 given a home: *Article and number in messages built from item keys* (UX); *`recipes` lists floored recipes under "can craft"* (UX); *`@economy mint` preview suggests the confirm line in copper* (Currency); *Evennia is not pinned in the repo* (Tooling); *The registry's `hammer` is DATA with a `blocked_on`* (Crafting & Tools). Two findings needed no entry: the health and trait `descs` banding is already filed twice (*`descs` tables are read as upper bounds…*, *Health `descs` use a 0–100 scale…*), and `stones` reaching the milling stones belongs to roadmap *Search / disambiguation UX + item identity*, annotated there (roadmap Rev 29) per this file's scope note.
@@ -794,7 +795,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Skill Points do, and those are deferred — see the entry below.)*
 - **Origin:** Stage 3 Component D -- Legend profession analysis (Legend.pdf
   Professions section, verified 2026-07-12).
-- **Status:** SCHEDULED (Character creation CC2.1)
+- **Status:** DONE (`8f45b86` on `feature/character-creation`; decomposition Rev 2, CC2.1 record) — `craft +10` for all four professions, applied once by `grant_profession()`; the other Legend bonuses (Evaluate, Influence, Persistence) have no skill to land on in the alpha.
 
 ### Free Skill Points (Legend p.25)
 - **What:** Legend's third step of Previous Experience: 250 points the player
@@ -807,7 +808,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** More Common skills than the alpha's five, or alpha close-out
   data showing the profession bonus alone leaves the cohort's skill spread too
   narrow.
-- **Origin:** Character creation decomposition CC6 (2026-10-26).
+- **Origin:** Character creation decomposition CC6 (2026-10-26). Shipped without
+  it (decomposition Rev 2, 2026-10-29).
 - **Status:** BLOCKED (skill count / alpha data)
 
 ### Cultural Background (Legend p.15–18)
@@ -821,7 +823,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   culture that changes no number is a label, and labels are not chargen.
 - **Trigger:** Culture / Lore skills exist (or a weapon-style skill does, at
   Stage 5).
-- **Origin:** Character creation decomposition CC2 (2026-10-26).
+- **Origin:** Character creation decomposition CC2 (2026-10-26). Shipped without
+  it (decomposition Rev 2, 2026-10-29).
 - **Status:** BLOCKED (skills for the bonuses to sit on)
 
 ### Cultural-Background gating of professions
@@ -831,14 +834,76 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   culture-based availability gate is the Legend-authentic future refinement.
 - **Why deferred:** No Cultural Background / chargen system exists yet to gate
   against, and free choice is both Legend-faithful and the only meaningful option
-  while characteristics are identical placeholders. Explicitly NOT a
+  while characteristics are identical placeholders *(2026-10-29: they no longer
+  are — character creation; free choice stays, for the first reason)*. Explicitly NOT a
   characteristic-minimum gate -- that would diverge from Legend RAW.
 - **Trigger:** A Cultural Background / chargen system. *(2026-10-26: the chargen
   ships without a Cultural Background — CC2; this entry now waits on the
-  *Cultural Background* entry above.)*
+  *Cultural Background* entry above.)* *(2026-10-29: shipped so — the chargen
+  menu offers all four professions to every character; decomposition Rev 2.)*
 - **Origin:** Stage 3 Component D.2 -- Legend profession analysis (verified
   2026-07-12).
 - **Status:** BLOCKED (Cultural Background / chargen system)
+
+### A `hunter` profession
+- **What:** A fifth profession package with a `hunting` bonus — and, today, no
+  recipe: the first package that would be bonus-only.
+- **Why deferred:** No recipe-knowledge channel needs it, and a bonus-only
+  package changes what a profession *is* in this game (CC6: recipe grants plus a
+  skill bonus). Decided for the alpha as OQ3 → no.
+- **Trigger:** Hunting gets recipes of its own (snares, traps, dressing tools),
+  or alpha close-out data shows nobody hunts.
+- **Origin:** Character creation decomposition OQ3, closed in CC2.1 (B7),
+  2026-10-28.
+- **Status:** BLOCKED (a hunting recipe, or alpha data)
+
+### Characteristic improvement (Legend p.68ff)
+- **What:** Legend's Adventurer Advancement raises characteristics as well as
+  skills. Here characteristics are set once in chargen and never change;
+  `help chargen` says so ("Your characteristics stay as you set them").
+- **Why deferred:** Nothing reads a characteristic except the derivations at
+  creation (skill bases, Hit Points), so a rising characteristic would change
+  nothing a player sees — and the improvement model built here is XP per level
+  on skills, not Improvement Rolls.
+- **Trigger:** A characteristic gets a reader beyond the derivation (Damage
+  Modifier or Strike Rank at Stage 5, encumbrance from STR+SIZ), or the
+  improvement epic is reopened. Change `help chargen`'s sentence in the same
+  commit.
+- **Origin:** Character creation CC3.3 (B20), 2026-10-29.
+- **Status:** BLOCKED (a reader, or the improvement epic)
+
+### Chargen resume replays the last notice
+- **What:** A resumed chargen menu shows the node as the player left it,
+  including a one-off notice carried in the goto kwargs — e.g. *"Pairs come as
+  a name and a number…"* after a `quit` the menu had answered. Persistent
+  EvMenu replays the saved kwargs exactly (Evennia Ref §15.3).
+- **Why deferred:** Cosmetic; the screen is what the player last saw, and no
+  number is wrong.
+- **Trigger:** Player feedback that it confuses.
+- **Origin:** Character creation CC3.2 protocol B, 2026-10-28.
+- **Status:** OPEN
+
+### Dev characters keep a float `health.base`
+- **What:** Characters made before CC3.3 carry `health.base` as a float
+  (`20.0`) until something calls `update_health_max()`, which now writes an
+  int. Their health current is not rounded on read meanwhile (Evennia Ref §3.6).
+- **Why deferred:** No backfill (CC7): only development characters exist, and
+  the alpha database is wiped at close-out.
+- **Trigger:** Never, if the alpha database is wiped as planned; otherwise
+  before the first real player — one migration over `health.base`.
+- **Origin:** Character creation CC3.3 (B21), 2026-10-29.
+- **Status:** BLOCKED (only if the alpha database survives)
+
+### Placeholder skill bases in `at_object_creation`
+- **What:** `at_object_creation` still creates the skills on the old fixed
+  bases (perception, athletics and hunting 25, stealth 20); chargen rewrites
+  them from the characteristics, where 10s give 20 in all four.
+  Test fixtures and characters born outside an account keep the placeholders.
+- **Why deferred:** CC3.3 rewrote the comments, not the values (B22): the
+  fixtures that hundreds of tests rely on would all move at once, for no player.
+- **Trigger:** Fixtures are meant to mirror a chargen character.
+- **Origin:** Character creation CC3.3 (B22), 2026-10-29.
+- **Status:** BLOCKED (a reason for fixtures to mirror chargen)
 
 ---
 
@@ -1597,6 +1662,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   gauge drops a band). Any change to the reading changes all three together, or
   the sheet, the tier-up line and the ticker's warnings disagree about the band
   a character is in.
+  *(2026-10-29: health has had its own reader since character creation CC1.2 —
+  `Character.health_desc()`, which applies the same upper-bound rule to
+  `percent()` instead of the value; health's `.desc()` call moved to it, leaving
+  `commands/character_commands.py` ×6. It is a fourth reader to change with the
+  other three.)*
 - **Decide the reading first; it decides the cost.**
   - *Upper bounds are the design:* the tables are rewritten so their numbers
     say what they do. `descs` are stored per trait on every character, so this
@@ -1638,10 +1708,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   is one of the three), or the next change to `sheet`/vitals output — whichever
   comes first. *(2026-10-26: CON spans 6–18 once character creation ships, so
   the max spans 12–36 — fixed as CC1.2 of
-  `docs/PolishedWorld_Character_Creation_Decomposition.md`, taking the
-  lower-bound reading for health only.)*
+  `docs/PolishedWorld_Character_Creation_Decomposition.md`, ~~taking the
+  lower-bound reading for health only~~.)* *(2026-10-29: built the other way —
+  `Character.health_desc()` keeps Evennia's upper-bound reading and swaps the
+  value for `percent()`; the 0–100 keys already were percent bands. The
+  reading question stays with the entry above.)*
 - **Origin:** Epic A TA1.3 in-game protocol, 2026-10-09.
-- **Status:** SCHEDULED (Character creation CC1.2)
+- **Status:** DONE (`ca9045a` on `feature/character-creation`; decomposition Rev 2, CC1.2 record)
 
 ### `look`-injected condition for non-admin players
 - **What:** Surface the condition line in `look` output for regular players
@@ -2159,6 +2232,22 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the first install nobody watches. Pin `evennia==6.1.0` in a
   `requirements.txt` then, or earlier if a machine is found off the tag.
 - **Origin:** Alpha Content AC3.2 and AC4.0 (2026-10-24).
+- **Status:** OPEN
+
+### System Map describes the world as of Stage 4
+- **What:** `docs/PolishedWorld_System_Map.md` was last revised 2026-08-03
+  (Rev 3). It names none of the systems built since — `world/skill_xp.py`
+  (Stage 4.5), `world/timed_actions.py` (Epic A), `world/seeding.py` (Alpha
+  Content), `world/chargen.py` (character creation) — so its scope rule
+  (*describe only what is built*) holds in the other direction: built systems
+  are missing from it.
+- **Why deferred:** Adding one system to a map that lacks four would make it
+  look current without being so. A refresh is its own documentation task, read
+  against live code.
+- **Trigger:** Before the alpha opens, or when the *Runnable seam checker* is
+  built — whichever comes first.
+- **Origin:** Character creation CC4.1 (2026-10-29): the decomposition asked
+  whether the map describes chargen; it describes nothing after Stage 4.
 - **Status:** OPEN
 
 ---

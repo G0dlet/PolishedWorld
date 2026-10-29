@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 14 · 2026-10-29** — **Character creation's findings (decomposition Rev 2), filed where they apply.** **New §11l: a predicted value carries its type** — `30.0 == 30` and `"28/28" in "28/28.0"` both pass, so a protocol writes the repr it expects and a render assertion is anchored against a decimal tail. **§7** gains the builder escape from a persistent menu (from another character — the menu shadows `py`) and the step-0 probe that keeps placeholders out of command cells. **§11b** gains three mutation rules: probe between a table's keys, make every fixture value differ from its default, and test a guard where the stamp's writer lives. **§11c** gains four prose-loop rules: grep before counting existing tests as coverage, grep before locking "one home", spike a framework claim before locking it, and check every player-facing sentence against the code. **§11f**: the fixture puppets `char1` in every setUp, the `repuppet()` helper, and how to drive an EvMenu in a unit test. **§11h**: a reload does not call `at_post_puppet`, and a persistent menu eats the first line after it. **§12**: 6.1.0's login dialog, the unknown-command line, and `execute_cmd`'s Deferred. **§14**: the second `git am`'s first line is predictable, `--abort` needs the identity flags too, `diff --check` before `format-patch`, and bash-only syntax inside `bash -c`.
 > **Rev 13 · 2026-10-20** — **Three findings from `feature/harvest-guard` (BACKLOG Rev 47).** **New §11k: a negative case proves its own type.** The protocol's "the fix does not over-reach" step was written against an object called `freshcorpse` on the strength of its name; it was a `PlayerCorpse`, and only the typeclass printed in step 0 showed it. **§13 gains:** the verdict of a piped suite run is read with `grep`, not `tail`, because the launcher's stdout is block-buffered and lands after unittest's stderr summary. **§14 gains:** the tree receipt is `git rev-parse HEAD^{tree}`, which worked in a terminal where `git log --format` printed nothing.
 > **Rev 12 · 2026-10-19** — **Five findings from `feature/death-contract` (BACKLOG Rev 46).** **New §11j: a superuser walks through every lock.** Evennia's lock bypass made the developer's own character useless as the looter in the first time-conditioned lock's protocol; the protocol uses a plain account and moves `owner` between characters instead, and the unit tests assert the bypass is off before they assert a refusal. **§11b gains a fifth harness rule:** read *which* tests fell — a mutant that broke the module's syntax "died" by failing every test that imports it, which is a dead harness and not a killed mutant. **§13 names one known line of noise** (`Overwriting existing registered function stopWordFilter`, from `lunr` on the first help search). **§14 gains two delivery traps:** a patch glob that matches two files applies both, and a failed command in a `git stash && … && git stash pop` chain leaves the stash on the stack.
 > **Rev 11 · 2026-10-19** — **Two new sections from the `feature/sweeper` in-game protocol (BACKLOG Rev 45).** **§11h: a unit suite cannot see a reload.** The sweeper's `TICKER_HANDLER` timer passed every unit test, including its registration and cleanup tests, and was gone after the first `reload`, because this project's startup code overwrites ticker storage before Evennia restores it. Persistence is a property of a server restart, so it is receipted in-game or not at all. **§11i: one sample of a periodic process cannot tell zero cycles from two.** A two-room patrol sampled once after "70–100 s" read *unchanged*, which fits both *never ticked* and *ticked twice*; the fix is timestamped polling that sees the change happen.
@@ -239,6 +240,20 @@ Confirm a render contains only intended colour codes (no stray raw `|`) by echoi
   in `world/prototypes.py` does), so a step that spawns an ingredient and then
   crafts finds nothing to craft with. Pick it up first: `CmdGet` takes a count,
   `get 3 <name>`.
+- **No placeholder in a command cell.** A `<dbref>` or `<name>` in a protocol line is a step the reader must edit, and the edit is where it goes wrong. Step 0 finds or creates the fixture and keeps it on the caller; later lines read it:
+
+  ```
+  @py self.ndb.probe = self.search("Tessa", global_search=True); self.msg(str((self.ndb.probe, self.ndb.probe.typeclass_path)))
+  ```
+
+  `ndb` dies with `@reload`, so a protocol that reloads re-runs step 0 after it.
+- **Releasing a character from a persistent menu (the builder escape).** A character inside an EvMenu cannot run `py` — the menu's cmdset shadows it (Evennia Ref §15.2). Run this from *another* character, over telnet because of the `;` (§2), with the stuck character's name:
+
+  ```
+  py from evennia.utils.evmenu import EvMenuCmdSet; c = self.search("Tessa", global_search=True); c.cmdset.remove(EvMenuCmdSet); c.attributes.remove("_menutree_saved"); c.attributes.remove("_menutree_saved_startnode"); c.ndb._evmenu = None; self.msg(str((c.cmdset.has(EvMenuCmdSet), c.attributes.has("_menutree_saved"))))
+  ```
+
+  Expected `(False, [])` — `attributes.has()` returns an empty list, not `False`. `db.chargen_complete` stays `False`, so the next puppet starts a fresh menu, which is what a test character wants. Verified in a unit spike (character creation CC3.2, S5: `before (True, True) after (False, False)`, the other character untouched); not yet run in game.
 
 ## 8. Diagnostic — silent `DefaultObject` fallback
 
@@ -411,6 +426,12 @@ fifth from `feature/death-contract`):
   the file is a broken mutant. Print the failing names per mutant, and match a
   deletion's search text from the start of the line, indentation included.
 
+**Probe between a table's keys, not on them.** A table-driven reader — a `descs` map, a band table — passes any test that probes exactly on its keys, whichever way it reads them: a value on a key lands in the same band under an upper-bound and a lower-bound reading. Probe a value strictly between two keys, where the two readings disagree.
+
+**Every fixture value differs from the default it replaces.** A fixture of 10 in a characteristic whose default is 10 cannot tell a write from no write. Character creation's fixture has no 10 anywhere: STR 7 DEX 9 CON 14 SIZ 8 INT 12 POW 17 CHA 13 — and its derived values (health 28, Craft 21) differ from the defaults too.
+
+**A guard lives with the stamp's writer, and is tested there.** A command that checks a stamp before calling a helper that writes it does not stop a direct second call to the helper; and a mutant that removes the helper's guard survives every command-level test while the command keeps its own check. Put the guard in the helper (P-2) and test the helper directly (`TestGrantOnce` in `tests/test_professions.py`).
+
 ### 11c. The prose-verification loop must read blocks, not lines — and must be proven to search
 
 Four of this epic's five falsified production claims were found by grepping for
@@ -460,6 +481,13 @@ change, then fix, then run it again. Without that first run, "clean" and "never
 searched" look identical — which is §11's receipt rule applied to the tooling
 instead of to the code, and the reason the catalogue loop in the working notes
 says *the loop is run, not read*.
+
+**Four more claims that are grepped or spiked, not assumed** (character creation):
+
+- *"The existing tests keep passing"* is coverage only if they exist. `grep -rn "<function>" tests/` before counting them — the plan relied on `grant_profession()` tests there were none of.
+- *"One home"* is locked after a grep for the expression across the repository. The plan counted two sites of `con.value * 2`; there were three.
+- A claim about the framework's behaviour is spiked before it is locked, with a before/after receipt in the same test. The plan's *"`@py` is not shadowed for builders"* fell to `py self.db.before = 1`: `1` before the menu, `None` inside it.
+- Every player-facing sentence — help text, menu text, a doc that promises — is checked against the code before it is written. The plan had `help chargen` promise that characteristics improve in play; nothing does.
 
 ### 11d. `quiet=True` silences the room, not the mover
 
@@ -574,6 +602,10 @@ that reads the base. Use two values that differ from each other *and* from the
 default, and assert that premise in the test, so that a recalibration fails the
 test instead of quietly weakening it (Epic A T29: twine 20, cloth 25, base 30).
 
+**The fixture puppets `char1` in every setUp.** `EvenniaTest` logs in with `testmode=True`, which still runs `at_post_login` → auto-puppet → `char1.at_post_puppet()` (Evennia Ref §11.32). Whatever that hook does, it does before all 700+ tests. A hook meant only for real players keys on a stamp the creation door writes, not on a flag being absent. To test the hook itself, puppet again on the fixture's session — `repuppet()` in `tests/test_chargen_launch.py` calls `account.unpuppet_object(session)` and then `account.puppet_object(session, char)`.
+
+**Driving an EvMenu in a unit test.** Start it with `EvMenu(char1, "world.chargen_menu", startnode=...)`, send lines with `char1.execute_cmd(line, session=self.session)`, and read what the menu said by patching `char1.msg` with `mock.patch.object`: the node text arrives as the `text` keyword, a tuple `(nodetext, {"type": "menu"})` (`tests/test_chargen_menu.py`). A whole menu module can outlast a one-minute sandbox timeout; run it class by class.
+
 ### 11g. A final-state assertion cannot see a transient side effect
 
 From the `feature/janitor` mutation run. `Corpse.crumble()` deletes a corpse's
@@ -632,6 +664,8 @@ module's docstring that the unit tests do not cover it.
 reload
 @py ... (same line)          # same dbref, still active — then watch it act
 ```
+
+**A reload does not call `at_post_puppet`, and a persistent menu eats the first line after it.** The session is re-attached without hooks; the EvMenu comes back lazily, on the first line the player sends, and that line is consumed by the restore (Evennia Ref §15.3). A protocol step after `@reload` sends a throwaway line (`l`) and predicts that it shows the node — not that `l` did anything.
 
 ### 11i. One sample of a periodic process cannot tell zero cycles from two
 
@@ -698,6 +732,14 @@ it is used. A name is not a type, and dev-DB objects outlive the protocols that
 named them. The unit test carries the same receipt:
 `self.assertIsNone(corpse.db.is_player_corpse)`.
 
+### 11l. A predicted value carries its type
+
+`assertEqual(30.0, 30)` passes, and `assertIn("28/28", text)` passes on `28/28.0`. A unit test that compares numbers cannot see an int that became a float, and a substring test cannot see a trailing `.0`. Character creation shipped the floats past a green suite; the protocol was the only place they showed. Three rules:
+
+- **A protocol prediction is written as the repr of what the expression returns** — `20` or `20.0`, `False` or `[]`. Read the line that renders the value, and the library's *read* path as well as its write path, before predicting it. Three misses in one epic: `False` predicted, `attributes.has()` gave `[]` (a known gotcha, not applied); `7` predicted, `sheet` gave `7.0` (`StaticTrait.value` is a float); a fractional hunger predicted, but `GaugeTrait` rounds `.current` on read when the base is an int (Evennia Ref §3.6).
+- **A render assertion is anchored against a decimal tail, on both sides of a `/`.** `assertRegex(text, r"(?<![\d.])28/28(?![.\d])")` — the lookbehind refuses `128/28`, the lookahead `28/28.0`. Probing mutants found the gap in an `assertIn` version.
+- **Where the type is the claim, assert the type**: `assertIsInstance(char.traits.health.base, int)` (`TestHealthIsInt`, `tests/test_chargen_help.py`).
+
 ## 12. Command-syntax traps that read as bugs
 
 Two argument-shape errors from Stage 4.5's protocol that produce misleading
@@ -711,6 +753,9 @@ messages rather than usage hints:
   `hunt rabbit` return a disambiguation list; `hunt rabbit-1` is the target.
   Evennia's multimatch numbering is per-search, so re-check the list after any
   kill or flight rather than assuming `-1` still names the same animal.
+- **Evennia 6.1.0's connection screen creates an account in a dialog.** Type the new username at the prompt and answer its questions; `create <name> <password>` is not what it asks for. A login step is checked against the screen, not against memory.
+- **An unknown command says `Command 'x' is not available.`** and may add `Maybe you meant …?` (Evennia Ref §11.33). A step for a retired command predicts the first sentence only.
+- **`@py char.execute_cmd(...)` prints `<Deferred at … current result: None>`.** `execute_cmd` returns a Twisted Deferred; in expression mode `@py` echoes it. It is not an error — the receipt is the next line of output.
 
 ## 13. What a suite run proves
 
@@ -785,6 +830,10 @@ Receipts for a patch or a guide, taken before it is handed over.
 - **Receipts quoted in prose are copied from the delivered file after the last
   regeneration** — the sha256, the tree id, the test count. A receipt written down
   before the last edit is a receipt for a file nobody received.
+- **The second `git am` must be refused, and its first line can be predicted.** `format-patch` writes files in path order, uppercase before lowercase; `grep '^diff --git' <patch>` shows it. A modified file fails with two lines — `error: patch failed: <file>:<N>`, where N is that file's first hunk's `@@ -N`, then `error: <file>: patch does not apply`; a new file fails with one, `error: <file>: already exists in index`. Predict the first line, run it, then `git am --abort`.
+- **In a receipt chain every git command carries the identity flags** — `-c user.name=… -c user.email=…` — `git am --abort` included. On a clone without global config the abort fails otherwise and leaves the am in progress.
+- **`git diff --check` before `git format-patch`.** Trailing whitespace becomes a `git am` warning on the receiving machine.
+- **Bash-only syntax runs inside `bash -c`.** Under `/bin/sh`, `${PIPESTATUS}` is a *Bad substitution* that aborts the script — the `git am --abort` after it never ran. Cleanup goes in a call of its own.
 
 ## Domain quick-refs
 
