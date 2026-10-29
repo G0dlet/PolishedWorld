@@ -17,7 +17,6 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 from evennia import default_cmds
 from evennia.contrib.grid import extended_room
 from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
-from evennia.contrib.game_systems.containers.containers import CmdContainerGet
 from commands import character_commands
 from commands.admin_commands import CmdWeather
 from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
@@ -26,6 +25,7 @@ from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
 from commands.currency_commands import CmdWallet, CmdPay, CmdEconomy
 from commands.work_commands import CmdWork
+from commands.inventory_commands import CmdGet, CmdInventory
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -45,7 +45,6 @@ from evennia.contrib.game_systems.clothing.clothing import (
     CmdRemove,
     CmdCover,
     CmdUncover,
-    CmdInventory,
 )
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -162,22 +161,24 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
 
         self.add(CmdPWTrade())
 
-        # Clothing: wear/remove/cover/uncover. CmdInventory overrides the
-        # default 'inventory' (inv, i) to split worn vs carried items — useful
-        # once clothing exists; drop that one line if you'd rather keep default inv.
+        # Clothing: wear/remove/cover/uncover. CmdInventory
+        # (commands/inventory_commands.py) is clothing's 'inventory' (inv, i),
+        # which splits worn and carried items, plus the "Carrying N/L ENC"
+        # line (W2.2).
         self.add(CmdWear())
         self.add(CmdRemove())
         self.add(CmdCover())
         self.add(CmdUncover())
         self.add(CmdInventory())
 
-        # Corpse/container looting: replaces stock 'get' with a version that also
-        # supports 'get <obj> from <container>' (checks the container's get_from
-        # lock). Deliberately NOT the full ContainerCmdSet -- that bundles
+        # Corpse/container looting: CmdGet (commands/inventory_commands.py) is
+        # the containers contrib's 'get', which also supports
+        # 'get <obj> from <container>' (checks the container's get_from lock),
+        # minus the contrib's refusal line after a ceiling refusal (W2.2 Q3).
+        # Deliberately NOT the full ContainerCmdSet -- that bundles
         # CmdContainerLook, which would clobber extended_room's seasonal look.
-        # Plain 'get <obj>' is unchanged. Full put/storage containers are a
-        # later task (see decomp section 13).
-        self.add(CmdContainerGet())
+        # Full put/storage containers are a later task (see decomp section 13).
+        self.add(CmdGet())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

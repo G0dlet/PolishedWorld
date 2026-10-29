@@ -1,5 +1,5 @@
 """
-Encumbrance reader (Weight and Encumbrance, Task W1.1).
+Encumbrance reader (Weight and Encumbrance, Tasks W1.1, W2.1, W2.2).
 
 Pure functions over objects. This module owns no state: it stores nothing,
 caches nothing and writes nothing. Every answer is computed from what the
@@ -15,8 +15,10 @@ compared against STR+SIZ:
     item       : item_enc(obj)              -> int   (the `enc` Attribute)
     holder     : carried_enc(holder)        -> int   (recursive sum, WD4, WD5)
                  enc_after_receiving(holder, obj) -> int   (the sum with obj in, W2.1)
+                 enc_without(holder, obj, elsewhere) -> int (the sum with obj out, W2.2)
+    band       : band(carried, limit)       -> FREE | OVERLOADED | CEILING (WD2)
     character  : enc_limit(char)            -> int   (STR+SIZ, WD1)
-                 encumbrance_state(char)    -> FREE | OVERLOADED | CEILING (WD2)
+                 encumbrance_state(char)    -> band(carried_enc, enc_limit)
 
 LOCKED DECISIONS (docs/PolishedWorld_Weight_Decomposition.md, Rev 2)
 ---------------------------------------------------------------------
@@ -34,8 +36,9 @@ LOCKED DECISIONS (docs/PolishedWorld_Weight_Decomposition.md, Rev 2)
   check failed somewhere.
 * States are module constants, so W2 and W3 never spell one by hand.
 
-Boundaries: FREE at or below the limit; OVERLOADED above it, up to and
-including OVERLOAD_FACTOR x limit; CEILING above that.
+Boundaries (`band`, the one place the rule lives): FREE at or below the
+limit; OVERLOADED above it, up to and including OVERLOAD_FACTOR x limit;
+CEILING above that.
 """
 
 from evennia.utils import logger
@@ -92,16 +95,18 @@ def _is_skipped(obj):
     return bool(obj.destination) or inherits_from(obj, _CHARACTER_PATH)
 
 
-def _walk(holder, depth):
+def _walk(holder, depth, exclude=None):
     """
     Sum ENC under `holder`; return (enc_total, count_of_items_at_zero).
 
     `depth` is the depth of `holder`'s contents (1 for the outermost call).
+    `exclude` is left out with everything it holds, wherever it sits in the
+    tree (W2.2: the sum as if that object were somewhere else).
     """
     total = 0
     zeros = 0
     for obj in holder.contents:
-        if _is_skipped(obj):
+        if obj == exclude or _is_skipped(obj):
             continue
         enc = item_enc(obj)
         if enc:
@@ -115,7 +120,7 @@ def _walk(holder, depth):
                     f"{depth + 1} under {holder.key}(#{holder.id}); not counted."
                 )
                 continue
-            sub_total, sub_zeros = _walk(obj, depth + 1)
+            sub_total, sub_zeros = _walk(obj, depth + 1, exclude)
             total += sub_total
             zeros += sub_zeros
     return total, zeros
@@ -190,6 +195,38 @@ def enc_after_receiving(holder, obj):
     return total + zeros // SMALL_ITEMS_PER_ENC
 
 
+def enc_without(holder, obj, elsewhere):
+    """
+    The value `carried_enc(holder)` has with `obj` at `elsewhere` (W2.2).
+
+    `obj` is in `holder`'s carried tree when this is asked: the leave hook
+    asks before the move, the receive hook after it. Its own ENC and
+    everything it holds are left out, and the twenty-to-one rule runs once
+    over what remains (WD4) -- subtracting `item_enc(obj)` from the sum would
+    miss the twentieth item at `enc` 0. When `elsewhere` is `holder` or
+    inside its carried tree (a `put` into a carried sack, a `get` from one)
+    the item stays carried, and the current sum is returned. A character or
+    an exit changes nothing without a case of its own: the walk never
+    counted it.
+    `elsewhere` is None when an object is created in place
+    (`create_object(location=holder)`, objects.py:1975): it was nowhere.
+
+    Args:
+        holder (Object): the carrier.
+        obj (Object): the moving object, in `holder`'s carried tree.
+        elsewhere (Object or None): where `obj` is going, or came from.
+
+    Returns:
+        int
+    """
+    if elsewhere is not None and (
+        elsewhere == holder or _is_carried_by(elsewhere, holder)
+    ):
+        return carried_enc(holder)
+    total, zeros = _walk(holder, 1, exclude=obj)
+    return total + zeros // SMALL_ITEMS_PER_ENC
+
+
 def enc_limit(char):
     """
     The character's carrying limit: STR + SIZ, read live (WD1).
@@ -200,17 +237,37 @@ def enc_limit(char):
     return int(char.stats.str.value + char.stats.siz.value)
 
 
-def encumbrance_state(char):
+def band(carried, limit):
     """
-    Return FREE, OVERLOADED or CEILING for a character (WD2).
+    Return FREE, OVERLOADED or CEILING for a sum against a limit (WD2).
+
+    The one place the band rule lives: `encumbrance_state` reads a character
+    through it, and the crossing messages and the inventory line (W2.2) put
+    their own sums through it.
+
+    Args:
+        carried (int): an ENC sum.
+        limit (int): the carrier's limit.
 
     Returns:
         str: one of the module constants.
     """
-    carried = carried_enc(char)
-    limit = enc_limit(char)
     if carried > OVERLOAD_FACTOR * limit:
         return CEILING
     if carried > limit:
         return OVERLOADED
     return FREE
+
+
+def encumbrance_state(char):
+    """
+    Return FREE, OVERLOADED or CEILING for a character (WD2).
+
+    `carried_enc` and `enc_limit` are looked up in this module on every
+    call, so a patch of either reaches the answer (W1.2's spy and patch
+    tests).
+
+    Returns:
+        str: one of the module constants.
+    """
+    return band(carried_enc(char), enc_limit(char))

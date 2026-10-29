@@ -1,6 +1,6 @@
 """
 Tests for world/encumbrance.py and the Character properties over it
-(Weight and Encumbrance, Tasks W1.1 and W1.2).
+(Weight and Encumbrance, Tasks W1.1, W1.2, W2.1 and W2.2).
 
 Each class presses one bug:
 
@@ -43,11 +43,34 @@ Each class presses one bug:
                           Every refusal also asserts `location`: `.call()`
                           runs no locks, and the message alone is not the move
 
+  W2.2 -- what the player sees:
+
+    TestEncWithout        the hooks' tempting formula (`carried_enc -
+                          item_enc`), which misses the twentieth item at
+                          `enc` 0; a sack leaving without its contents; a
+                          move inside the carried tree read as a change;
+                          an item created in place (`elsewhere` None)
+    TestCrossingMessages  a message on every move in the band (the *change*
+                          condition); before and after swapped in the leave
+                          hook; a crossing announced for a `put` into a
+                          carried sack; OVERLOADED <-> CEILING announced.
+                          Each test asserts the list of crossing messages,
+                          so a second copy fails as surely as a missing one
+    TestInventoryLine     a line lost on the empty-inventory early return;
+                          "(overloaded)" at the limit, or missing at CEILING
+    TestRefusalLine       two sentences for one ceiling refusal; a stale flag
+                          that silences the contrib's line after a refusal
+                          the ceiling never made; a cmdset still on the
+                          contrib commands
+
 THE FIXTURE
 -----------
 Every test loads `char1` (or a holder) with objects created in place, `enc`
 set by hand. Weights are chosen so the alternative bug gives a different
 number: a sack at enc 1 holding enc 3 is 4 with the recursion and 1 without.
+From W2.2 on, an object that has to *move* is created outside the character
+and brought in with `move_to`: creation in place runs `at_object_receive`
+before `enc` is set (objects.py:1975), so it is not the move under test.
 """
 
 from unittest import mock
@@ -58,6 +81,8 @@ from evennia.contrib.game_systems.containers.containers import CmdContainerGet
 from evennia.objects.objects import DefaultObject
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
+from commands.inventory_commands import CONTRIB_REFUSAL, CmdGet, CmdInventory
+
 from world.encumbrance import (
     CEILING,
     FREE,
@@ -65,6 +90,7 @@ from world.encumbrance import (
     carried_enc,
     enc_after_receiving,
     enc_limit,
+    enc_without,
     encumbrance_state,
     item_enc,
 )
@@ -445,3 +471,214 @@ class TestCeilingHook(EvenniaCommandTest):
         ), mock.patch.object(self.char1, "msg") as msg:
             self.assertFalse(self.char1.at_pre_object_receive(pebble, self.room1))
         msg.assert_not_called()
+
+
+# --- W2.2 -- what the player sees ------------------------------------------
+
+OVER = "You are overloaded."
+FREE_AGAIN = "You are no longer overloaded."
+
+
+def _crossings(msg):
+    """The crossing messages a patched `msg` received, in order."""
+    texts = [call.args[0] if call.args else call.kwargs.get("text") for call in msg.call_args_list]
+    return [text for text in texts if text in (OVER, FREE_AGAIN)]
+
+
+class TestEncWithout(EvenniaTest):
+    """The sum as if one object of the carried tree were elsewhere."""
+
+    def test_one_of_twenty_zeros_leaving_reruns_the_rule(self):
+        _make(self.char1, key="load", enc=40)
+        pebbles = [_make(self.char1, key=f"pebble{i}", enc=0) for i in range(20)]
+        self.assertEqual(carried_enc(self.char1), 41)
+        # 40 + 19 // 20; subtracting the leaver's own ENC would say 41
+        self.assertEqual(enc_without(self.char1, pebbles[0], self.room1), 40)
+
+    def test_a_carried_sack_leaves_with_its_contents(self):
+        _make(self.char1, key="load", enc=10)
+        sack = _make(self.char1, key="sack", enc=1)
+        _make(sack, key="stone", enc=3)
+        self.assertEqual(carried_enc(self.char1), 14)
+        self.assertEqual(enc_without(self.char1, sack, self.room1), 10)
+
+    def test_a_move_inside_the_carried_tree_changes_nothing(self):
+        _make(self.char1, key="load", enc=10)
+        sack = _make(self.char1, key="sack", enc=1)
+        stone = _make(self.char1, key="stone", enc=2)
+        pebble = _make(sack, key="pebble", enc=3)
+        self.assertEqual(carried_enc(self.char1), 16)
+        # put the stone into the carried sack (leave: elsewhere is the sack)
+        self.assertEqual(enc_without(self.char1, stone, sack), 16)
+        # the pebble came out of the carried sack (receive: elsewhere is the sack)
+        self.assertEqual(enc_without(self.char1, pebble, sack), 16)
+        # elsewhere is the carrier itself
+        self.assertEqual(enc_without(self.char1, pebble, self.char1), 16)
+
+    def test_a_character_changes_nothing(self):
+        _make(self.char1, key="load", enc=5)
+        self.assertEqual(enc_without(self.char1, self.char2, self.room1), 5)
+
+    def test_created_in_place_counts_as_from_nowhere(self):
+        _make(self.char1, key="load", enc=10)
+        item = _make(self.char1, key="item", enc=2)
+        self.assertEqual(enc_without(self.char1, item, None), 10)
+
+
+class TestCrossingMessages(EvenniaCommandTest):
+    """`at_object_receive` / `at_object_leave`: a message on the boundary only."""
+
+    def _load(self, total, holder=None):
+        _make(holder or self.char1, key="load", enc=total)
+
+    def test_the_item_that_crosses_says_so_once(self):
+        self._load(20)
+        anvil = _make(self.room1, key="anvil", enc=1)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(anvil.move_to(self.char1, quiet=True))
+        self.assertEqual(_crossings(msg), [OVER])
+        self.assertEqual(carried_enc(self.char1), 21)
+
+    def test_a_second_item_in_the_band_says_nothing(self):
+        self._load(21)
+        hammer = _make(self.room1, key="hammer", enc=1)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(hammer.move_to(self.char1, quiet=True))
+        self.assertEqual(_crossings(msg), [])
+        self.assertEqual(carried_enc(self.char1), 22)   # receipt: it moved
+
+    def test_get_across_the_limit_through_the_command(self):
+        self._load(20)
+        _make(self.room1, key="anvil", enc=1)
+        out = self.call(CmdGet(), "anvil")
+        self.assertEqual(out.count(OVER), 1)
+        self.assertIn("You pick up", out)
+
+    def test_dropping_back_under_says_so_once(self):
+        self._load(20)
+        anvil = _make(self.room1, key="anvil", enc=1)
+        anvil.move_to(self.char1, quiet=True)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(anvil.move_to(self.room1, quiet=True))
+        self.assertEqual(_crossings(msg), [FREE_AGAIN])
+        self.assertEqual(carried_enc(self.char1), 20)
+
+    def test_dropping_one_of_twenty_zeros_at_21_recovers(self):
+        self._load(20)
+        for i in range(19):
+            _make(self.char1, key=f"pebble{i}", enc=0)
+        last = _make(self.room1, key="last pebble", enc=0)
+        last.move_to(self.char1, quiet=True)
+        self.assertEqual(carried_enc(self.char1), 21)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(last.move_to(self.room1, quiet=True))
+        self.assertEqual(_crossings(msg), [FREE_AGAIN])
+
+    def test_an_item_into_a_carried_sack_at_21_says_nothing(self):
+        self._load(19)
+        sack = _make(self.char1, key="sack", enc=1)
+        stone = _make(self.room1, key="stone", enc=1)
+        stone.move_to(self.char1, quiet=True)
+        self.assertEqual(carried_enc(self.char1), 21)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(stone.move_to(sack, quiet=True))
+        self.assertEqual(_crossings(msg), [])
+        self.assertEqual(stone.location, sack)            # receipt: it moved
+        self.assertEqual(carried_enc(self.char1), 21)
+
+    def test_an_item_out_of_a_carried_sack_at_21_says_nothing(self):
+        self._load(19)
+        sack = _make(self.char1, key="sack", enc=1)
+        stone = _make(sack, key="stone", enc=1)
+        self.assertEqual(carried_enc(self.char1), 21)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(stone.move_to(self.char1, quiet=True))
+        self.assertEqual(_crossings(msg), [])
+        self.assertEqual(stone.location, self.char1)      # receipt: it moved
+
+    def test_ceiling_to_overloaded_is_silent(self):
+        # A load in place may sit above the ceiling (creation runs no
+        # at_pre_object_receive, objects.py:1956-1975); a drop from there
+        # stays non-free.
+        self._load(40)
+        anvil = _make(self.char1, key="anvil", enc=2)
+        self.assertEqual(self.char1.encumbrance_state, CEILING)
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.assertTrue(anvil.move_to(self.room1, quiet=True))
+        self.assertEqual(_crossings(msg), [])
+        self.assertEqual(self.char1.encumbrance_state, OVERLOADED)
+
+    def test_give_tells_each_side_its_own_crossing(self):
+        self._load(20)
+        self._load(20, holder=self.char2)
+        anvil = _make(self.room1, key="anvil", enc=1)
+        anvil.move_to(self.char2, quiet=True)
+        with mock.patch.object(self.char1, "msg") as receiver_msg:
+            out = self.call(CmdGive(), "anvil = Char", caller=self.char2)
+        self.assertEqual(anvil.location, self.char1)
+        self.assertEqual(_crossings(receiver_msg), [OVER])
+        self.assertEqual(out.count(FREE_AGAIN), 1)
+        self.assertEqual(out.count(OVER), 0)
+
+
+class TestInventoryLine(EvenniaCommandTest):
+    """`inventory` ends in the ENC line, whatever clothing printed above it."""
+
+    def test_a_known_load(self):
+        _make(self.char1, key="load", enc=5)
+        _make(self.char1, key="axe", enc=2)
+        out = self.call(CmdInventory(), "")
+        self.assertIn("You are carrying:", out)          # receipt: super() ran
+        self.assertIn("Carrying 7/20 ENC", out)
+        self.assertNotIn("(overloaded)", out)
+
+    def test_at_the_limit_is_not_overloaded(self):
+        _make(self.char1, key="load", enc=20)
+        out = self.call(CmdInventory(), "")
+        self.assertIn("Carrying 20/20 ENC", out)
+        self.assertNotIn("(overloaded)", out)
+
+    def test_overloaded_and_ceiling_both_say_so(self):
+        load = _make(self.char1, key="load", enc=21)
+        out = self.call(CmdInventory(), "")
+        self.assertIn("Carrying 21/20 ENC (overloaded)", out)
+        load.db.enc = 41
+        out = self.call(CmdInventory(), "")
+        self.assertIn("Carrying 41/20 ENC (overloaded)", out)
+
+    def test_empty_inventory_still_shows_the_line(self):
+        out = self.call(CmdInventory(), "")
+        self.assertIn("You are not carrying or wearing anything.", out)
+        self.assertIn("Carrying 0/20 ENC", out)
+
+
+class TestRefusalLine(EvenniaCommandTest):
+    """One refusal, one sentence -- and only the ceiling's refusal is trimmed."""
+
+    REFUSED = "You cannot carry any more."
+
+    def test_a_ceiling_refusal_prints_one_sentence(self):
+        _make(self.char1, key="load", enc=39)
+        anvil = _make(self.room1, key="anvil", enc=2)
+        out = self.call(CmdGet(), "anvil")
+        self.assertEqual(out.count(self.REFUSED), 1)
+        self.assertNotIn(CONTRIB_REFUSAL, out)
+        self.assertEqual(anvil.location, self.room1)
+        self.assertFalse(self.char1.ndb._enc_refused)
+
+    def test_another_refusal_keeps_the_contrib_line(self):
+        # a flag left over from an earlier refusal (a `give` to char1, say)
+        self.char1.ndb._enc_refused = True
+        anvil = _make(self.room1, key="anvil", enc=0)
+        with mock.patch.object(type(anvil), "at_pre_move", return_value=False):
+            out = self.call(CmdGet(), "anvil")
+        self.assertIn(CONTRIB_REFUSAL, out)
+        self.assertNotIn(self.REFUSED, out)
+        self.assertEqual(anvil.location, self.room1)
+
+    def test_the_cmdset_uses_the_project_commands(self):
+        from commands.default_cmdsets import CharacterCmdSet
+
+        commands = {cmd.key: cmd for cmd in CharacterCmdSet().commands}
+        self.assertIsInstance(commands["get"], CmdGet)
+        self.assertIsInstance(commands["inventory"], CmdInventory)

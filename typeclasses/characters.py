@@ -63,7 +63,11 @@ class Character(ObjectParent, ClothedCharacter):
 
     Encumbrance: read-only `carried_enc`, `enc_limit`, `encumbrance_state`,
     computed on every read (world/encumbrance.py). A move that would put the
-    character above twice the limit is refused (`at_pre_object_receive`).
+    character above twice the limit is refused (`at_pre_object_receive`). A
+    move that carries the character across the limit is announced
+    (`at_object_receive`, `at_object_leave`); a path that runs no hook --
+    `delete()`, a direct `location =`, `move_hooks=False` (death), a change
+    to STR or SIZ -- crosses it silently (W2.2 Q4).
     """
 
     @lazy_property
@@ -1423,7 +1427,10 @@ class Character(ObjectParent, ClothedCharacter):
         assignment or `move_hooks=False` (craft output and barter, W5.1).
 
         On a refusal the character is told; a giving character is told too,
-        since `CmdGive` prints only its generic line.
+        since `CmdGive` prints only its generic line. The refusal also sets
+        `ndb._enc_refused`, which `CmdGet` (commands/inventory_commands.py)
+        reads to drop the contrib's own "This can't be picked up." -- one
+        refusal, one sentence (W2.2 Q3).
 
         Returns:
             bool: False refuses the move; the object stays where it was.
@@ -1433,6 +1440,7 @@ class Character(ObjectParent, ClothedCharacter):
         ceiling = encumbrance.OVERLOAD_FACTOR * encumbrance.enc_limit(self)
         if encumbrance.enc_after_receiving(self, arriving_object) > ceiling:
             self.msg("You cannot carry any more.")
+            self.ndb._enc_refused = True
             if (
                 source_location is not None
                 and source_location != self
@@ -1443,6 +1451,71 @@ class Character(ObjectParent, ClothedCharacter):
                 )
             return False
         return True
+
+    def at_object_leave(self, moved_obj, target_location, move_type="move", **kwargs):
+        """
+        Announce leaving the overloaded band (W2.2).
+
+        `move_to` calls this before `moved_obj` moves (objects.py:1290), so
+        *before* is the current sum and *after* is the reader's sum with the
+        object at `target_location` (`encumbrance.enc_without`) -- never
+        `carried_enc - item_enc`, which misses the twentieth item at `enc` 0.
+        `move_to(None)` returns before any hook (objects.py:1244), so
+        `target_location` is never None here.
+
+        Args:
+            moved_obj (Object): the object leaving this character.
+            target_location (Object): where it is going.
+            move_type (str): passed on to `super()`.
+            **kwargs: passed on to `super()`.
+        """
+        super().at_object_leave(moved_obj, target_location, move_type=move_type, **kwargs)
+        before = encumbrance.carried_enc(self)
+        after = encumbrance.enc_without(self, moved_obj, target_location)
+        self._announce_enc_crossing(before, after)
+
+    def at_object_receive(self, moved_obj, source_location, move_type="move", **kwargs):
+        """
+        Announce entering the overloaded band (W2.2).
+
+        `move_to` calls this after `moved_obj` has arrived (objects.py:1322),
+        so *before* is the reader's sum with the object back at
+        `source_location` (`encumbrance.enc_without`) and *after* is the
+        current sum. `create_object(location=self)` calls it too, with
+        `source_location` None and before the new object's Attributes are set
+        (objects.py:1975): the newcomer weighs 0 at that moment, so only the
+        twentieth item at `enc` 0 can cross there.
+
+        Args:
+            moved_obj (Object): the object that arrived.
+            source_location (Object or None): where it came from.
+            move_type (str): passed on to `super()`.
+            **kwargs: passed on to `super()`.
+        """
+        super().at_object_receive(moved_obj, source_location, move_type=move_type, **kwargs)
+        before = encumbrance.enc_without(self, moved_obj, source_location)
+        after = encumbrance.carried_enc(self)
+        self._announce_enc_crossing(before, after)
+
+    def _announce_enc_crossing(self, before, after):
+        """
+        Tell the character when `before` and `after` sit on different sides of
+        the limit (W2.2 Q2). OVERLOADED <-> CEILING is no crossing: W3 prices
+        `!= FREE`, and no `move_to` enters CEILING (W2.1). Both sums go
+        through the reader's band rule (`encumbrance.band`) against one read
+        of the limit.
+
+        No `try/except`, as in `at_pre_object_receive`: if the leave hook
+        raises, `move_to` logs and refuses the move (objects.py:1291); the
+        receive hook makes the reads `at_pre_object_receive` has just made,
+        without error, for the same `move_to`.
+        """
+        limit = encumbrance.enc_limit(self)
+        was_free = encumbrance.band(before, limit) == encumbrance.FREE
+        now_free = encumbrance.band(after, limit) == encumbrance.FREE
+        if was_free == now_free:
+            return
+        self.msg("You are no longer overloaded." if now_free else "You are overloaded.")
 
 
 # --- Rest callbacks (Epic A, TA1.3) -------------------------------------------
