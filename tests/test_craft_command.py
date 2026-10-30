@@ -54,7 +54,10 @@ pinned (`world.skillcheck.randint`, as tests/test_cloth_goods.py does). Twine's
 "raw" policy is the point: a failure and a fumble still make twine, so those two
 tests prove the count is gated on the check, not on the produce branch (RM6).
 Counts of 4, 5, 19 and 24 are reached with `add`, then one real craft crosses
-the boundary -- only that last craft goes through `do_craft`. The weight-ceiling
+the boundary -- only that last craft goes through `do_craft`.
+`TestMasteryInTheRoll` (M2.2) reads the roll's arguments through
+`mock.patch("world.crafting_base.skill_check", wraps=skill_check)`, so the real
+check still runs and the craft completes. The weight-ceiling
 case lives in tests/test_set_down.py::TestCraftSetsDown, beside its fixture
 (importing that fixture here would make the two modules import each other).
 
@@ -63,6 +66,9 @@ HOW TO RUN
     evennia test --settings settings.py tests.test_craft_command
 """
 
+import ast
+import inspect
+import textwrap
 from unittest import mock
 
 from django.test import override_settings
@@ -77,6 +83,8 @@ from commands.crafting_commands import CmdCraftGated, CmdScribe, _complete_craft
 from commands.work_commands import CmdWork, _finish_task
 from world import recipes, timed_actions
 from world.crafting_base import MongooseCraftRecipe
+from world.improvement import improvement_roll
+from world.skillcheck import skill_check
 from world.recipes import ClothRecipe, TwineRecipe
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
@@ -469,7 +477,9 @@ class TestMasteryCounting(CraftTestBase):
     The bugs this presses on, one per test group: counting on the produce
     branch, which "raw" always takes (RM6); writing at the command instead of
     at completion (RM8); speaking on every success (RM9); and speaking again
-    past the cap, where the modifier no longer moves (RM11).
+    past the cap, where the modifier no longer moves (RM9b -- numbered RM11 in
+    the M2.1 commit message, renamed because the decomposition's RM11 is
+    M2.2's).
     """
 
     def setUp(self):
@@ -567,3 +577,127 @@ class TestMasteryCounting(CraftTestBase):
         self.assertTrue(result)
         self.assertIsNone(recipe.mastery_step)
         self.assertFalse(self.obj1.attributes.has("recipe_mastery"))
+
+
+CHECK = "world.crafting_base.skill_check"
+IMPROVEMENT_ROLL = "typeclasses.characters.improvement_roll"
+IMPROVEMENT_DIE = "world.improvement.randint"
+TERMS = ("_tool_modifier", "_physical_modifier", "_mastery_modifier")
+
+
+class TestMasteryInTheRoll(CraftTestBase):
+    """
+    M2.2: mastery is the roll's third modifier and touches nothing else.
+
+    The bugs this presses on: the term dropped (RM11); mastery folded into the
+    skill value instead of the modifier (RM12 -- caught here by the first
+    argument, since improvement never reads `_skill_value()`); a wrong cap
+    (RM13); the wrong sign (RM14); and mastery leaking into progression
+    (RM12b, MD7).
+
+    Twine has no tool and char1 carries nothing heavy, so the modifier passed
+    is exactly the mastery modifier. Rolls are pinned to a failure where only
+    the arguments matter: a failure neither improves the skill nor counts, so
+    the skill value stays 60 and the stored count stays where `add` put it.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.char1.skills.get("craft").current = 60
+
+    def craft_as(self, char, roll, fresh_fibres=True):
+        if fresh_fibres:
+            self.give_fibres(char)
+        scheduled = self.start_craft(caller=char)
+        self.assertIsNotNone(scheduled, "the craft never started")
+        with mock.patch(ROLL, return_value=roll), \
+                mock.patch(CHECK, wraps=skill_check) as check:
+            self.finish(scheduled)
+        check.assert_called_once()
+        return check.call_args.args
+
+    def test_the_modifier_follows_the_count(self):
+        for count, expected in ((0, 0), (5, 5), (20, 20), (57, 20)):
+            with self.subTest(count=count):
+                self.set_count(count)
+                self.assertEqual(self.craft_as(self.char1, FAILURE_ROLL), (60, expected))
+
+    def test_full_mastery_cancels_one_penalty_not_two(self):
+        # The -18 -> 2 case: Craft 22, tool absent (-20), overloaded (-20).
+        # Mastery 20 lifts the target from -18 to 2; it adds, it does not
+        # replace either penalty.
+        self.char1.skills.get("craft").current = 22
+        self.char1.recipe_mastery.add("twine", 20)
+        with mock.patch.object(MongooseCraftRecipe, "_tool_modifier", return_value=-20), \
+                mock.patch.object(MongooseCraftRecipe, "_physical_modifier", return_value=-20):
+            skill, modifier = self.craft_as(self.char1, FAILURE_ROLL)
+        self.assertEqual((skill, modifier, skill + modifier), (22, -20, 2))
+
+    def set_count(self, count):
+        self.char1.attributes.remove("recipe_mastery")
+        if count:
+            self.char1.recipe_mastery.add("twine", count)
+
+    def test_full_mastery_adds_two_to_a_critical_quality(self):
+        # MD4: the critical bonus is target // 10, so +20 on the target is +2
+        # on the stamped quality, through the existing _quality_for. Same
+        # crafter, same skill (a critical's improvement is cooled down for the
+        # second craft, and a grain of 1 does not move the level at 60).
+        self.craft_as(self.char1, CRITICAL_ROLL, fresh_fibres=False)
+        self.set_count(20)
+        self.craft_as(self.char1, CRITICAL_ROLL)
+        plain, mastered = sorted(self.twine_in(self.char1), key=lambda obj: obj.id)
+        self.assertEqual(mastered.db.quality - plain.db.quality, 2)
+
+    def _improve(self, count, fresh_fibres):
+        """A success at `count` with the improvement die pinned (1: no beat, grain 1)."""
+        self.set_count(count)
+        self.char1.cooldowns.clear()
+        before = self.char1.skill_xp.get("craft")
+        with mock.patch(IMPROVEMENT_DIE, return_value=1), \
+                mock.patch(IMPROVEMENT_ROLL, wraps=improvement_roll) as roll:
+            self.craft_as(self.char1, SUCCESS_ROLL, fresh_fibres=fresh_fibres)
+        roll.assert_called_once()   # receipt: the improvement path ran
+        return (
+            roll.call_args,
+            self.char1.skill_xp.get("craft") - before,
+            self.char1.skills.get("craft").current,
+        )
+
+    def test_md7_mastery_never_reaches_the_improvement_roll(self):
+        # improvement_result carries no target; improvement_roll(old, int_char)
+        # derives it from skill.current. So the inputs are the receipt.
+        plain = self._improve(0, fresh_fibres=False)
+        mastered = self._improve(20, fresh_fibres=True)
+        self.assertEqual(mastered[0], plain[0])
+
+    def test_md7_the_skill_moves_by_the_same_grain(self):
+        plain = self._improve(0, fresh_fibres=False)
+        mastered = self._improve(20, fresh_fibres=True)
+        self.assertEqual(plain[1], 1)   # receipt: grain 1, the pinned die
+        self.assertEqual(mastered[1:], plain[1:])
+
+    def test_a_crafter_without_the_handler_has_no_mastery(self):
+        recipe = TwineRecipe(self.obj1, *self.fibres)
+        self.assertEqual(recipe._mastery_modifier(), 0)
+
+    def test_census_each_term_once_in_the_roll(self):
+        # The W3.1 census shape (ast, not grep), narrowed to do_craft: the roll
+        # takes the skill value as its first argument and the three modifiers,
+        # each exactly once, in its second -- and mastery is not in the first.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(MongooseCraftRecipe.do_craft)))
+        checks = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "skill_check"
+        ]
+        self.assertEqual(len(checks), 1)
+        skill_arg, modifier_arg = checks[0].args
+
+        def called(node):
+            return [
+                n.func.attr for n in ast.walk(node)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            ]
+
+        self.assertEqual(called(skill_arg), ["_skill_value"])
+        self.assertEqual(sorted(called(modifier_arg)), sorted(TERMS))

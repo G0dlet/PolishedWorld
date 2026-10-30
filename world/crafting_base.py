@@ -8,10 +8,10 @@ Mongoose Legend skill resolution onto the contrib's lifecycle:
 
     pre_craft   -> validate inputs (contrib) + knowledge and skill gates
                    (abort, no consume)
-    do_craft    -> roll Craft skill, count a successful check toward the
-                   recipe's mastery (M2.1), map result tier -> quality, spawn
-                   output, stamp quality; places nothing (the output has no
-                   location)
+    do_craft    -> roll Craft skill (tool, overload and mastery modifiers),
+                   count a successful check toward the recipe's mastery
+                   (M2.1), map result tier -> quality, spawn output, stamp
+                   quality; places nothing (the output has no location)
     post_craft  -> consume materials per policy, then deliver the output
                    through Character.receive_or_set_down (W5.1), then
                    message: the tier-flavoured result line, the set-down line,
@@ -132,6 +132,20 @@ class MongooseCraftRecipe(CraftingRecipe):
         """
         reader = getattr(self.crafter, "physical_modifier", None)
         return reader() if reader else 0
+
+    def _mastery_modifier(self):
+        """
+        The recipe's mastery modifier for this crafter (M2.2, MD3), 0 without
+        the handler.
+
+        getattr-guarded like `_physical_modifier`: a crafter that is not a
+        Character rolls without mastery instead of crashing the craft. The
+        formula lives once, in RecipeMasteryHandler.modifier; this only asks.
+        It is read before do_craft's write (M2.1), so the craft that reaches a
+        step rolls at the old modifier and the next one gets the new.
+        """
+        mastery = getattr(self.crafter, "recipe_mastery", None)
+        return mastery.modifier(self.name) if mastery is not None else 0
 
     def _used_tool(self):
         """The supplied *usable* tool matching this recipe's tool_tag, or None.
@@ -289,10 +303,14 @@ class MongooseCraftRecipe(CraftingRecipe):
     def do_craft(self, **kwargs):
         # A real attempt is happening.
         self.rolled = True
-        # Tool modifier plus the crafter's overload penalty (W3.1), both read
-        # here at the roll -- for a timed craft, when the timer completes.
+        # Three modifiers, all read here at the roll -- for a timed craft, when
+        # the timer completes: the tool, the crafter's overload penalty (W3.1)
+        # and the recipe's mastery (M2.2, MD3). Mastery is a MODIFIER, never
+        # part of the skill value: the skill stays the crafter's, and nothing
+        # about improvement (which reads skill.current) sees it (MD7).
         outcome = skill_check(
-            self._skill_value(), self._tool_modifier() + self._physical_modifier()
+            self._skill_value(),
+            self._tool_modifier() + self._physical_modifier() + self._mastery_modifier(),
         )
         self.skill_outcome = outcome
         tier = outcome["result"]
