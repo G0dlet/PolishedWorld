@@ -40,6 +40,25 @@ from evennia.contrib.game_systems.crafting.crafting import (
 )
 
 
+def recipe_names():
+    """
+    Every canonical recipe name the registry knows.
+
+    Returns:
+        list[str]: `MongooseCraftRecipe.name` for each registered recipe,
+            sorted.
+
+    This exists so that `world/recipe_mastery.py` can union its stored counts
+    with the registry without importing the contrib's private
+    `_RECIPE_CLASSES` itself. BACKLOG *`CmdCraftGated` recipe-resolver
+    duplication* (Rev 24) requires any new reader of that registry to live in a
+    module that already reads it; this module already does, via
+    `_can_transmit`.
+    """
+    _load_recipes()
+    return sorted(_RECIPE_CLASSES)
+
+
 def _can_transmit(char, recipe_name):
     """
     Return True if `char` may inscribe/scribe/teach the recipe `recipe_name`.

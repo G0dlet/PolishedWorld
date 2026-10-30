@@ -29,6 +29,7 @@ from world.progression import (
     xp_threshold,
 )
 from world.skill_xp import SkillXPHandler
+from world.recipe_mastery import RecipeMasteryHandler
 from world.chargen import derive_health_max, start_or_resume_chargen
 
 from django.conf import settings
@@ -196,6 +197,21 @@ class Character(ObjectParent, ClothedCharacter):
         that population.
         """
         return SkillXPHandler(self, db_attribute="skill_xp")
+
+    @lazy_property
+    def recipe_mastery(self):
+        """
+        Per-recipe completed-craft counter (Recipe Mastery M1, MD1). Storage
+        only -- as of M1 nothing reads it for gameplay; M2.1 makes `do_craft`
+        its single writer.
+
+        Same list of what is NOT here as `skill_xp` and `currency`: no
+        `at_object_creation` initialisation and no AttributeProperty, so there
+        is no `char.recipe_mastery = {...}` shortcut around
+        world/recipe_mastery.py. No backfill either: every character starts at
+        0 in every recipe.
+        """
+        return RecipeMasteryHandler(self, db_attribute="recipe_mastery")
 
     def at_object_creation(self):
         """
