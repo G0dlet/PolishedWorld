@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 14 · 2026-10-30** — index `PolishedWorld_Lessons.md` (the numbered lessons register, 1–184). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
 > **Rev 13 · 2026-10-30** — index `PolishedWorld_Recipe_Mastery_Decomposition.md` (per-recipe mastery, the alpha's second prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
 > **Rev 12 · 2026-10-26** — index `PolishedWorld_Weight_Decomposition.md` (weight and encumbrance, the alpha's seventh prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
 > **Rev 11 · 2026-10-26** — index `PolishedWorld_Character_Creation_Decomposition.md` (Legend character creation, the alpha's fourth prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
@@ -62,6 +63,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Source/sink ledger | structural (economy pillar-1 audit) | `docs/PolishedWorld_SourceSink_Ledger.md` |
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
+| Lessons register | reference (numbered working lessons, 1–184) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
