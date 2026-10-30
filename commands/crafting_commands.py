@@ -575,7 +575,8 @@ class CmdDisassemble(Command):
         min_skill = getattr(cls, "min_skill", 0) or 0
         trait = caller.skills.get("craft")
         skill_value = trait.value if trait else 0     # counter .value = current + mod
-        outcome = skill_check(skill_value, modifier=-min_skill)
+        # Plus the overload penalty (W3.1): taking a piece apart is physical work.
+        outcome = skill_check(skill_value, modifier=-min_skill + caller.physical_modifier())
 
         # Committed: the item is destroyed on every outcome and the cooldown set.
         # Capture the display name first (get_display_name needs a live object).
@@ -694,12 +695,15 @@ class CmdInscribe(Command):
         # and the readable detail render live from the stamp in the Scroll
         # typeclass (F.4), so we set nothing else here.
         scroll.stamp(recipe_name)
-        scroll.move_to(caller, quiet=True)
+        # Into the hands, or at the feet past the ceiling (W5.1).
+        set_down = caller.receive_or_set_down([scroll])
 
         caller.cooldowns.add("inscribe", INSCRIBE_COOLDOWN)
         caller.msg(
             f"You carefully inscribe the |y{recipe_name}|n recipe onto a scroll."
         )
+        if set_down:
+            caller.msg(caller.set_down_message(set_down))
 
 
 class CmdScribe(Command):
@@ -818,9 +822,10 @@ class CmdScribe(Command):
         # (.value = current + mod), mirroring do_craft: a tool/situational buff can
         # lift the binding's QUALITY even though the .current gate above governs
         # PERMISSION. No tool modifier -- there is no scribing implement in the MVP
-        # (a quill/pen tool is a future addition), so the roll is unmodified.
+        # (a quill/pen tool is a future addition). The one modifier is the overload
+        # penalty (W3.1): binding is a Craft roll, and Craft is DEX+INT.
         skill_value = trait.value if trait else 0
-        outcome = skill_check(skill_value)
+        outcome = skill_check(skill_value, caller.physical_modifier())
         tier = outcome["result"]
         condition = SCRIBE_CONDITION_BY_TIER.get(tier, 50)
         if tier == "critical":
@@ -846,12 +851,15 @@ class CmdScribe(Command):
         # directly (NOT .current).
         book.stamp(recipe_names)
         book.condition = condition
-        book.move_to(caller, quiet=True)
+        # Into the hands, or at the feet past the ceiling (W5.1).
+        set_down = caller.receive_or_set_down([book])
 
         caller.cooldowns.add("scribe", SCRIBE_COOLDOWN)
         listed = ", ".join(recipe_names)
         tail = SCRIBE_TIER_FLAVOUR.get(tier, "")
         caller.msg(f"You bind a book of |y{listed}|n. {tail}".rstrip())
+        if set_down:
+            caller.msg(caller.set_down_message(set_down))
 
         # Sixth on-use improvement call-site (Stage 4.5, P-6). Scribing is a real
         # Craft roll with a material cost and a failure mode; leaving it out was

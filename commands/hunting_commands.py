@@ -93,7 +93,10 @@ class CmdHunt(Command):
             hunting_value = hunting.value if hunting else 0  # counter .value = current + mod
             flee = target.db.flee_skill or 0
 
-            result = opposed_check(hunting_value, flee)
+            # The hunter's overload penalty (W3.1); the quarry's side is unmodified.
+            result = opposed_check(
+                hunting_value, flee, attacker_mod=caller.physical_modifier()
+            )
             winner = result["winner"]
 
             # 6. The attempt happened -> commit the cooldown for every resolved
@@ -275,7 +278,9 @@ class CmdHarvest(Command):
         # 9. Resolve the Mongoose Legend skill check for this part.
         trait = caller.skills.get(part["skill"])
         skill_value = trait.value if trait else 0   # counter .value = current + mod
-        modifier = part["difficulty"] + self._tool_modifier(caller)
+        modifier = (
+            part["difficulty"] + self._tool_modifier(caller) + caller.physical_modifier()
+        )
         outcome = skill_check(skill_value, modifier)
         result = outcome["result"]
 
@@ -307,8 +312,10 @@ class CmdHarvest(Command):
                 caller.msg("Something goes wrong and you come away empty-handed.")
                 return
 
-            for obj in spawned:
-                obj.move_to(caller, quiet=True)
+            # Into the hands, or at the feet past the ceiling (W5.1): the count
+            # below stays true, and the set-down line says how many did not
+            # stay in hand.
+            set_down = caller.receive_or_set_down(spawned)
 
             if is_crit:
                 caller.msg(
@@ -316,6 +323,8 @@ class CmdHarvest(Command):
                 )
             else:
                 caller.msg(f"You harvest {qty} {part_name} from {corpse_label}.")
+            if set_down:
+                caller.msg(caller.set_down_message(set_down))
             caller.location.msg_contents(
                 f"{caller.get_display_name()} harvests {part_name} from {corpse_label}.",
                 exclude=caller,

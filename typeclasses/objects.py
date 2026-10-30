@@ -22,6 +22,34 @@ class ObjectParent:
 
     """
 
+    def at_pre_put_in(self, putter, target, **kwargs):
+        """
+        Refuse `put` into anything that is not a container (W4.2 Q3).
+
+        The containers contrib's `CmdPut` lets a put through on the target's
+        `get_from` lock (containers.py:265) and then calls this hook only if it
+        exists (`:279`). `get_from` also governs looting, so a player's corpse
+        (`corpse.py:278`) passes for its owner, and for everyone once the grace
+        ends; a superuser passes every lock. Without this hook all of them
+        could put things into a corpse, a character or a room. `Container`
+        and the contrib's `ContribContainer` come before this class in the MRO
+        and keep their own hook.
+
+        The line is the contrib's own words for a lock refusal (`:270`), so a
+        refused lock and a refused hook read alike. The flag tells `CmdPut`
+        that this refusal has been explained (W4.2 Q2).
+
+        Args:
+            putter (Object): who is putting `target` in.
+            target (Object): what is being put in.
+
+        Returns:
+            bool: always False.
+        """
+        putter.msg("You can't put things in that.")
+        putter.ndb._put_refused = True
+        return False
+
 
 class Object(ObjectParent, DefaultObject):
     """

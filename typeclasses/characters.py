@@ -7,7 +7,7 @@ Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 
 from evennia.contrib.game_systems.clothing import ClothedCharacter
 from evennia.utils import lazy_property
-from evennia.utils.utils import delay
+from evennia.utils.utils import delay, inherits_from
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
@@ -19,6 +19,8 @@ from world.survival_buffs import DeathWeakness
 from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
+from world import encumbrance
+from world import survival_ticker
 from world import timed_actions
 from world.progression import (
     level_for_xp,
@@ -46,6 +48,10 @@ from evennia.utils import search
 # registry key, e.g. "cloth" or "linen shirt"), never a prototype_key.
 KNOWN_RECIPE_CATEGORY = "known_recipe"
 
+# Who counts as a giver when a receive is refused (W2.1): the same path the
+# encumbrance walk skips characters by, so a statue or an NPC counts too.
+_CHARACTER_PATH = "evennia.objects.objects.DefaultCharacter"
+
 
 class Character(ObjectParent, ClothedCharacter):
     """
@@ -55,6 +61,15 @@ class Character(ObjectParent, ClothedCharacter):
     - stats: Mongoose Legend characteristics (STR, DEX, CON, SIZ, INT, POW, CHA)
     - traits: Survival gauges (hunger, thirst, fatigue, health)
     - skills: Learnable skills using percentile system (0-100%)
+
+    Encumbrance: read-only `carried_enc`, `enc_limit`, `encumbrance_state`,
+    computed on every read (world/encumbrance.py). A move that would put the
+    character above twice the limit is refused (`at_pre_object_receive`). A
+    move that carries the character across the limit is announced
+    (`at_object_receive`, `at_object_leave`); a path that runs no hook --
+    `delete()`, a direct `location =`, `move_hooks=False` (death), a change
+    to STR or SIZ -- crosses it silently (W2.2 Q4). A step through an exit
+    while past the limit costs fatigue (`at_post_move`, W3.2).
     """
 
     @lazy_property
@@ -531,6 +546,66 @@ class Character(ObjectParent, ClothedCharacter):
         Used by display/appearance overrides for the statue logout system.
         """
         return not self.has_account
+
+    @property
+    def carried_enc(self):
+        """
+        Total ENC this character carries, read live (W1.1, WD4).
+
+        Read-only and uncached (WD3 b): every read walks the inventory
+        through `world.encumbrance.carried_enc`, the single reader.
+
+        Returns:
+            int
+        """
+        return encumbrance.carried_enc(self)
+
+    @property
+    def enc_limit(self):
+        """
+        This character's carrying limit, STR + SIZ, read live (WD1).
+
+        Returns:
+            int
+        """
+        return encumbrance.enc_limit(self)
+
+    @property
+    def encumbrance_state(self):
+        """
+        FREE, OVERLOADED or CEILING (WD2), computed on every read.
+
+        Nothing is stored: the band follows the inventory and the
+        characteristics the moment either changes.
+
+        Returns:
+            str: one of the constants in `world.encumbrance`.
+        """
+        return encumbrance.encumbrance_state(self)
+
+    def physical_modifier(self):
+        """
+        The modifier on this character's physical skill tests (W3.1).
+
+        Legend core p.86: an overloaded character takes -20% on every test
+        that requires a physical action. Past the limit means OVERLOADED or
+        CEILING; at or under it the modifier is 0. Read live at the moment of
+        each roll and never stored, so the penalty follows the load (a timed
+        craft reads it when it completes, not when it starts).
+
+        The six physical rolls add this to their own modifiers: craft
+        (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
+        `hunt` (as `attacker_mod`) and `harvest`. A new skill test decides
+        whether it is physical (the census in tests/test_encumbrance.py).
+        Later penalties of the same kind (the fatigue levels, BACKLOG) are
+        added here, so the call sites never change again.
+
+        Returns:
+            int: 0 when FREE, `encumbrance.OVERLOAD_PENALTY` otherwise.
+        """
+        if self.encumbrance_state != encumbrance.FREE:
+            return encumbrance.OVERLOAD_PENALTY
+        return 0
 
     def snapshot_skill_baseline(self):
         """
@@ -1361,6 +1436,220 @@ class Character(ObjectParent, ClothedCharacter):
         """
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
+
+    def at_post_move(self, source_location, move_type="move", **kwargs):
+        """
+        Look around, then charge a step taken while overloaded (W3.2).
+
+        Legend halves an overloaded character's Movement (core p.86); here
+        every room entered through an exit costs `OVERLOAD_MOVE_FATIGUE`
+        fatigue while the band is OVERLOADED or CEILING (WD3, Q4). The cost is
+        flat and read live: no buff, no rate multiplier, nothing stored.
+
+        Only walking costs (Q1). An exit moves with `move_type="traverse"`
+        (Evennia `objects.py:3734`); `home` and `@tel` use `"teleport"`, and a
+        script's bare `move_to` defaults to `"move"` -- neither pays. Death
+        relocates with `move_hooks=False`, so this hook never runs for it.
+
+        The gauge clamps at its `min` (Q5): a step at 0 leaves 0, and fatigue
+        at 0 has no consequence until *Fatigue-exhaustion consequence* ships.
+
+        The survival warning is checked on both sides of the drain. The check
+        before sets the baseline in `ndb.survival_buckets` -- empty after a
+        reload until the next tick, up to 1800 s away -- and never warns,
+        since only the ticker lowers a gauge and it checks right after. The
+        check after warns once if the step crossed into a worse bucket (Q2,
+        tightened in session 6). No message of its own: the warning and the
+        `inventory` line say what happened and why.
+
+        The gauge is read with `traits.get()` and skipped if absent, as the
+        ticker does: an exception here would make `move_to` return False after
+        the move has happened (`objects.py:1331`), and the exit would tell a
+        character who did move "You cannot go there."
+        """
+        super().at_post_move(source_location, move_type=move_type, **kwargs)
+        if move_type != "traverse":
+            return
+        if self.encumbrance_state == encumbrance.FREE:
+            return
+        fatigue = self.traits.get("fatigue")
+        if fatigue is None:
+            return
+        survival_ticker._check_survival_warnings(self)   # baseline (reload)
+        fatigue.current -= encumbrance.OVERLOAD_MOVE_FATIGUE
+        survival_ticker._check_survival_warnings(self)
+
+    def at_pre_object_receive(self, arriving_object, source_location, **kwargs):
+        """
+        Refuse anything that would put this character above the ceiling (W2.1).
+
+        The ceiling is OVERLOAD_FACTOR x the limit (WD2). The sum after the
+        move comes from the reader (`encumbrance.enc_after_receiving`), never
+        from arithmetic here: the twenty-to-one rule, a container's contents
+        and an item already carried are the reader's business.
+
+        `move_to` asks this hook before every move into the character
+        (`get`, `give`, `get ... from`, and the five product sites through
+        `receive_or_set_down`, W5.1), passes `move_type` and its other
+        `kwargs` on, and logs and refuses if the hook raises -- so there is no
+        `try/except` here. It does not run for a direct `location =`
+        assignment or `move_hooks=False`; barter moves by assignment and is
+        checked before the swap instead (`world/barter.py`, W5.1 Q5).
+
+        On a refusal the character is told; a giving character is told too,
+        since `CmdGive` prints only its generic line. The refusal also sets
+        `ndb._enc_refused`, which `CmdGet` (commands/inventory_commands.py)
+        reads to drop the contrib's own "This can't be picked up." -- one
+        refusal, one sentence (W2.2 Q3). With `enc_quiet=True` in `kwargs`
+        the hook refuses all the same but says nothing and sets no flag:
+        `receive_or_set_down`'s caller sends the one line (W5.1 Q2).
+
+        Returns:
+            bool: False refuses the move; the object stays where it was.
+        """
+        if not super().at_pre_object_receive(arriving_object, source_location, **kwargs):
+            return False
+        ceiling = encumbrance.OVERLOAD_FACTOR * encumbrance.enc_limit(self)
+        if encumbrance.enc_after_receiving(self, arriving_object) > ceiling:
+            if kwargs.get("enc_quiet"):
+                return False
+            self.msg("You cannot carry any more.")
+            self.ndb._enc_refused = True
+            if (
+                source_location is not None
+                and source_location != self
+                and inherits_from(source_location, _CHARACTER_PATH)
+            ):
+                source_location.msg(
+                    f"{self.get_display_name(source_location)} cannot carry any more."
+                )
+            return False
+        return True
+
+    def at_object_leave(self, moved_obj, target_location, move_type="move", **kwargs):
+        """
+        Announce leaving the overloaded band (W2.2).
+
+        `move_to` calls this before `moved_obj` moves (objects.py:1290), so
+        *before* is the current sum and *after* is the reader's sum with the
+        object at `target_location` (`encumbrance.enc_without`) -- never
+        `carried_enc - item_enc`, which misses the twentieth item at `enc` 0.
+        `move_to(None)` returns before any hook (objects.py:1244), so
+        `target_location` is never None here.
+
+        Args:
+            moved_obj (Object): the object leaving this character.
+            target_location (Object): where it is going.
+            move_type (str): passed on to `super()`.
+            **kwargs: passed on to `super()`.
+        """
+        super().at_object_leave(moved_obj, target_location, move_type=move_type, **kwargs)
+        before = encumbrance.carried_enc(self)
+        after = encumbrance.enc_without(self, moved_obj, target_location)
+        self._announce_enc_crossing(before, after)
+
+    def at_object_receive(self, moved_obj, source_location, move_type="move", **kwargs):
+        """
+        Announce entering the overloaded band (W2.2).
+
+        `move_to` calls this after `moved_obj` has arrived (objects.py:1322),
+        so *before* is the reader's sum with the object back at
+        `source_location` (`encumbrance.enc_without`) and *after* is the
+        current sum. `create_object(location=self)` calls it too, with
+        `source_location` None and before the new object's Attributes are set
+        (objects.py:1975): the newcomer weighs 0 at that moment, so only the
+        twentieth item at `enc` 0 can cross there.
+
+        Args:
+            moved_obj (Object): the object that arrived.
+            source_location (Object or None): where it came from.
+            move_type (str): passed on to `super()`.
+            **kwargs: passed on to `super()`.
+        """
+        super().at_object_receive(moved_obj, source_location, move_type=move_type, **kwargs)
+        before = encumbrance.enc_without(self, moved_obj, source_location)
+        after = encumbrance.carried_enc(self)
+        self._announce_enc_crossing(before, after)
+
+    def _announce_enc_crossing(self, before, after):
+        """
+        Tell the character when `before` and `after` sit on different sides of
+        the limit (W2.2 Q2). OVERLOADED <-> CEILING is no crossing: W3 prices
+        `!= FREE`, and no `move_to` enters CEILING (W2.1). Both sums go
+        through the reader's band rule (`encumbrance.band`) against one read
+        of the limit.
+
+        No `try/except`, as in `at_pre_object_receive`: if the leave hook
+        raises, `move_to` logs and refuses the move (objects.py:1291); the
+        receive hook makes the reads `at_pre_object_receive` has just made,
+        without error, for the same `move_to`.
+        """
+        limit = encumbrance.enc_limit(self)
+        was_free = encumbrance.band(before, limit) == encumbrance.FREE
+        now_free = encumbrance.band(after, limit) == encumbrance.FREE
+        if was_free == now_free:
+            return
+        self.msg("You are no longer overloaded." if now_free else "You are overloaded.")
+
+    def receive_or_set_down(self, objs):
+        """
+        Put new objects in this character's hands, or at its feet (W5.1 Q1).
+
+        The one way a product reaches its maker: craft, forage, harvest,
+        inscribe and scribe all call this, and none writes a fallback of its
+        own. Each object goes through `move_to`, so the ceiling hook runs
+        (W2.1) and a delivery that crosses the limit is announced (W2.2).
+        `enc_quiet=True` keeps a refusal silent (Q2): the caller sends one
+        line, after its own result line, from `set_down_message`.
+
+        A refused object is moved to `self.location`. With no location (Q6),
+        or a location that refuses it, the character keeps it after all,
+        hooks off, and a warning is logged: a load above the ceiling in a
+        case that should not occur beats a product at `location` None.
+
+        Products arrive one at a time and in order, so a batch that fills the
+        character part-way lands as "the first ones held, the rest set down",
+        with the twenty-to-one rule read afresh for each.
+
+        Args:
+            objs (iterable of Object): new objects, normally at `location`
+                None (spawned) -- never in this character already.
+
+        Returns:
+            list: the objects set down, in order; empty when all were taken.
+        """
+        set_down = []
+        for obj in objs:
+            if obj.move_to(self, quiet=True, enc_quiet=True):
+                continue
+            if self.location is not None and obj.move_to(self.location, quiet=True):
+                set_down.append(obj)
+                continue
+            logger.log_warn(
+                f"receive_or_set_down: {obj.key}(#{obj.id}) refused by "
+                f"{self.key}(#{self.id}) with nowhere to set it down "
+                f"(location {self.location!r}); kept above the ceiling."
+            )
+            obj.move_to(self, quiet=True, move_hooks=False)
+        return set_down
+
+    def set_down_message(self, objs):
+        """
+        The one line for what `receive_or_set_down` set down (W5.1 Q2).
+
+        One object is named; several are counted, so a command's own line
+        ("You harvest 6 ...") stays true and this one says how many of them
+        did not stay in hand.
+
+        Args:
+            objs (list): what `receive_or_set_down` returned; not empty.
+
+        Returns:
+            str
+        """
+        if len(objs) == 1:
+            return f"You cannot carry the {objs[0].get_display_name(self)}; you set it down."
+        return f"You cannot carry {len(objs)} of them; you set them down."
 
 
 # --- Rest callbacks (Epic A, TA1.3) -------------------------------------------

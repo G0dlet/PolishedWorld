@@ -16,7 +16,7 @@ and always yields under the inherited raw consume policy.
 The garment-quality test pins the d100 to a fumble and reads the crafted
 garment's condition: each of the five garments must route through
 _apply_garment_quality (shoddy -> 50) like the linen shirt, rather than keep
-the DurableObject default of 100. The sack is a plain Object with no wear
+the DurableObject default of 100. The sack is a Container (W4.1) with no wear
 axis and is left out.
 
 HOW TO RUN
@@ -31,7 +31,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaTest
 
 from typeclasses.clothing import ClothingWithBuffs
-from typeclasses.objects import Object
+from typeclasses.containers import Container
 from world.crafting_quality import SHODDY, quality_band
 from world.knowledge import render_recipe_detail_by_name
 
@@ -70,7 +70,7 @@ CLOTH_GOODS = (
     },
     {
         "prototype": "sack", "recipe": "sack", "key": "large sack",
-        "typeclass": Object, "cloth": 2, "slot": None,
+        "typeclass": Container, "cloth": 2, "slot": None,
         "warmth": None, "enc": 1, "duration": 40, "min_skill": 40,
     },
 )

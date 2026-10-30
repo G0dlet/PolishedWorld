@@ -10,7 +10,7 @@ multimatch issue, since we target a single object, not a bag of ingredient token
 
 Model: roll the crafter's Craft skill (world/skillcheck.py), modified by whether
 a needle is carried (baseline 0) or improvised (-20), mirroring the tailoring recipes'
-optional-tool handling. The result tier decides the condition change; a fumble
+optional-tool handling, and by the overload penalty (W3.1, Character.physical_modifier). The result tier decides the condition change; a fumble
 damages the garment further. Cloth and twine are consumed on *any* resolved
 attempt -- including a plain failure -- so low-skill spam carries a real cost.
 """
@@ -133,7 +133,11 @@ class CmdRepair(Command):
         # collect-roll-consume sequence atomic against any concurrent repair.
         trait = caller.skills.get("craft")
         skill_value = trait.value if trait else 0     # counter .value = current + mod
-        outcome = skill_check(skill_value, self._tool_modifier(caller, target))
+        # Tool modifier plus the overload penalty (W3.1).
+        outcome = skill_check(
+            skill_value,
+            self._tool_modifier(caller, target) + caller.physical_modifier(),
+        )
         result = outcome["result"]
 
         for obj in materials:

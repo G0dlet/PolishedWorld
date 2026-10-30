@@ -135,7 +135,10 @@ class CmdForage(Command):
             logger.log_trace()
             caller.msg("You reach out, but something goes wrong and you come away empty-handed.")
             return
-        item.move_to(caller, quiet=True)
+        # Into the hands, or at the feet past the ceiling (W5.1). Either way
+        # the yield exists, so the node stays decremented and the cooldown
+        # below is set.
+        set_down = caller.receive_or_set_down([item])
 
         # 7. Wear the tool -- only now, after the yield exists, so the refund
         #    path above never wears a tool for a forage that produced nothing.
@@ -149,6 +152,8 @@ class CmdForage(Command):
         # 8. Commit cooldown and announce — only on success.
         caller.cooldowns.add("forage", FORAGE_COOLDOWN)
         caller.msg(f"You forage {item.get_display_name(caller)} from the {node.get_display_name(caller)}.")
+        if set_down:
+            caller.msg(caller.set_down_message(set_down))
         caller.location.msg_contents(
             f"{caller.get_display_name()} forages from the {node.get_display_name()}.",
             exclude=caller,

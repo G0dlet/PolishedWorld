@@ -36,6 +36,7 @@ from evennia.contrib.game_systems.barter.barter import (
 
 from evennia.utils import logger
 
+from world import encumbrance
 from world.currency import format_copper, parse_amount
 
 
@@ -115,20 +116,57 @@ def _offered_currency_still_held(handler):
     return True
 
 
+def _over_ceiling_after_trade(handler):
+    """The parties this trade would put above their ceiling, A first (W5.1 Q5).
+
+    Upstream's finish() moves the offers by assignment (`obj.location =`,
+    barter.py:369, 371), which runs no hook, so the ceiling W2.1 enforces on
+    every `move_to` is checked here, before anything moves. Each party's sum
+    after the swap comes from the reader (`encumbrance.enc_after_trade`), with
+    its own offer leaving and the other's arriving.
+
+    A party is refused only when the sum after is above the ceiling AND above
+    the sum before (Q4): a trade that lightens someone already over the
+    ceiling -- STR drained, a load from before W2.1 -- is never refused.
+    Coin is an integer, not an object, and weighs nothing (OQ5).
+
+    Runs after `_all_offers_in_hand`, so every offered object is still with
+    its offerer when this reads.
+    """
+    over = []
+    for party, leaving, arriving in (
+        (handler.part_a, handler.part_a_offers or (), handler.part_b_offers or ()),
+        (handler.part_b, handler.part_b_offers or (), handler.part_a_offers or ()),
+    ):
+        before = encumbrance.carried_enc(party)
+        after = encumbrance.enc_after_trade(party, leaving, arriving)
+        ceiling = encumbrance.OVERLOAD_FACTOR * encumbrance.enc_limit(party)
+        if after > ceiling and after > before:
+            over.append(party)
+    return over
+
+
 def _stale_offer_reason(handler):
     """The message to cancel with, or None if the deal is still honest.
 
     Both call sites -- PWTradeHandler.finish() and CmdPWAccept.func() -- need
-    the same two checks in the same order and the same wording, so the choice
+    the same three checks in the same order and the same wording, so the choice
     lives here rather than being written out twice and drifting apart.
 
     Items are checked first only because an item leaving someone's hands is the
     older and commoner failure; neither takes precedence in any deeper sense.
+    The ceiling comes last (W5.1 Q5): it reads the offers where the first
+    check has just found them. The line names who cannot carry it, and the
+    same line goes to both parties.
     """
     if not _all_offers_in_hand(handler):
         return "Trade cancelled: an offered item is no longer available."
     if not _offered_currency_still_held(handler):
         return "Trade cancelled: offered coin is no longer available."
+    over = _over_ceiling_after_trade(handler)
+    if over:
+        names = " and ".join(party.key for party in over)
+        return f"Trade cancelled: {names} cannot carry that much."
     return None
 
 

@@ -269,9 +269,12 @@ class PlayerCorpse(Corpse):
     def at_object_creation(self):
         """Inherit the carcass get-lock + death stamp, then lock looting owner-first."""
         super().at_object_creation()   # get:false() + death_time default
-        # Owner-first looting via CmdContainerGet's get_from check. This is a
-        # DIFFERENT lock from the inherited get:false(): get_from governs taking
-        # items OUT of the corpse, get governs pocketing the carcass itself.
+        # Owner-first looting via the get_from lock. This is a DIFFERENT lock
+        # from the inherited get:false(): get_from governs taking items OUT of
+        # the corpse (CmdContainerGet) and putting items IN (`put` runs the
+        # contrib's check, containers.py:265, and refuses with db.put_err_msg,
+        # unset here, so the contrib's generic line, not get_from_err_msg);
+        # get governs pocketing the carcass itself.
         # corpse_grace() (server/conf/lockfuncs.py) reads `owner` and the clock
         # at access time, so the lock string never changes and nothing has to
         # fire when the grace ends.
