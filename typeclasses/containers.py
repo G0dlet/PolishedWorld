@@ -17,8 +17,10 @@ Rules (WD5; Weight decomposition Rev 7, W4.1 Q1-Q5):
 - A container does not lighten its contents: the carrier counts them in full.
 
 The hook runs where the contrib calls it -- `CmdPut` (`put <item> in <bag>`,
-installed by W4.2). A bare `move_to(container)` runs no capacity check, as in
-the contrib.
+`commands/inventory_commands.py`, W4.2). A bare `move_to(container)` runs no
+capacity check, as in the contrib. Each refusal says why and sets
+`putter.ndb._put_refused`, so `CmdPut` drops the contrib's second line
+(W4.2 Q2).
 """
 
 from evennia.contrib.game_systems.containers.containers import ContribContainer
@@ -45,6 +47,8 @@ class Container(ContribContainer):
 
         Replaces the contrib's check rather than extending it: `super()` would
         also refuse on the number of objects, which is what this class removes.
+        Each refusal sets `putter.ndb._put_refused`, the flag `CmdPut` reads
+        (W4.2 Q2).
 
         Args:
             putter (Object): who is putting `target` in.
@@ -55,8 +59,10 @@ class Container(ContribContainer):
         """
         if inherits_from(target, ContribContainer):
             putter.msg("You cannot put a container inside another.")
+            putter.ndb._put_refused = True
             return False
         if encumbrance.enc_after_receiving(self, target) > self.capacity:
             putter.msg(f"The {self.key} is full.")
+            putter.ndb._put_refused = True
             return False
         return True

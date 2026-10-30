@@ -25,7 +25,7 @@ from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
 from commands.currency_commands import CmdWallet, CmdPay, CmdEconomy
 from commands.work_commands import CmdWork
-from commands.inventory_commands import CmdGet, CmdInventory
+from commands.inventory_commands import CmdGet, CmdInventory, CmdPut
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -171,14 +171,17 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdUncover())
         self.add(CmdInventory())
 
-        # Corpse/container looting: CmdGet (commands/inventory_commands.py) is
-        # the containers contrib's 'get', which also supports
+        # Containers and corpse looting (commands/inventory_commands.py).
+        # CmdGet is the containers contrib's 'get', which also supports
         # 'get <obj> from <container>' (checks the container's get_from lock),
         # minus the contrib's refusal line after a ceiling refusal (W2.2 Q3).
+        # CmdPut is the contrib's 'put <obj> in <container>', minus the
+        # contrib's refusal line after a project at_pre_put_in has said why
+        # (W4.2 Q2); only containers accept it (ObjectParent, W4.2 Q3).
         # Deliberately NOT the full ContainerCmdSet -- that bundles
         # CmdContainerLook, which would clobber extended_room's seasonal look.
-        # Full put/storage containers are a later task (see decomp section 13).
         self.add(CmdGet())
+        self.add(CmdPut())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

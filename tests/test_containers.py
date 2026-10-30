@@ -1,5 +1,6 @@
 """
-Tests for typeclasses/containers.py (Weight and Encumbrance, Task W4.1).
+Tests for typeclasses/containers.py and `put` (Weight and Encumbrance, Tasks
+W4.1 and W4.2).
 
 Each class presses one bug:
 
@@ -17,14 +18,32 @@ Each class presses one bug:
                           contrib's 20; a `get_from` lock lost because
                           `at_object_creation` stopped reaching the contrib
 
+W4.2, through the commands (`self.call`):
+
+    TestPutRoundTrip      `put` or `get ... from` that does not move the item,
+                          or moves it in a way that changes the carrier's sum
+    TestPutOneLine        the contrib's "You can't put that there." after a
+                          refusal that already said why (filter or flag gone);
+                          `put` into a corpse or a character, which the
+                          contrib allows on the `get_from` lock -- the owner's
+                          corpse during the grace, anything for a superuser --
+                          when ObjectParent has no `at_pre_put_in` (Q3)
+    TestPutStaleFlag      a flag left over from earlier that silences the
+                          contrib's line after a refusal nobody explained (the
+                          clear before `func`, Q2)
+    TestGetFromAtCeiling  a ceiling check that charges an item taken out of a
+                          carried sack as new weight, or lets one from a sack
+                          on the floor through (W2.1, via `get ... from`)
+    TestPutInstalled      the cmdset's `put` missing, or the contrib's own
+
 THE FIXTURE
 -----------
 A sack is created in `room1` with `capacity` 10. Its load is created in place
 (nothing under test moves it); the item offered is created in the room, as
 `CmdPut` would find it on the putter. The hook is called directly, the way
-the contrib's `CmdPut` calls it (`containers.py:279`); `put` itself is
-installed and tested through the command in W4.2. Every refusal asserts the
-putter's one message, and every acceptance that no message was sent.
+the contrib's `CmdPut` calls it (`containers.py:279`). The W4.2 classes run
+`put` and `get` as commands; each refusal there asserts the caller's whole
+output, line for line, and that the item has not moved.
 
 HOW TO RUN
 ----------
@@ -36,8 +55,9 @@ from unittest import mock
 from evennia import create_object
 from evennia.prototypes.prototypes import search_prototype
 from evennia.prototypes.spawner import spawn
-from evennia.utils.test_resources import EvenniaTest
+from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
+from commands.inventory_commands import CONTRIB_REFUSAL, PUT_REFUSAL, CmdGet, CmdPut
 from typeclasses.containers import Container
 from world.encumbrance import carried_enc
 
@@ -48,6 +68,9 @@ OBJ = "typeclasses.objects.Object"
 SACK_CAPACITY = 10
 FULL = "The large sack is full."
 NESTED = "You cannot put a container inside another."
+LOCKED = "You can't put things in that."   # containers.py:270, ObjectParent
+CEILING = "You cannot carry any more."
+PLAYER_CORPSE = "typeclasses.corpse.PlayerCorpse"
 
 
 def _make(location, key="thing", enc=None, typeclass=OBJ):
@@ -150,3 +173,119 @@ class TestPrototypes(EvenniaTest):
                 self.assertIs(type(obj), Container)
                 self.assertEqual(obj.capacity, capacity)
                 self.assertTrue(obj.access(self.char1, "get_from"))
+
+
+# --- W4.2 -- put and get through the commands ---------------------------------
+
+
+class _PutFixture(_SackFixture):
+    """The W4.1 sack, plus a helper that returns the caller's output as lines."""
+
+    def lines(self, cmd, args):
+        return self.call(cmd, args).splitlines()
+
+
+class TestPutRoundTrip(_PutFixture, EvenniaCommandTest):
+    """`put` into a carried sack and `get ... from` it move the item and nothing else."""
+
+    def test_put_in_and_get_back_out(self):
+        self.sack.move_to(self.char1, quiet=True)
+        stone = _make(self.char1, key="stone", enc=3)
+        before = carried_enc(self.char1)
+        self.call(CmdPut(), "stone in large sack")
+        self.assertEqual(stone.location, self.sack)
+        self.assertEqual(carried_enc(self.char1), before)
+        self.call(CmdGet(), "stone from large sack")
+        self.assertEqual(stone.location, self.char1)
+        self.assertEqual(carried_enc(self.char1), before)
+
+
+class TestPutOneLine(_PutFixture, EvenniaCommandTest):
+    """Every refusal through `put` is one line, and the item stays put."""
+
+    def assertRefused(self, args, line, item):
+        self.assertEqual(self.lines(CmdPut(), args), [line])
+        self.assertEqual(item.location, self.char1)
+        self.assertFalse(self.char1.ndb._put_refused)
+
+    def test_a_full_carried_sack(self):
+        self.sack.move_to(self.char1, quiet=True)
+        _make(self.sack, key="load", enc=8)
+        stone = _make(self.char1, key="stone", enc=3)
+        self.assertRefused("stone in large sack", FULL, stone)
+
+    def test_a_sack_into_a_backpack(self):
+        backpack = _make(self.room1, key="backpack", enc=1, typeclass=CONTAINER)
+        backpack.capacity = 20
+        self.sack.move_to(self.char1, quiet=True)
+        self.assertRefused("large sack in backpack", NESTED, self.sack)
+
+    def test_your_own_corpse_during_the_grace(self):
+        corpse = create_object(PLAYER_CORPSE, key="corpse", location=self.room1)
+        corpse.db.owner = self.char1.id
+        # Receipts: the lock lets the owner through, so the line is the hook's.
+        self.assertTrue(corpse.grace_active)
+        self.assertTrue(corpse.access(self.char1, "get_from"))
+        stone = _make(self.char1, key="stone", enc=1)
+        self.assertRefused("stone in corpse", LOCKED, stone)
+
+    def test_a_superuser_into_a_character(self):
+        self.account.is_superuser = True
+        self.account.save()
+        # The bypass is cached per object; puppeting refreshes it
+        # (accounts.py:552), so the test does what a login would.
+        self.char1.locks.cache_lock_bypass(self.char1)
+        # Receipt: a superuser passes the get_from lock Char2 does not have.
+        self.assertTrue(self.char2.access(self.char1, "get_from"))
+        stone = _make(self.char1, key="stone", enc=1)
+        self.assertRefused("stone in Char2", LOCKED, stone)
+
+
+class TestPutStaleFlag(_PutFixture, EvenniaCommandTest):
+    """A flag set before the command does not silence a refusal nobody explained."""
+
+    def test_the_contrib_container_keeps_both_of_its_lines(self):
+        # The contrib's own class says why itself (containers.py:101) and sets
+        # no flag, so the contrib's line after it must survive a stale flag.
+        crate = _make(self.room1, key="crate", enc=1, typeclass=CONTRIB_CONTAINER)
+        crate.capacity = 0
+        stone = _make(self.char1, key="stone", enc=1)
+        self.char1.ndb._put_refused = True
+        self.assertEqual(
+            self.lines(CmdPut(), "stone in crate"),
+            ["You can't fit anything else in a crate.", PUT_REFUSAL],
+        )
+        self.assertEqual(stone.location, self.char1)
+
+
+class TestGetFromAtCeiling(_PutFixture, EvenniaCommandTest):
+    """At the ceiling (40 at limit 20), a floor sack is new weight; a carried one is not."""
+
+    def test_from_a_sack_on_the_floor_is_refused(self):
+        _make(self.char1, key="load", enc=40)
+        stone = _make(self.sack, key="stone", enc=1)
+        self.assertEqual(self.lines(CmdGet(), "stone from large sack"), [CEILING])
+        self.assertEqual(stone.location, self.sack)
+
+    def test_from_a_carried_sack_is_let_through(self):
+        _make(self.char1, key="load", enc=38)
+        self.sack.move_to(self.char1, quiet=True)
+        stone = _make(self.sack, key="stone", enc=1)
+        self.assertEqual(carried_enc(self.char1), 40)
+        out = self.call(CmdGet(), "stone from large sack")
+        self.assertNotIn(CEILING, out)
+        self.assertNotIn(CONTRIB_REFUSAL, out)
+        self.assertEqual(stone.location, self.char1)
+        self.assertEqual(carried_enc(self.char1), 40)
+
+
+class TestPutInstalled(EvenniaTest):
+    """The character cmdset's `put` is the project's, not the contrib's."""
+
+    character_typeclass = CHARACTER
+
+    def test_the_cmdset_uses_the_project_put(self):
+        from commands.default_cmdsets import CharacterCmdSet
+
+        commands = {cmd.key: cmd for cmd in CharacterCmdSet().commands}
+        self.assertIsInstance(commands.get("put"), CmdPut)
