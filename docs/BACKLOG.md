@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 53 · 2026-10-30** — two entries **added**, from the same living-world review as Rev 52, after Adam named three couplings he had always intended: wear that depends on weather, food that goes bad, and sight that fails in the dark. One of the three is not an entry. **Weather-dependent wear already exists for garments** (`world/garment_wear.py` samples `thermal_regime()`, which reads season and weather) and not for tools; extending it, and adding a wet axis, is an instance of *Weather inertia* part (2)'s own trigger — *"whenever a system first needs to read weather mechanically"* — so it is noted there by this line and filed nowhere else. **Added** (*Survival*): ***Food spoilage*** — `Food` has no freshness at all; the clock, the stages, the modifier table and the sink all exist one typeclass away in `Corpse`, so the entry is mostly about moving them to one home and having harvested meat inherit its corpse's clock; OPEN for the clock, with preservation recipes BLOCKED on the *food professions* exclusives decision. **Added** (*Environment & Weather*): ***Light & darkness*** — night is `$state(night, …)` text and nothing else; a derived room light level, a craftable carried light source, and two consumers (`look` through the Room's own `get_display_*` overrides, and a `light_modifier()` seam for checks) that give `perception` its first reader; OPEN, paired with *Season-dependent day length*. No code changes.
 > **Rev 52 · 2026-10-30** — one entry **added**, in a new section *Ecology & Supply*: ***Seasonal supply & population memory — the simulation reads itself***, BLOCKED on the persistent alpha instance plus two game-months of ledger data, with its part (1) OPEN on a light week. Filed from a review of `main` (`a1ad0ee`) against the living-world goal: season and weather have three direct readers today — room descs, `thermal_regime()`, `Corpse._decay_modifier()` — plus garment wear through `thermal_regime()`, and none of them sits on the *supply* side. `ResourceNode._update_regen()` divides elapsed time by a flat `regen_interval`, and `CreatureSpawnScript` tops every flagged room up to a fixed target, so a hunt has no consequence for supply beyond the next tick. The entry records three couplings on existing seams (seasonal regeneration, per-room breeding stock, readable signs), the open choices a decomposition must lock, and why it is filed rather than built: alpha decision (F) orders the alpha's remaining work, and the alpha exists to measure the economy before more systems are added to it. No code changes.
 > **Rev 51 · 2026-10-29** — *Legend character creation* is code complete on `feature/character-creation` (`87bacfd`; `docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2; roadmap Rev 32; merge pending as CC4.2). **Closed:** *Profession Common-Skill bonuses* (CC2.1, `craft +10` for all four) and *Health `descs` use a 0–100 scale* (CC1.2) go **SCHEDULED → DONE**; the health entry's annotation said CC1.2 would take the lower-bound reading — it kept the upper-bound one and swapped the value for `percent()`, corrected. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* (health has its own reader now, a fourth to change with the other three); *Cultural-Background gating of professions* (the chargen shipped; characteristics no longer identical); *Free Skill Points* and *Cultural Background* (shipped without them). **Added** (*Professions & Chargen*): *A `hunter` profession* (OQ3); *Characteristic improvement (Legend p.68ff)*; *Chargen resume replays the last notice*; *Dev characters keep a float `health.base`*; *Placeholder skill bases in `at_object_creation`*. **Added** (*Tooling & Process*): *System Map describes the world as of Stage 4*. No code changes.
 > **Rev 50 · 2026-10-26** — *Weight and encumbrance* decomposed (`docs/PolishedWorld_Weight_Decomposition.md` Rev 1; roadmap Rev 31). **Status changed:** *Weight and encumbrance (Legend ENC)* goes **OPEN → SCHEDULED** (code after character creation, per alpha decision (F)); *Full container support* stays SCHEDULED with it. **Annotated:** the weight entry records the translation (WD1–WD8) and **corrects its own 2026-10-18 direction** — no `Overloaded` buff, no `fatigue_rate` mult; the band costs −20 % on physical tests and one fatigue point per room, read lazily — because the annotation read as an instruction and would have been built. *Fatigue-exhaustion consequence* is annotated with the answer to the question both entries asked: the weight feature neither contains it nor depends on it, since a ceiling at twice the limit prices distance in trips before fatigue has a consequence; the per-room cost and the `physical_modifier()` seam are what this entry's bands will plug into. *`CoinPile` vs the corpse's atomic content delete* is annotated with `CoinPile`'s `enc` (AD8's rule, Stage 5). No new entries: the two rejected penalties (a rate multiplier, a movement delay) and container nesting are decided in the decomposition, not deferred.
@@ -1310,6 +1311,65 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 
 ---
 
+### Food spoilage
+
+- **What:** `Food` (`typeclasses/consumables.py`) has two attributes —
+  `restore_amount` and `consume_message` — and no notion of age: `berries` and
+  `rabbit_meat` keep forever. Add a lazy spoilage clock, built from parts that
+  already exist in `Corpse`:
+  **(1) The clock.** `made_at` (absolute game-seconds, anchored in
+  `at_object_creation()` exactly as `ResourceNode.last_regen` is, so a default
+  of 0 can never read as "ancient"), a per-prototype `shelf_life_hours`, and a
+  live modifier reusing `Corpse.decay_modifier`'s season × weather ×
+  `is_cold_storage` product. **Move that table and product into one shared
+  module** (`world/decay.py`) read by both `Corpse` and `Food` — two copies of
+  the same tuning constants is the *two knobs doing one job* failure in a new
+  coat.
+  **(2) Inheritance.** Meat is not born fresh. `CmdHarvest` (step 8 of
+  `commands/hunting_commands.py`) already gates soft parts on
+  `corpse.decay_stage`; the spawned `rabbit_meat` should take
+  `made_at = corpse.db.death_time`, not *now*, so a corpse harvested late
+  yields meat already part-way gone.
+  **(3) Stages and the sink.** `look` shows fresh / stale / spoiled
+  (number-free, like `_availability_phrase()`); `CmdEat` refuses or penalises
+  spoiled food; spoiled food expires through the pattern `Corpse.crumble()` and
+  `Room.sweep_expired_corpses()` established — one expiry writer, and the
+  room-entry sweep generalised from corpses to anything with a `crumble()`.
+  **(4) Preservation.** Drying, salting and smoking are *recipes* whose output
+  is a new `Food` prototype with a long shelf life, not a flag on the old one —
+  so preservation is a craft order and a craftsman's income, and **salt gets
+  its first consumer** (one of the seven FAS 1 materials Rev 27 found no sink
+  for).
+  **Open choices, for the decomposition:** shelf lives per prototype; whether
+  the clock may run backwards as the corpse's does (acceptable for "how fresh
+  does it look", unacceptable for anything that must be monotone — see
+  *⚠️ Decay time can run backwards*); what eating spoiled food does (a flat
+  hunger penalty now, a disease hook once *Disease system* on the roadmap
+  exists); whether cold storage stays a room flag or becomes a container
+  property when *Full container support* lands; which preservation recipe ships
+  first, so the alpha cohort meets the sink and its answer in the same week.
+- **Why deferred:** Alpha decision (F) orders the alpha's remaining work and this
+  is none of it. Also: spoilage is a sink, and shipping a sink without its
+  matching craft (4) teaches players that food is a loss — (1)–(3) and at least
+  one recipe from (4) land together or not at all.
+- **Why it matters:** Food without decay is a good without a sink: forage once,
+  stockpile, done — and pillar 1 lives on recurring demand. It is the largest
+  sink the economy lacks, and it is the other half of the seasonal loop
+  *Seasonal supply & population memory* (Ecology & Supply) opens: seasonal
+  regeneration makes winter stores necessary, spoilage makes them *hard*, and
+  preservation makes them a trade. It also decides a question *Food professions*
+  (`roadmap.md`) must not decide three times: "preservable salt fish" is only an
+  exclusive product if unpreserved fish spoils.
+- **Trigger:** **Before** the *food professions* exclusives decision, which
+  depends on it — and ideally in the same window as Ecology & Supply part (1).
+  The clock and stages alone are a light week once `world/decay.py` exists.
+- **Origin:** Session 2026-10-30 (living-world review, follow-up; same review
+  as Rev 52).
+- **Status:** OPEN for (1)–(3); (4) BLOCKED on the *food professions*
+  exclusives decision, except the first recipe, which ships with (1)–(3).
+
+---
+
 ## Containers
 
 ### Weight and encumbrance (Legend ENC) — decompose before code
@@ -1454,6 +1514,55 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Any light week; pairs naturally with weather inertia above (same
   file neighbourhood, same session).
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
+- **Status:** OPEN
+
+---
+
+### Light & darkness
+
+- **What:** Night exists only as text — `$state(night, …)` and the seven
+  time-of-day descs in `typeclasses/rooms.py`. Nothing is harder to do in the
+  dark, and no object gives light. Add a **derived** room light level (never
+  stored, computed on read like `thermal_regime()`): time-of-day period ×
+  weather (`foggy` is a state today, so fog can dim without waiting for the
+  weather struct; cloud cover joins when *Weather inertia* part (2) lands) ×
+  an explicit pin for caves and cellars (`room.db.light_level`, the same shape
+  as `room.db.thermal_regime`) × any lit light source carried by the looker.
+  **The light source** is a craftable `Tool`-like item — torch, tallow candle —
+  whose `condition` is its fuel, burned down while lit through the same
+  sampled-tick discipline `world/garment_wear.py` uses, so a torch is a
+  consumable with a craft chain (wood or fibre + rendered fat) and **tallow
+  gets its first consumer**.
+  **Two consumers, no more in v1:** `look` — through the Room's own
+  `get_display_things()` / `get_display_characters()` overrides (ExtendedRoom
+  owns `return_appearance`, so these two are the project's seam), showing exits
+  and lit things only in the dark; and a `light_modifier()` seam on checks,
+  the shape `physical_modifier()` takes in the weight decomposition, read by
+  `hunt` and `forage` first. **`perception` (`characters.py`, not on
+  `improvable_skills`) gains its first reader** — Legend applies darkness as a
+  situational penalty to Perception; verify the table and figures in the
+  rulebook before decomposing rather than inventing a number.
+  **Open choices, for the decomposition:** how many tiers (bright / dim /
+  dark); whether a dark room hides its exits (hostile to newcomers) or only its
+  contents; fuel as `condition` (durable) or `charges` (`Drink`-like) — one
+  model, because a torch and a waterskin should not count down differently; a
+  dropped lit torch lighting the room for everyone; stealth coupling, which is
+  Stage 5's and not this entry's.
+- **Why deferred:** Alpha decision (F); and this adds an axis every consumer
+  will eventually read, so it wants the `look` seams open for a reason rather
+  than a standalone pass. *Season-dependent day length* should land first or
+  with it — a night that is as long in midsummer as in midwinter undercuts the
+  point.
+- **Why it matters:** The day/night cycle is the one environment system with
+  **no** mechanical reader at all — season and weather have four, time of day
+  has none. A light source is a recurring sink with a craft chain, the first
+  consumer for rendered fat, and the first thing that makes the 13-month
+  calendar's long winter nights a plan a player has to make.
+- **Trigger:** With *Season-dependent day length*, after Ecology & Supply
+  part (1); or earlier if Stage 5's design session needs visibility (*Weather
+  inertia* part (2) already names "Stage 5 visibility" as a weather consumer).
+- **Origin:** Session 2026-10-30 (living-world review, follow-up; same review
+  as Rev 52).
 - **Status:** OPEN
 
 ---
