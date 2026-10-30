@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 26 · 2026-10-30** — **what the weight feature learned, verified against the pinned `v6.1.0`** (`docs/PolishedWorld_Weight_Decomposition.md` Rev 11; merged as `7230823`). **§11.31 grows:** `move_to` passes `move_type` and its `**kwargs` to eight hooks, which is how a caller's own keyword (the project's `enc_quiet`) reaches `at_pre_object_receive`; what each hook's exception does (abort before the move, `False` after it, and the exit's *You cannot go there.*); `move_to(None)` returns before any hook; an exit moves with `move_type="traverse"`; `create_object(location=…)` runs `at_object_receive` before the attributes are written; the containers contrib's base is `settings.BASE_OBJECT_TYPECLASS`, `put` is permitted by `get_from` and asks `at_pre_put_in` only through `hasattr`. Its sentence *crafting output arrives that way* (by assignment) is corrected: crafting output now goes through `move_to`, and the assignments left are the crafting contrib's `CmdCraft.func` and barter's swap. **§8.5** gains the contrib's own assignment after `craft()` and `post_craft` in a `finally`. **§11.26** gains where the superuser bypass is decided and cached. **§3.5 corrected:** it gave `(current + mod) * mult` as `.value` for counters *and* gauges; a gauge's `.value` is its `current`.
 > **Rev 25 · 2026-10-29** — **what character creation learned, verified against the pinned `v6.1.0`** (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2). New **§3.6**: trait numbers — `.value` is a float whenever `mult` is (always, by default), counters and gauges round `.current` on read only when `.base` is an int, `GaugeTrait.value` is `.current`, `base` setters drop or clamp silently, and any property set on a trait is stored. New **§11.30** `utils.percent()` never divides by zero; **§11.31** `move_to`'s nine hooks and the containers contrib's two (filed from the weight decomposition's §3); **§11.32** which doors call `at_post_puppet` — login does, every `EvenniaTest` setUp does, `@reload` does not — and the one door every account-born character passes; **§11.33** file-help entries and the unknown-command line. New **§15 EvMenu**: the node contract, the cmdset that is the gate and shadows `py`, and persistent menus — what is saved, what a second `EvMenu` destroys, and the lazy restore that swallows a line. §13 gains two rows.
 > **Rev 24 · 2026-10-26** — new **§11.29: `search_prototype(no_db=True)` returns homogenized prototypes**, verified against the pinned `v6.1.0` (`evennia/prototypes/prototypes.py`). Filed by the Alpha Content epic (Decomp §3 finding 6 (iv)) and written in its close-out (AC6): a test or seeder that reads a loaded prototype by the module dict's top-level keys reads a shape the spawner never sees.
 > **Rev 23 · 2026-10-17** — **§11.27 now opens with the slot, not the flag.** Epic A (merged `34b2ee4`) built the pattern this section describes into `world/timed_actions.py` and moved `rest`, `work` and `craft` onto it, which left four sentences describing a repo that no longer exists: the provenance line ("shipped in `commands/work_commands.py`"), the claim that the `rest`/`at_pre_move` interrupt uses `ndb.working`, point 2's "a move hook … does not catch teleport", and point 3's `_rest_tick` guarding itself. The mechanism stays — why a string cannot tell two attempts apart, why the comparison is `is` — because the module depends on it and its reader needs it; what changes is that the section first says *use the slot, do not hand-roll a new flag*. Point 2 was read against Evennia `v6.1.0` rather than copied from the decomp's note: `@tel` moves with hooks, but `CmdTeleport` also has two direct `location =` writes (`tel/tonone`, and teleporting out of a None-location), and neither can reach a character playing in a room. That is said in the text, because a reader who checks the source will find them.
@@ -356,7 +357,7 @@ Then: `char.traits.add("left_arm", "Left Arm", trait_type="wound", base=0)`.
  
 ### 3.5 ⚠️ Counter/gauge `.value` läser `.current`, inte `.base`
 
-`CounterTrait`/`GaugeTrait`: `value = (current + mod) * mult`. Gettern för `current` är
+`CounterTrait`: `value = (current + mod) * mult` (`traits.py:1466–1468`). `GaugeTrait`: `value = current` (`:1695–1697`) — på en gauge flyttar `mod` och `mult` bara `max`. *(Rättat i Rev 26: Rev 1–25 gav counter-formeln för båda.)* Gettern för `current` är
 `self._data.get("current", self.base)` — den faller tillbaka på `base` **bara om `current`
 är osatt**. Men `traits.add(..., base=N)` pinnar `current=N` redan vid skapandet, så att
 sätta `.base` i efterhand lagras men flyttar **inte** `.value`.
@@ -829,6 +830,8 @@ The `with` keyword separates tools from consumables in the command syntax.
 | `post_craft(craft_result, **kwargs)` | Post-process; e.g., apply quality based on skill |
  
 Mongoose-Legend skill check integration goes in `pre_craft` (gate on success) or `post_craft` (modify quality based on roll margin).
+
+⚠️ **The contrib places what `craft()` returns, by assignment** (verified `v6.1.0`, weight W5.1): `CraftingRecipeBase.craft` runs `post_craft` in a `finally` and returns its value (`crafting.py:326–347`), and `CmdCraft.func` then sets `obj.location = caller` on every object in it (`:1096–1098`) — no hook runs. A recipe that delivers its products itself must return only what the crafter holds, or the command carries a set-down product back. `MongooseCraftRecipe.post_craft` does exactly that: it consumes, delivers through `Character.receive_or_set_down`, then returns the held products only.
  
 ### 8.6 ⚠️ Recipe loading is module-level
  
@@ -1454,7 +1457,7 @@ permissions to the fixture. Just never mistake that convenience for coverage of
 the lock.
 
 ⚠️ In-game, remember that a **superuser bypasses every lock**, command locks and
-object locks alike. Verifying `cmd:perm(Developer)` or `get:false()` while logged
+object locks alike. *(Rev 26: the bypass is decided in `LockHandler.check`, before any lock function runs, `lockhandler.py:563–568`; it is cached per object as `lock_bypass`, and refreshed when an account puppets, `accounts.py:552`. A test that sets `is_superuser = True` must call `char.locks.cache_lock_bypass(char)` as that login would — Testing Reference §11j.)* Verifying `cmd:perm(Developer)` or `get:false()` while logged
 in as the superuser proves nothing; it needs a second, unprivileged character
 (Testing Reference §10 — two *sessions*).
 
@@ -1664,9 +1667,19 @@ module prototype for the rest of the process.
 8. `destination.at_object_receive(self, source_location)`
 9. `self.at_post_move(source_location)`
 
-`quiet=True` silences only 5 and 7 (Testing Ref §11d). `move_hooks=False` skips 1–4, 8 and 9. A plain assignment `obj.location = x` runs none of them — crafting output arrives that way (`world/crafting_base.py:324`).
+`quiet=True` silences only 5 and 7 (Testing Ref §11d). `move_hooks=False` skips 1–4, 8 and 9 (the blocks at `:1260`, `:1288`, `:1318` and `:1329`). A plain assignment `obj.location = x` runs none of them. *(Rev 26: Rev 25 named crafting output as arriving that way; since weight W5.1 it goes through `move_to`. The assignments left are the crafting contrib's `CmdCraft.func`, `crafting.py:1096–1098`, which the project's recipe neutralises (§8.5), and the barter contrib's swap, `barter.py:369, 371`.)*
+
+**Every hook gets `move_type` and the caller's `**kwargs`** — `at_pre_move` (`:1263`), `at_pre_object_leave` (`:1271`), `at_pre_object_receive` (`:1280`), `at_object_leave` (`:1290`), `announce_move_from` (`:1298`), `announce_move_to` (`:1313`), `at_object_receive` (`:1322`) and `at_post_move` (`:1331`); the docstring says the same (`:1208`). A keyword of your own passed to `move_to` is therefore a channel to the hooks: `Character.receive_or_set_down` calls `move_to(char, enc_quiet=True)`, and the character's `at_pre_object_receive` refuses without its line. An exit moves with `move_type="traverse"` (`:3734`); `"move"` is only the default of a bare `move_to`.
+
+**What a hook's exception does.** Each call is wrapped; the exception is logged and `move_to` returns `False`. In 1–4 that is before the move: nothing happens. In 8 (`:1324–1325`) and 9 (`:1333–1334`) the object has *already arrived*, and `move_to` still returns `False` — so an exit, which reads that return, tells a character who did move *"You cannot go there."* (`:3759`). A hook that runs after the move must not raise: read with a default and skip, as the weight fatigue cost reads `traits.get("fatigue")`.
+
+**`move_to(None)` returns before any hook** (`:1244–1251`): with `to_none=True` it sets `location = None` and returns True; without, it says *"The destination doesn't exist."* and returns False.
+
+**`create_object(location=…)` is not a move.** `at_first_save` sets the location, then calls `location.at_object_receive(obj, None)` (`:1975`) *before* it writes the tags (`:1979`) and attributes (`:1982`); `at_pre_object_receive` never runs. A receiver that reads the arriving object's attributes sees their defaults, and a refusal cannot happen. Create the object elsewhere (`location=here`) and `move_to` it.
 
 The containers contrib adds two hooks that `move_to` never calls: `ContribContainer.at_pre_get_from(getter, target)` (`contrib/game_systems/containers/containers.py:66`), called by `CmdContainerGet` (`:205`), and `at_pre_put_in(putter, target)` (`:83`), called by `CmdPut` (`:279`) — the default refuses when `len(self.contents) >= self.capacity`, with `capacity = AttributeProperty(default=20)`. `give`, `@py obj.move_to(...)` and any other path into the container pass neither. A rule that must hold for *every* way in belongs in `at_pre_object_receive` (step 3).
+
+Three more contrib facts (verified `v6.1.0`, weight W4.1–W4.2): `ContribContainer`'s base is `settings.BASE_OBJECT_TYPECLASS` (`containers.py:41`), so it already inherits the project's `ObjectParent` — `(ObjectParent, ContribContainer)` has no consistent MRO, and a subclass names `ContribContainer` alone. `CmdPut` is permitted by the target's **`get_from`** lock (`:265`), not a lock of its own, so anything that can be looted can be filled — a `PlayerCorpse` too, which is why the project refuses there (weight W4.2 Q3); a refusal shows `db.put_err_msg`, or the contrib's generic line. And it asks `at_pre_put_in` only `if hasattr(container, "at_pre_put_in")` (`:279`): an object without the method (a character, a room, an exit) takes whatever a lock-bypassing caller puts in it. The project's `ObjectParent.at_pre_put_in` refuses for everything but its `Container`.
 
 ### 11.32 ⚠️ Which doors call `at_post_puppet` — and the one door every account-born character passes
 

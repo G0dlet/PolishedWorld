@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 15 · 2026-10-30** — **the weight feature's findings (decomposition Rev 11; merged as `7230823`), filed where they apply.** **New §15: weight and encumbrance** — the first check when `get` refuses (closes the decomposition's OQ4), the five silent paths, the five places a new object may land on the floor and the line order there, the builder rule for a missing `enc`, and the in-game protocol, run in the sandbox as a plain character and as a superuser before it was written down. **§13** gains the test policy (Adam, 2026-10-30): a task is received with a targeted run, the whole suite runs once per feature before its merge; and the parallel runner, `ForkTestRunner` with `--parallel auto`, and why `auto` must be written. **§3:** a lambda cannot see a name bound earlier on the same line. **§4:** the weight surface as one tuple, and a recipe's `msg` that is a tuple. **§7:** a protocol line runs as written, and what must survive a reload lives in `db`. **§11:** a craft's receipt is its result line. **§11b:** a mutation that restores the old line can survive once the work has moved. **§11f:** `self.call` returns every line, and a probe's `inspect.stack` attribution lands on a mixin's file. **§11j:** a superuser test calls `cache_lock_bypass`.
 > **Rev 14 · 2026-10-29** — **Character creation's findings (decomposition Rev 2), filed where they apply.** **New §11l: a predicted value carries its type** — `30.0 == 30` and `"28/28" in "28/28.0"` both pass, so a protocol writes the repr it expects and a render assertion is anchored against a decimal tail. **§7** gains the builder escape from a persistent menu (from another character — the menu shadows `py`) and the step-0 probe that keeps placeholders out of command cells. **§11b** gains three mutation rules: probe between a table's keys, make every fixture value differ from its default, and test a guard where the stamp's writer lives. **§11c** gains four prose-loop rules: grep before counting existing tests as coverage, grep before locking "one home", spike a framework claim before locking it, and check every player-facing sentence against the code. **§11f**: the fixture puppets `char1` in every setUp, the `repuppet()` helper, and how to drive an EvMenu in a unit test. **§11h**: a reload does not call `at_post_puppet`, and a persistent menu eats the first line after it. **§12**: 6.1.0's login dialog, the unknown-command line, and `execute_cmd`'s Deferred. **§14**: the second `git am`'s first line is predictable, `--abort` needs the identity flags too, `diff --check` before `format-patch`, and bash-only syntax inside `bash -c`.
 > **Rev 13 · 2026-10-20** — **Three findings from `feature/harvest-guard` (BACKLOG Rev 47).** **New §11k: a negative case proves its own type.** The protocol's "the fix does not over-reach" step was written against an object called `freshcorpse` on the strength of its name; it was a `PlayerCorpse`, and only the typeclass printed in step 0 showed it. **§13 gains:** the verdict of a piped suite run is read with `grep`, not `tail`, because the launcher's stdout is block-buffered and lands after unittest's stderr summary. **§14 gains:** the tree receipt is `git rev-parse HEAD^{tree}`, which worked in a terminal where `git log --format` printed nothing.
 > **Rev 12 · 2026-10-19** — **Five findings from `feature/death-contract` (BACKLOG Rev 46).** **New §11j: a superuser walks through every lock.** Evennia's lock bypass made the developer's own character useless as the looter in the first time-conditioned lock's protocol; the protocol uses a plain account and moves `owner` between characters instead, and the unit tests assert the bypass is off before they assert a refusal. **§11b gains a fifth harness rule:** read *which* tests fell — a mutant that broke the module's syntax "died" by failing every test that imports it, which is a dead harness and not a killed mutant. **§13 names one known line of noise** (`Overwriting existing registered function stopWordFilter`, from `lunr` on the first help search). **§14 gains two delivery traps:** a patch glob that matches two files applies both, and a failed command in a `git stash && … && git stash pop` chain leaves the stash on the stack.
@@ -133,7 +134,7 @@ lambda can't see them. Fixes: bind the object with a walrus in a plain list
 literal (everything stays top-level), e.g.
 `@py me.msg(str([(o:=spawn("x")[0]).move_to(me), setattr(o.db,"k","v"), o.db.k]))`,
 or pass `me` as a lambda **parameter** (`(lambda o, m: o.move_to(m))(obj, me)`).
-A lambda that references only its own parameter is fine.
+A lambda that references only its own parameter is fine. **A name bound earlier on the same line is no better** (weight W3.1, twice): in `@py x = 5; (lambda: x)()` the assignment goes to the eval locals and the lambda reads the empty globals, so it is a `NameError` — after the statements before it have already run.
 
 **Comprehensions are not in the same boat, and Rev 1-3's blanket rule was wrong.**
 PEP 709 (Python 3.12) inlines list, set and dict comprehensions into the
@@ -181,6 +182,10 @@ that `@reload` picked up a settings change.
 ```
 @py me.msg(str(sorted(me.known_recipes())))
 ```
+
+**The weight surface, as one tuple** (weight W1.2): `@py self.msg(str((me.carried_enc, me.enc_limit, me.encumbrance_state)))`. `self.msg` and a tuple, because a statement on the line would silence the result (§1a); `str()`, because a bare tuple is read as `(text, options)`.
+
+**The same reading, from the other side** (weight W5.1): a recipe's `msg` sends `(text, {"type": "crafting"})`. A test helper that collects lines takes `text[0]`; `str(text)` — what `captured_messages` does — gives the tuple's repr, and an `assertIn` on it passes on the wrong thing.
 
 ## 5. Reload semantics — module vs live data
 
@@ -247,6 +252,7 @@ Confirm a render contains only intended colour codes (no stray raw `|`) by echoi
   ```
 
   `ndb` dies with `@reload`, so a protocol that reloads re-runs step 0 after it.
+- **A protocol line runs as written** (weight W3.2). A placeholder left in a line — `F` for a number to fill in — is a `NameError` *after* the statements before it have run, so the line half-happened. Write the value. A value that must survive a reload is kept in `db`, never `ndb`.
 - **Releasing a character from a persistent menu (the builder escape).** A character inside an EvMenu cannot run `py` — the menu's cmdset shadows it (Evennia Ref §15.2). Run this from *another* character, over telnet because of the `;` (§2), with the stuck character's name:
 
   ```
@@ -297,7 +303,7 @@ identical observation.
 carry an independent receipt that the code ran — a success message, a second
 value that *did* move, a counter. Here both were available and neither was
 demanded: the craft's own outcome line distinguishes success from failure, and
-the XP total moves on any tick that reaches the engine.
+the XP total moves on any tick that reaches the engine. **A craft's receipt is its result line, not its item count** (weight W3.1): a `raw`-policy recipe makes an item on a failure too, so *1 made* proves nothing about the tier.
 
 ```
 craft twine from fiber-1, fiber-2, fiber-3
@@ -431,6 +437,8 @@ fifth from `feature/death-contract`):
 **Every fixture value differs from the default it replaces.** A fixture of 10 in a characteristic whose default is 10 cannot tell a write from no write. Character creation's fixture has no 10 anywhere: STR 7 DEX 9 CON 14 SIZ 8 INT 12 POW 17 CHA 13 — and its derived values (health 28, Craft 21) differ from the defaults too.
 
 **A guard lives with the stamp's writer, and is tested there.** A command that checks a stamp before calling a helper that writes it does not stop a direct second call to the helper; and a mutant that removes the helper's guard survives every command-level test while the command keeps its own check. Put the guard in the helper (P-2) and test the helper directly (`TestGrantOnce` in `tests/test_professions.py`).
+
+**A mutation that restores the old line can survive once the work has moved** (weight W5.1). When a refactor moves a delivery to a new path, the old line put back may produce the same outcome by another route: restoring `do_craft`'s `obj.location = crafter` survived, because a `move_to` into the character of an object it already carries is refused just the same. Define the mutation against the new path (there: `post_craft` delivering by assignment instead of through `receive_or_set_down`).
 
 ### 11c. The prose-verification loop must read blocks, not lines — and must be proven to search
 
@@ -606,6 +614,10 @@ test instead of quietly weakening it (Epic A T29: twine 20, cloth 25, base 30).
 
 **Driving an EvMenu in a unit test.** Start it with `EvMenu(char1, "world.chargen_menu", startnode=...)`, send lines with `char1.execute_cmd(line, session=self.session)`, and read what the menu said by patching `char1.msg` with `mock.patch.object`: the node text arrives as the `text` keyword, a tuple `(nodetext, {"type": "menu"})` (`tests/test_chargen_menu.py`). A whole menu module can outlast a one-minute sandbox timeout; run it class by class.
 
+**`self.call(cmd, args)` without `msg` returns every line**, joined with `\n`. `.splitlines()` turns it into the list a "exactly one line" assertion needs (weight W4.2, W5.1).
+
+**A probe's `inspect.stack` attribution lands on the innermost `tests/` frame** — which is a mixin's file when the test inherits its body from one: `test_trade_ceiling`'s tests were counted under `test_barter_currency` (weight W5.1). Use a probe to find *which* modules reach a function; count tests per module with `unittest.TestLoader().loadTestsFromName("tests.<module>").countTestCases()` from a throwaway test file (§13).
+
 ### 11g. A final-state assertion cannot see a transient side effect
 
 From the `feature/janitor` mutation run. `Corpse.crumble()` deletes a corpse's
@@ -711,6 +723,8 @@ Unit tests assert the precondition before the refusal:
 self.assertFalse(self.char2.locks.lock_bypass)
 ```
 
+**In a unit test, set the bypass as a login would** (weight W4.2). `is_superuser = True` on the account changes nothing by itself: `lock_bypass` is cached per object and refreshed when an account puppets (Evennia Ref §11.26). After it, call `char.locks.cache_lock_bypass(char)`, and assert `char.locks.lock_bypass` before the step that depends on it.
+
 ### 11k. A negative case proves its own type
 
 From `feature/harvest-guard`. The protocol's over-reach step ("a creature corpse
@@ -793,6 +807,17 @@ messages rather than usage hints:
   `grep -E '^(Ran|OK|FAILED|FAIL:|ERROR:)' /tmp/full.log`. (`PYTHONUNBUFFERED=1`
   restores the order; the `grep` is the receipt either way.)
 
+- **The test policy (Adam, 2026-10-30; weight decomposition Rev 8).** A task is received with a **targeted run**: its own test module and the neighbours a probe and the greps name, with a predicted count. The **whole suite runs once per feature, before its merge** — and at component boundaries in a long feature. Predict the whole count before that run, per module: a throwaway test that calls `unittest.TestLoader().loadTestsFromName("tests.<module>").countTestCases()` for each module and writes the sum to a file. Weight: 894 in 40 modules, predicted and run (`7230823`).
+- **The parallel runner.** `server/test_runner.py::ForkTestRunner` (`e1decd5`). Python 3.14 made `forkserver` the default start method on Linux, and a forkserver worker starts without `evennia._init()`, so `evennia test --parallel` died in every worker; the runner selects `fork` before Django builds the pool. It is named with `--testrunner`, so `settings.py` is untouched:
+
+  ```
+  alias pwtest='evennia test --settings settings.py --testrunner server.test_runner.ForkTestRunner --parallel auto'
+  pwtest tests                                         # the whole suite, ~100 s on 24 cores (~1250 s serial)
+  pwtest tests.test_set_down tests.test_trade_ceiling  # targeted
+  ```
+
+  **Always write `auto` or a number after `--parallel`.** It takes an optional value, so the word after it is read as the process count: `--parallel tests` is refused with *'tests' is not an integer or the string 'auto'* (Django's `parallel_type`), not read as "parallel, run `tests`". A one-core sandbox gains nothing from it; run targeted modules serially there.
+
 ## 14. Verifying a delivery
 
 Receipts for a patch or a guide, taken before it is handed over.
@@ -834,6 +859,52 @@ Receipts for a patch or a guide, taken before it is handed over.
 - **In a receipt chain every git command carries the identity flags** — `-c user.name=… -c user.email=…` — `git am --abort` included. On a clone without global config the abort fails otherwise and leaves the am in progress.
 - **`git diff --check` before `git format-patch`.** Trailing whitespace becomes a `git am` warning on the receiving machine.
 - **Bash-only syntax runs inside `bash -c`.** Under `/bin/sh`, `${PIPESTATUS}` is a *Bad substitution* that aborts the script — the `git am --abort` after it never ran. Cleanup goes in a call of its own.
+
+## 15. Weight and encumbrance
+
+From `docs/PolishedWorld_Weight_Decomposition.md` (§11 has every task's record); merged 2026-10-30 as `7230823`. The limit is STR + SIZ: 20 for development and test characters, 12–36 for a character made through chargen. **A protocol states the limit it was run at.**
+
+**The first check when `get` refuses** (decomposition OQ4):
+
+```
+@py self.msg(str((me.carried_enc, me.enc_limit, me.encumbrance_state)))
+```
+
+`free` at or below the limit, `overloaded` above it up to twice the limit, `ceiling` above that. Only an arrival that would pass twice the limit is refused. A builder *character* is refused like anyone; a builder's `spawn` or `create` into a room is not. `inventory` ends in `Carrying N/L ENC`, with ` (overloaded)` above the limit.
+
+**Five paths cross the limit without a line**, accepted (W2.2 Q4): `delete()`, a direct `location =`, `move_to(..., move_hooks=False)` (death moves that way), a change to STR or SIZ, and a barter trade (the contrib moves by assignment; BACKLOG *a trade that carries a party across the limit sends no crossing line*). The inventory line and `encumbrance_state` tell the truth after any of them.
+
+**Where a new object may land on the floor.** Craft, forage, harvest, inscribe and scribe deliver through `Character.receive_or_set_down(objs)`: each object goes to the character through `move_to(..., enc_quiet=True)` (Evennia Ref §11.31: the keyword reaches the hook), a refused one goes to the room, and the command says so in one line *after* its own result line — *You cannot carry the stone; you set it down.*, or *You cannot carry 2 of them; you set them down.* The order at all five: the hook's crossing line, the result line, the set-down line, the rest. These five are the only places. An inscribe consumes before it delivers and changes no ENC, so it sets down only for a character already above the ceiling. **Craft at the ceiling is tested through the command** (`CmdCraftGated` with the real `_complete_craft`), because the crafting contrib assigns `obj.location = caller` after `craft()` (Evennia Ref §8.5) and a recipe-only test cannot see it.
+
+**Builder rule:** a missing `enc` reads 0, silently. Test (g) in `tests/test_material_registry.py` keeps the prototypes complete; an object made by hand is weightless until someone sets it (`set <obj>/enc = 2`). A negative or malformed `enc` also reads 0, with a `[WW]` line.
+
+**Writing a protocol.** Create test objects outside the character (`location=here`) and move them with `get` or `move_to`: `create_object(location=me)` runs `at_object_receive` before `enc` is written and never runs `at_pre_object_receive` (Evennia Ref §11.31). `evennia reload` after a patch that changes a hook, a cmdset or a typeclass. A hook's line comes before the command's own line.
+
+**The in-game protocol** (W6.1). Run in the sandbox on 2026-10-30, as a plain character and as a superuser, with the same lines. L = 20, carrying nothing, in a room with an exit each way; the expected output is under each step.
+
+0. Seed, in the room:
+   ```
+   @py from evennia import create_object; from evennia.prototypes.spawner import spawn; [create_object("typeclasses.objects.Object", key=k, location=here, attributes=[("enc", e)]) for k, e in (("w61a", 15), ("w61b", 10), ("w61c", 20))]; spawn("sack")[0].move_to(here, quiet=True); self.msg(str(sorted([(o.key, o.db.enc) for o in here.contents if o.key.startswith("w61") or o.key == "large sack"])))
+   ```
+   `[('large sack', 1), ('w61a', 15), ('w61b', 10), ('w61c', 20)]`
+1. `inventory` → last line `Carrying 0/20 ENC`
+2. `get w61a` → `You pick up a w61a.` and nothing else (15/20)
+3. `get w61b` → `You are overloaded.`, then `You pick up a w61b.`
+4. `inventory` → last line `Carrying 25/20 ENC (overloaded)`
+5. `@py self.msg(str(me.traits.get("fatigue").value))`, walk out through an exit and back, the same line again → 2 less (one per room entered while overloaded; a teleport is free)
+6. `get sack` → `You pick up a large sack.` and nothing else (26/20, already overloaded)
+7. `put w61b in sack` → `You put a w61b in a large sack.` and nothing else: what is in a carried sack still counts
+8. `get w61c` → `You cannot carry any more.` and nothing else (46 would pass 40)
+9. `@py self.msg(str((me.carried_enc, me.enc_limit, me.encumbrance_state)))` → `(26, 20, 'overloaded')`
+10. `get w61b from sack` → `You get a w61b from a large sack.` and nothing else
+11. `drop w61b` → `You are no longer overloaded.`, then `You drop a w61b.`; step 9's line → `(16, 20, 'free')`
+12. Clean up:
+    ```
+    @py [o.delete() for o in me.contents + here.contents if o.key.startswith("w61") or o.key == "large sack"]; self.msg(str([o.key for o in me.contents + here.contents if o.key.startswith("w61") or o.key == "large sack"]))
+    ```
+    `[]`
+
+W5.1's forage protocol is the example of a set-down: at 40/40 in Old Temple, a forage gave *You forage stone from the w51outcrop.* and *You cannot carry the stone; you set it down.*, the stone on the floor.
 
 ## Domain quick-refs
 

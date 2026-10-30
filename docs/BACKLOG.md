@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 54 · 2026-10-30** — the weight feature's close-out (`docs/PolishedWorld_Weight_Decomposition.md` Rev 11; merged to `main` in `7230823`, PR #19, tree `a54bef8`; suite 894 OK). **Closed:** *Weight and encumbrance (Legend ENC)* and *Full container support* go **SCHEDULED → DONE**; the first annotation names barter (W5.1). **Annotated:** *Fatigue-exhaustion consequence* — both seams it was promised now exist (`Character.physical_modifier()`, W3.1; one fatigue per room moved overloaded, W3.2). **Added** (*Containers*): *Worn clothing leaves without `remove()`* — and a garment given away arrives still worn; *A trade that carries a party across the limit sends no crossing line*. **Added** (*Crafting & Tools*): *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* — the weight penalty puts targets near 0 in play. A candidate filed as *a critical at a target ≤ 0* was checked against Legend first and dropped: *"A roll of 01 is always a critical success"*, and `world/skillcheck.py`'s docstring already names it as deliberate. **Added** (*Tooling & Process*): *Repair, disassemble and hunt have no command tests of their own*. No code changes.
 > **Rev 53 · 2026-10-30** — two entries **added**, from the same living-world review as Rev 52, after Adam named three couplings he had always intended: wear that depends on weather, food that goes bad, and sight that fails in the dark. One of the three is not an entry. **Weather-dependent wear already exists for garments** (`world/garment_wear.py` samples `thermal_regime()`, which reads season and weather) and not for tools; extending it, and adding a wet axis, is an instance of *Weather inertia* part (2)'s own trigger — *"whenever a system first needs to read weather mechanically"* — so it is noted there by this line and filed nowhere else. **Added** (*Survival*): ***Food spoilage*** — `Food` has no freshness at all; the clock, the stages, the modifier table and the sink all exist one typeclass away in `Corpse`, so the entry is mostly about moving them to one home and having harvested meat inherit its corpse's clock; OPEN for the clock, with preservation recipes BLOCKED on the *food professions* exclusives decision. **Added** (*Environment & Weather*): ***Light & darkness*** — night is `$state(night, …)` text and nothing else; a derived room light level, a craftable carried light source, and two consumers (`look` through the Room's own `get_display_*` overrides, and a `light_modifier()` seam for checks) that give `perception` its first reader; OPEN, paired with *Season-dependent day length*. No code changes.
 > **Rev 52 · 2026-10-30** — one entry **added**, in a new section *Ecology & Supply*: ***Seasonal supply & population memory — the simulation reads itself***, BLOCKED on the persistent alpha instance plus two game-months of ledger data, with its part (1) OPEN on a light week. Filed from a review of `main` (`a1ad0ee`) against the living-world goal: season and weather have three direct readers today — room descs, `thermal_regime()`, `Corpse._decay_modifier()` — plus garment wear through `thermal_regime()`, and none of them sits on the *supply* side. `ResourceNode._update_regen()` divides elapsed time by a flat `regen_interval`, and `CreatureSpawnScript` tops every flagged room up to a fixed target, so a hunt has no consequence for supply beyond the next tick. The entry records three couplings on existing seams (seasonal regeneration, per-room breeding stock, readable signs), the open choices a decomposition must lock, and why it is filed rather than built: alpha decision (F) orders the alpha's remaining work, and the alpha exists to measure the economy before more systems are added to it. No code changes.
 > **Rev 51 · 2026-10-29** — *Legend character creation* is code complete on `feature/character-creation` (`87bacfd`; `docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2; roadmap Rev 32; merge pending as CC4.2). **Closed:** *Profession Common-Skill bonuses* (CC2.1, `craft +10` for all four) and *Health `descs` use a 0–100 scale* (CC1.2) go **SCHEDULED → DONE**; the health entry's annotation said CC1.2 would take the lower-bound reading — it kept the upper-bound one and swapped the value for `percent()`, corrected. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* (health has its own reader now, a fourth to change with the other three); *Cultural-Background gating of professions* (the chargen shipped; characteristics no longer identical); *Free Skill Points* and *Cultural Background* (shipped without them). **Added** (*Professions & Chargen*): *A `hunter` profession* (OQ3); *Characteristic improvement (Legend p.68ff)*; *Chargen resume replays the last notice*; *Dev characters keep a float `health.base`*; *Placeholder skill bases in `at_object_creation`*. **Added** (*Tooling & Process*): *System Map describes the world as of Stage 4*. No code changes.
@@ -779,6 +780,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 
 ---
 
+### `skill_check` has no automatic success (01–05) or automatic failure (96–00)
+
+- **What:** Legend: *"Any test result of 01 to 05 is an automatic success. Any test
+  result of 96 to 00 is an automatic failure."* (core, *Automatic Success and
+  Failure*). `world/skillcheck.py::skill_check` resolves fumble (99–00 below 100 %,
+  00 above), then critical (`roll <= max(1, ceil(target / 10))`), then
+  `roll <= target`. So a target of 3 fails on 04, and a target of 97 succeeds on
+  96–97. The critical half is already faithful — *"A roll of 01 is always a
+  critical success"* — and the module docstring names it. The weight feature
+  makes the low end real: `OVERLOAD_PENALTY = -20` puts Craft 20 at a target of 0
+  while overloaded, where the code lets only 01 through and Legend 01–05. Decide
+  whether to adopt the rule (two comparisons in one function, with tests at
+  targets 0, 3, 97 and 120) or record the departure in the docstring.
+- **Why deferred:** A rules question, not a bug in any feature; every skill test in
+  production goes through this one function, so the change is small but touches
+  all six.
+- **Trigger:** The next session that touches skill resolution (per-recipe mastery
+  or E.2), or before the alpha cohort plays at the edge of the band.
+- **Origin:** Weight W6.1 (2026-10-30), checking a candidate entry against the
+  rulebook.
+- **Status:** OPEN
+
+---
+
 ## Professions & Chargen
 
 ### Profession Common-Skill bonuses (Legend's other half)
@@ -1306,6 +1331,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   beside overload's −20 %, and the one-fatigue-per-room cost of moving
   overloaded, which becomes a reason to rest once this entry ships. No
   `Overloaded` buff exists (the direction above is superseded in that entry).
+- **Annotation (2026-10-30, weight merged in `7230823`):** both seams exist.
+  `Character.physical_modifier()` (W3.1) is the one place the six physical skill
+  tests read a situational penalty, so the fatigue bands' −10…−50 % add there
+  beside `OVERLOAD_PENALTY`. The cost of moving overloaded (W3.2) is
+  `encumbrance.OVERLOAD_MOVE_FATIGUE = 1` per room entered through an exit, in
+  `Character.at_post_move`, floored at zero, with the survival warnings checked
+  before and after the drain; at zero it still does nothing, which is this
+  entry's to change. The constant's calibration is the weight decomposition's
+  OQ1, at alpha close-out.
 - **Origin:** Survival mechanics (core loop).
 - **Status:** OPEN
 
@@ -1446,7 +1480,23 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   this feature nor its dependency. Stage 5 takes its −20 % on weapon tests from
   the same seam.
 - **Origin:** Alpha content decomposition session (2026-10-18), AD8.
-- **Status:** SCHEDULED (`docs/PolishedWorld_Weight_Decomposition.md` Rev 1 — code after character creation, alpha decision (F))
+- **Annotation (2026-10-30, closed — decomposition Rev 11):** W1.1–W5.1 shipped, nine
+  task commits and two tooling commits on `feature/weight`, plus W6.1a's prose fix,
+  merged to `main` as `7230823` (PR #19, tree `a54bef8`); the whole suite 894 OK on
+  102.6 s before the merge. The translation is the decomposition's: a reader with no
+  state of its own (`world/encumbrance.py`), the limit STR+SIZ read live, twenty
+  `enc` 0 items to one ENC, *overloaded* above the limit and a refusal above twice
+  it (`at_pre_object_receive`), one line on each crossing and `Carrying N/L ENC` in
+  `inventory`, −20 % on the six physical skill tests through
+  `Character.physical_modifier()`, one fatigue per room entered overloaded, and
+  `Container` with an ENC capacity (sack 10, saddlebag 15, backpack 20; no
+  nesting) with `put`. Every way a product is made sets a surplus down rather than
+  losing it (`Character.receive_or_set_down`), and **barter** checks both parties'
+  sums after the swap before anything moves, cancelling the whole trade (W5.1).
+  Coin stays a wallet attribute (WD7; `CoinPile`'s ENC is the decomposition's OQ5,
+  Stage 5). Each task's record, with its findings and where each went, is in the
+  decomposition's §11; the in-game protocol is Testing Reference §15.
+- **Status:** DONE (`7230823`; decomposition Rev 11)
 
 ### Full container support
 - **What:** Generic `CmdPut` + a reusable `ContribContainer` typeclass (bags,
@@ -1461,7 +1511,56 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the alpha content epic — backpack, sack and saddlebag become craftable in batch
   AC4.2 — so it moves with that entry rather than firing on its own.
 - **Origin:** Hunting / H7.3b decomposition backlog.
-- **Status:** SCHEDULED (with *Weight and encumbrance*)
+- **Annotation (2026-10-30, closed with *Weight and encumbrance*):**
+  `typeclasses/containers.py::Container(ContribContainer)` (W4.1) and a project
+  `CmdPut` in the character cmdset (W4.2); the sack, backpack and saddlebag
+  prototypes use it. `ContainerCmdSet` is still not added, so `look` stays
+  `ExtendedRoom`'s. `put` refuses everything but a `Container`
+  (`ObjectParent.at_pre_put_in`), so a corpse is not a store.
+- **Status:** DONE (`7230823`; weight decomposition W4.1–W4.2)
+
+---
+
+### Worn clothing leaves without `remove()`
+
+- **What:** The clothing contrib clears `db.worn` only in `ContribClothing.at_get`
+  (`clothing.py:318–324`), which `get` runs. A worn garment moved by `put`, `drop`
+  or `give` keeps `db.worn`: dropped or bagged, its warmth leaves the wearer's sum
+  only at the next survival tick, because `apply_thermal_stress` runs from `wear`,
+  `remove`, repair and the ticker, not from a move; **given**, it arrives still
+  marked worn, and `get_worn_clothes` (which reads `db.worn` over `contents`)
+  counts it as worn by the receiver. Barter already refuses worn items
+  (`world/barter.py:64`), so a trade cannot do this. The fix is a move hook on the
+  project's clothing typeclass that calls `remove()` (or clears the flag and
+  recomputes both characters) when a worn garment leaves its wearer, by any path
+  that runs hooks.
+- **Why deferred:** Found reading W4.2's `put` against the clothing contrib; not
+  the weight feature's to fix, and nothing in the alpha's loop gives clothing away
+  yet.
+- **Trigger:** Before the persistent alpha instance, or the first report of a
+  garment worn by two characters.
+- **Origin:** Weight decomposition Rev 8 (W4.1 confirmation step), filed at W6.1.
+- **Status:** OPEN
+
+---
+
+### A trade that carries a party across the limit sends no crossing line
+
+- **What:** Barter completes by assignment (`obj.location = self.part_b` / `part_a`,
+  Evennia `contrib/game_systems/barter/barter.py:369, 371`), so no hook runs.
+  Since W5.1 the ceiling holds for a trade — `_stale_offer_reason` cancels a trade
+  that would carry a party above twice the limit — but a trade that carries a
+  party from *free* to *overloaded*, or back, sends neither *You are overloaded.*
+  nor *You are no longer overloaded.* The inventory line and `encumbrance_state`
+  are right; only the announcement is missing. Smallest fix: in
+  `PWTradeHandler.finish()`, read each party's `carried_enc` before the swap and
+  pass both sums to the announcement W2.2's hooks use,
+  `Character._announce_enc_crossing(before, after)`, once per party.
+- **Why deferred:** Cosmetic beside the ceiling, which holds; W5.1 locked the
+  ceiling, not the lines.
+- **Trigger:** Any barter work, or the alpha cohort's first trade report.
+- **Origin:** Weight W5.1 (decomposition Rev 10), filed at W6.1 (Q4).
+- **Status:** OPEN
 
 ---
 
@@ -2440,6 +2539,22 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   built — whichever comes first.
 - **Origin:** Character creation CC4.1 (2026-10-29): the decomposition asked
   whether the map describes chargen; it describes nothing after Stage 4.
+- **Status:** OPEN
+
+---
+
+### Repair, disassemble and hunt have no command tests of their own
+
+- **What:** Weight W3.1 found that `repair`, `disassemble` and `hunt` had no
+  command-level tests at all; its tests of the overload penalty through them are
+  their first, and they test only that the penalty reaches the roll. Nothing
+  tests their own outcomes through the command — what each tier does, what is
+  consumed, what is refused and with which line — as `tests/test_craft_command.py`
+  does for `craft`.
+- **Why deferred:** Coverage debt, not a known bug.
+- **Trigger:** The next change to any of the three commands: its own command tests
+  first, in the same task.
+- **Origin:** Weight W3.1 (decomposition Rev 6), filed at W6.1.
 - **Status:** OPEN
 
 ---
