@@ -695,12 +695,15 @@ class CmdInscribe(Command):
         # and the readable detail render live from the stamp in the Scroll
         # typeclass (F.4), so we set nothing else here.
         scroll.stamp(recipe_name)
-        scroll.move_to(caller, quiet=True)
+        # Into the hands, or at the feet past the ceiling (W5.1).
+        set_down = caller.receive_or_set_down([scroll])
 
         caller.cooldowns.add("inscribe", INSCRIBE_COOLDOWN)
         caller.msg(
             f"You carefully inscribe the |y{recipe_name}|n recipe onto a scroll."
         )
+        if set_down:
+            caller.msg(caller.set_down_message(set_down))
 
 
 class CmdScribe(Command):
@@ -848,12 +851,15 @@ class CmdScribe(Command):
         # directly (NOT .current).
         book.stamp(recipe_names)
         book.condition = condition
-        book.move_to(caller, quiet=True)
+        # Into the hands, or at the feet past the ceiling (W5.1).
+        set_down = caller.receive_or_set_down([book])
 
         caller.cooldowns.add("scribe", SCRIBE_COOLDOWN)
         listed = ", ".join(recipe_names)
         tail = SCRIBE_TIER_FLAVOUR.get(tier, "")
         caller.msg(f"You bind a book of |y{listed}|n. {tail}".rstrip())
+        if set_down:
+            caller.msg(caller.set_down_message(set_down))
 
         # Sixth on-use improvement call-site (Stage 4.5, P-6). Scribing is a real
         # Craft roll with a material cost and a failure mode; leaving it out was

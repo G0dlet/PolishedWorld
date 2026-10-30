@@ -217,7 +217,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         """Hook for item-specific quality effects on a freshly crafted object.
 
         Called once per spawned object, after `quality` is stamped and before
-        it enters the crafter's inventory. Default is a no-op; subclasses
+        post_craft delivers it to the crafter. Default is a no-op; subclasses
         translate quality into concrete stats (charges, durability, ...).
         """
         pass
@@ -335,9 +335,9 @@ class MongooseCraftRecipe(CraftingRecipe):
             # it also seeds the BACKLOG maker's-mark).
             obj.db.recipe = self.name
             self._finalize_item(obj, outcome)
-            # Self-contained: place the result in the crafter's inventory. The
-            # `craft` command would also do this; setting location is idempotent.
-            obj.location = self.crafter
+        # The products are not placed here: post_craft delivers them, after
+        # the inputs are consumed, so the inputs' ENC is gone when the
+        # products arrive (W5.1).
         return result
 
     def post_craft(self, craft_result, **kwargs):
@@ -348,12 +348,24 @@ class MongooseCraftRecipe(CraftingRecipe):
             return craft_result
 
         tier = self.skill_outcome["result"]
+        # Consume first, then deliver (W5.1): the products land where the
+        # inputs' ENC no longer counts, as in inscribe and scribe. A product
+        # delivered first could be set down for a load that is about to go,
+        # and its "You are overloaded." would stand -- delete() is silent.
+        if self._should_consume(tier):
+            for obj in self.validated_consumables:
+                obj.delete()
+
+        set_down = []
         if craft_result:
+            set_down = self.crafter.receive_or_set_down(craft_result)
             outputs = ", ".join(
                 obj.get_display_name(looker=self.crafter) for obj in craft_result
             )
             template = self.tier_messages.get(tier, "You finish crafting {outputs}.")
             self.msg(template.format(outputs=outputs))
+            if set_down:
+                self.msg(self.crafter.set_down_message(set_down))
         else:
             self.msg(self.fail_no_item_message)
 
@@ -375,8 +387,10 @@ class MongooseCraftRecipe(CraftingRecipe):
         if self.tool_broke:
             self.msg(f"Your {self.tool_broke} finally gives out and breaks apart.")
 
-        if self._should_consume(tier):
-            for obj in self.validated_consumables:
-                obj.delete()
-
+        # Only what the crafter holds goes back: the contrib's CmdCraft.func
+        # sets `obj.location = caller` on every object returned
+        # (crafting.py:1096-1098), and would carry a set-down product back
+        # into the inventory past the ceiling (W5.1 Q3).
+        if set_down:
+            return [obj for obj in craft_result if obj not in set_down]
         return craft_result

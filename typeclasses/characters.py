@@ -1489,16 +1489,20 @@ class Character(ObjectParent, ClothedCharacter):
         and an item already carried are the reader's business.
 
         `move_to` asks this hook before every move into the character
-        (`get`, `give`, `get ... from`, forage, harvest), passes `move_type`
-        in `kwargs`, and logs and refuses if the hook raises -- so there is no
+        (`get`, `give`, `get ... from`, and the five product sites through
+        `receive_or_set_down`, W5.1), passes `move_type` and its other
+        `kwargs` on, and logs and refuses if the hook raises -- so there is no
         `try/except` here. It does not run for a direct `location =`
-        assignment or `move_hooks=False` (craft output and barter, W5.1).
+        assignment or `move_hooks=False`; barter moves by assignment and is
+        checked before the swap instead (`world/barter.py`, W5.1 Q5).
 
         On a refusal the character is told; a giving character is told too,
         since `CmdGive` prints only its generic line. The refusal also sets
         `ndb._enc_refused`, which `CmdGet` (commands/inventory_commands.py)
         reads to drop the contrib's own "This can't be picked up." -- one
-        refusal, one sentence (W2.2 Q3).
+        refusal, one sentence (W2.2 Q3). With `enc_quiet=True` in `kwargs`
+        the hook refuses all the same but says nothing and sets no flag:
+        `receive_or_set_down`'s caller sends the one line (W5.1 Q2).
 
         Returns:
             bool: False refuses the move; the object stays where it was.
@@ -1507,6 +1511,8 @@ class Character(ObjectParent, ClothedCharacter):
             return False
         ceiling = encumbrance.OVERLOAD_FACTOR * encumbrance.enc_limit(self)
         if encumbrance.enc_after_receiving(self, arriving_object) > ceiling:
+            if kwargs.get("enc_quiet"):
+                return False
             self.msg("You cannot carry any more.")
             self.ndb._enc_refused = True
             if (
@@ -1584,6 +1590,66 @@ class Character(ObjectParent, ClothedCharacter):
         if was_free == now_free:
             return
         self.msg("You are no longer overloaded." if now_free else "You are overloaded.")
+
+    def receive_or_set_down(self, objs):
+        """
+        Put new objects in this character's hands, or at its feet (W5.1 Q1).
+
+        The one way a product reaches its maker: craft, forage, harvest,
+        inscribe and scribe all call this, and none writes a fallback of its
+        own. Each object goes through `move_to`, so the ceiling hook runs
+        (W2.1) and a delivery that crosses the limit is announced (W2.2).
+        `enc_quiet=True` keeps a refusal silent (Q2): the caller sends one
+        line, after its own result line, from `set_down_message`.
+
+        A refused object is moved to `self.location`. With no location (Q6),
+        or a location that refuses it, the character keeps it after all,
+        hooks off, and a warning is logged: a load above the ceiling in a
+        case that should not occur beats a product at `location` None.
+
+        Products arrive one at a time and in order, so a batch that fills the
+        character part-way lands as "the first ones held, the rest set down",
+        with the twenty-to-one rule read afresh for each.
+
+        Args:
+            objs (iterable of Object): new objects, normally at `location`
+                None (spawned) -- never in this character already.
+
+        Returns:
+            list: the objects set down, in order; empty when all were taken.
+        """
+        set_down = []
+        for obj in objs:
+            if obj.move_to(self, quiet=True, enc_quiet=True):
+                continue
+            if self.location is not None and obj.move_to(self.location, quiet=True):
+                set_down.append(obj)
+                continue
+            logger.log_warn(
+                f"receive_or_set_down: {obj.key}(#{obj.id}) refused by "
+                f"{self.key}(#{self.id}) with nowhere to set it down "
+                f"(location {self.location!r}); kept above the ceiling."
+            )
+            obj.move_to(self, quiet=True, move_hooks=False)
+        return set_down
+
+    def set_down_message(self, objs):
+        """
+        The one line for what `receive_or_set_down` set down (W5.1 Q2).
+
+        One object is named; several are counted, so a command's own line
+        ("You harvest 6 ...") stays true and this one says how many of them
+        did not stay in hand.
+
+        Args:
+            objs (list): what `receive_or_set_down` returned; not empty.
+
+        Returns:
+            str
+        """
+        if len(objs) == 1:
+            return f"You cannot carry the {objs[0].get_display_name(self)}; you set it down."
+        return f"You cannot carry {len(objs)} of them; you set them down."
 
 
 # --- Rest callbacks (Epic A, TA1.3) -------------------------------------------

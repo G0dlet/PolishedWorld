@@ -312,8 +312,10 @@ class CmdHarvest(Command):
                 caller.msg("Something goes wrong and you come away empty-handed.")
                 return
 
-            for obj in spawned:
-                obj.move_to(caller, quiet=True)
+            # Into the hands, or at the feet past the ceiling (W5.1): the count
+            # below stays true, and the set-down line says how many did not
+            # stay in hand.
+            set_down = caller.receive_or_set_down(spawned)
 
             if is_crit:
                 caller.msg(
@@ -321,6 +323,8 @@ class CmdHarvest(Command):
                 )
             else:
                 caller.msg(f"You harvest {qty} {part_name} from {corpse_label}.")
+            if set_down:
+                caller.msg(caller.set_down_message(set_down))
             caller.location.msg_contents(
                 f"{caller.get_display_name()} harvests {part_name} from {corpse_label}.",
                 exclude=caller,

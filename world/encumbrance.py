@@ -1,5 +1,5 @@
 """
-Encumbrance reader (Weight and Encumbrance, Tasks W1.1, W2.1, W2.2).
+Encumbrance reader (Weight and Encumbrance, Tasks W1.1, W2.1, W2.2, W5.1).
 
 Pure functions over objects. This module owns no state: it stores nothing,
 caches nothing and writes nothing. Every answer is computed from what the
@@ -16,6 +16,7 @@ compared against STR+SIZ:
     holder     : carried_enc(holder)        -> int   (recursive sum, WD4, WD5)
                  enc_after_receiving(holder, obj) -> int   (the sum with obj in, W2.1)
                  enc_without(holder, obj, elsewhere) -> int (the sum with obj out, W2.2)
+                 enc_after_trade(holder, leaving, arriving) -> int (the sum after a swap, W5.1)
     band       : band(carried, limit)       -> FREE | OVERLOADED | CEILING (WD2)
     character  : enc_limit(char)            -> int   (STR+SIZ, WD1)
                  encumbrance_state(char)    -> band(carried_enc, enc_limit)
@@ -108,18 +109,19 @@ def _is_skipped(obj):
     return bool(obj.destination) or inherits_from(obj, _CHARACTER_PATH)
 
 
-def _walk(holder, depth, exclude=None):
+def _walk(holder, depth, exclude=()):
     """
     Sum ENC under `holder`; return (enc_total, count_of_items_at_zero).
 
     `depth` is the depth of `holder`'s contents (1 for the outermost call).
-    `exclude` is left out with everything it holds, wherever it sits in the
-    tree (W2.2: the sum as if that object were somewhere else).
+    Every object in `exclude` (a collection) is left out with everything it
+    holds, wherever it sits in the tree: the sum as if those objects were
+    somewhere else (W2.2 leaves one out, W5.1 a trade's whole offer).
     """
     total = 0
     zeros = 0
     for obj in holder.contents:
-        if obj == exclude or _is_skipped(obj):
+        if obj in exclude or _is_skipped(obj):
             continue
         enc = item_enc(obj)
         if enc:
@@ -236,7 +238,46 @@ def enc_without(holder, obj, elsewhere):
         elsewhere == holder or _is_carried_by(elsewhere, holder)
     ):
         return carried_enc(holder)
-    total, zeros = _walk(holder, 1, exclude=obj)
+    total, zeros = _walk(holder, 1, exclude=(obj,))
+    return total + zeros // SMALL_ITEMS_PER_ENC
+
+
+def enc_after_trade(holder, leaving, arriving):
+    """
+    The value `carried_enc(holder)` would have after a swap (W5.1 Q4).
+
+    The holder is walked without `leaving` (its own offer, each object with
+    everything it holds), and each of `arriving` (the other party's offer) is
+    added as one more item at depth 1 with its contents through the same walk.
+    The twenty-to-one rule runs once over the merged count of items at `enc`
+    0 (WD4): twenty light items offered for one heavy one are read as the
+    one ENC they make together, not as twenty rounded-down nothings.
+
+    Whether the trade may go ahead is the caller's question; this only
+    answers "how much after". Nothing moves.
+
+    Args:
+        holder (Object): one party to the trade.
+        leaving (iterable of Object): what `holder` gives; carried by it.
+        arriving (iterable of Object): what `holder` receives; carried by
+            the other party, never by `holder`.
+
+    Returns:
+        int
+    """
+    total, zeros = _walk(holder, 1, exclude=tuple(leaving))
+    for obj in arriving:
+        if _is_skipped(obj):
+            continue
+        enc = item_enc(obj)
+        if enc:
+            total += enc
+        else:
+            zeros += 1
+        if obj.contents:
+            sub_total, sub_zeros = _walk(obj, 2)
+            total += sub_total
+            zeros += sub_zeros
     return total + zeros // SMALL_ITEMS_PER_ENC
 
 
