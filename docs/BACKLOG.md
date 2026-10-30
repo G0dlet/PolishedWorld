@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 52 · 2026-10-30** — one entry **added**, in a new section *Ecology & Supply*: ***Seasonal supply & population memory — the simulation reads itself***, BLOCKED on the persistent alpha instance plus two game-months of ledger data, with its part (1) OPEN on a light week. Filed from a review of `main` (`a1ad0ee`) against the living-world goal: season and weather have three direct readers today — room descs, `thermal_regime()`, `Corpse._decay_modifier()` — plus garment wear through `thermal_regime()`, and none of them sits on the *supply* side. `ResourceNode._update_regen()` divides elapsed time by a flat `regen_interval`, and `CreatureSpawnScript` tops every flagged room up to a fixed target, so a hunt has no consequence for supply beyond the next tick. The entry records three couplings on existing seams (seasonal regeneration, per-room breeding stock, readable signs), the open choices a decomposition must lock, and why it is filed rather than built: alpha decision (F) orders the alpha's remaining work, and the alpha exists to measure the economy before more systems are added to it. No code changes.
 > **Rev 51 · 2026-10-29** — *Legend character creation* is code complete on `feature/character-creation` (`87bacfd`; `docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2; roadmap Rev 32; merge pending as CC4.2). **Closed:** *Profession Common-Skill bonuses* (CC2.1, `craft +10` for all four) and *Health `descs` use a 0–100 scale* (CC1.2) go **SCHEDULED → DONE**; the health entry's annotation said CC1.2 would take the lower-bound reading — it kept the upper-bound one and swapped the value for `percent()`, corrected. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* (health has its own reader now, a fourth to change with the other three); *Cultural-Background gating of professions* (the chargen shipped; characteristics no longer identical); *Free Skill Points* and *Cultural Background* (shipped without them). **Added** (*Professions & Chargen*): *A `hunter` profession* (OQ3); *Characteristic improvement (Legend p.68ff)*; *Chargen resume replays the last notice*; *Dev characters keep a float `health.base`*; *Placeholder skill bases in `at_object_creation`*. **Added** (*Tooling & Process*): *System Map describes the world as of Stage 4*. No code changes.
 > **Rev 50 · 2026-10-26** — *Weight and encumbrance* decomposed (`docs/PolishedWorld_Weight_Decomposition.md` Rev 1; roadmap Rev 31). **Status changed:** *Weight and encumbrance (Legend ENC)* goes **OPEN → SCHEDULED** (code after character creation, per alpha decision (F)); *Full container support* stays SCHEDULED with it. **Annotated:** the weight entry records the translation (WD1–WD8) and **corrects its own 2026-10-18 direction** — no `Overloaded` buff, no `fatigue_rate` mult; the band costs −20 % on physical tests and one fatigue point per room, read lazily — because the annotation read as an instruction and would have been built. *Fatigue-exhaustion consequence* is annotated with the answer to the question both entries asked: the weight feature neither contains it nor depends on it, since a ceiling at twice the limit prices distance in trips before fatigue has a consequence; the per-room cost and the `physical_modifier()` seam are what this entry's bands will plug into. *`CoinPile` vs the corpse's atomic content delete* is annotated with `CoinPile`'s `enc` (AD8's rule, Stage 5). No new entries: the two rejected penalties (a rate multiplier, a movement delay) and container nesting are decided in the decomposition, not deferred.
 > **Rev 49 · 2026-10-26** — *Legend character creation* decomposed (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 1; roadmap Rev 30, alpha decision (F)). **Scheduled:** *Profession Common-Skill bonuses* — its trigger (*a real chargen with per-character characteristics*) fires; home CC2.1, status BLOCKED → SCHEDULED. *Health `descs` use a 0–100 scale against a max of `CON × 2`* — CON now spans 6–18, so the fix is the epic's CC1.2, OPEN → SCHEDULED. **Added** (*Professions & Chargen*): *Cultural Background* — struck from the alpha chargen, with the trigger it waits on; *Free Skill Points* — replaced for the alpha by the profession bonus, with its trigger. **Annotated:** *Cultural-Background gating of professions* — the chargen the entry was waiting for ships without a Cultural Background; it stays BLOCKED on the new entry above it. No code changes.
@@ -1478,6 +1479,88 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Stage 6's coordinate model is decided — both, not either.
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
 - **Status:** BLOCKED (biome layer + Stage 6 world architecture)
+
+---
+
+## Ecology & Supply
+
+### Seasonal supply & population memory — the simulation reads itself
+
+- **What:** Three couplings on seams that already exist — no new ticker, no
+  schema, no migration of existing objects (unset attributes read as "flat", the
+  behaviour today).
+  **(1) Seasonal regeneration.** `ResourceNode._update_regen()` divides elapsed
+  game-seconds by a flat `regen_interval`. Make the *effective* interval a
+  function of `gametime_utils.get_season()` through a per-`resource_type` table
+  — berries fast in summer and nil in winter, wood/flint/clay flat — read at
+  update time. It must keep the node's own shape, where the anchor advances by
+  whole intervals (`last_regen += gained * interval`), and **not** copy
+  `Corpse._decay_modifier()`'s shape, where *total* elapsed time is multiplied by
+  the *current* modifier: that is exactly what makes decay run backwards
+  (*⚠️ Decay time can run backwards when the weather turns*, Death & Corpses).
+  With the anchor advanced, a season change re-prices only the time not yet
+  counted, and `available` is monotone.
+  **(2) Population memory.** `CreatureSpawnScript.at_repeat()` reads
+  `room.db.spawn_creatures = {"rabbit": 3}` and tops the room up to 3 every
+  tick, so hunting changes supply for one interval and never again. Replace the
+  fixed target with a per-room breeding stock —
+  `{"rabbit": {"stock": 3.0, "cap": 3, "last": <absolute game-seconds>}}` —
+  recovered logistically *on read* (the `ResourceNode` discipline: store a
+  timestamp, compute on demand) and written **down** by exactly one site,
+  `Creature.at_death()` when `killer` is a player (P-2, single writer; the same
+  synchronous read-modify-write that serialises two foragers in
+  `ResourceNode.harvest()` serialises two hunters here). The script then spawns
+  up to `floor(stock)`, never to `cap`. An overhunted wood takes game-months to
+  recover → scarcity → price, which is pillar 1's signal. Key the record so it
+  can live as coordinate data rather than on a persistent room object — Stage 6's
+  open question 2 (spawning assumes a room that survives being left) is then
+  answered here instead of inherited.
+  **(3) Signs.** A simulation nobody can see is a hidden number.
+  `ResourceNode._availability_phrase()` is the existing seam (number-free,
+  read-only, tiered by ratio); add the creature-side equivalent on room `look`
+  — "the wood is quiet here", "tracks everywhere" — tiered by `stock / cap`
+  and gated by a skill: `hunting` (the Survival analogue, and the only one of
+  the two on `Character.improvable_skills`, so reading signs can be a check
+  site) or `perception` (Legend's reader of tracks, not improvable today) —
+  the decomposition picks. A skilled reader sees stock the way anyone sees a
+  berry bush.
+  **Open choices, for the decomposition and not decided here:** the per-type
+  season table; the logistic rate constant — **one** knob, the recovery
+  half-life, so it stays calibratable (*two knobs doing one job*); whether (2)
+  reads season too (breeding seasons) or ships season-blind; the tier wording
+  and the `hunting` threshold for (3); and whether `spawn_creatures` is
+  migrated to the new record by a one-off `character_migrations`-style pass or
+  read as a fallback cap forever.
+- **Why deferred:** Alpha decision (F) orders the alpha's remaining work —
+  character creation → weight → mastery → E.2 — and this is none of them. It is
+  also the shape of work *skynda långsamt* says not to do yet: a new coupling
+  added before the system it couples to has been measured. The alpha instance
+  that would measure it has not opened.
+- **Why it matters:** The world's systems are built but do not read each other.
+  Hunger, thirst, fatigue, weather, season, thermal and decay all exist, and the
+  only readers of season or weather are room descs, `thermal_regime()`,
+  `Corpse._decay_modifier()` and (through the regime) `world/garment_wear.py` —
+  nothing on the supply side reads either. Supply is
+  time-flat and a hunt is consequence-free. Pillar 1 exists to test emergent
+  prices, and a price cannot move while supply does not: without (1) and (2) the
+  alpha measures a flat economy and reports that players did not trade, when
+  what was missing was variation. (3) is what turns the variation from a
+  spreadsheet into something a player notices and plans around — the
+  prepare-for-winter loop that *Temperature & exposure* (`roadmap.md`) supplies
+  the other half of.
+- **Trigger:** The persistent alpha instance **open**, and **two game-months of
+  ledger data** in `world/economy_log.py` — enough to answer, from the ledger
+  and not from impression, whether prices move at all. If they do not: decompose
+  this before Stage 5 planning. If they do: it stays filed, lower priority.
+  **Early exception:** (1) alone is one function body plus a table and may take
+  a light week ahead of the trigger, on the same terms as *Weather inertia*
+  (Environment & Weather); (2) and (3) wait, because (2) changes a player
+  contract (what hunting costs the world) and that is settled before a cohort,
+  not under one.
+- **Origin:** Session 2026-10-30 — "what does a living world still lack",
+  reviewed against `main` `a1ad0ee` (roadmap Rev 32, BACKLOG Rev 51).
+- **Status:** BLOCKED (alpha instance + two game-months of ledger data);
+  part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
 ---
 
