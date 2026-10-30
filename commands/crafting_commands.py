@@ -81,9 +81,10 @@ _SCRIBE_MATERIAL_NEEDED = ", ".join(
 # Flat permanent-Craft floor to scribe a BOOK, ON TOP of the per-recipe
 # _can_transmit gate (Component G.2). A book is the bulk, durable knowledge-carrier,
 # so authoring one asks a "professional" standing (Legend p.72-73, professional >=
-# 50%) in addition to mastering each recipe it holds. Read as permanent .current
-# (like _can_transmit), NOT effective .value: a fleeting buff must not confer the
-# standing to author a lasting book. Tune -> docs/BACKLOG.md.
+# 50%) in addition to mastering each recipe it holds. Read as permanent .current,
+# NOT effective .value: a fleeting buff must not confer the standing to author a
+# lasting book. (_can_transmit read .current the same way until M3.1; it now
+# reads completed crafts.) Tune -> docs/BACKLOG.md.
 SCRIBE_MIN_CRAFT = 50
 
 # Result-tier -> book START-condition (Component G.2). Mirrors the craft pipeline's
@@ -615,9 +616,9 @@ class CmdInscribe(Command):
     `learn` from the scroll to gain the recipe permanently -- the scroll is
     consumed in the reading. Writing one costs a bolt of cloth to inscribe on.
 
-    You can only inscribe an advanced recipe you have learned AND are skilled
-    enough to have mastered; the survival basics everyone already knows aren't
-    worth writing down.
+    You can only inscribe an advanced recipe you have learned; the survival
+    basics everyone already knows aren't worth writing down. You must have
+    completed a recipe five times before you can pass it on.
     """
 
     key = "inscribe"
@@ -646,11 +647,11 @@ class CmdInscribe(Command):
             caller.msg("Everyone already knows this. There's nothing to inscribe.")
             return
 
-        # Shared mastery gate (F/G/H): must KNOW it and meet its permanent-skill
-        # floor. Collapses "haven't learned it" and "not skilled enough" into one
-        # message on purpose -- both mean "you haven't mastered this".
+        # Shared mastery gate (F/G/H): must KNOW it and have completed it five
+        # times. Collapses "haven't learned it" and "haven't made enough" into
+        # one message on purpose -- if you don't know it, you've made none.
         if not _can_transmit(caller, recipe_name):
-            caller.msg("You can't inscribe a recipe you haven't mastered.")
+            caller.msg("You haven't made enough of these to inscribe it.")
             return
 
         # Anti-spam: checked only after the harmless guards, and BEFORE any
@@ -720,9 +721,10 @@ class CmdScribe(Command):
     the bulk, durable sibling of the one-use scroll: it holds MANY recipes and
     teaches MANY readers.
 
-    You can only scribe advanced recipes you have learned AND are skilled enough
-    to have mastered, and binding a book asks a professional's hand. It costs two
-    bolts of cloth for the pages and a length of twine to bind them.
+    You can only scribe advanced recipes you have learned, and binding a book
+    asks a professional's hand. You must have completed a recipe five times
+    before you can pass it on. A book costs two bolts of cloth for the pages and
+    a length of twine to bind them.
     """
 
     key = "scribe"
@@ -768,16 +770,16 @@ class CmdScribe(Command):
                 )
                 return
             # Per-recipe mastery gate (shared with inscribe/teach): you must KNOW
-            # each recipe and meet its permanent-skill floor to write it down.
+            # each recipe and have completed it five times to write it down.
             if not _can_transmit(caller, cls.name):
-                caller.msg(f"You can't scribe |w{cls.name}|n -- you haven't mastered it.")
+                caller.msg(f"You haven't made enough |w{cls.name}|n to scribe it.")
                 return
             if cls.name not in recipe_names:
                 recipe_names.append(cls.name)
 
         # Book-specific floor ON TOP of the per-recipe gate. Read permanent .current
-        # (not effective .value), like _can_transmit: a fleeting buff must not confer
-        # the standing to author a lasting book.
+        # (not effective .value): a fleeting buff must not confer the standing to
+        # author a lasting book. See SCRIBE_MIN_CRAFT.
         trait = caller.skills.get("craft")
         craft_current = trait.current if trait else 0
         if craft_current < SCRIBE_MIN_CRAFT:
@@ -887,9 +889,9 @@ class CmdTeach(Command):
     and has to agree: they answer with `learn <recipe> from <you>` before the
     offer lapses. Nobody can have knowledge pushed on them.
 
-    You can only teach an advanced recipe you have learned AND are skilled
-    enough to have mastered; the survival basics everyone already knows aren't
-    worth a lesson.
+    You can only teach an advanced recipe you have learned; the survival basics
+    everyone already knows aren't worth a lesson. You must have completed a
+    recipe five times before you can pass it on.
     """
 
     key = "teach"
@@ -926,12 +928,12 @@ class CmdTeach(Command):
             caller.msg("Everyone already knows this. There's nothing to teach.")
             return
 
-        # Shared mastery gate (F/G/H): must KNOW it and meet its permanent-skill
-        # floor. NOTE the Teaching *skill* is deliberately NOT consulted -- Legend
+        # Shared mastery gate (F/G/H): must KNOW it and have completed it five
+        # times. NOTE the Teaching *skill* is deliberately NOT consulted -- Legend
         # p.72-73 treats Teaching as an amplifier, never a gate (decomposition
         # section 2(d)); a Teaching bonus is deferred -> docs/BACKLOG.md.
         if not _can_transmit(caller, recipe_name):
-            caller.msg("You can't teach a recipe you haven't mastered.")
+            caller.msg("You haven't made enough of these to teach it.")
             return
 
         # Same-room requirement, enforced implicitly: Object.search defaults to
@@ -1199,8 +1201,10 @@ class CmdLearn(Command):
             return True
 
         # The teacher must STILL be qualified to pass this on -- the same shared
-        # gate CmdTeach applied, re-run against the live teacher (permanent
-        # .current inside _can_transmit, never buffed .value).
+        # gate CmdTeach applied, re-run against the live teacher (completed
+        # crafts, which cannot fall, but the recipe may have left the registry
+        # or the teacher's knowledge since the offer). The student is not told
+        # the teacher's count.
         if not _can_transmit(teacher, recipe_name):
             caller.ndb.pending_teach = None
             caller.msg(f"{teacher.get_display_name(caller)} can't teach you that.")

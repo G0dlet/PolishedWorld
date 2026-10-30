@@ -85,6 +85,7 @@ from world import recipes, timed_actions
 from world.crafting_base import MongooseCraftRecipe
 from world.improvement import improvement_roll
 from world.skillcheck import skill_check
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 from world.recipes import ClothRecipe, TwineRecipe
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
@@ -558,13 +559,17 @@ class TestMasteryCounting(CraftTestBase):
     def test_scribing_a_book_counts_nothing(self):
         # MD2: only do_craft writes. Scribe rolls its own check (and succeeds
         # here, which the bound book receipts), but no recipe gains a count.
+        # The scribe gate needs five crafts of cloth (M3.1), so the store is
+        # seeded and the test compares every count before and after.
         self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
+        before = self.char1.recipe_mastery.all()
         for obj in spawn("cloth", "cloth", "twine"):
             obj.location = self.char1
         with mock.patch(ROLL, return_value=SUCCESS_ROLL):
             said = self.call(CmdScribe(), "cloth", caller=self.char1)
         self.assertIn("You bind a book", said)
-        self.assertFalse(self.char1.attributes.has("recipe_mastery"))
+        self.assertEqual(self.char1.recipe_mastery.all(), before)
 
     def test_a_crafter_without_the_handler_neither_counts_nor_errors(self):
         # obj1 is a plain Object: no recipe_mastery, no skills. Roll 1 is a

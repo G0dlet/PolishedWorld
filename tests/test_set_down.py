@@ -50,6 +50,7 @@ from commands.foraging_commands import CmdForage
 from commands.hunting_commands import CmdHarvest
 from tests.test_craft_command import CraftFixtureMixin
 from world.encumbrance import OVERLOAD_FACTOR, carried_enc, enc_limit
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 
 CHARACTER = "typeclasses.characters.Character"
 ROOM = "typeclasses.rooms.Room"
@@ -336,6 +337,7 @@ class TestInscribeSetsDown(_CeilingFixture, EvenniaCommandTest):
         self.load_to(CEILING + 1)
         self.char1.skills.get("craft").current = 40
         self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
         cloth = spawn("cloth")[0]
         cloth.location = self.char1
 
@@ -358,6 +360,7 @@ class TestScribeSetsDown(_CeilingFixture, EvenniaCommandTest):
         self.load_to(CEILING)
         self.char1.skills.get("craft").current = 60   # SCRIBE_MIN_CRAFT is 50
         self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
         inputs = spawn("cloth", "cloth", "twine")
         for obj in inputs:
             obj.location = self.char1

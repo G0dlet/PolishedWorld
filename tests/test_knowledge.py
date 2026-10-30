@@ -42,6 +42,7 @@ Always pick the LIGHTEST class that can express the test: a plain TestCase that
 never builds the object graph is far cheaper than one that does.
 """
 
+import time
 from unittest import mock
 
 from evennia.prototypes.spawner import spawn
@@ -57,13 +58,20 @@ from world.knowledge import (
     render_recipe_detail_by_name,
 )
 from world.crafting_base import MongooseCraftRecipe
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 from world.recipes import (
     ClothRecipe,
     LeatherBootsRecipe,
     LeatherRecipe,
     TwineRecipe,
 )
-from commands.crafting_commands import CmdInscribe, CmdLearn, CmdRecipes
+from commands.crafting_commands import (
+    CmdInscribe,
+    CmdLearn,
+    CmdRecipes,
+    CmdScribe,
+    CmdTeach,
+)
 
 
 # Canonical recipe NAMES (MongooseCraftRecipe.name), because that is exactly
@@ -172,7 +180,8 @@ class TestDurationReachesBothViews(EvenniaCommandTest):
 class TestCanTransmit(EvenniaTest):
     """
     The shared mastery gate: a character may transmit a recipe IFF they KNOW it
-    AND their PERMANENT Craft skill meets the recipe's min_skill floor.
+    AND have completed it MASTERY_TRANSMIT_THRESHOLD (5) times (M3.1). The
+    Craft skill and the recipe's min_skill floor are no longer consulted.
 
     We PIN the Character typeclass. EvenniaTest otherwise builds .char1 from
     settings.BASE_CHARACTER_TYPECLASS; pinning it makes the test state its own
@@ -195,49 +204,53 @@ class TestCanTransmit(EvenniaTest):
         """Set PERMANENT craft skill (.current) -- the value the gate reads."""
         self.char1.skills.get("craft").current = value
 
+    def _seed(self, recipe_name, count):
+        """Record `count` completed crafts of `recipe_name` for char1."""
+        self.char1.recipe_mastery.add(recipe_name, count)
+
     def test_unknown_recipe_never_transmits(self):
-        # Not learned -> False, no matter how high the skill.
-        self._set_craft(100)
+        # Not learned -> False, however many times it has been made. Seeding a
+        # count far past the threshold makes knows_recipe the only thing that
+        # can block here (RM18).
+        self._seed(CLOTH, 50)
         self.assertFalse(_can_transmit(self.char1, CLOTH))
 
-    def test_known_recipe_with_zero_floor_transmits(self):
-        # WHY: no alpha learnable recipe sits at 0 after E.1, but the base default
-        # MongooseCraftRecipe.min_skill = 0 is still a supported floor.
-        with mock.patch.object(ClothRecipe, "min_skill", 0):
-            self.char1.learn_recipe(CLOTH)
-            self._set_craft(0)
-            self.assertTrue(_can_transmit(self.char1, CLOTH))
+    def test_known_below_the_threshold_blocks(self):
+        # One craft short of the threshold is not enough (RM16).
+        self.char1.learn_recipe(CLOTH)
+        self._seed(CLOTH, MASTERY_TRANSMIT_THRESHOLD - 1)
+        self.assertFalse(_can_transmit(self.char1, CLOTH))
 
-    def test_known_but_below_skill_floor_blocks(self):
+    def test_known_at_the_threshold_transmits(self):
+        # Boundary: the threshold is `>=`, so exactly five passes.
+        self.char1.learn_recipe(CLOTH)
+        self._seed(CLOTH, MASTERY_TRANSMIT_THRESHOLD)
+        self.assertTrue(_can_transmit(self.char1, CLOTH))
+
+    def test_the_craft_floor_no_longer_gates_transmission(self):
+        # Permanent Craft one point below the boots' floor, count at the
+        # threshold -> True. If the min_skill clause survives beside the count,
+        # this fails (RM15).
         floor = LeatherBootsRecipe.min_skill
-        # One permanent point below the boots' declared Craft floor is not enough.
         self.char1.learn_recipe(LEATHER_BOOTS)
         self._set_craft(floor - 1)
-        self.assertFalse(_can_transmit(self.char1, LEATHER_BOOTS))
-
-    def test_known_at_exact_floor_transmits(self):
-        floor = LeatherBootsRecipe.min_skill
-        # Boundary: the floor is `>=`, so exactly the declared floor passes.
-        # Testing the boundary itself, not just one below or above, catches
-        # off-by-one gate bugs.
-        self.char1.learn_recipe(LEATHER_BOOTS)
-        self._set_craft(floor)
+        self._seed(LEATHER_BOOTS, MASTERY_TRANSMIT_THRESHOLD)
         self.assertTrue(_can_transmit(self.char1, LEATHER_BOOTS))
 
     def test_buffed_value_does_not_confer_authoring_rights(self):
         """
-        THE load-bearing test for this whole module.
+        A fleeting buff must not let you author a lasting scroll.
 
-        The gate reads PERMANENT skill (trait.current), NEVER effective
-        trait.value. A +20 buff pushes .value above the boots' floor while
-        .current stays one below it. A fleeting buff must not let you author a
-        lasting scroll -> the gate must still return False.
-
-        If someone ever "simplifies" _can_transmit to read .value, THIS is the
-        test that fails. That is precisely its job.
+        Before M3.1 the gate read permanent `.current` against the floor and
+        this test guarded against a switch to `.value`. The gate now reads
+        completed crafts, but the intent stands: with the count one short and a
+        +20 buff lifting `.value` past the floor, the answer is still False. If
+        the gate ever consults `.value` of the Craft trait again, this fails
+        (RM17).
         """
         floor = LeatherBootsRecipe.min_skill
         self.char1.learn_recipe(LEATHER_BOOTS)
+        self._seed(LEATHER_BOOTS, MASTERY_TRANSMIT_THRESHOLD - 1)
         trait = self.char1.skills.get("craft")
         trait.current = floor - 1  # permanent: one below the declared floor
         trait.mod = 20             # simulate a +20 buff to the effective value
@@ -251,16 +264,18 @@ class TestCanTransmit(EvenniaTest):
 
     def test_known_name_absent_from_registry_blocks(self):
         # A knowledge tag can outlive its recipe (renamed/removed). knows_recipe
-        # is True but the registry .get is None -> False, and NO crash. Guards
-        # the "vanished knowledge" branch.
+        # is True and the count is at the threshold, but the registry .get is
+        # None -> False, and NO crash. Guards the "vanished knowledge" branch.
         self.char1.learn_recipe("ghost recipe")
+        self._seed("ghost recipe", MASTERY_TRANSMIT_THRESHOLD)
         self.assertFalse(_can_transmit(self.char1, "ghost recipe"))
 
 
 class TestInscribeCommand(EvenniaCommandTest):
     """
     `inscribe <recipe>` (F.1): a mastered recipe + a bolt of cloth -> a one-use
-    scroll. EvenniaCommandTest adds .call(), which runs the command and captures
+    scroll. Mastered means known AND completed MASTERY_TRANSMIT_THRESHOLD times
+    (M3.1), so every test that expects to get past the gate seeds the count. EvenniaCommandTest adds .call(), which runs the command and captures
     what it .msg()'d back.
 
     .call() note for anyone extending this file: `.call(cmd, args, msg=EXPECTED)`
@@ -283,6 +298,11 @@ class TestInscribeCommand(EvenniaCommandTest):
         super().setUp()
         self.char1.skills.get("craft").current = 40  # clears every floor we use
 
+    def _master(self, recipe_name):
+        """Learn `recipe_name` and record enough crafts to pass it on."""
+        self.char1.learn_recipe(recipe_name)
+        self.char1.recipe_mastery.add(recipe_name, MASTERY_TRANSMIT_THRESHOLD)
+
     def _give_cloth(self):
         """Spawn the real cloth prototype into char1's hands; return it."""
         cloth = spawn("cloth")[0]
@@ -294,7 +314,7 @@ class TestInscribeCommand(EvenniaCommandTest):
         return [o for o in self.char1.contents if o.db.recipe]
 
     def test_inscribe_creates_scroll_and_consumes_cloth(self):
-        self.char1.learn_recipe(CLOTH)
+        self._master(CLOTH)
         cloth = self._give_cloth()
 
         self.call(
@@ -334,14 +354,28 @@ class TestInscribeCommand(EvenniaCommandTest):
         self._give_cloth()
         self.call(
             CmdInscribe(), LEATHER_BOOTS,
-            "You can't inscribe a recipe you haven't mastered.",
+            "You haven't made enough of these to inscribe it.",
             caller=self.char1,
         )
         self.assertFalse(self._stamped_scrolls())
 
+    def test_inscribe_one_craft_short_is_refused(self):
+        # Known, but completed one time fewer than the threshold: refused with
+        # the gate's line, and the cloth is kept.
+        self.char1.learn_recipe(CLOTH)
+        self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD - 1)
+        cloth = self._give_cloth()
+        self.call(
+            CmdInscribe(), CLOTH,
+            "You haven't made enough of these to inscribe it.",
+            caller=self.char1,
+        )
+        self.assertFalse(self._stamped_scrolls())
+        self.assertIsNotNone(cloth.pk)
+
     def test_inscribe_without_material_is_refused(self):
         # Knows the recipe but holds no cloth.
-        self.char1.learn_recipe(CLOTH)
+        self._master(CLOTH)
         self.call(
             CmdInscribe(), CLOTH,
             "You need a bolt of cloth",
@@ -353,7 +387,7 @@ class TestInscribeCommand(EvenniaCommandTest):
         # Force the cooldown active. Documented project idiom: add() a huge
         # duration so cooldowns.ready() is deterministically False. The guard
         # runs BEFORE material is spent, so the cloth must survive.
-        self.char1.learn_recipe(CLOTH)
+        self._master(CLOTH)
         cloth = self._give_cloth()
         self.char1.cooldowns.add("inscribe", 9999)
 
@@ -364,6 +398,90 @@ class TestInscribeCommand(EvenniaCommandTest):
         )
         self.assertIsNotNone(cloth.pk)          # cloth NOT consumed
         self.assertFalse(self._stamped_scrolls())
+
+
+class TestScribeGate(EvenniaCommandTest):
+    """
+    `scribe` passes every recipe through the shared gate (M3.1). Getting past
+    it at the threshold is covered where a book is bound (test_set_down,
+    test_improvement_engine); this pins the refusal one craft short.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_scribe_one_craft_short_is_refused(self):
+        # Craft 60 clears SCRIBE_MIN_CRAFT (50), so only the per-recipe gate
+        # can refuse. The inputs are kept and no book is bound.
+        self.char1.skills.get("craft").current = 60
+        self.char1.learn_recipe(CLOTH)
+        self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD - 1)
+        inputs = spawn("cloth", "cloth", "twine")
+        for obj in inputs:
+            obj.move_to(self.char1, quiet=True)
+
+        self.call(
+            CmdScribe(), CLOTH,
+            "You haven't made enough cloth to scribe it.",
+            caller=self.char1,
+        )
+        self.assertFalse([o for o in self.char1.contents if o.db.recipes])
+        self.assertTrue(all(obj.pk for obj in inputs))
+
+
+class TestTeachGate(EvenniaCommandTest):
+    """
+    `teach <recipe> to <player>` and the student's `learn <recipe> from
+    <teacher>` both run the shared gate (M3.1): teach when the offer is made,
+    learn again against the live teacher when it is accepted.
+
+    `has_account` is `sessions.count()`, and the test harness gives only char1
+    a session, so char2 would be refused as "isn't someone you can teach". The
+    property is patched on the class for the duration of each test.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(
+            type(self.char1), "has_account",
+            new_callable=mock.PropertyMock, return_value=1,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.char1.learn_recipe(CLOTH)
+
+    def test_teach_one_craft_short_is_refused(self):
+        self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD - 1)
+        self.call(
+            CmdTeach(), f"{CLOTH} to {self.char2.key}",
+            "You haven't made enough of these to teach it.",
+            caller=self.char1,
+        )
+        self.assertFalse(self.char2.ndb.pending_teach)
+
+    def test_teach_at_the_threshold_makes_the_offer(self):
+        self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD)
+        self.call(
+            CmdTeach(), f"{CLOTH} to {self.char2.key}",
+            "You offer to teach",
+            caller=self.char1,
+        )
+        self.assertEqual(self.char2.ndb.pending_teach[:2], (self.char1, CLOTH))
+
+    def test_accept_rechecks_the_teacher(self):
+        # The fourth caller. The count cannot fall, so the offer is planted
+        # directly with a teacher one craft short; accepting it is refused, the
+        # student learns nothing and the offer is retired.
+        self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD - 1)
+        self.char2.ndb.pending_teach = (self.char1, CLOTH, time.time() + 60)
+
+        said = self.call(
+            CmdLearn(), f"{CLOTH} from {self.char1.key}", caller=self.char2,
+        )
+        self.assertIn("can't teach you that", said)
+        self.assertFalse(self.char2.knows_recipe(CLOTH))
+        self.assertIsNone(self.char2.ndb.pending_teach)
 
 
 class TestLearnCommand(EvenniaCommandTest):
