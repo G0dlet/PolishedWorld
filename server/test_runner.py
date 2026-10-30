@@ -15,10 +15,14 @@ before Django builds the pool. A serial run (no `--parallel`) is unchanged.
 Usage (from the game directory):
 
     evennia test --settings settings.py \\
-        --testrunner server.test_runner.ForkTestRunner --parallel tests
+        --testrunner server.test_runner.ForkTestRunner --parallel auto tests
 
-`--parallel` without a number uses one worker per CPU (Django's `auto`; set
-`DJANGO_TEST_PROCESSES` to cap it). The runner is named on the command line,
+`--parallel` takes an optional value (argparse `nargs="?"`), so the word after
+it is read as that value: `--parallel tests` fails with *'tests' is not an
+integer or the string 'auto'*. Give the value (`auto`, one worker per CPU, or
+a number), or put the test labels before `--parallel`. With no label at all
+the whole game directory is discovered (the same tests as `tests`).
+`DJANGO_TEST_PROCESSES` caps `auto`. The runner is named on the command line,
 not in `settings.TEST_RUNNER`, so `settings.py` is not touched.
 """
 
