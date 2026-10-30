@@ -1,6 +1,6 @@
 """
 Tests for world/encumbrance.py and the Character properties over it
-(Weight and Encumbrance, Tasks W1.1, W1.2, W2.1, W2.2 and W3.1).
+(Weight and Encumbrance, Tasks W1.1, W1.2, W2.1, W2.2, W3.1 and W3.2).
 
 Each class presses one bug:
 
@@ -88,6 +88,25 @@ before `enc` is set (objects.py:1975), so it is not the move under test.
     TestRollCensus        a new skill test that nobody decided about: the
                           count of `skill_check(` / `opposed_check(` calls per
                           production module must stay the six W3.1 classified
+
+  W3.2 -- the fatigue cost per room (Legend core p.86, Movement halved):
+
+    TestStepCost          `>=` for `>` at the limit (a step at 20/20 must be
+                          free); the band guard dropped; a cost only at
+                          OVERLOADED (41/20 must pay too); `+=` for `-=`; a
+                          drain that goes below the gauge's floor
+    TestOnlyWalkingCosts  the `move_type` guard dropped, or keyed on `"move"`:
+                          a bare `move_to` and a teleport must not pay
+    TestStepWarnings      the warning check dropped after the drain (a bucket
+                          crossed in silence); a warning inside a bucket; the
+                          check before the drain dropped, which loses the
+                          first warning after a reload (empty `ndb`)
+
+Every W3.2 step goes through the fixture's real exit (`self.exit.at_traverse`,
+`move_type="traverse"`), from a fatigue set mid-bucket at 50 so that a `+=`
+shows as -1 instead of clamping to 0 at the top. Every step asserts that the
+character arrived: a case where fatigue does not change has the move itself
+as its receipt.
 """
 
 import ast
@@ -111,6 +130,7 @@ from commands.repair_commands import CmdRepair
 from world.encumbrance import (
     CEILING,
     FREE,
+    OVERLOAD_MOVE_FATIGUE,
     OVERLOAD_PENALTY,
     OVERLOADED,
     carried_enc,
@@ -122,6 +142,7 @@ from world.encumbrance import (
 )
 from world.harvest_templates import get_part
 from world.skillcheck import opposed_check, skill_check
+from world.survival_ticker import _check_survival_warnings
 
 OBJ = "typeclasses.objects.Object"
 WARN = "world.encumbrance.logger.log_warn"
@@ -982,3 +1003,93 @@ class TestRollCensus(EvenniaTest):
         source = (REPO / "commands/repair_commands.py").read_text(encoding="utf-8")
         self.assertGreater(source.count("skill_check"), 1)
         self.assertEqual(_roll_census()["commands/repair_commands.py"], 1)
+
+
+# --- W3.2 -- the fatigue cost per room ----------------------------------------
+
+MID = 50          # fatigue mid-bucket ("weary", 41-60): no clamp either way
+TIRED = "|yYou feel tired.|n"   # the warning at 40 (bucket 21-40)
+
+
+class _StepFixture(_PenaltyFixture):
+    """Shared driver: load char1, set fatigue, take one step, report the cost."""
+
+    def step(self, total, start=MID, move=None):
+        """
+        Load char1 to `total` ENC, set fatigue to `start`, move room1 -> room2.
+
+        `move` is None for the fixture's exit (`at_traverse`, "traverse"), or a
+        `move_type` for a direct `move_to` ("move" is the bare default).
+        Returns (fatigue spent, the survival warnings char1 was sent).
+        """
+        self.load_to(total)
+        fatigue = self.char1.traits.fatigue
+        fatigue.current = start
+        self.assertEqual(self.char1.location, self.room1)
+        with mock.patch.object(self.char1, "msg") as msg:
+            if move is None:
+                self.exit.at_traverse(self.char1, self.room2)
+            elif move == "move":
+                self.char1.move_to(self.room2)
+            else:
+                self.char1.move_to(self.room2, move_type=move)
+        self.assertEqual(self.char1.location, self.room2)   # receipt: it moved
+        warnings = [
+            call.args[0]
+            for call in msg.call_args_list
+            if call.args and isinstance(call.args[0], str) and "You feel" in call.args[0]
+        ]
+        return start - fatigue.current, warnings
+
+
+class TestStepCost(_StepFixture, EvenniaTest):
+    """A step through an exit costs 1 fatigue past the limit, 0 at or under it."""
+
+    def test_the_cost_is_one(self):
+        self.assertEqual(OVERLOAD_MOVE_FATIGUE, 1)   # Q3, calibrated at OQ1
+
+    def test_a_step_at_the_limit_is_free(self):
+        self.assertEqual(self.step(LIMIT), (0, []))
+
+    def test_a_step_one_over_the_limit_costs_one(self):
+        self.assertEqual(self.step(LIMIT + 1), (1, []))
+
+    def test_a_step_past_the_ceiling_costs_too(self):
+        self.assertEqual(self.step(2 * LIMIT + 1), (1, []))   # Q4
+        self.assertEqual(self.char1.encumbrance_state, CEILING)
+
+    def test_zero_is_the_floor(self):
+        self.assertEqual(self.step(LIMIT + 1, start=0), (0, []))   # Q5
+        self.assertEqual(self.char1.traits.fatigue.current, 0)
+
+
+class TestOnlyWalkingCosts(_StepFixture, EvenniaTest):
+    """Only an exit charges (Q1): a bare move_to and a teleport are free."""
+
+    def test_a_bare_move_to_is_free(self):
+        self.assertEqual(self.step(LIMIT + 1, move="move"), (0, []))
+
+    def test_a_teleport_is_free(self):
+        self.assertEqual(self.step(LIMIT + 1, move="teleport"), (0, []))
+
+
+class TestStepWarnings(_StepFixture, EvenniaTest):
+    """A step that crosses into a worse bucket warns once, at once (Q2)."""
+
+    def baseline(self, value):
+        """What the ticker leaves behind: the last check saw `value`."""
+        self.char1.traits.fatigue.current = value
+        _check_survival_warnings(self.char1)
+        self.assertIsNotNone(self.char1.ndb.survival_buckets)
+
+    def test_crossing_into_a_worse_bucket_warns_once(self):
+        self.baseline(41)
+        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [TIRED]))   # 41 -> 40
+
+    def test_a_step_inside_a_bucket_is_silent(self):
+        self.baseline(40)
+        self.assertEqual(self.step(LIMIT + 1, start=40), (1, []))   # 40 -> 39
+
+    def test_the_first_step_after_a_reload_warns(self):
+        self.char1.ndb.survival_buckets = None   # what `evennia reload` leaves
+        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [TIRED]))

@@ -61,6 +61,13 @@ MAX_DEPTH = 4
 # read through Character.physical_modifier() at the moment of each roll.
 OVERLOAD_PENALTY = -20
 
+# Legend core p.86: "Overloaded Adventurers have their Movement halved." In a
+# room-based world that reads as "every room costs" (WD3): fatigue drained per
+# room entered through an exit while OVERLOADED or CEILING, by
+# Character.at_post_move (W3.2). Flat -- no buff, no rate multiplier: it prices
+# distance, not time. Calibrated at alpha close-out (OQ1).
+OVERLOAD_MOVE_FATIGUE = 1
+
 FREE = "free"
 OVERLOADED = "overloaded"
 CEILING = "ceiling"

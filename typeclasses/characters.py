@@ -20,6 +20,7 @@ from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import encumbrance
+from world import survival_ticker
 from world import timed_actions
 from world.progression import (
     level_for_xp,
@@ -67,7 +68,8 @@ class Character(ObjectParent, ClothedCharacter):
     move that carries the character across the limit is announced
     (`at_object_receive`, `at_object_leave`); a path that runs no hook --
     `delete()`, a direct `location =`, `move_hooks=False` (death), a change
-    to STR or SIZ -- crosses it silently (W2.2 Q4).
+    to STR or SIZ -- crosses it silently (W2.2 Q4). A step through an exit
+    while past the limit costs fatigue (`at_post_move`, W3.2).
     """
 
     @lazy_property
@@ -1434,6 +1436,48 @@ class Character(ObjectParent, ClothedCharacter):
         """
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
+
+    def at_post_move(self, source_location, move_type="move", **kwargs):
+        """
+        Look around, then charge a step taken while overloaded (W3.2).
+
+        Legend halves an overloaded character's Movement (core p.86); here
+        every room entered through an exit costs `OVERLOAD_MOVE_FATIGUE`
+        fatigue while the band is OVERLOADED or CEILING (WD3, Q4). The cost is
+        flat and read live: no buff, no rate multiplier, nothing stored.
+
+        Only walking costs (Q1). An exit moves with `move_type="traverse"`
+        (Evennia `objects.py:3734`); `home` and `@tel` use `"teleport"`, and a
+        script's bare `move_to` defaults to `"move"` -- neither pays. Death
+        relocates with `move_hooks=False`, so this hook never runs for it.
+
+        The gauge clamps at its `min` (Q5): a step at 0 leaves 0, and fatigue
+        at 0 has no consequence until *Fatigue-exhaustion consequence* ships.
+
+        The survival warning is checked on both sides of the drain. The check
+        before sets the baseline in `ndb.survival_buckets` -- empty after a
+        reload until the next tick, up to 1800 s away -- and never warns,
+        since only the ticker lowers a gauge and it checks right after. The
+        check after warns once if the step crossed into a worse bucket (Q2,
+        tightened in session 6). No message of its own: the warning and the
+        `inventory` line say what happened and why.
+
+        The gauge is read with `traits.get()` and skipped if absent, as the
+        ticker does: an exception here would make `move_to` return False after
+        the move has happened (`objects.py:1331`), and the exit would tell a
+        character who did move "You cannot go there."
+        """
+        super().at_post_move(source_location, move_type=move_type, **kwargs)
+        if move_type != "traverse":
+            return
+        if self.encumbrance_state == encumbrance.FREE:
+            return
+        fatigue = self.traits.get("fatigue")
+        if fatigue is None:
+            return
+        survival_ticker._check_survival_warnings(self)   # baseline (reload)
+        fatigue.current -= encumbrance.OVERLOAD_MOVE_FATIGUE
+        survival_ticker._check_survival_warnings(self)
 
     def at_pre_object_receive(self, arriving_object, source_location, **kwargs):
         """
