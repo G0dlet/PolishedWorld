@@ -8,13 +8,15 @@ Mongoose Legend skill resolution onto the contrib's lifecycle:
 
     pre_craft   -> validate inputs (contrib) + knowledge and skill gates
                    (abort, no consume)
-    do_craft    -> roll Craft skill, map result tier -> quality, spawn output,
-                   stamp quality; places nothing (the output has no location)
+    do_craft    -> roll Craft skill, count a successful check toward the
+                   recipe's mastery (M2.1), map result tier -> quality, spawn
+                   output, stamp quality; places nothing (the output has no
+                   location)
     post_craft  -> consume materials per policy, then deliver the output
                    through Character.receive_or_set_down (W5.1), then
                    message: the tier-flavoured result line, the set-down line,
-                   improvement feedback, the tool-break line. Returns only
-                   what the crafter holds.
+                   improvement feedback, the mastery-step line, the tool-break
+                   line. Returns only what the crafter holds.
 
 IMPORTANT: this module must NOT be listed in settings.CRAFT_RECIPE_MODULES.
 Evennia's _load_recipes() registers every CraftingRecipeBase subclass it finds
@@ -43,6 +45,7 @@ from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 
 from world.skillcheck import skill_check
 from world.crafting_quality import quality_band, SUPERIOR
+from world.recipe_mastery import MASTERY_CAP, MASTERY_STEP
 
 
 class MongooseCraftRecipe(CraftingRecipe):
@@ -237,6 +240,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         self.skill_outcome = None
         self.improvement_result = None
         self.tool_broke = None
+        self.mastery_step = None
 
         # Contrib input validation (materials/tools). Raises CraftingValidationError
         # on bad inputs; the base craft() catches it and skips do_craft.
@@ -323,6 +327,26 @@ class MongooseCraftRecipe(CraftingRecipe):
         improve = getattr(self.crafter, "attempt_skill_improvement", None)
         self.improvement_result = improve(self.skill_name, outcome) if improve else None
 
+        # Per-recipe mastery (Recipe Mastery M2.1, MD2). The single writer of
+        # recipe_mastery: one completed craft per successful CHECK. Gated on
+        # outcome["success"], NOT on the _should_produce branch below: under the
+        # "raw" policy every recipe inherits, that branch is taken on failure
+        # and fumble too (lesson 177), so a gate there would count failures.
+        # A product later set down at the weight ceiling still counts -- the
+        # write happens here, before delivery. For a timed craft this runs at
+        # completion, like the roll. getattr-guarded like
+        # attempt_skill_improvement: a crafter without the handler neither
+        # counts nor errors.
+        # mastery_step is set only when the roll MODIFIER rose, not the step:
+        # past the cap the step keeps climbing (25, 30, ...) while the modifier
+        # stays at MASTERY_CAP, and nothing the player can feel has changed.
+        mastery = getattr(self.crafter, "recipe_mastery", None)
+        if mastery is not None and outcome["success"]:
+            before = mastery.modifier(self.name)
+            mastery.add(self.name)
+            if mastery.modifier(self.name) > before:
+                self.mastery_step = mastery.step(self.name)
+
         if not self._should_produce(tier):
             return None  # non-raw policies: failure/fumble yield nothing
 
@@ -382,6 +406,17 @@ class MongooseCraftRecipe(CraftingRecipe):
             text = feedback(self.improvement_result)
             if text:
                 self.msg(text)
+
+        # Mastery step (M2.1): after the improvement line and before the tool
+        # break, so the beat reads "you made X / your skill improves / you know
+        # this better / your tool breaks". Set in do_craft only when this craft
+        # raised the recipe's roll modifier; the line that reaches the cap is
+        # the last one the recipe will ever say.
+        if self.mastery_step:
+            if self.mastery_step * MASTERY_STEP >= MASTERY_CAP:
+                self.msg("You could make this in your sleep.")
+            else:
+                self.msg("Your hands know this recipe a little better.")
 
         # Tool-break notice (Component D.2). Emitted after the craft-result line
         # and any improvement feedback, so the beat reads "you make X / your
