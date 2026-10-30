@@ -698,7 +698,7 @@ LINEN_CUIRASS = {
 
 SACK = {
     "prototype_key": "sack",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.containers.Container",
     "key": "large sack",
     "aliases": ["sack", "bag"],
     "desc": (
@@ -707,13 +707,14 @@ SACK = {
     ),
     # SOURCE: SackRecipe (cloth x2, canvas as cloth #11). SINK: none in the alpha (containers, AD8).
     "enc": 1,   # AoL p. 29: Sack, large, ENC 1
+    "capacity": 10,   # AoL p. 29: holds 10 ENC (WD5, W4.1)
 }
 
 # --- Leather and bone goods (AC4.2) ---
 
 BACKPACK = {
     "prototype_key": "backpack",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.containers.Container",
     "key": "backpack",
     "aliases": ["pack"],
     "desc": (
@@ -722,6 +723,7 @@ BACKPACK = {
     ),
     # SOURCE: BackpackRecipe (leather x2). SINK: none in the alpha (containers, AD8).
     "enc": 1,   # AoL p. 28: Backpack, ENC 1
+    "capacity": 20,   # AoL p. 28: holds 20 ENC (WD5, W4.1)
 }
 
 SCROLLCASE = {
@@ -739,7 +741,7 @@ SCROLLCASE = {
 
 SADDLEBAG = {
     "prototype_key": "saddlebag",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.containers.Container",
     "key": "saddlebag",
     "aliases": ["saddle bag"],
     "desc": (
@@ -748,6 +750,7 @@ SADDLEBAG = {
     ),
     # SOURCE: SaddlebagRecipe (leather x3). SINK: none in the alpha (containers, AD8).
     "enc": 2,   # AoL p. 30: Saddlebag, ENC 2
+    "capacity": 15,   # AoL p. 30: each holds 15 ENC (WD5, W4.1)
 }
 
 SHOES = {
