@@ -9,8 +9,12 @@ Mongoose Legend skill resolution onto the contrib's lifecycle:
     pre_craft   -> validate inputs (contrib) + knowledge and skill gates
                    (abort, no consume)
     do_craft    -> roll Craft skill, map result tier -> quality, spawn output,
-                   stamp quality
-    post_craft  -> tier-flavoured message + consume materials per policy
+                   stamp quality; places nothing (the output has no location)
+    post_craft  -> consume materials per policy, then deliver the output
+                   through Character.receive_or_set_down (W5.1), then
+                   message: the tier-flavoured result line, the set-down line,
+                   improvement feedback, the tool-break line. Returns only
+                   what the crafter holds.
 
 IMPORTANT: this module must NOT be listed in settings.CRAFT_RECIPE_MODULES.
 Evennia's _load_recipes() registers every CraftingRecipeBase subclass it finds
