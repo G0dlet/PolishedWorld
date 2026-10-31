@@ -1027,6 +1027,10 @@ class CmdScribe(Command):
         # failed binding still produces its low-condition book and teaches
         # nothing. Placed after the result message so the feedback line reads as
         # the next beat, exactly as in CmdDisassemble.
+        # No difficulty datum comparable to `min_skill` here (a book has no
+        # floor; the roll carries only the overload term); meaningful=True is
+        # deliberate (Skill Progression decomp section 7 E.3, Trivial Work TD5),
+        # not an omission -- BACKLOG carries scribe's own entry.
         imp = caller.attempt_skill_improvement("craft", outcome)
         text = caller._improvement_feedback(imp)
         if text:

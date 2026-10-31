@@ -61,6 +61,15 @@ check still runs and the craft completes. The weight-ceiling
 case lives in tests/test_set_down.py::TestCraftSetsDown, beside its fixture
 (importing that fixture here would make the two modules import each other).
 
+TRIVIAL WORK (E.2, T2.1)
+------------------------
+`TestRoutineCraftDoesNotTeach` drives the same command and completion with a
+success pinned, at the band's edge (Craft 30 vs 31 on twine, floor 0). A
+routine success must still yield, count for mastery and wear a tool; only the
+improvement roll is skipped. The recipe instance is read through a post_craft
+spy, so a `None` improvement_result always sits beside receipts that the
+craft ran.
+
 HOW TO RUN
 ----------
     evennia test --settings settings.py tests.test_craft_command
@@ -73,7 +82,7 @@ from unittest import mock
 
 from django.test import override_settings
 
-from evennia.contrib.game_systems.crafting.crafting import CmdCraft
+from evennia.contrib.game_systems.crafting.crafting import CmdCraft, craft
 from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest
 
@@ -81,12 +90,12 @@ from commands import crafting_commands
 from commands.consumption_commands import CmdRest
 from commands.crafting_commands import CmdCraftGated, CmdScribe, _complete_craft
 from commands.work_commands import CmdWork, _finish_task
-from world import recipes, timed_actions
+from world import knowledge, recipes, timed_actions
 from world.crafting_base import MongooseCraftRecipe
 from world.improvement import improvement_roll
 from world.skillcheck import skill_check
 from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
-from world.recipes import ClothRecipe, TwineRecipe
+from world.recipes import ClothRecipe, ClubRecipe, TwineRecipe
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
 
@@ -659,7 +668,11 @@ class TestMasteryInTheRoll(CraftTestBase):
         self.set_count(count)
         self.char1.cooldowns.clear()
         before = self.char1.skill_xp.get("craft")
+        # Twine is routine at Craft 60 (E.2: floor 0, band 30), so the gate is
+        # held open here: MD7 asks what reaches the improvement roll, not
+        # whether the roll is attempted (TestRoutineCraftDoesNotTeach owns that).
         with mock.patch(IMPROVEMENT_DIE, return_value=1), \
+                mock.patch("world.crafting_base.routine_for", return_value=False), \
                 mock.patch(IMPROVEMENT_ROLL, wraps=improvement_roll) as roll:
             self.craft_as(self.char1, SUCCESS_ROLL, fresh_fibres=fresh_fibres)
         roll.assert_called_once()   # receipt: the improvement path ran
@@ -706,3 +719,82 @@ class TestMasteryInTheRoll(CraftTestBase):
 
         self.assertEqual(called(skill_arg), ["_skill_value"])
         self.assertEqual(sorted(called(modifier_arg)), sorted(TERMS))
+
+
+class TestRoutineCraftDoesNotTeach(CraftTestBase):
+    """
+    T2.1 (E.2): a routine craft completes, yields, wears its tool and counts
+    for mastery -- and attempts no improvement roll.
+
+    `improvement_result` is read off the real recipe instance through a
+    post_craft spy, so "None" is never the absence of a craft: each routine-side
+    test also carries positive receipts that do_craft ran (the product, the
+    mastery count, the worn tool). The bugs this presses on: the gate never
+    wired (TW6), wired to `.value` (TW7), widened to the mastery write (TW8),
+    and reimplemented at the call without the top-rung exemption (TW9).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.craft_trait = self.char1.skills.get("craft")
+        self.craft_trait.mod = 0
+        self.char1.cooldowns.clear()
+
+    def craft_twine(self, current):
+        """One real `craft twine` at `current`, success pinned; the recipe."""
+        self.craft_trait.current = current
+        scheduled = self.start_craft()
+        self.assertIsNotNone(scheduled, "the craft never started")
+        seen = []
+        real = MongooseCraftRecipe.post_craft
+
+        def spy(recipe, *args, **kwargs):
+            seen.append(recipe)
+            return real(recipe, *args, **kwargs)
+
+        with mock.patch(ROLL, return_value=SUCCESS_ROLL), \
+                mock.patch.object(MongooseCraftRecipe, "post_craft", spy):
+            self.finish(scheduled)
+        self.assertEqual(len(seen), 1, "do_craft did not run exactly once")
+        return seen[0]
+
+    def assert_ticked(self, recipe):
+        self.assertIsNotNone(recipe.improvement_result)
+        self.assertFalse(self.char1.cooldowns.ready("improve_craft"))
+
+    def assert_not_ticked(self, recipe):
+        self.assertIsNone(recipe.improvement_result)
+        self.assertTrue(self.char1.cooldowns.ready("improve_craft"))
+
+    def test_at_30_twine_still_teaches(self):
+        self.assert_ticked(self.craft_twine(30))
+
+    def test_at_31_twine_crafts_counts_and_does_not_teach(self):
+        recipe = self.craft_twine(31)
+        self.assertEqual(len(self.twine_in(self.char1)), 1)          # it yielded
+        self.assertEqual(self.char1.recipe_mastery.count("twine"), 1)  # it counted
+        self.assert_not_ticked(recipe)
+
+    def test_the_top_rung_exemption_reaches_the_craft(self):
+        with mock.patch.object(knowledge, "ladder_top", return_value=0):
+            self.assert_ticked(self.craft_twine(150))
+
+    def test_a_bonus_on_value_does_not_silence_the_tick(self):
+        self.craft_trait.mod = 40
+        recipe = self.craft_twine(25)
+        self.assertEqual(self.craft_trait.value, 65)   # .value was past the band
+        self.assert_ticked(recipe)
+
+    def test_a_routine_craft_still_wears_its_tool(self):
+        # Club: floor 20, an optional knife. Through the contrib's craft(), the
+        # same do_craft the command's completion reaches.
+        wood, knife = spawn("wood", "stone_knife")
+        wood.location = knife.location = self.char1
+        start = knife.condition
+        self.craft_trait.current = 51
+        with mock.patch(ROLL, return_value=SUCCESS_ROLL):
+            result = craft(self.char1, "club", wood, knife)
+        self.assertEqual(len(result), 1)                                   # it yielded
+        self.assertEqual(knife.condition, start - ClubRecipe.tool_wear)    # it wore
+        self.assertEqual(self.char1.recipe_mastery.count("club"), 1)      # it counted
+        self.assertTrue(self.char1.cooldowns.ready("improve_craft"))      # no tick

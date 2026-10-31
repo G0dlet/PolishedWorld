@@ -166,6 +166,10 @@ class CmdRepair(Command):
         # -limited inside attempt_skill_improvement; repair trains the same
         # "craft" skill as crafting. Placed after the outcome message so a later
         # "your Crafting improves" line (C.1) reads after the repair result.
+        # No difficulty datum comparable to `min_skill` here (the roll carries
+        # only the tool and overload terms); meaningful=True is deliberate
+        # (Skill Progression decomp section 7 E.3, Trivial Work TD5), not an
+        # omission.
         imp = caller.attempt_skill_improvement("craft", outcome)
         text = caller._improvement_feedback(imp)
         if text:

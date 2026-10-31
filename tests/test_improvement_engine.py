@@ -91,7 +91,9 @@ The --settings flag is NOT optional anywhere in this project.
         tests.test_improvement_engine.TestFloorRepair.test_a_hand_raised_level_is_not_de_levelled
 """
 
+import ast
 from collections.abc import Mapping
+from pathlib import Path
 from contextlib import contextmanager
 from unittest import mock
 
@@ -845,3 +847,52 @@ class TestImprovableSkillsSet(EvenniaTest):
         self.assertLessEqual(
             set(self.char1.improvable_skills), set(self.char1.skills.all())
         )
+
+
+class TestImprovementCallSiteCensus(EvenniaTest):
+    """
+    E.2 (T2.1): `attempt_skill_improvement` has exactly six call sites.
+
+    The docstring once said "both live call sites" while there were six
+    (lesson 191: count the calls, do not trust the prose). Two shapes are
+    counted, by ast rather than grep: a direct `.attempt_skill_improvement(`
+    call, and do_craft's `getattr(crafter, "attempt_skill_improvement", ...)`
+    lookup. A seventh site must be added here on purpose, with a decision about
+    `meaningful` (Skill Progression decomp section 7 E.3, Trivial Work TD5).
+    """
+
+    EXPECTED = {
+        "commands/crafting_commands.py": 2,   # disassemble, scribe
+        "commands/hunting_commands.py": 2,    # hunt-attack, hunt-harvest
+        "commands/repair_commands.py": 1,     # repair
+        "world/crafting_base.py": 1,          # craft (do_craft)
+    }
+
+    @staticmethod
+    def _sites(tree):
+        count = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "attempt_skill_improvement":
+                count += 1
+            elif (
+                isinstance(func, ast.Name) and func.id == "getattr"
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == "attempt_skill_improvement"
+            ):
+                count += 1
+        return count
+
+    def test_six_call_sites_in_the_game_code(self):
+        root = Path(__file__).resolve().parent.parent
+        found = {}
+        for package in ("commands", "server", "typeclasses", "web", "world"):
+            for path in sorted((root / package).rglob("*.py")):
+                n = self._sites(ast.parse(path.read_text()))
+                if n:
+                    found[path.relative_to(root).as_posix()] = n
+        self.assertEqual(found, self.EXPECTED)
+        self.assertEqual(sum(found.values()), 6)

@@ -908,11 +908,12 @@ class Character(ObjectParent, ClothedCharacter):
           1. Success-only: only a passed check teaches. A failed/fumbled attempt
              (outcome["success"] is False) never improves -- mirrors RuneQuest's
              "experience check on success" and stops failure from paying.
-          2. Real difficulty: `meaningful` must be True. Trivial/auto-pass call
-             sites pass meaningful=False so AFK-farmable actions don't reward.
-             Currently a *seam*, not a policy: both live call sites (craft, hunt)
-             are meaningful and use the default. When trivial checks exist, they
-             opt out here -- we don't build the difficulty heuristic speculatively.
+          2. Real difficulty: `meaningful` must be True. A call site passes
+             meaningful=False when the task is too easy to teach, so AFK-farmable
+             work does not reward. Six call sites: craft (do_craft) and
+             disassemble pass meaningful= from world.knowledge.routine_for (the
+             E.2 trivial-work gate); repair, hunt-attack, hunt-harvest and scribe
+             pass the default -- each site says why.
           3. Cooldown: at most one tick per skill per `improvement_cooldown` real
              seconds (Cooldowns contrib). The direct anti-spam rate-limiter -- a
              hunter firing many checks still banks only one improvement per window.
