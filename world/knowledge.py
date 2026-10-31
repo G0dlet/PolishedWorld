@@ -33,16 +33,26 @@ Coupling note: `_can_transmit` reads the crafting contrib's private
 coupling `_resolve_recipe` (B.2) and `CmdDisassemble` (E.2) already carry. It is
 the THIRD consumer of that registry -- logged as the one shared entry in
 docs/BACKLOG.md, not a new one.
+
+The trivial-work gate (E.2) lives here for the same reason: `routine_for()`
+answers *does this recipe still teach this crafter?*, and the `ladder_top()` it
+needs reads the same registry, so by the Rev 24 rule it joins the module that
+already does rather than opening a new reader.
 """
 
 from collections import Counter
 
+from django.conf import settings
 from evennia.contrib.game_systems.crafting.crafting import (
     _load_recipes,
     _RECIPE_CLASSES,
 )
 
 from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
+
+# Used only when settings.py lacks SKILL_TRIVIAL_BAND (a stripped test settings
+# file, say); the live value is read per call in trivial_band().
+_DEFAULT_TRIVIAL_BAND = 30
 
 
 def recipe_names():
@@ -62,6 +72,88 @@ def recipe_names():
     """
     _load_recipes()
     return sorted(_RECIPE_CLASSES)
+
+
+def trivial_band():
+    """
+    How far above a recipe's floor a crafter may stand before it stops teaching.
+
+    Returns:
+        int: `settings.SKILL_TRIVIAL_BAND`, read on every call (so a change
+            takes effect on @reload, as world/progression.py reads its curve),
+            falling back to `_DEFAULT_TRIVIAL_BAND`, and never below 0.
+
+    A negative band would make a recipe routine *below* its own floor, which no
+    crafter can stand at; 0 is the strictest meaningful value (only the floor
+    itself teaches). The band is a calibration constant, not a promise to the
+    player: help text says "well above its floor", never the number.
+    """
+    return max(0, int(getattr(settings, "SKILL_TRIVIAL_BAND", _DEFAULT_TRIVIAL_BAND)))
+
+
+def ladder_top():
+    """
+    The highest `min_skill` of any recipe in the registry.
+
+    Returns:
+        int: the largest `min_skill` across the registered recipe classes (a
+            missing or `None` floor reads as 0), or 0 if the registry is empty.
+
+    Read on every call, never cached: the day a higher rung lands (smithing),
+    the old top rung goes routine for a crafter far above it on that commit,
+    without anyone editing E.2. It is also what lets a test patch the registry.
+    Twenty-nine classes make the scan free.
+    """
+    _load_recipes()
+    return max(
+        ((getattr(cls, "min_skill", 0) or 0) for cls in _RECIPE_CLASSES.values()),
+        default=0,
+    )
+
+
+def routine_for(crafter, recipe_cls):
+    """
+    Return True if `recipe_cls` is routine for `crafter` -- too easy to teach.
+
+    Args:
+        crafter (Object): whoever would craft (or take apart) the recipe. Read
+            through `getattr`, as `MongooseCraftRecipe._skill_value` reads it:
+            an object without a `skills` handler, or without the recipe's
+            skill, stands at 0.
+        recipe_cls (type): a recipe class (`MongooseCraftRecipe` subclass). Its
+            `min_skill` (missing/None -> 0) is the floor and its `skill_name`
+            (default "craft") names the trait.
+
+    Returns:
+        bool: True iff the recipe is below the registry's top rung AND the
+            crafter's permanent skill stands more than `trivial_band()` points
+            above its floor. A routine recipe still crafts normally; callers
+            pass `meaningful=not routine_for(...)` to the improvement roll.
+
+    Notes:
+        Why `.current` and nothing else (TD2). Progression reads `.current`,
+        resolution reads `.value` (Evennia Ref section 3.5). A tool's bonus
+        shifts the roll, not the crafter; a buff must not make a task harder,
+        and so more instructive, than it is, and overload must not make it
+        easier; mastery's +20 is a roll term. None of them is read here, so
+        none of them can move a recipe across the line.
+
+        Why the top rung always teaches (TD3). Without the exemption a crafter
+        past `top + band` would find every recipe routine and the skill frozen
+        at a number the alpha reaches in weeks. With it, only the top rung
+        teaches up there -- the grind as it stands, never worse -- and because
+        `ladder_top()` is read live, the exemption moves itself when a higher
+        rung is added. `>=` rather than `==` keeps a recipe outside the
+        registry (removed, or a test fixture) with a floor above the top on the
+        generous side.
+    """
+    floor = getattr(recipe_cls, "min_skill", 0) or 0
+    if floor >= ladder_top():
+        return False
+    skills = getattr(crafter, "skills", None)
+    trait = skills.get(getattr(recipe_cls, "skill_name", "craft")) if skills else None
+    current = trait.current if trait else 0
+    return current - floor > trivial_band()
 
 
 def _can_transmit(char, recipe_name):

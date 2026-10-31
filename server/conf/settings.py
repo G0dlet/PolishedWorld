@@ -177,6 +177,12 @@ CRAFT_RECIPE_MODULES = ["world.recipes"]
 SKILL_XP_BASE = 6            # XP cost of the very first point (0 -> 1)
 SKILL_XP_DOUBLING_SPAN = 20  # points over which the per-point cost doubles
 
+# E.2 trivial-work gate, read by world/knowledge.py's routine_for() on every
+# call: a recipe below the top rung stops teaching once the crafter's permanent
+# skill (.current) stands MORE than this many points above its min_skill.
+# 20 is the rung spacing, the smallest band that leaves no gap in the ladder.
+SKILL_TRIVIAL_BAND = 30      # points above a recipe's floor before it is routine
+
 # ============================================================
 # CLOTHING CONTRIB
 # evennia/contrib/game_systems/clothing/clothing.py
