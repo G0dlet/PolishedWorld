@@ -103,6 +103,7 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.crafting_commands import CmdScribe
 from world.progression import _BAR_EMPTY, _BAR_FULL, level_for_xp, xp_threshold
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 
 # The shipped calibration, pinned. See the module docstring for why this file
 # pins where its two siblings sweep.
@@ -585,6 +586,8 @@ class TestScribeTrains(EvenniaCommandTest):
         # enough below 100 that the cap short-circuit is not what we are testing.
         self.char1.skills.get("craft").current = 60
         self.char1.learn_recipe(CLOTH)
+        # M3.1: passing a recipe on needs five completed crafts of it.
+        self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD)
         for proto in ("cloth", "cloth", "twine"):
             spawn(proto)[0].move_to(self.char1, quiet=True)
 
@@ -613,6 +616,9 @@ class TestScribeTrains(EvenniaCommandTest):
         ):
             self.call(CmdScribe(), CLOTH, caller=self.char1)
 
+        # The book exists, so the unchanged number below is the grain at work
+        # and not a refusal before the roll.
+        self.assertTrue([o for o in self.char1.contents if o.db.recipes])
         self.assertEqual(int(self.char1.skills.get("craft").current), 60)
 
     def test_a_failed_binding_teaches_nothing(self):
@@ -626,6 +632,9 @@ class TestScribeTrains(EvenniaCommandTest):
         ):
             self.call(CmdScribe(), CLOTH, caller=self.char1)
 
+        # The low-condition book exists, so the unbanked XP below is gate 1 at
+        # work and not a refusal before the roll.
+        self.assertTrue([o for o in self.char1.contents if o.db.recipes])
         self.assertEqual(self.char1.skill_xp.get("craft"), before)
 
 

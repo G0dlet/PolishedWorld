@@ -6,18 +6,21 @@ The written and taught knowledge channels -- `inscribe` (F, scroll), `scribe`
 a character pass a recipe on: *are you actually qualified to teach this one?*
 Rather than copy that rule into three commands, it lives here once.
 
-The rule (locked in the decomposition, section 2 "Delad behorighets-regel"):
+The rule (locked in the decomposition, section 2 "Delad behorighets-regel";
+revised by per-recipe mastery, M3.1):
 
-    a character may transmit a recipe iff they KNOW it AND their PERMANENT
-    Craft skill meets the recipe's min_skill floor.
+    a character may transmit a recipe iff they KNOW it AND have COMPLETED it
+    at least MASTERY_TRANSMIT_THRESHOLD (5) times.
 
 Two deliberate choices:
 
-* Permanent skill (`trait.current`), NOT effective `trait.value`. `.value`
-  folds in situational `.mod` -- a +20 tool buff, say -- and a fleeting buff
-  must not confer the standing to author a lasting scroll. This mirrors
-  Character.improve_skill_on_use, which reads/writes `.current` for exactly the
-  same "permanent competence, not momentary boost" reason.
+* Completed crafts (`char.recipe_mastery`), not the Craft skill. Until M3.1
+  this read the permanent Craft skill against the recipe's `min_skill` floor;
+  the floor still gates *crafting* the recipe, but no longer *passing it on*.
+  The count carries over the old rule's reason for reading `.current` and not
+  `.value`: it is written only by a successful `do_craft`
+  (`world/crafting_base.py`), so no buff, tool or situational modifier can
+  confer the standing to author a lasting scroll.
 
 * A pure threshold, no roll. Mastery is a gate, not a gamble: if you meet the
   bar you always succeed at *writing it down* (the reader still needs the skill
@@ -39,6 +42,27 @@ from evennia.contrib.game_systems.crafting.crafting import (
     _RECIPE_CLASSES,
 )
 
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
+
+
+def recipe_names():
+    """
+    Every canonical recipe name the registry knows.
+
+    Returns:
+        list[str]: `MongooseCraftRecipe.name` for each registered recipe,
+            sorted.
+
+    This exists so that `world/recipe_mastery.py` can union its stored counts
+    with the registry without importing the contrib's private
+    `_RECIPE_CLASSES` itself. BACKLOG *`CmdCraftGated` recipe-resolver
+    duplication* (Rev 24) requires any new reader of that registry to live in a
+    module that already reads it; this module already does, via
+    `_can_transmit`.
+    """
+    _load_recipes()
+    return sorted(_RECIPE_CLASSES)
+
 
 def _can_transmit(char, recipe_name):
     """
@@ -46,24 +70,26 @@ def _can_transmit(char, recipe_name):
 
     Args:
         char (Character): the would-be author/teacher. Must expose
-            knows_recipe() and a `skills` TraitHandler (a puppeted Character
-            always does).
+            knows_recipe() and a `recipe_mastery` handler (a puppeted
+            Character always does).
         recipe_name (str): the canonical recipe-registry name
             (MongooseCraftRecipe.name, e.g. "cloth"), NOT a prototype_key. The
             caller is expected to have already resolved a user-typed name to
             this canonical form (e.g. via _resolve_recipe).
 
     Returns:
-        bool: True iff `char` knows the recipe AND their permanent Craft skill
-            (`.current`) meets the recipe's min_skill floor. False if the recipe
-            is unknown to `char`, has been removed from the registry, or the
-            skill floor is not met.
+        bool: True iff `char` knows the recipe AND has completed it at least
+            MASTERY_TRANSMIT_THRESHOLD times (`char.recipe_mastery.count`).
+            False if the recipe is unknown to `char`, has been removed from the
+            registry, or has been completed fewer times than that. The recipe's
+            `min_skill` floor is not consulted.
 
     Notes:
         The "common / ungated recipe" case is intentionally NOT handled here: a
         common recipe is knowable by everyone, so there is nothing to transmit,
         which is a different message ("Everyone already knows this.") from
-        "you haven't mastered this". Callers check requires_knowledge first.
+        "you haven't made enough of these". Callers check requires_knowledge
+        first.
     """
     if not char.knows_recipe(recipe_name):
         return False
@@ -76,16 +102,13 @@ def _can_transmit(char, recipe_name):
     if cls is None:
         return False
 
-    min_skill = getattr(cls, "min_skill", 0) or 0
-
-    # Permanent learned Craft (.current), not effective .value: a temporary buff
-    # must not grant authoring rights. See module docstring.
-    trait = char.skills.get("craft")
-    skill_current = trait.current if trait else 0
-    return skill_current >= min_skill
+    # Completed crafts, not the Craft skill: the count only grows through a
+    # successful do_craft, so nothing temporary can lift it. See module
+    # docstring.
+    return char.recipe_mastery.count(recipe_name) >= MASTERY_TRANSMIT_THRESHOLD
 
 
-def render_recipe_detail(cls):
+def render_recipe_detail(cls, extra_lines=None):
     """
     Render a resolved recipe class as its Needs/Tool/Skill/Time/Output detail block.
 
@@ -98,6 +121,12 @@ def render_recipe_detail(cls):
     Args:
         cls (type): a MongooseCraftRecipe subclass (already resolved by the
             caller, e.g. via _resolve_recipe or an exact registry get).
+        extra_lines (iterable of str, optional): already-formatted lines to
+            insert directly after the Skill line. CmdRecipes passes the
+            viewer's own mastery lines here (M4.2); the scroll path passes
+            nothing. The renderer stays viewer-independent: it never reads a
+            character, it only places what the caller computed. A per-viewer
+            line computed in here would reach every reader of a scroll.
 
     Returns:
         str: the formatted, Evennia-coloured detail block. The leading newline
@@ -149,6 +178,7 @@ def render_recipe_detail(cls):
         f"  |wNeeds:|n   {needs}",
         f"  |wTool:|n    {tool}",
         f"  |wSkill:|n   {skill}",
+        *(extra_lines or ()),
         f"  |wTime:|n    {duration}",
         f"  |wOutput:|n  {produced}",
         "|g" + "=" * 50 + "|n",

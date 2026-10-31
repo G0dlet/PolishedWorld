@@ -47,11 +47,28 @@ T18. Twine has consume_policy "raw" -- every completed attempt makes an
 item whatever the roll -- and no tool, knowledge or skill floor, so "a product
 exists" is deterministic without mocking the dice.
 
+MASTERY (Recipe Mastery M2.1)
+-----------------------------
+`TestMasteryCounting` drives the real command and completion with the roll
+pinned (`world.skillcheck.randint`, as tests/test_cloth_goods.py does). Twine's
+"raw" policy is the point: a failure and a fumble still make twine, so those two
+tests prove the count is gated on the check, not on the produce branch (RM6).
+Counts of 4, 5, 19 and 24 are reached with `add`, then one real craft crosses
+the boundary -- only that last craft goes through `do_craft`.
+`TestMasteryInTheRoll` (M2.2) reads the roll's arguments through
+`mock.patch("world.crafting_base.skill_check", wraps=skill_check)`, so the real
+check still runs and the craft completes. The weight-ceiling
+case lives in tests/test_set_down.py::TestCraftSetsDown, beside its fixture
+(importing that fixture here would make the two modules import each other).
+
 HOW TO RUN
 ----------
     evennia test --settings settings.py tests.test_craft_command
 """
 
+import ast
+import inspect
+import textwrap
 from unittest import mock
 
 from django.test import override_settings
@@ -62,10 +79,13 @@ from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands import crafting_commands
 from commands.consumption_commands import CmdRest
-from commands.crafting_commands import CmdCraftGated, _complete_craft
+from commands.crafting_commands import CmdCraftGated, CmdScribe, _complete_craft
 from commands.work_commands import CmdWork, _finish_task
 from world import recipes, timed_actions
 from world.crafting_base import MongooseCraftRecipe
+from world.improvement import improvement_roll
+from world.skillcheck import skill_check
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 from world.recipes import ClothRecipe, TwineRecipe
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
@@ -442,3 +462,247 @@ class TestOneKnob(EvenniaCommandTest):
         for cls in [MongooseCraftRecipe, *classes]:
             with self.subTest(recipe=cls.name):
                 self.assertFalse(hasattr(cls, "craft_cooldown"))
+
+
+ROLL = "world.skillcheck.randint"
+# At craft 60 with twine (no tool, no floor): crit band is ceil(60/10) = 6.
+CRITICAL_ROLL, SUCCESS_ROLL, FAILURE_ROLL, FUMBLE_ROLL = 1, 30, 90, 100
+STEP_LINE = "Your hands know this recipe a little better."
+CAP_LINE = "You could make this in your sleep."
+
+
+class TestMasteryCounting(CraftTestBase):
+    """
+    M2.1: do_craft is the single writer, gated on a successful check.
+
+    The bugs this presses on, one per test group: counting on the produce
+    branch, which "raw" always takes (RM6); writing at the command instead of
+    at completion (RM8); speaking on every success (RM9); and speaking again
+    past the cap, where the modifier no longer moves (RM9b -- numbered RM11 in
+    the M2.1 commit message, renamed because the decomposition's RM11 is
+    M2.2's).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.char1.skills.get("craft").current = 60
+
+    def craft(self, roll, fresh_fibres=False):
+        """One real craft through the command and its completion, roll pinned."""
+        if fresh_fibres:
+            self.give_fibres(self.char1)
+        scheduled = self.start_craft()
+        self.assertIsNotNone(scheduled, "the craft never started")
+        with mock.patch(ROLL, return_value=roll), captured_messages(self.char1) as seen:
+            self.finish(scheduled)
+        return _joined(seen)
+
+    def count(self):
+        return self.char1.recipe_mastery.count("twine")
+
+    def test_a_success_counts_one(self):
+        self.craft(SUCCESS_ROLL)
+        self.assertEqual(self.count(), 1)
+
+    def test_a_critical_counts_and_a_second_craft_reads_two(self):
+        self.craft(CRITICAL_ROLL)
+        self.assertEqual(self.count(), 1)
+        self.craft(SUCCESS_ROLL, fresh_fibres=True)
+        self.assertEqual(self.count(), 2)
+
+    def test_a_failure_yields_twine_and_never_counts(self):
+        self.craft(FAILURE_ROLL)
+        self.assertEqual(len(self.twine_in(self.char1)), 1)   # "raw": it still yields
+        self.assertEqual(self.count(), 0)
+        self.assertFalse(self.char1.attributes.has("recipe_mastery"))
+
+    def test_a_fumble_yields_twine_and_never_counts(self):
+        self.craft(FUMBLE_ROLL)
+        self.assertEqual(len(self.twine_in(self.char1)), 1)
+        self.assertEqual(self.count(), 0)
+
+    def test_the_fifth_success_says_the_step_line_once(self):
+        self.char1.recipe_mastery.add("twine", 4)
+        said = self.craft(SUCCESS_ROLL)
+        self.assertEqual(self.count(), 5)
+        self.assertEqual(said.count(STEP_LINE), 1)
+        self.assertNotIn(CAP_LINE, said)
+
+    def test_the_sixth_success_is_silent(self):
+        self.char1.recipe_mastery.add("twine", 5)
+        said = self.craft(SUCCESS_ROLL)
+        self.assertEqual(self.count(), 6)
+        self.assertNotIn(STEP_LINE, said)
+
+    def test_the_twentieth_says_the_cap_line(self):
+        self.char1.recipe_mastery.add("twine", 19)
+        said = self.craft(SUCCESS_ROLL)
+        self.assertEqual(self.count(), 20)
+        self.assertIn(CAP_LINE, said)
+        self.assertNotIn(STEP_LINE, said)
+
+    def test_a_step_past_the_cap_is_silent(self):
+        # 24 -> 25 raises the step from 4 to 5 but not the modifier (20 -> 20).
+        self.char1.recipe_mastery.add("twine", 24)
+        said = self.craft(SUCCESS_ROLL)
+        self.assertEqual(self.count(), 25)
+        self.assertNotIn(CAP_LINE, said)
+        self.assertNotIn(STEP_LINE, said)
+
+    def test_a_timed_craft_counts_at_completion_not_at_the_command(self):
+        scheduled = self.start_craft()
+        self.assertEqual(self.count(), 0)
+        with mock.patch(ROLL, return_value=SUCCESS_ROLL):
+            self.finish(scheduled)
+        self.assertEqual(self.count(), 1)
+
+    def test_scribing_a_book_counts_nothing(self):
+        # MD2: only do_craft writes. Scribe rolls its own check (and succeeds
+        # here, which the bound book receipts), but no recipe gains a count.
+        # The scribe gate needs five crafts of cloth (M3.1), so the store is
+        # seeded and the test compares every count before and after.
+        self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
+        before = self.char1.recipe_mastery.all()
+        for obj in spawn("cloth", "cloth", "twine"):
+            obj.location = self.char1
+        with mock.patch(ROLL, return_value=SUCCESS_ROLL):
+            said = self.call(CmdScribe(), "cloth", caller=self.char1)
+        self.assertIn("You bind a book", said)
+        self.assertEqual(self.char1.recipe_mastery.all(), before)
+
+    def test_a_crafter_without_the_handler_neither_counts_nor_errors(self):
+        # obj1 is a plain Object: no recipe_mastery, no skills. Roll 1 is a
+        # critical at any target, so the success branch is reached.
+        recipe = TwineRecipe(self.obj1, *self.fibres)
+        recipe.pre_craft()
+        with mock.patch(ROLL, return_value=CRITICAL_ROLL):
+            result = recipe.do_craft()
+        self.assertTrue(recipe.skill_outcome["success"])   # receipt: the gate was reached
+        self.assertTrue(result)
+        self.assertIsNone(recipe.mastery_step)
+        self.assertFalse(self.obj1.attributes.has("recipe_mastery"))
+
+
+CHECK = "world.crafting_base.skill_check"
+IMPROVEMENT_ROLL = "typeclasses.characters.improvement_roll"
+IMPROVEMENT_DIE = "world.improvement.randint"
+TERMS = ("_tool_modifier", "_physical_modifier", "_mastery_modifier")
+
+
+class TestMasteryInTheRoll(CraftTestBase):
+    """
+    M2.2: mastery is the roll's third modifier and touches nothing else.
+
+    The bugs this presses on: the term dropped (RM11); mastery folded into the
+    skill value instead of the modifier (RM12 -- caught here by the first
+    argument, since improvement never reads `_skill_value()`); a wrong cap
+    (RM13); the wrong sign (RM14); and mastery leaking into progression
+    (RM12b, MD7).
+
+    Twine has no tool and char1 carries nothing heavy, so the modifier passed
+    is exactly the mastery modifier. Rolls are pinned to a failure where only
+    the arguments matter: a failure neither improves the skill nor counts, so
+    the skill value stays 60 and the stored count stays where `add` put it.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.char1.skills.get("craft").current = 60
+
+    def craft_as(self, char, roll, fresh_fibres=True):
+        if fresh_fibres:
+            self.give_fibres(char)
+        scheduled = self.start_craft(caller=char)
+        self.assertIsNotNone(scheduled, "the craft never started")
+        with mock.patch(ROLL, return_value=roll), \
+                mock.patch(CHECK, wraps=skill_check) as check:
+            self.finish(scheduled)
+        check.assert_called_once()
+        return check.call_args.args
+
+    def test_the_modifier_follows_the_count(self):
+        for count, expected in ((0, 0), (5, 5), (20, 20), (57, 20)):
+            with self.subTest(count=count):
+                self.set_count(count)
+                self.assertEqual(self.craft_as(self.char1, FAILURE_ROLL), (60, expected))
+
+    def test_full_mastery_cancels_one_penalty_not_two(self):
+        # The -18 -> 2 case: Craft 22, tool absent (-20), overloaded (-20).
+        # Mastery 20 lifts the target from -18 to 2; it adds, it does not
+        # replace either penalty.
+        self.char1.skills.get("craft").current = 22
+        self.char1.recipe_mastery.add("twine", 20)
+        with mock.patch.object(MongooseCraftRecipe, "_tool_modifier", return_value=-20), \
+                mock.patch.object(MongooseCraftRecipe, "_physical_modifier", return_value=-20):
+            skill, modifier = self.craft_as(self.char1, FAILURE_ROLL)
+        self.assertEqual((skill, modifier, skill + modifier), (22, -20, 2))
+
+    def set_count(self, count):
+        self.char1.attributes.remove("recipe_mastery")
+        if count:
+            self.char1.recipe_mastery.add("twine", count)
+
+    def test_full_mastery_adds_two_to_a_critical_quality(self):
+        # MD4: the critical bonus is target // 10, so +20 on the target is +2
+        # on the stamped quality, through the existing _quality_for. Same
+        # crafter, same skill (a critical's improvement is cooled down for the
+        # second craft, and a grain of 1 does not move the level at 60).
+        self.craft_as(self.char1, CRITICAL_ROLL, fresh_fibres=False)
+        self.set_count(20)
+        self.craft_as(self.char1, CRITICAL_ROLL)
+        plain, mastered = sorted(self.twine_in(self.char1), key=lambda obj: obj.id)
+        self.assertEqual(mastered.db.quality - plain.db.quality, 2)
+
+    def _improve(self, count, fresh_fibres):
+        """A success at `count` with the improvement die pinned (1: no beat, grain 1)."""
+        self.set_count(count)
+        self.char1.cooldowns.clear()
+        before = self.char1.skill_xp.get("craft")
+        with mock.patch(IMPROVEMENT_DIE, return_value=1), \
+                mock.patch(IMPROVEMENT_ROLL, wraps=improvement_roll) as roll:
+            self.craft_as(self.char1, SUCCESS_ROLL, fresh_fibres=fresh_fibres)
+        roll.assert_called_once()   # receipt: the improvement path ran
+        return (
+            roll.call_args,
+            self.char1.skill_xp.get("craft") - before,
+            self.char1.skills.get("craft").current,
+        )
+
+    def test_md7_mastery_never_reaches_the_improvement_roll(self):
+        # improvement_result carries no target; improvement_roll(old, int_char)
+        # derives it from skill.current. So the inputs are the receipt.
+        plain = self._improve(0, fresh_fibres=False)
+        mastered = self._improve(20, fresh_fibres=True)
+        self.assertEqual(mastered[0], plain[0])
+
+    def test_md7_the_skill_moves_by_the_same_grain(self):
+        plain = self._improve(0, fresh_fibres=False)
+        mastered = self._improve(20, fresh_fibres=True)
+        self.assertEqual(plain[1], 1)   # receipt: grain 1, the pinned die
+        self.assertEqual(mastered[1:], plain[1:])
+
+    def test_a_crafter_without_the_handler_has_no_mastery(self):
+        recipe = TwineRecipe(self.obj1, *self.fibres)
+        self.assertEqual(recipe._mastery_modifier(), 0)
+
+    def test_census_each_term_once_in_the_roll(self):
+        # The W3.1 census shape (ast, not grep), narrowed to do_craft: the roll
+        # takes the skill value as its first argument and the three modifiers,
+        # each exactly once, in its second -- and mastery is not in the first.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(MongooseCraftRecipe.do_craft)))
+        checks = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "skill_check"
+        ]
+        self.assertEqual(len(checks), 1)
+        skill_arg, modifier_arg = checks[0].args
+
+        def called(node):
+            return [
+                n.func.attr for n in ast.walk(node)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            ]
+
+        self.assertEqual(called(skill_arg), ["_skill_value"])
+        self.assertEqual(sorted(called(modifier_arg)), sorted(TERMS))

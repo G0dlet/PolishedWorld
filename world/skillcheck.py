@@ -16,8 +16,17 @@ Rules implemented (Mongoose Legend core rulebook, "Skill Tests"):
   A roll of 01 is always a critical success.
 - Fumble: if the modified skill is below 100%, a roll of 99 or 00 (100) fumbles.
   If the modified skill is 100% or higher, only 00 (100) fumbles.
+- Automatic success and failure ("Automatic Success and Failure"): any roll
+  of 01-05 is an automatic success and any roll of 96-00 an automatic
+  failure, regardless of the modified skill.
 - Success: any non-critical roll <= the modified skill.
 - Failure: anything else.
+
+Resolution order (Recipe Mastery MD8): fumble (99-00 below 100%, 00 at or
+above) -> automatic failure (96-98; 96-99 at or above 100%) -> critical ->
+automatic success (02-05; 01 is already critical) -> roll <= modified skill
+-> failure. The bands decide the result only; `margin` stays target - roll,
+so an automatic success at target 3 on a roll of 05 reports margin -2.
 
 The "critical score" (modified skill // 10) is also returned, because the core
 Craft skill ties a crafted item's bonus durability/value/utility to it (an 81%
@@ -28,7 +37,10 @@ Deliberate adaptation notes:
 - A roll of 01 always criticals even when the modified skill is <= 0 (a ~1%
   fluke), per the rulebook's "01 is always a critical success". Callers that
   want to forbid this on truly impossible tasks should gate on `target`
-  themselves before calling.
+  themselves before calling. The same holds for 02-05: the rulebook lifts the
+  automatic bands when "no test is required or possible", and that ruling
+  belongs to the caller (e.g. a recipe's min_skill floor refuses before any
+  roll), not to this function.
 - `target` is never clamped; skills above 100% behave faithfully (only 00
   fumbles, and a wider critical band).
 """
@@ -74,12 +86,19 @@ def skill_check(skill_value, modifier=0):
     # roll of 01 always lands in the critical band, matching the rulebook.
     crit_threshold = max(1, ceil(target / 10))
 
-    # Resolve, checking the fumble band first (it owns the top of the die so it
-    # must win over the success comparison when target >= 99).
+    # Resolve in MD8's order. The fumble band owns the top of the die, so it
+    # is tested first; automatic failure then takes what is left of 96-00
+    # (96-98 below 100%, 96-99 at or above, where only 00 fumbles). The
+    # critical band is tested before automatic success so that 01 stays a
+    # critical, then 02-05 succeed whatever the target.
     if (target < 100 and roll >= 99) or roll == 100:
         result = FUMBLE
+    elif roll >= 96:
+        result = FAILURE
     elif roll <= crit_threshold:
         result = CRITICAL
+    elif roll <= 5:
+        result = SUCCESS
     elif roll <= target:
         result = SUCCESS
     else:

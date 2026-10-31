@@ -50,6 +50,7 @@ from commands.foraging_commands import CmdForage
 from commands.hunting_commands import CmdHarvest
 from tests.test_craft_command import CraftFixtureMixin
 from world.encumbrance import OVERLOAD_FACTOR, carried_enc, enc_limit
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 
 CHARACTER = "typeclasses.characters.Character"
 ROOM = "typeclasses.rooms.Room"
@@ -237,6 +238,15 @@ class TestCraftSetsDown(_CeilingFixture, CraftFixtureMixin, EvenniaCommandTest):
         )
         self.assertEqual(carried_enc(self.char1), CEILING)
 
+    def test_a_product_set_down_at_the_ceiling_still_counts(self):
+        # Recipe Mastery M2.1: the count is written in do_craft, before
+        # delivery, so where the product lands does not matter.
+        self.load_to(CEILING)
+        self.give("cloth", "cloth")
+        self.craft("sack from cloth-1, cloth-2")
+        self.assertEqual(len(self.on_floor(self.is_sack)), 1)   # receipt: set down
+        self.assertEqual(self.char1.recipe_mastery.count("sack"), 1)
+
     def test_one_under_the_ceiling_the_product_is_in_hand(self):
         self.load_to(CEILING - 1)
         self.give("cloth", "cloth")
@@ -327,6 +337,7 @@ class TestInscribeSetsDown(_CeilingFixture, EvenniaCommandTest):
         self.load_to(CEILING + 1)
         self.char1.skills.get("craft").current = 40
         self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
         cloth = spawn("cloth")[0]
         cloth.location = self.char1
 
@@ -349,6 +360,7 @@ class TestScribeSetsDown(_CeilingFixture, EvenniaCommandTest):
         self.load_to(CEILING)
         self.char1.skills.get("craft").current = 60   # SCRIBE_MIN_CRAFT is 50
         self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
         inputs = spawn("cloth", "cloth", "twine")
         for obj in inputs:
             obj.location = self.char1

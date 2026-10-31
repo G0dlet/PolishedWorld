@@ -8,13 +8,15 @@ Mongoose Legend skill resolution onto the contrib's lifecycle:
 
     pre_craft   -> validate inputs (contrib) + knowledge and skill gates
                    (abort, no consume)
-    do_craft    -> roll Craft skill, map result tier -> quality, spawn output,
-                   stamp quality; places nothing (the output has no location)
+    do_craft    -> roll Craft skill (tool, overload and mastery modifiers),
+                   count a successful check toward the recipe's mastery
+                   (M2.1), map result tier -> quality, spawn output, stamp
+                   quality; places nothing (the output has no location)
     post_craft  -> consume materials per policy, then deliver the output
                    through Character.receive_or_set_down (W5.1), then
                    message: the tier-flavoured result line, the set-down line,
-                   improvement feedback, the tool-break line. Returns only
-                   what the crafter holds.
+                   improvement feedback, the mastery-step line, the tool-break
+                   line. Returns only what the crafter holds.
 
 IMPORTANT: this module must NOT be listed in settings.CRAFT_RECIPE_MODULES.
 Evennia's _load_recipes() registers every CraftingRecipeBase subclass it finds
@@ -43,6 +45,7 @@ from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 
 from world.skillcheck import skill_check
 from world.crafting_quality import quality_band, SUPERIOR
+from world.recipe_mastery import MASTERY_CAP, MASTERY_STEP
 
 
 class MongooseCraftRecipe(CraftingRecipe):
@@ -72,6 +75,14 @@ class MongooseCraftRecipe(CraftingRecipe):
     # this attribute just tells that gate which recipes to care about.
     # Orthogonal to min_skill (a skill floor) and the tool modifier (the roll).
     requires_knowledge = False
+
+    # Per-recipe mastery (MD6): the craft discipline this recipe belongs to,
+    # one of the names in world.recipe_mastery.DISCIPLINES. DISPLAY ONLY --
+    # `recipes` groups by it and reads titles from it (M4.2); no check, roll or
+    # gate ever reads it, and it is not Legend's PROFESSIONS. Every concrete
+    # recipe declares its own; the base stays None so a recipe that forgets
+    # fails the registry test instead of inheriting a default.
+    discipline = None
 
     # Optional tool: NOT a required tool_tag (so the craft is always possible),
     # but its ABSENCE penalises the skill check. A recipe's tool_tag is the tool
@@ -129,6 +140,20 @@ class MongooseCraftRecipe(CraftingRecipe):
         """
         reader = getattr(self.crafter, "physical_modifier", None)
         return reader() if reader else 0
+
+    def _mastery_modifier(self):
+        """
+        The recipe's mastery modifier for this crafter (M2.2, MD3), 0 without
+        the handler.
+
+        getattr-guarded like `_physical_modifier`: a crafter that is not a
+        Character rolls without mastery instead of crashing the craft. The
+        formula lives once, in RecipeMasteryHandler.modifier; this only asks.
+        It is read before do_craft's write (M2.1), so the craft that reaches a
+        step rolls at the old modifier and the next one gets the new.
+        """
+        mastery = getattr(self.crafter, "recipe_mastery", None)
+        return mastery.modifier(self.name) if mastery is not None else 0
 
     def _used_tool(self):
         """The supplied *usable* tool matching this recipe's tool_tag, or None.
@@ -237,6 +262,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         self.skill_outcome = None
         self.improvement_result = None
         self.tool_broke = None
+        self.mastery_step = None
 
         # Contrib input validation (materials/tools). Raises CraftingValidationError
         # on bad inputs; the base craft() catches it and skips do_craft.
@@ -285,10 +311,14 @@ class MongooseCraftRecipe(CraftingRecipe):
     def do_craft(self, **kwargs):
         # A real attempt is happening.
         self.rolled = True
-        # Tool modifier plus the crafter's overload penalty (W3.1), both read
-        # here at the roll -- for a timed craft, when the timer completes.
+        # Three modifiers, all read here at the roll -- for a timed craft, when
+        # the timer completes: the tool, the crafter's overload penalty (W3.1)
+        # and the recipe's mastery (M2.2, MD3). Mastery is a MODIFIER, never
+        # part of the skill value: the skill stays the crafter's, and nothing
+        # about improvement (which reads skill.current) sees it (MD7).
         outcome = skill_check(
-            self._skill_value(), self._tool_modifier() + self._physical_modifier()
+            self._skill_value(),
+            self._tool_modifier() + self._physical_modifier() + self._mastery_modifier(),
         )
         self.skill_outcome = outcome
         tier = outcome["result"]
@@ -322,6 +352,26 @@ class MongooseCraftRecipe(CraftingRecipe):
         # gated out -- the common case.
         improve = getattr(self.crafter, "attempt_skill_improvement", None)
         self.improvement_result = improve(self.skill_name, outcome) if improve else None
+
+        # Per-recipe mastery (Recipe Mastery M2.1, MD2). The single writer of
+        # recipe_mastery: one completed craft per successful CHECK. Gated on
+        # outcome["success"], NOT on the _should_produce branch below: under the
+        # "raw" policy every recipe inherits, that branch is taken on failure
+        # and fumble too (lesson 177), so a gate there would count failures.
+        # A product later set down at the weight ceiling still counts -- the
+        # write happens here, before delivery. For a timed craft this runs at
+        # completion, like the roll. getattr-guarded like
+        # attempt_skill_improvement: a crafter without the handler neither
+        # counts nor errors.
+        # mastery_step is set only when the roll MODIFIER rose, not the step:
+        # past the cap the step keeps climbing (25, 30, ...) while the modifier
+        # stays at MASTERY_CAP, and nothing the player can feel has changed.
+        mastery = getattr(self.crafter, "recipe_mastery", None)
+        if mastery is not None and outcome["success"]:
+            before = mastery.modifier(self.name)
+            mastery.add(self.name)
+            if mastery.modifier(self.name) > before:
+                self.mastery_step = mastery.step(self.name)
 
         if not self._should_produce(tier):
             return None  # non-raw policies: failure/fumble yield nothing
@@ -382,6 +432,17 @@ class MongooseCraftRecipe(CraftingRecipe):
             text = feedback(self.improvement_result)
             if text:
                 self.msg(text)
+
+        # Mastery step (M2.1): after the improvement line and before the tool
+        # break, so the beat reads "you made X / your skill improves / you know
+        # this better / your tool breaks". Set in do_craft only when this craft
+        # raised the recipe's roll modifier; the line that reaches the cap is
+        # the last one the recipe will ever say.
+        if self.mastery_step:
+            if self.mastery_step * MASTERY_STEP >= MASTERY_CAP:
+                self.msg("You could make this in your sleep.")
+            else:
+                self.msg("Your hands know this recipe a little better.")
 
         # Tool-break notice (Component D.2). Emitted after the craft-result line
         # and any improvement feedback, so the beat reads "you make X / your

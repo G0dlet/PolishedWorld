@@ -141,6 +141,7 @@ from world.encumbrance import (
     item_enc,
 )
 from world.harvest_templates import get_part
+from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 from world.skillcheck import opposed_check, skill_check
 from world.survival_ticker import _check_survival_warnings
 
@@ -857,6 +858,7 @@ class TestPenaltyReachesScribe(_PenaltyFixture, EvenniaCommandTest):
         super().setUp()
         self.char1.skills.get("craft").current = 60   # SCRIBE_MIN_CRAFT is 50
         self.char1.learn_recipe("cloth")
+        self.char1.recipe_mastery.add("cloth", MASTERY_TRANSMIT_THRESHOLD)
 
     def test_scribe(self):
         def build():

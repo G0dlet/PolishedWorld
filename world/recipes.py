@@ -115,6 +115,7 @@ class TwineRecipe(MongooseCraftRecipe):
     """Twist three plant fibres into a length of twine."""
 
     name = "twine"
+    discipline = "weaving"
     consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres, matched by tag-key
     output_prototypes = ["twine"]
     tool_tag = None                                 # handcraft; no tool benefit
@@ -126,6 +127,7 @@ class WaterskinRecipe(MongooseCraftRecipe):
     """Fit a hollow gourd with a twine strap and stopper to make a waterskin."""
 
     name = "waterskin"
+    discipline = "leatherwork"
     consumable_tags = ["gourd", "twine"]   # consumed
     output_prototypes = ["waterskin"]
     tool_tag = "knife"                     # OPTIONAL: knife shapes the gourd (baseline 0); improvised -20
@@ -160,6 +162,7 @@ class ClothRecipe(MongooseCraftRecipe):
     """Weave plant fibres into a bolt of plain cloth."""
 
     name = "cloth"
+    discipline = "weaving"
     requires_knowledge = True                       # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["fiber", "fiber", "fiber"]   # three fibres per bolt
     output_prototypes = ["cloth"]
@@ -172,6 +175,7 @@ class LeatherRecipe(MongooseCraftRecipe):
     """Tan two raw hides into a piece of workable leather."""
 
     name = "leather"                              # recipe-registry name (≠ prototype_key, separate namespace)
+    discipline = "leatherwork"
     requires_knowledge = True                     # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["raw_hide", "raw_hide"]    # two hides per piece, matched by tag-key
     output_prototypes = ["leather"]               # the new H5.1 prototype
@@ -184,6 +188,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     """Cut and stitch cloth into a linen shirt (undershirt layer)."""
 
     name = "linen shirt"
+    discipline = "weaving"
     requires_knowledge = True              # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["cloth", "cloth"]   # two bolts per shirt
     output_prototypes = ["linen_shirt"]    # the existing B.3 prototype
@@ -202,6 +207,7 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
     """Stitch two pieces of leather into a pair of sturdy boots."""
 
     name = "leather boots"                       # space, mirroring "linen shirt"
+    discipline = "leatherwork"
     requires_knowledge = True                    # refined good -> learnable (Stage 3, Component A)
     consumable_tags = ["leather", "leather"]     # two pieces per pair
     output_prototypes = ["leather_boots"]        # existing Component B prototype
@@ -220,6 +226,7 @@ class BreechesRecipe(MongooseCraftRecipe):
     """Cut and stitch cloth into a pair of breeches."""
 
     name = "breeches"
+    discipline = "weaving"
     requires_knowledge = True
     consumable_tags = ["cloth", "cloth"]
     output_prototypes = ["breeches"]
@@ -237,6 +244,7 @@ class RobeRecipe(MongooseCraftRecipe):
     """Cut and stitch cloth into a full-length robe."""
 
     name = "robe"
+    discipline = "weaving"
     requires_knowledge = True
     consumable_tags = ["cloth", "cloth", "cloth"]
     output_prototypes = ["robe"]
@@ -254,6 +262,7 @@ class HoodRecipe(MongooseCraftRecipe):
     """Shape and stitch cloth into a hood."""
 
     name = "hood"
+    discipline = "weaving"
     requires_knowledge = True
     consumable_tags = ["cloth"]
     output_prototypes = ["hood"]
@@ -271,6 +280,7 @@ class ReversibleClothesRecipe(MongooseCraftRecipe):
     """Sew a finished garment with two contrasting cloth faces."""
 
     name = "reversible clothes"
+    discipline = "weaving"
     requires_knowledge = True
     consumable_tags = ["cloth", "cloth", "cloth", "cloth"]
     output_prototypes = ["reversible_clothes"]
@@ -288,6 +298,7 @@ class LinenCuirassRecipe(MongooseCraftRecipe):
     """Layer and stitch linen into a fitted cuirass."""
 
     name = "linen cuirass"
+    discipline = "weaving"
     requires_knowledge = True
     consumable_tags = ["cloth", "cloth", "cloth", "cloth"]
     output_prototypes = ["linen_cuirass"]
@@ -305,6 +316,7 @@ class SackRecipe(MongooseCraftRecipe):
     """Cut and stitch heavy cloth into a large sack."""
 
     name = "sack"
+    discipline = "weaving"
     requires_knowledge = True
     consumable_tags = ["cloth", "cloth"]
     output_prototypes = ["sack"]
@@ -317,6 +329,7 @@ class BackpackRecipe(MongooseCraftRecipe):
     """Cut and stitch leather into a strapped backpack."""
 
     name = "backpack"
+    discipline = "leatherwork"
     requires_knowledge = True
     consumable_tags = ["leather", "leather"]
     output_prototypes = ["backpack"]
@@ -329,6 +342,7 @@ class ScrollcaseRecipe(MongooseCraftRecipe):
     """Carve and cap a bone tube into a scrollcase."""
 
     name = "scrollcase"
+    discipline = "leatherwork"
     requires_knowledge = True
     consumable_tags = ["bone"]
     output_prototypes = ["scrollcase"]
@@ -341,6 +355,7 @@ class SaddlebagRecipe(MongooseCraftRecipe):
     """Cut, shape and stitch leather into a saddlebag."""
 
     name = "saddlebag"
+    discipline = "leatherwork"
     requires_knowledge = True
     consumable_tags = ["leather", "leather", "leather"]
     output_prototypes = ["saddlebag"]
@@ -353,6 +368,7 @@ class ShoesRecipe(MongooseCraftRecipe):
     """Cut and stitch leather into a pair of shoes."""
 
     name = "shoes"
+    discipline = "leatherwork"
     requires_knowledge = True
     consumable_tags = ["leather"]
     output_prototypes = ["shoes"]
@@ -370,6 +386,7 @@ class BandolierRecipe(MongooseCraftRecipe):
     """Cut leather and stitch its loops into a bandolier."""
 
     name = "bandolier"
+    discipline = "leatherwork"
     requires_knowledge = True
     consumable_tags = ["leather"]
     output_prototypes = ["bandolier"]
@@ -387,6 +404,7 @@ class BoneArmourRecipe(MongooseCraftRecipe):
     """Lash shaped bone plates to a leather backing as chest armour."""
 
     name = "bone armour"
+    discipline = "bonework"
     requires_knowledge = True
     consumable_tags = ["bone", "bone", "bone", "leather"]
     output_prototypes = ["bone_armour"]
@@ -404,6 +422,7 @@ class SlingRecipe(MongooseCraftRecipe):
     """Cut and shape a leather pouch and cords into a sling."""
 
     name = "sling"
+    discipline = "leatherwork"
     consumable_tags = ["leather"]
     output_prototypes = ["sling"]
     tool_tag = "knife"
@@ -415,6 +434,7 @@ class QuarterstaffRecipe(MongooseCraftRecipe):
     """Shape two lengths of wood into a balanced quarterstaff."""
 
     name = "quarterstaff"
+    discipline = "woodwork"
     consumable_tags = ["wood", "wood"]
     output_prototypes = ["quarterstaff"]
     tool_tag = "knife"
@@ -426,6 +446,7 @@ class SpearRecipe(MongooseCraftRecipe):
     """Haft a bone point on wooden shafts and lash it with twine: a spear."""
 
     name = "spear"
+    discipline = "woodwork"
     consumable_tags = ["wood", "wood", "bone", "twine"]
     output_prototypes = ["spear"]
     tool_tag = "knife"
@@ -437,6 +458,7 @@ class BowRecipe(MongooseCraftRecipe):
     """Shape a wooden stave and string it with twine: a short bow."""
 
     name = "bow"
+    discipline = "woodwork"
     consumable_tags = ["wood", "twine"]   # AD4: a fibre string, never sinew
     output_prototypes = ["bow"]
     tool_tag = "knife"
@@ -448,6 +470,7 @@ class MillingStonesRecipe(MongooseCraftRecipe):
     """Shape two gathered stones into a matched pair of milling stones."""
 
     name = "milling stones"
+    discipline = "stonework"
     consumable_tags = ["stone", "stone"]
     output_prototypes = ["milling_stones"]
     # tool_tag=None -> _tool_modifier() returns 0 (NO improvised penalty): a
@@ -461,6 +484,7 @@ class TentRecipe(MongooseCraftRecipe):
     """Stitch cloth panels, raise wooden poles and lash a tent with twine."""
 
     name = "tent"
+    discipline = "woodwork"
     requires_knowledge = True
     consumable_tags = [
         "cloth", "cloth", "cloth", "cloth",
@@ -480,6 +504,7 @@ class StoneKnifeRecipe(MongooseCraftRecipe):
     """
 
     name = "stone knife"
+    discipline = "stonework"
     # Stone flake + wooden haft + fibre lashing, matched by crafting_material
     # tag-key. Raw `fiber` (not crafted twine) keeps this a SINGLE craft with no
     # nested sub-craft, so the very first tool stays low-friction (decision b).
@@ -515,6 +540,7 @@ class BoneNeedleRecipe(MongooseCraftRecipe):
     """
 
     name = "bone needle"
+    discipline = "bonework"
     consumable_tags = ["bone"]          # one harvested bone, matched by tag-key
     output_prototypes = ["bone_needle"]
     # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty). (A future
@@ -543,6 +569,7 @@ class StoneAxeRecipe(MongooseCraftRecipe):
     """
 
     name = "stone axe"
+    discipline = "stonework"
     # Flint head + wooden haft + twine lashing, matched by crafting_material
     # tag-key. Twine, not raw fibre: an axe head takes a heavier binding than a
     # knife flake, and twine is one quick craft away.
@@ -566,6 +593,7 @@ class ClubRecipe(MongooseCraftRecipe):
     """Shape a length of wood into a club: wood's first consumer (AC2.2)."""
 
     name = "club"
+    discipline = "woodwork"
     consumable_tags = ["wood"]          # one length, matched by tag-key
     output_prototypes = ["club"]
     tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
@@ -582,6 +610,7 @@ class SlingBulletRecipe(MongooseCraftRecipe):
     """
 
     name = "sling bullet"
+    discipline = "stonework"
     consumable_tags = ["clay"]          # one lump, matched by tag-key
     output_prototypes = ["sling_bullet"]
     # tool_tag=None -> _tool_modifier() returns 0 (no improvised penalty): rolled
