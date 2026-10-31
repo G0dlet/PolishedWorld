@@ -61,14 +61,17 @@ check still runs and the craft completes. The weight-ceiling
 case lives in tests/test_set_down.py::TestCraftSetsDown, beside its fixture
 (importing that fixture here would make the two modules import each other).
 
-TRIVIAL WORK (E.2, T2.1)
-------------------------
+TRIVIAL WORK (E.2, T2.1-T2.2)
+-----------------------------
 `TestRoutineCraftDoesNotTeach` drives the same command and completion with a
 success pinned, at the band's edge (Craft 30 vs 31 on twine, floor 0). A
 routine success must still yield, count for mastery and wear a tool; only the
 improvement roll is skipped. The recipe instance is read through a post_craft
 spy, so a `None` improvement_result always sits beside receipts that the
-craft ran.
+craft ran. `TestRoutineDisassembleDoesNotTeach` (T2.2) is disassemble's first
+command test of the gate: cloth (floor 20) at Craft 50 vs 51, where the learn,
+the destroyed piece and the `disassemble` cooldown are the receipts beside a
+ready `improve_craft`.
 
 HOW TO RUN
 ----------
@@ -82,13 +85,20 @@ from unittest import mock
 
 from django.test import override_settings
 
+from evennia import create_object
+from evennia.objects.models import ObjectDB
 from evennia.contrib.game_systems.crafting.crafting import CmdCraft, craft
 from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands import crafting_commands
 from commands.consumption_commands import CmdRest
-from commands.crafting_commands import CmdCraftGated, CmdScribe, _complete_craft
+from commands.crafting_commands import (
+    CmdCraftGated,
+    CmdDisassemble,
+    CmdScribe,
+    _complete_craft,
+)
 from commands.work_commands import CmdWork, _finish_task
 from world import knowledge, recipes, timed_actions
 from world.crafting_base import MongooseCraftRecipe
@@ -798,3 +808,72 @@ class TestRoutineCraftDoesNotTeach(CraftTestBase):
         self.assertEqual(knife.condition, start - ClubRecipe.tool_wear)    # it wore
         self.assertEqual(self.char1.recipe_mastery.count("club"), 1)      # it counted
         self.assertTrue(self.char1.cooldowns.ready("improve_craft"))      # no tick
+
+
+class TestRoutineDisassembleDoesNotTeach(CraftTestBase):
+    """
+    T2.2 (E.2): taking apart a piece whose recipe is routine still teaches the
+    recipe, destroys the piece and sets the `disassemble` cooldown -- and
+    attempts no improvement roll.
+
+    Cloth: floor 20, requires_knowledge, below the top rung, so with the band
+    at 30 it teaches Craft at `current` 50 and is routine at 51. The roll's
+    target is `.value - 20` plus the overload penalty (0 here), so
+    SUCCESS_ROLL succeeds at every target these tests reach (30 or 31). Each
+    test carries three positive receipts that the command reached the
+    improvement line -- the recipe learned, the piece gone, `disassemble` on
+    cooldown -- so a ready `improve_craft` is never the command bailing early.
+    The bugs this presses on: the default passed (TW10) and the gate read on
+    the roll's `.value` instead of `.current` (TW11, from both sides).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.craft_trait = self.char1.skills.get("craft")
+        self.craft_trait.mod = 0
+        self.char1.cooldowns.clear()
+        # The fixture of tests/test_encumbrance.py::TestPenaltyReachesDisassemble.
+        self.piece = create_object(
+            "typeclasses.objects.Object", key="w31bolt", location=self.char1
+        )
+        self.piece.db.recipe = "cloth"     # requires_knowledge, min_skill 20
+        self.piece_id = self.piece.id
+        self.assertFalse(self.char1.knows_recipe("cloth"))
+
+    def dismantle(self, current, mod=0):
+        """One real `disassemble w31bolt` at `current` + `mod`, success pinned."""
+        # base before mod: CounterTrait.mod clamps base + mod against min, so a
+        # negative mod on a low base would land short silently (lesson 199).
+        self.craft_trait.base = current
+        self.craft_trait.current = current
+        self.craft_trait.mod = mod
+        self.assertEqual(self.craft_trait.value, current + mod)   # the roll's number
+        with mock.patch(ROLL, return_value=SUCCESS_ROLL):
+            self.call(CmdDisassemble(), "w31bolt", caller=self.char1)
+        self.assertTrue(self.char1.knows_recipe("cloth"))                  # it learned
+        self.assertFalse(ObjectDB.objects.filter(id=self.piece_id).exists())  # it destroyed
+        self.assertFalse(self.char1.cooldowns.ready("disassemble"))         # it committed
+
+    def assert_ticked(self):
+        self.assertFalse(self.char1.cooldowns.ready("improve_craft"))
+
+    def assert_not_ticked(self):
+        self.assertTrue(self.char1.cooldowns.ready("improve_craft"))
+
+    def test_at_50_cloth_teaches_the_recipe_and_the_skill(self):
+        self.dismantle(50)
+        self.assert_ticked()
+
+    def test_at_51_cloth_teaches_the_recipe_not_the_skill(self):
+        self.dismantle(51)
+        self.assert_not_ticked()
+
+    def test_a_penalty_on_value_does_not_make_routine_work_teach(self):
+        # .value 50 would teach; .current 51 is what the gate reads.
+        self.dismantle(51, mod=-1)
+        self.assert_not_ticked()
+
+    def test_a_bonus_on_value_does_not_silence_the_tick(self):
+        # .value 51 would be routine; .current 50 is what the gate reads.
+        self.dismantle(50, mod=1)
+        self.assert_ticked()

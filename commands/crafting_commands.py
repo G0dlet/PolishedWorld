@@ -32,7 +32,7 @@ from world.skillcheck import skill_check
 from evennia.prototypes.spawner import spawn
 from evennia.utils import logger
 
-from world.knowledge import _can_transmit, render_recipe_detail
+from world.knowledge import _can_transmit, render_recipe_detail, routine_for
 from world.recipe_mastery import (
     DISCIPLINES,
     MASTERY_CAP,
@@ -753,7 +753,20 @@ class CmdDisassemble(Command):
             # successful check through the gated path (success + cooldown gates
             # live inside attempt_skill_improvement). Placed after the result
             # message so a "your Crafting improves" line reads as the next beat.
-            imp = caller.attempt_skill_improvement("craft", outcome)
+            # Trivial-work gate (E.2, Trivial Work TD5): a recipe that is routine
+            # for the caller still teaches the recipe above, but not the skill.
+            # routine_for reads the permanent skill (.current), never the
+            # skill_value this roll used (.value) -- a buff or the overload
+            # penalty shifts the roll, not what the piece can teach. Nearly
+            # inert today: only an unknown, gated recipe reaches this line, so
+            # it fires once per recipe. It is here for the salvage mode BACKLOG
+            # *Disassemble yields parts and raw materials* describes, so that
+            # craft-then-dismantle never becomes the grind through a side door.
+            # A gated attempt returns None, which prints nothing, as a cooldown
+            # already does.
+            imp = caller.attempt_skill_improvement(
+                "craft", outcome, meaningful=not routine_for(caller, cls)
+            )
             text = caller._improvement_feedback(imp)
             if text:
                 caller.msg(text)
