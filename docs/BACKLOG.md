@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 57 · 2026-10-31** — E.2 decomposed (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1; roadmap Rev 36). **Status changed:** *⛔ The recipe catalogue does not span the skill scale* goes **BLOCKED → SCHEDULED** — its own last annotation said E.2's trigger was *the decision to build the gate*, and (F) made it; the entry keeps its ⛔ until the gate ships. **Added** (*Crafting & Tools*): *Disassemble yields parts and raw materials* — Adam's standing intention, filed as post-alpha with the economy constraint he set (lossy, and a failed roll can destroy the material outright), and taking mastery decomp OQ3 as its question; *Scribe teaches Craft with no difficulty datum* — the grind the gate removes, one command away, filed with a ledger trigger. **Annotated:** *A craft driven as `char2` in a unit test never rolls* — E.2 needs no second crafter, so its trigger no longer names it.
 > **Rev 56 · 2026-10-31** — the per-recipe mastery close-out (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 2; merged to `main` as `abe9e6b`, tree `2e71112`; suite 971 OK). **Closed:** *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* goes **SCHEDULED → DONE** (M5.1, `129618e`). **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — mastery added none for the three, and the same gap is recorded for `scribe` and `teach`, which got their first command tests in M2.1 and M3.1; *`CmdCraftGated` recipe-resolver duplication* — the Rev 24 constraint's mastery sentence is corrected: it placed both mastery readers in `world/knowledge.py`, and only the handler's landed there; the discipline view reuses an existing read in `commands/crafting_commands.py`. The constraint held in its general form (*inside an existing consumer module*). **Added** (*Crafting & Tools*): *`opposed_check` lets an automatic success win on a roll outside the skill range*. **Added** (*Tooling & Process*): *A craft driven as `char2` in a unit test never rolls*.
 > **Rev 55 · 2026-10-30** — one entry **scheduled**: *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* is taken by the per-recipe mastery decomposition (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 1, MD8) as its last code task, M5.1, with the resolution order fixed there (fumble → automatic failure → critical → automatic success → `roll <= target`) and tests at targets 0, 3, 97 and 120. The trigger fired as written: the next session touching skill resolution was mastery. No code changes.
 > **Rev 54 · 2026-10-30** — the weight feature's close-out (`docs/PolishedWorld_Weight_Decomposition.md` Rev 11; merged to `main` in `7230823`, PR #19, tree `a54bef8`; suite 894 OK). **Closed:** *Weight and encumbrance (Legend ENC)* and *Full container support* go **SCHEDULED → DONE**; the first annotation names barter (W5.1). **Annotated:** *Fatigue-exhaustion consequence* — both seams it was promised now exist (`Character.physical_modifier()`, W3.1; one fatigue per room moved overloaded, W3.2). **Added** (*Containers*): *Worn clothing leaves without `remove()`* — and a garment given away arrives still worn; *A trade that carries a party across the limit sends no crossing line*. **Added** (*Crafting & Tools*): *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* — the weight penalty puts targets near 0 in play. A candidate filed as *a critical at a target ≤ 0* was checked against Legend first and dropped: *"A roll of 01 is always a critical success"*, and `world/skillcheck.py`'s docstring already names it as deliberate. **Added** (*Tooling & Process*): *Repair, disassemble and hunt have no command tests of their own*. No code changes.
@@ -510,7 +511,74 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Trigger above is met for E.1; E.2's is the decision to build the gate.
 - **Origin:** Skill Progression decomp Rev 4 §7, measured 2026-08-05 while
   decomposing Component E; re-homed at Rev 8 close-out.
-- **Status:** BLOCKED (E.2 only — E.1 DONE, AC5.1)
+- **Annotation (2026-10-31, E.2 decomposed — `docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1):**
+  the trigger the annotation above named — *the decision to build the gate* —
+  is roadmap (F)'s, made 2026-10-26 and reached 2026-10-31 with mastery merged.
+  The decomposition locks what this entry left open: `min_skill` is accepted as
+  the one difficulty datum (TD1, no `teaches_until`); the band is 30 on
+  `.current` (TD2); and the wall this entry has warned about since 2026-08-05 is
+  answered by TD3 — the registry's highest rung never goes routine, so the
+  ceiling of 60 leaves a soft edge at 91 that moves itself when a higher rung
+  lands. The two-jobs hazard is resolved by accepting the coupling and naming
+  it. Code on `feature/trivial-work`; this entry goes DONE at its close-out.
+- **Status:** SCHEDULED (E.2 only — E.1 DONE, AC5.1; E.2 decomposed 2026-10-31)
+
+### Disassemble yields parts and raw materials — decide the salvage economy before code
+- **What:** `disassemble` today has one purpose: reverse-engineer an *unknown*
+  gated recipe from a finished item (Stage 3 E.2). The item is destroyed on every
+  outcome; a known or common recipe is refused before anything is lost
+  (`commands/crafting_commands.py:714–716`). Adam's standing intention
+  (2026-10-31, E.2 session) is a second mode — **salvage**: take a *known* item
+  apart to recover some of its parts and raw materials. Two constraints are set
+  with the intention and are not up for tuning away: salvage **never returns all
+  of the material**, and a bad roll **can destroy the material outright** —
+  the dismantler risks the item and gets back less than went in.
+- **Why deferred:** It is a new material **source**, and the alpha exists to
+  watch prices form with the sources the catalogue has (pillar 1). Adding a
+  second source before the first cohort has produced a ledger changes the thing
+  being measured. It also needs its own decisions, none of which E.2 should
+  guess: what fraction returns and on which outcome tiers; whether a crafted
+  item remembers its inputs (`db.recipe` is a name, not a bill of materials) or
+  salvage reads the recipe's current inputs; how the learn and salvage modes
+  split on a known vs unknown recipe; and a Source/Sink Ledger row — disassemble
+  is today a pure sink (item destroyed, knowledge gained) and salvage makes it a
+  partial source that weakens crafting's material sink, which is why *lossy* is
+  a constraint and not a knob.
+- **Trigger:** A design session after alpha close-out, with the alpha ledger
+  open — the question it must answer first is whether material scarcity needs a
+  second source at all.
+- **Prerequisite met in advance:** the trivial-work gate (E.2, TD5) gates
+  disassemble alongside craft, so *craft a routine item → take it apart* cannot
+  become the Craft grind the day salvage lands. Do not remove that gate when
+  building this.
+- **Takes from the mastery decomposition:** OQ3 — *should the dismantler's
+  mastery of the recipe ease the salvage roll?* It is this feature's question,
+  not E.2's (Trivial Work TD7): E.2 reads no mastery, and whether
+  `_mastery_modifier` applies in reverse ("knowing how it is made makes it
+  easier to take apart") is decided with the return fractions, not before.
+- **Origin:** Adam, E.2 decomposition session (2026-10-31).
+- **Status:** OPEN
+
+### Scribe teaches Craft with no difficulty datum
+- **What:** `scribe` is the sixth improvement call site
+  (`commands/crafting_commands.py:1030`): a real Craft roll, success-gated and
+  cooldown-limited, on a book's materials. Nothing in it measures difficulty
+  relative to the scribe — a Craft-150 character binding the cheapest book rolls
+  the same `skill_check` as a Craft-50 one — so E.2's gate has nothing to read
+  there and leaves it `meaningful=True` (Skill Progression decomp §7 E.3,
+  Trivial Work TD5). That makes it the one Craft action the gate does not
+  cover: the grind the gate removes from crafting is available one command away,
+  rate-limited by `SCRIBE_COOLDOWN` and priced in book materials.
+- **Why deferred:** Inventing a difficulty for scribe (the number of recipes
+  bound? the recipes' floors?) is a design, and §7's reason for E.3 holds:
+  guessing one heuristic to be consistent with one real one is how a system
+  acquires wrong answers. The cost and the cooldown may make it a non-problem;
+  that is a thing to measure, not assume.
+- **Trigger:** The alpha ledger (or the improvement log, if one is kept) showing
+  Craft rising on books rather than on crafts for any character — or the next
+  change to scribe's roll, whichever comes first.
+- **Origin:** Trivial Work decomposition TD5 (2026-10-31).
+- **Status:** OPEN
 
 ### Alpha content epic — decompose before code (FAS 1 cut → seeding → catalogue → E.1)
 - **What:** The work between the alpha decision and E.1, costed in roadmap Rev 27
@@ -2605,9 +2673,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   a lead, not a finding.
 - **Why deferred:** No test needs a second crafter yet; mastery's tests craft as
   `char1`.
-- **Trigger:** The first test that needs a second character to craft (E.2, or a
-  barter test that makes its own goods). It starts by asserting a `skill_check`
-  call as `char2`.
+- **Trigger:** The first test that needs a second character to craft (a barter
+  test that makes its own goods, say). It starts by asserting a `skill_check`
+  call as `char2`. *(2026-10-31: E.2 was named here and is struck — its gate is
+  per crafter and its tests set one character's `.current`; Trivial Work
+  decomposition T2.1.)*
 - **Origin:** Recipe mastery M2.1 (2026-10-30), filed at M6.1.
 - **Status:** OPEN
 

@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 16 · 2026-10-31** — index `PolishedWorld_Trivial_Work_Decomposition.md` (E.2, the trivial-work gate — the second half of the alpha's first prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (29/0). Nothing else about the index changes.
 > **Rev 15 · 2026-10-31** — the Lessons register row reads *1–193*. The per-recipe mastery close-out appended lessons 185–193, and the row quoted the old range (lesson 193). No document added or removed; the directory-vs-list loop still reads 28/0. Nothing else about the index changes.
 > **Rev 14 · 2026-10-30** — index `PolishedWorld_Lessons.md` (the numbered lessons register, 1–184). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
 > **Rev 13 · 2026-10-30** — index `PolishedWorld_Recipe_Mastery_Decomposition.md` (per-recipe mastery, the alpha's second prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. Nothing else about the index changes.
@@ -77,6 +78,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Character creation decomposition | tactical (feature tasks) | `docs/PolishedWorld_Character_Creation_Decomposition.md` |
 | Weight and encumbrance decomposition | tactical (feature tasks) | `docs/PolishedWorld_Weight_Decomposition.md` |
 | Recipe mastery decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Mastery_Decomposition.md` |
+| Trivial work (E.2) decomposition | tactical (feature tasks) | `docs/PolishedWorld_Trivial_Work_Decomposition.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
 | System backlog (14 systems, build order) | strategic (unlocks the crafting tree) | `docs/crafting/PolishedWorld_System_Backlog.md` |
