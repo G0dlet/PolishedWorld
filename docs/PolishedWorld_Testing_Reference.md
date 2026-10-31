@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 16 · 2026-10-31** — **the per-recipe mastery findings (decomposition Rev 2; merged as `abe9e6b`).** **New §16: per-recipe mastery** — the in-game protocol (the count, `recipes`, `recipes <discipline>`, `recipes <name>`, the teach threshold, and a cleanup written as one line per answer, lesson 190), run in the sandbox before it was written down, and M5.1's in-game check of `skill_check` over 10 000 rolls. **§11f** gains three: teach and accept in a unit test need `has_account` patched with a `PropertyMock` (Evennia Ref §11 has the cause); a craft driven as `char2` never rolls (unexplained, filed in BACKLOG); and a counting wrapper that finds every test reaching a shared primitive (13 candidate modules where greps found 8). **§13** gains how to count the suite without running it, and the run that closed the feature: 971 in 43 modules, OK.
 > **Rev 15 · 2026-10-30** — **the weight feature's findings (decomposition Rev 11; merged as `7230823`), filed where they apply.** **New §15: weight and encumbrance** — the first check when `get` refuses (closes the decomposition's OQ4), the five silent paths, the five places a new object may land on the floor and the line order there, the builder rule for a missing `enc`, and the in-game protocol, run in the sandbox as a plain character and as a superuser before it was written down. **§13** gains the test policy (Adam, 2026-10-30): a task is received with a targeted run, the whole suite runs once per feature before its merge; and the parallel runner, `ForkTestRunner` with `--parallel auto`, and why `auto` must be written. **§3:** a lambda cannot see a name bound earlier on the same line. **§4:** the weight surface as one tuple, and a recipe's `msg` that is a tuple. **§7:** a protocol line runs as written, and what must survive a reload lives in `db`. **§11:** a craft's receipt is its result line. **§11b:** a mutation that restores the old line can survive once the work has moved. **§11f:** `self.call` returns every line, and a probe's `inspect.stack` attribution lands on a mixin's file. **§11j:** a superuser test calls `cache_lock_bypass`.
 > **Rev 14 · 2026-10-29** — **Character creation's findings (decomposition Rev 2), filed where they apply.** **New §11l: a predicted value carries its type** — `30.0 == 30` and `"28/28" in "28/28.0"` both pass, so a protocol writes the repr it expects and a render assertion is anchored against a decimal tail. **§7** gains the builder escape from a persistent menu (from another character — the menu shadows `py`) and the step-0 probe that keeps placeholders out of command cells. **§11b** gains three mutation rules: probe between a table's keys, make every fixture value differ from its default, and test a guard where the stamp's writer lives. **§11c** gains four prose-loop rules: grep before counting existing tests as coverage, grep before locking "one home", spike a framework claim before locking it, and check every player-facing sentence against the code. **§11f**: the fixture puppets `char1` in every setUp, the `repuppet()` helper, and how to drive an EvMenu in a unit test. **§11h**: a reload does not call `at_post_puppet`, and a persistent menu eats the first line after it. **§12**: 6.1.0's login dialog, the unknown-command line, and `execute_cmd`'s Deferred. **§14**: the second `git am`'s first line is predictable, `--abort` needs the identity flags too, `diff --check` before `format-patch`, and bash-only syntax inside `bash -c`.
 > **Rev 13 · 2026-10-20** — **Three findings from `feature/harvest-guard` (BACKLOG Rev 47).** **New §11k: a negative case proves its own type.** The protocol's "the fix does not over-reach" step was written against an object called `freshcorpse` on the strength of its name; it was a `PlayerCorpse`, and only the typeclass printed in step 0 showed it. **§13 gains:** the verdict of a piped suite run is read with `grep`, not `tail`, because the launcher's stdout is block-buffered and lands after unittest's stderr summary. **§14 gains:** the tree receipt is `git rev-parse HEAD^{tree}`, which worked in a terminal where `git log --format` printed nothing.
@@ -618,6 +619,12 @@ test instead of quietly weakening it (Epic A T29: twine 20, cloth 25, base 30).
 
 **A probe's `inspect.stack` attribution lands on the innermost `tests/` frame** — which is a mixin's file when the test inherits its body from one: `test_trade_ceiling`'s tests were counted under `test_barter_currency` (weight W5.1). Use a probe to find *which* modules reach a function; count tests per module with `unittest.TestLoader().loadTestsFromName("tests.<module>").countTestCases()` from a throwaway test file (§13).
 
+**Teach and accept in a unit test need `has_account` patched.** `Object.has_account` is `self.sessions.count()` (Evennia Ref §11), and the harness gives only `char1` a session, so `teach cloth to Char2` is refused as *isn't someone you can teach*. `tests/test_knowledge.py::TestTeachGate` patches the property on the class for each test — `mock.patch.object(type(self.char1), "has_account", new_callable=mock.PropertyMock, return_value=1)` — and drives the student's side with `self.call(..., caller=self.char2)`, which works. Before recipe mastery M3.1 neither `CmdTeach` nor the accept path had a single test.
+
+**A craft driven as `char2` never rolls.** In recipe mastery M2.1, a craft run with `self.call(..., caller=self.char2)` and finished by calling the timed action's callback made no call to `skill_check` and sent no message. The cause is not known (`docs/BACKLOG.md`, *A craft driven as `char2` in a unit test never rolls*). Until it is, craft as `char1`; a test that crafts as anyone else first asserts that the roll happened (§11).
+
+**Before changing a shared primitive, count its calls while the tests run.** Greps for command names found 8 modules reaching `skill_check`; a temporary wrapper found 13 candidates, with calls through `craft`, `scribe` and `forage` in modules that never name the command (lesson 191). The wrapper goes at the end of the primitive's own module, under the same name, and logs each call's test id (`self.id()`, found by walking the stack — see the attribution caveat above), target, roll, and whether `randint` was patched. It is removed, and `git status` checked, before anything is committed. Recipe mastery M5.1's count: 80 calls from 44 tests in 8 modules, and no pinned roll flipped. One unpinned test rolls against target 0 and stays green only because `consume_policy = "raw"` produces at every tier (`test_felling_chain::TestClubRecipe::test_club_is_made_from_wood`). Look for the primitive's own test module as well: `skill_check` had none before M5.1 (lesson 192).
+
 ### 11g. A final-state assertion cannot see a transient side effect
 
 From the `feature/janitor` mutation run. `Corpse.crumble()` deletes a corpse's
@@ -808,6 +815,7 @@ messages rather than usage hints:
   restores the order; the `grep` is the receipt either way.)
 
 - **The test policy (Adam, 2026-10-30; weight decomposition Rev 8).** A task is received with a **targeted run**: its own test module and the neighbours a probe and the greps name, with a predicted count. The **whole suite runs once per feature, before its merge** — and at component boundaries in a long feature. Predict the whole count before that run, per module: a throwaway test that calls `unittest.TestLoader().loadTestsFromName("tests.<module>").countTestCases()` for each module and writes the sum to a file. Weight: 894 in 40 modules, predicted and run (`7230823`).
+- **Counting without running.** A script outside the runner does it: set `DJANGO_SETTINGS_MODULE=server.conf.settings`, call `django.setup()` and `evennia._init()`, then sum `unittest.TestLoader().loadTestsFromName("tests.<module>").countTestCases()` over every `tests/test_*.py`. Count module by module: `loadTestsFromName("tests")` returns 0, because the package holds no tests itself. Recipe mastery: 971 in 43 modules, predicted per module, then run at home with `pwtest` (no label runs the whole suite too) on `129618e` before the merge and on `abe9e6b` after it, the same code: `Ran 971 tests in 110.872s`, OK. The second run's verdict is the receipt, because the first one's had scrolled off the screen — piping through `grep -E '^(Found|Ran|OK|FAILED|FAIL:|ERROR:)'` keeps it on one screen.
 - **The parallel runner.** `server/test_runner.py::ForkTestRunner` (`e1decd5`). Python 3.14 made `forkserver` the default start method on Linux, and a forkserver worker starts without `evennia._init()`, so `evennia test --parallel` died in every worker; the runner selects `fork` before Django builds the pool. It is named with `--testrunner`, so `settings.py` is untouched:
 
   ```
@@ -905,6 +913,34 @@ From `docs/PolishedWorld_Weight_Decomposition.md` (§11 has every task's record)
     `[]`
 
 W5.1's forage protocol is the example of a set-down: at 40/40 in Old Temple, a forage gave *You forage stone from the w51outcrop.* and *You cannot carry the stone; you set it down.*, the stone on the floor.
+
+## 16. Per-recipe mastery
+
+From `docs/PolishedWorld_Recipe_Mastery_Decomposition.md` (§11 has every task's record); merged 2026-10-31 as `abe9e6b`. A character's counts are one Attribute, `recipe_mastery`, and only a successful craft check writes it. There is no backfill: every development character starts at 0, so testing the teach gate means five crafts first or a count set by hand. The `@py` surface is `self.recipe_mastery.count("cloth")`, `.add("cloth", n)` and `.all()`.
+
+**The in-game protocol** (M4.2). Run in the sandbox on 2026-10-31 against a character who knew only the common recipes, with a second played character in the room for step 2. The counts in step 4's summary depend on what the character knows; the lines quoted do not.
+
+0. `@py self.knows_recipe("cloth")` — note the answer; step 7 depends on it.
+   - `False` → `@py self.learn_recipe("cloth")` → `True`
+   - `True` → nothing to do
+1. `@py self.recipe_mastery.add("cloth", 4)`, then `recipes cloth` → under *Skill:*, `Made:    4, roll +0, next step at 5`
+2. `teach cloth to <second character>` → `You haven't made enough of these to teach it.`
+3. `@py self.recipe_mastery.add("cloth")`, then `recipes cloth` → `Made:    5, roll +5, next step at 10`, and under it `you can teach this`. `teach cloth to <second character>` now offers: `You offer to teach <name> the cloth recipe. They have 60s to take you up on it.` Let it lapse.
+4. `recipes` → under *Disciplines*, `Weaving: N known, 1 you can teach. Apprentice Weaver`
+5. `recipes weaving` → every weaving recipe you can see, with `cloth                made 5 (+5)` among them, then `Apprentice Weaver` (unless another weaving recipe already has a higher count)
+6. `@py self.recipe_mastery.add("cloth", 15)`, then `recipes cloth` → `Made:    20, roll +20` with no next step, and `you can teach this`; `recipes weaving` now ends `Master Weaver`
+7. Clean up. Removing the Attribute removes **every** count, not only cloth's: on a character with counts worth keeping, read `@py self.recipe_mastery.all()` first.
+   - Always: `@py self.attributes.remove("recipe_mastery")`
+   - Only if step 0 answered `False`: `@py self.tags.remove("cloth", category="known_recipe")`
+   - Check: `@py self.recipe_mastery.count("cloth")` → `0`
+
+**`skill_check`'s bands, in game** (M5.1, at home, 2026-10-31). One line per target, no `;` (§2); the generator inside `Counter(...)` reads no name from the `@py` scope, so §3 does not bite:
+
+```
+@py __import__("collections").Counter(__import__("world.skillcheck", fromlist=["x"]).skill_check(0)["result"] for _ in range(10000))
+```
+
+At target 0 (01 critical, 02–05 automatic success, 96–98 automatic failure, 99–00 fumble): failure 9273, success 413, fumble 213, critical 101, against an expected 93 / 4 / 2 / 1 %. At target 120 (01–12 critical, 13–95 success, 96–99 automatic failure, 00 fumble): success 8320, critical 1188, failure 383, fumble 109, against 83 / 12 / 4 / 1 %. Every count lies within about one percentage point of its band; a band off by more than that is a resolution-order bug, not chance.
 
 ## Domain quick-refs
 

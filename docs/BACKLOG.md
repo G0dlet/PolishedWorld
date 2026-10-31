@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 56 · 2026-10-31** — the per-recipe mastery close-out (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 2; merged to `main` as `abe9e6b`, tree `2e71112`; suite 971 OK). **Closed:** *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* goes **SCHEDULED → DONE** (M5.1, `129618e`). **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — mastery added none for the three, and the same gap is recorded for `scribe` and `teach`, which got their first command tests in M2.1 and M3.1; *`CmdCraftGated` recipe-resolver duplication* — the Rev 24 constraint's mastery sentence is corrected: it placed both mastery readers in `world/knowledge.py`, and only the handler's landed there; the discipline view reuses an existing read in `commands/crafting_commands.py`. The constraint held in its general form (*inside an existing consumer module*). **Added** (*Crafting & Tools*): *`opposed_check` lets an automatic success win on a roll outside the skill range*. **Added** (*Tooling & Process*): *A craft driven as `char2` in a unit test never rolls*.
 > **Rev 55 · 2026-10-30** — one entry **scheduled**: *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* is taken by the per-recipe mastery decomposition (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 1, MD8) as its last code task, M5.1, with the resolution order fixed there (fumble → automatic failure → critical → automatic success → `roll <= target`) and tests at targets 0, 3, 97 and 120. The trigger fired as written: the next session touching skill resolution was mastery. No code changes.
 > **Rev 54 · 2026-10-30** — the weight feature's close-out (`docs/PolishedWorld_Weight_Decomposition.md` Rev 11; merged to `main` in `7230823`, PR #19, tree `a54bef8`; suite 894 OK). **Closed:** *Weight and encumbrance (Legend ENC)* and *Full container support* go **SCHEDULED → DONE**; the first annotation names barter (W5.1). **Annotated:** *Fatigue-exhaustion consequence* — both seams it was promised now exist (`Character.physical_modifier()`, W3.1; one fatigue per room moved overloaded, W3.2). **Added** (*Containers*): *Worn clothing leaves without `remove()`* — and a garment given away arrives still worn; *A trade that carries a party across the limit sends no crossing line*. **Added** (*Crafting & Tools*): *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* — the weight penalty puts targets near 0 in play. A candidate filed as *a critical at a target ≤ 0* was checked against Legend first and dropped: *"A roll of 01 is always a critical success"*, and `world/skillcheck.py`'s docstring already names it as deliberate. **Added** (*Tooling & Process*): *Repair, disassemble and hunt have no command tests of their own*. No code changes.
 > **Rev 53 · 2026-10-30** — two entries **added**, from the same living-world review as Rev 52, after Adam named three couplings he had always intended: wear that depends on weather, food that goes bad, and sight that fails in the dark. One of the three is not an entry. **Weather-dependent wear already exists for garments** (`world/garment_wear.py` samples `thermal_regime()`, which reads season and weather) and not for tools; extending it, and adding a wet axis, is an instance of *Weather inertia* part (2)'s own trigger — *"whenever a system first needs to read weather mechanically"* — so it is noted there by this line and filed nowhere else. **Added** (*Survival*): ***Food spoilage*** — `Food` has no freshness at all; the clock, the stages, the modifier table and the sink all exist one typeclass away in `Corpse`, so the entry is mostly about moving them to one home and having harvested meat inherit its corpse's clock; OPEN for the clock, with preservation recipes BLOCKED on the *food professions* exclusives decision. **Added** (*Environment & Weather*): ***Light & darkness*** — night is `$state(night, …)` text and nothing else; a derived room light level, a craftable carried light source, and two consumers (`look` through the Room's own `get_display_*` overrides, and a `light_modifier()` seam for checks) that give `perception` its first reader; OPEN, paired with *Season-dependent day length*. No code changes.
@@ -324,9 +325,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   private matcher changing under us).
 - **Constraint until then (Rev 24):** any *new* reader of the private registry
   goes inside an existing consumer module, not a fifth. The recipe-mastery epic
-  wants two — a `discipline` resolver for `recipes <discipline>` and the mastery
-  handler's recipe lookup — and both belong in `world/knowledge.py`, which is
-  already a consumer via `_can_transmit`. This is the move F.3 made for
+  wanted two, and both landed inside existing consumers: the handler's lookup
+  through `world.knowledge.recipe_names()` (M1.1), and the `recipes <discipline>`
+  view through `_visible_recipes()`, which is `_show_list`'s existing loop in
+  `commands/crafting_commands.py`, extracted and shared — not a new reader
+  (M4.2). *(Corrected 2026-10-31: this sentence said both belong in
+  `world/knowledge.py`.)* Two modules import the registry: `world/knowledge.py`
+  and `commands/crafting_commands.py`. This is the move F.3 made for
   `render_recipe_detail_by_name`, for the same reason.
 - **Origin:** Recipe Knowledge decomp §7 (Task B.2); §10 (Task E.2).
 - **Status:** OPEN
@@ -801,7 +806,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   or E.2), or before the alpha cohort plays at the edge of the band.
 - **Origin:** Weight W6.1 (2026-10-30), checking a candidate entry against the
   rulebook.
-- **Status:** SCHEDULED (recipe mastery M5.1; decomposition Rev 1, MD8)
+- **Status:** DONE (`129618e`, merged in `abe9e6b`; recipe mastery M5.1, decomposition
+  Rev 2) — fumble → automatic failure → critical → automatic success →
+  `roll <= target`, as MD8 fixed. `tests/test_skillcheck.py` (14) is the
+  function's first test module of its own.
+
+---
+
+### `opposed_check` lets an automatic success win on a roll outside the skill range
+
+- **What:** Since M5.1 a roll of 02–05 succeeds at any target.
+  `world/skillcheck.py::opposed_check` breaks a tie between two successes on the
+  higher roll, so a side that succeeded only through the automatic band can beat
+  one that succeeded within its range: at target 3 a 05 beats an opponent's 04
+  at target 60. Legend's tie-break is the higher roll *within his skill range*
+  (core, *Opposed Skills*), and 05 is not within a range of 3. How an automatic
+  success should rank in that tie is a rules decision, taken with the rulebook
+  open. The same docstring still says skills cap at 100 for the MVP, which P-7 ended; the
+  over-100 % rule it skips is flagged in `world/improvement.py:66` too.
+- **Why deferred:** One live caller, hunt (`commands/hunting_commands.py:97`),
+  and it needs a side with a target under 5 to matter.
+- **Trigger:** The next caller of `opposed_check` (combat, Stage 5) or the next
+  change to hunt's resolution.
+- **Origin:** Recipe mastery M5.1 (2026-10-31), filed at M6.1.
+- **Status:** OPEN
 
 ---
 
@@ -2555,7 +2583,32 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Why deferred:** Coverage debt, not a known bug.
 - **Trigger:** The next change to any of the three commands: its own command tests
   first, in the same task.
+- **Note (2026-10-31, recipe mastery):** Mastery changed none of the three and
+  added no tests for them. The same gap held for two more commands, now partly
+  closed: `scribe` got its first command-level test in M2.1 (scribing changes no
+  mastery count), and `teach` with the student's accept path its first three in
+  M3.1 (`tests/test_knowledge.py::TestTeachGate`). Neither yet tests its own
+  outcomes in full.
 - **Origin:** Weight W3.1 (decomposition Rev 6), filed at W6.1.
+- **Status:** OPEN
+
+---
+
+### A craft driven as `char2` in a unit test never rolls
+
+- **What:** In recipe mastery M2.1, a craft run with `self.call(..., caller=self.char2)`
+  and finished by calling the timed action's callback made no call to
+  `skill_check` and sent no message, so a test of it passes on an absence
+  (Testing Ref §11). The cause was not found. `char2` has no session in the
+  harness, and `has_account` is `sessions.count()` (Evennia Ref §11), which is why
+  `teach` refuses it; whether something on the craft path reads the same thing is
+  a lead, not a finding.
+- **Why deferred:** No test needs a second crafter yet; mastery's tests craft as
+  `char1`.
+- **Trigger:** The first test that needs a second character to craft (E.2, or a
+  barter test that makes its own goods). It starts by asserting a `skill_check`
+  call as `char2`.
+- **Origin:** Recipe mastery M2.1 (2026-10-30), filed at M6.1.
 - **Status:** OPEN
 
 ---
