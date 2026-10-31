@@ -10,6 +10,8 @@ WHAT IT COVERS
   writer
 * world.knowledge.recipe_names -- the registry read `all()` goes through
 * typeclasses.characters.Character.recipe_mastery -- the lazy_property wiring
+* world.recipe_mastery.DISCIPLINES and MongooseCraftRecipe.discipline -- every
+  registered recipe declares one (M4.1)
 
 BASE CLASS
 ----------
@@ -31,14 +33,34 @@ RM2 the cap dropped                 TestModifierAndStep reddens (20 at 57)
 RM3 Mapping -> dict in count()      TestStoreRoundTrip reddens
 RM4 add() returns without writing   TestCountAndAdd reddens (once/twice)
 RM5 amount validation dropped       TestAmountValidation reddens
+
+MUTATIONS (RM19-RM20, decomposition section 8, M4.1)
+----------------------------------------------------
+RM19  one recipe's discipline removed          TestDisciplines reddens (declares)
+RM19b base default set to a discipline, and    TestDisciplines reddens (declares,
+      one recipe's line removed                base)
+RM20  a sixth discipline with no recipe        TestDisciplines reddens (used)
+
+The registry is read here as `tests/test_min_skill_ladder.py` reads it, and
+the declaration is checked in the class's own `__dict__` as that test checks
+`min_skill`: an inherited value does not count as declared. Placed here rather
+than beside test (g) in `tests/test_material_registry.py`, whose tests are about
+materials; `DISCIPLINES` lives in `world/recipe_mastery.py`. Locked 2026-10-31
+(M4.1, L2-L3); the decomposition text is corrected in M6.1.
 """
 
 from collections.abc import Mapping
 
-from evennia.utils.test_resources import EvenniaTest
+from evennia.contrib.game_systems.crafting.crafting import (
+    _load_recipes,
+    _RECIPE_CLASSES,
+)
+from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
+from world.crafting_base import MongooseCraftRecipe
 from world.knowledge import recipe_names
 from world.recipe_mastery import (
+    DISCIPLINES,
     MASTERY_CAP,
     MASTERY_STEP,
     MASTERY_STEP_SIZE,
@@ -225,3 +247,31 @@ class TestCharactersAndWiring(EvenniaTest):
         self.assertIsInstance(handler, RecipeMasteryHandler)
         self.assertIs(self.char1.recipe_mastery, handler)
         self.assertIs(handler.obj, self.char1)
+
+
+class TestDisciplines(EvenniaTestCase):
+    """Every registered recipe declares a discipline from the closed set (MD6)."""
+
+    def setUp(self):
+        super().setUp()
+        _load_recipes()
+        self.recipes = dict(_RECIPE_CLASSES)
+        self.names = [name for name, _label in DISCIPLINES]
+
+    def test_every_recipe_declares_a_known_discipline(self):
+        self.assertEqual(len(self.recipes), 29)
+        for name, cls in self.recipes.items():
+            with self.subTest(recipe=name):
+                self.assertIn("discipline", cls.__dict__)
+                self.assertIn(cls.discipline, self.names)
+
+    def test_every_discipline_has_a_recipe(self):
+        used = {cls.discipline for cls in self.recipes.values()}
+        for name in self.names:
+            with self.subTest(discipline=name):
+                self.assertIn(name, used)
+
+    def test_the_base_is_not_a_recipe(self):
+        # None, not a discipline: a recipe that forgets its line inherits
+        # nothing that could pass the first test.
+        self.assertIsNone(MongooseCraftRecipe.discipline)

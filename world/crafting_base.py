@@ -76,6 +76,14 @@ class MongooseCraftRecipe(CraftingRecipe):
     # Orthogonal to min_skill (a skill floor) and the tool modifier (the roll).
     requires_knowledge = False
 
+    # Per-recipe mastery (MD6): the craft discipline this recipe belongs to,
+    # one of the names in world.recipe_mastery.DISCIPLINES. DISPLAY ONLY --
+    # `recipes` groups by it and reads titles from it (M4.2); no check, roll or
+    # gate ever reads it, and it is not Legend's PROFESSIONS. Every concrete
+    # recipe declares its own; the base stays None so a recipe that forgets
+    # fails the registry test instead of inheriting a default.
+    discipline = None
+
     # Optional tool: NOT a required tool_tag (so the craft is always possible),
     # but its ABSENCE penalises the skill check. A recipe's tool_tag is the tool
     # it is designed around, so *having* it is the baseline (modifier 0), not a

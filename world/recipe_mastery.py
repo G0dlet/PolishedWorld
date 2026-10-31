@@ -51,6 +51,13 @@ registry to live in a module that already reads it. The import is local to
 `world/knowledge.py` can import `MASTERY_TRANSMIT_THRESHOLD` from here (M3.1)
 without an import cycle.
 
+DISCIPLINES (MD6)
+-----------------
+Every recipe class names one discipline (`MongooseCraftRecipe.discipline`).
+`DISCIPLINES` is the closed set, in display order, with the label `recipes`
+titles are built from (M4.2). Display only: nothing mechanical reads a
+discipline, and no count is ever summed or averaged across one.
+
 Concurrency: `add()` is a read-modify-write. A character runs one timed action
 at a time and Evennia's reactor is single-threaded, so two completions for one
 character cannot interleave; two characters have two Attributes. Do not put a
@@ -70,6 +77,15 @@ MASTERY_CAP = 20
 
 MASTERY_TRANSMIT_THRESHOLD = 5
 """Completed crafts needed to inscribe, scribe or teach a recipe (MD5, M3.1)."""
+
+DISCIPLINES = (
+    ("weaving", "Weaver"),
+    ("leatherwork", "Leatherworker"),
+    ("stonework", "Stoneworker"),
+    ("bonework", "Boneworker"),
+    ("woodwork", "Woodworker"),
+)
+"""The craft disciplines as (name, label), in display order (MD6, OQ1)."""
 
 
 class RecipeMasteryHandler:
