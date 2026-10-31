@@ -33,6 +33,12 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils import logger
 
 from world.knowledge import _can_transmit, render_recipe_detail
+from world.recipe_mastery import (
+    DISCIPLINES,
+    MASTERY_CAP,
+    MASTERY_STEP_SIZE,
+    MASTERY_TITLES,
+)
 from world import timed_actions
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
@@ -359,19 +365,84 @@ def _complete_craft(caller, cmd, marker):
         caller.msg("Something went wrong as you finished your crafting.")
 
 
+def _visible_recipes(caller):
+    """
+    Split the recipe registry into what `caller` can see.
+
+    The one place the `recipes` command decides visibility for its overview,
+    its discipline summary and its discipline view (M4.2), so the three can
+    never disagree about what a character "knows". `_show_detail` keeps its own
+    gate because it refuses by name rather than skipping.
+
+    Args:
+        caller (Character): the viewer; uses knows_recipe() if present.
+
+    Returns:
+        tuple: (common, known, hidden) -- two lists of recipe classes sorted by
+            name, and the count of advanced recipes the caller has not learned.
+
+    Reading the contrib's private registry here is not a new reader: it is the
+    loop `_show_list` always had, moved (BACKLOG *`CmdCraftGated`
+    recipe-resolver duplication*, Rev 24).
+    """
+    # Populate the contrib's module-level registry (idempotent; loads once and
+    # caches). Read-only iteration over the *classes* -- no instances, no
+    # state -- so no multiplayer race on the single-threaded reactor.
+    _load_recipes()
+
+    common = []
+    known = []
+    hidden = 0
+
+    for cls in _RECIPE_CLASSES.values():
+        # Defensive skip of the abstract base sentinel. It should never be in
+        # the registry (callables_from_module filters imports by __module__),
+        # but this keeps the list honest if a helper-subclass ever leaks in.
+        rname = getattr(cls, "name", "")
+        if not rname or rname == "mongoose craft base":
+            continue
+
+        if not getattr(cls, "requires_knowledge", False):
+            common.append(cls)
+        elif getattr(caller, "knows_recipe", None) and caller.knows_recipe(rname):
+            known.append(cls)
+        else:
+            hidden += 1
+
+    # Registry order is unspecified; sort for a stable, scannable display.
+    common.sort(key=lambda c: c.name)
+    known.sort(key=lambda c: c.name)
+    return common, known, hidden
+
+
+# Discipline name -> label ("leatherwork" -> "Leatherworker"), from the closed
+# set in world.recipe_mastery. `recipes <word>` checks this dict with an exact
+# key lookup BEFORE trying a recipe name: no discipline name is a recipe name,
+# and exact matching keeps "leather" (a recipe) from reaching "leatherwork".
+_DISCIPLINE_LABELS = dict(DISCIPLINES)
+
+
 class CmdRecipes(Command):
     """
     List the recipes you can craft, or inspect one in detail.
 
     Usage:
-      recipes            - list common + learned recipes (hint if more exist)
-      recipes <name>     - show one recipe's ingredients, tool, skill floor and time
+      recipes              - list common + learned recipes, and your disciplines
+      recipes <discipline> - one discipline's recipes and how many you've made
+      recipes <name>       - one recipe's ingredients, tool, skill floor, time,
+                             and how many you've made
 
     The bare list shows the common recipes everyone can make plus any advanced
     recipes you have personally learned. `recipes <name>` details a recipe you
     can see: its ingredients, whether a tool helps, any skill floor, how long it
     takes to craft, and what it produces. Recipes you have not learned stay
     hidden -- their ingredients are part of what you learn, buy, or are taught.
+
+    The disciplines are weaving, leatherwork, stonework, bonework and woodwork.
+    Every five successful crafts of one recipe add +5 to its roll, up to +20,
+    and once you have made a learned recipe five times you can inscribe, scribe
+    or teach it. Your best single recipe in a discipline earns you a title:
+    Apprentice at 5, Journeyman at 10, Master at 20.
     """
 
     key = "recipes"
@@ -385,49 +456,66 @@ class CmdRecipes(Command):
     SHOW_HIDDEN_COUNT = False
 
     def func(self):
-        # `recipes` -> overview; `recipes <name>` -> one recipe's detail.
-        # base Command leaves self.args raw (unstripped, unsplit), so normalise
-        # here. Empty after strip -> list mode.
+        # `recipes` -> overview; `recipes <discipline>` -> one discipline;
+        # `recipes <name>` -> one recipe's detail. base Command leaves
+        # self.args raw (unstripped, unsplit), so normalise here.
         name = self.args.strip().lower()
-        if name:
-            self._show_detail(name)
-        else:
+        if not name:
             self._show_list()
+        elif name in _DISCIPLINE_LABELS:
+            self._show_discipline(name)
+        else:
+            self._show_detail(name)
+
+    # --- mastery helpers (M4.2) ----------------------------------------------
+    def _mastery(self):
+        """The caller's RecipeMasteryHandler, or None for a caller without one."""
+        return getattr(self.caller, "recipe_mastery", None)
+
+    def _count_and_modifier(self, rname):
+        handler = self._mastery()
+        if handler is None:
+            return 0, 0
+        return handler.count(rname), handler.modifier(rname)
+
+    def _can_teach(self, cls):
+        """
+        True if the caller could inscribe, scribe or teach `cls` right now.
+
+        Same rule the three commands apply, in the same order: a common recipe
+        is "Everyone already knows this" (requires_knowledge is checked first,
+        as _can_transmit's docstring asks of every caller), and the count
+        threshold comes from _can_transmit alone, so the display can never
+        promise what `teach` would then refuse.
+        """
+        if not getattr(cls, "requires_knowledge", False):
+            return False
+        if self._mastery() is None:
+            return False
+        return _can_transmit(self.caller, cls.name)
+
+    def _title(self, label, members):
+        """
+        The caller's title in a discipline, or "" below the first tier.
+
+        Taken from the highest count on any ONE of `members`, never the sum
+        (MASTERY_TITLES); the tiers are walked highest first, so only the
+        highest tier met shows.
+        """
+        best = max((self._count_and_modifier(c.name)[0] for c in members), default=0)
+        for threshold, rank in MASTERY_TITLES:
+            if best >= threshold:
+                return f"{rank} {label}"
+        return ""
+
+    @staticmethod
+    def _members(visible, discipline):
+        return [c for c in visible if getattr(c, "discipline", None) == discipline]
 
     # --- overview ------------------------------------------------------------
     def _show_list(self):
         caller = self.caller
-
-        # Populate the contrib's module-level registry (idempotent; loads once
-        # and caches). Read-only iteration over the *classes* -- no instances,
-        # no state -- so no multiplayer race on the single-threaded reactor.
-        _load_recipes()
-
-        common = []
-        known = []
-        hidden = 0
-
-        for cls in _RECIPE_CLASSES.values():
-            # Defensive skip of the abstract base sentinel. It should never be
-            # in the registry (callables_from_module filters imports by
-            # __module__, and our shared helpers are plain functions, not
-            # MongooseCraftRecipe subclasses), but this keeps the list honest
-            # if a future local helper-subclass ever leaks in.
-            rname = getattr(cls, "name", "")
-            if not rname or rname == "mongoose craft base":
-                continue
-
-            if not getattr(cls, "requires_knowledge", False):
-                common.append(cls)
-            elif getattr(caller, "knows_recipe", None) and caller.knows_recipe(rname):
-                known.append(cls)
-            else:
-                hidden += 1
-
-        # Registry order is unspecified; sort for a stable, scannable display
-        # (mirrors CmdSkills sorting its keys).
-        common.sort(key=lambda c: c.name)
-        known.sort(key=lambda c: c.name)
+        common, known, hidden = _visible_recipes(caller)
 
         lines = ["\n|wRecipes you can craft:|n", "|g" + "=" * 50 + "|n"]
 
@@ -443,8 +531,35 @@ class CmdRecipes(Command):
                     note = f" |x(needs Craft {floor}%)|n" if floor > 0 else ""
                     lines.append(f"    |y{cls.name}|n{note}")
 
+        # One line per discipline with at least one visible recipe, in
+        # DISCIPLINES order. "known" here is what the list above shows: common
+        # plus learned. The teach part is left out at 0 (stonework is all
+        # common, so it would read "0" forever).
+        summary = []
+        visible = common + known
+        for discipline, label in DISCIPLINES:
+            members = self._members(visible, discipline)
+            if not members:
+                continue
+            parts = [f"{len(members)} known"]
+            teachable = sum(1 for c in members if self._can_teach(c))
+            if teachable:
+                parts.append(f"{teachable} you can teach")
+            text = f"    |y{discipline.capitalize()}|n: " + ", ".join(parts)
+            title = self._title(label, members)
+            if title:
+                text += f". {title}"
+            summary.append(text)
+        if summary:
+            lines.append("  |wDisciplines|n")
+            lines.extend(summary)
+
         lines.append("|g" + "=" * 50 + "|n")
         lines.append("|xTip: 'recipes <name>' shows what a recipe needs.|n")
+        if summary:
+            lines.append(
+                "|xTip: 'recipes <discipline>' shows how much of each you've made.|n"
+            )
 
         if hidden > 0:
             if self.SHOW_HIDDEN_COUNT:
@@ -457,7 +572,48 @@ class CmdRecipes(Command):
 
         caller.msg("\n".join(lines))
 
+    # --- one discipline (M4.2) -----------------------------------------------
+    def _show_discipline(self, discipline):
+        caller = self.caller
+        label = _DISCIPLINE_LABELS[discipline]
+        common, known, _hidden = _visible_recipes(caller)
+        members = sorted(self._members(common + known, discipline), key=lambda c: c.name)
+
+        lines = [
+            f"\n|w{discipline.capitalize()} recipes you can craft:|n",
+            "|g" + "=" * 50 + "|n",
+        ]
+        if not members:
+            lines.append("  None you can see yet.")
+        for cls in members:
+            count, modifier = self._count_and_modifier(cls.name)
+            lines.append(f"    |y{cls.name:<20}|n made {count} (+{modifier})")
+        lines.append("|g" + "=" * 50 + "|n")
+        title = self._title(label, members)
+        if title:
+            lines.append(f"  {title}")
+        caller.msg("\n".join(lines))
+
     # --- detail --------------------------------------------------------------
+    def _mastery_lines(self, cls):
+        """
+        The viewer's own lines for `recipes <name>`: count, roll modifier, the
+        next step while below the cap, and whether they can pass it on. Passed
+        to render_recipe_detail as extra_lines; the scroll path never sees them.
+        """
+        if self._mastery() is None:
+            return []
+        handler = self._mastery()
+        count, modifier = self._count_and_modifier(cls.name)
+        text = f"  |wMade:|n    {count}, roll +{modifier}"
+        if modifier < MASTERY_CAP:
+            next_at = (handler.step(cls.name) + 1) * MASTERY_STEP_SIZE
+            text += f", next step at {next_at}"
+        lines = [text]
+        if self._can_teach(cls):
+            lines.append("           you can teach this")
+        return lines
+
     def _show_detail(self, name):
         caller = self.caller
 
@@ -494,7 +650,7 @@ class CmdRecipes(Command):
         # Presentation extracted to world.knowledge.render_recipe_detail (F.3)
         # so `recipes <name>` and `look <scroll>` render from one place. The
         # visibility gate above stays here -- it is command policy, not layout.
-        caller.msg(render_recipe_detail(cls))
+        caller.msg(render_recipe_detail(cls, extra_lines=self._mastery_lines(cls)))
 
 
 class CmdDisassemble(Command):

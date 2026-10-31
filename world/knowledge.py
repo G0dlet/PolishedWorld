@@ -108,7 +108,7 @@ def _can_transmit(char, recipe_name):
     return char.recipe_mastery.count(recipe_name) >= MASTERY_TRANSMIT_THRESHOLD
 
 
-def render_recipe_detail(cls):
+def render_recipe_detail(cls, extra_lines=None):
     """
     Render a resolved recipe class as its Needs/Tool/Skill/Time/Output detail block.
 
@@ -121,6 +121,12 @@ def render_recipe_detail(cls):
     Args:
         cls (type): a MongooseCraftRecipe subclass (already resolved by the
             caller, e.g. via _resolve_recipe or an exact registry get).
+        extra_lines (iterable of str, optional): already-formatted lines to
+            insert directly after the Skill line. CmdRecipes passes the
+            viewer's own mastery lines here (M4.2); the scroll path passes
+            nothing. The renderer stays viewer-independent: it never reads a
+            character, it only places what the caller computed. A per-viewer
+            line computed in here would reach every reader of a scroll.
 
     Returns:
         str: the formatted, Evennia-coloured detail block. The leading newline
@@ -172,6 +178,7 @@ def render_recipe_detail(cls):
         f"  |wNeeds:|n   {needs}",
         f"  |wTool:|n    {tool}",
         f"  |wSkill:|n   {skill}",
+        *(extra_lines or ()),
         f"  |wTime:|n    {duration}",
         f"  |wOutput:|n  {produced}",
         "|g" + "=" * 50 + "|n",

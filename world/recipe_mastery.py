@@ -87,6 +87,19 @@ DISCIPLINES = (
 )
 """The craft disciplines as (name, label), in display order (MD6, OQ1)."""
 
+MASTERY_TITLES = (
+    (20, "Master"),
+    (10, "Journeyman"),
+    (5, "Apprentice"),
+)
+"""
+Title tiers as (count, rank), highest first (MD6, M4.2). A discipline's title
+comes from the highest count on any ONE of its recipes, never the sum: twenty
+different crafts made once each are breadth, not mastery. `recipes` walks this
+tuple in order and takes the first tier met, so only the highest shows; it
+prints the rank before the discipline's label ("Apprentice Leatherworker").
+"""
+
 
 class RecipeMasteryHandler:
     """
