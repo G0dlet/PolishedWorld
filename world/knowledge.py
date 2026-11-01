@@ -215,8 +215,9 @@ def render_recipe_detail(cls, extra_lines=None):
             caller, e.g. via _resolve_recipe or an exact registry get).
         extra_lines (iterable of str, optional): already-formatted lines to
             insert directly after the Skill line. CmdRecipes passes the
-            viewer's own mastery lines here (M4.2); the scroll path passes
-            nothing. The renderer stays viewer-independent: it never reads a
+            viewer's own lines here -- whether the recipe still teaches them
+            (Trivial Work T3.1), then their mastery lines (M4.2); the scroll
+            path passes nothing. The renderer stays viewer-independent: it never reads a
             character, it only places what the caller computed. A per-viewer
             line computed in here would reach every reader of a scroll.
 

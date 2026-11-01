@@ -80,6 +80,7 @@ HOW TO RUN
 
 import ast
 import inspect
+import re
 import textwrap
 from unittest import mock
 
@@ -96,6 +97,7 @@ from commands.consumption_commands import CmdRest
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdDisassemble,
+    CmdRecipes,
     CmdScribe,
     _complete_craft,
 )
@@ -428,6 +430,37 @@ class TestHelpStatesTheRule(EvenniaCommandTest):
             with self.subTest(command=cmdclass.__name__):
                 shown = " ".join(cmdclass().get_help(self.char1, None).split())
                 self.assertEqual(shown.count(self.RULE), 1)
+
+
+class TestHelpNamesRoutineWork(EvenniaCommandTest):
+    """
+    T3.1 (E.2, TD6): `help craft` and `help recipes` each explain routine work
+    in one paragraph, and that paragraph carries no number.
+
+    TD2: the band is a calibration constant, not a promise to the player, so
+    the help says *well above its skill floor* and never how far. The check is
+    "no digit in the routine paragraph" rather than "no 30": a literal check
+    would miss 31 or a recalibrated band, and a check against the live band
+    would trip on CmdRecipes' unrelated "Master at 20" the day the band is 20.
+    Read through get_help() for the reason TestHelpStatesTheRule gives;
+    paragraphs are split on blank lines before whitespace is normalised.
+    """
+
+    COMMANDS = (CmdCraftGated, CmdRecipes)
+
+    def routine_paragraphs(self, cmdclass):
+        text = cmdclass().get_help(self.char1, None)
+        paragraphs = [" ".join(p.split()) for p in re.split(r"\n\s*\n", text)]
+        return [p for p in paragraphs if "routine" in p]
+
+    def test_each_explains_routine_work_once_without_a_number(self):
+        for cmdclass in self.COMMANDS:
+            with self.subTest(command=cmdclass.__name__):
+                found = self.routine_paragraphs(cmdclass)
+                self.assertEqual(len(found), 1)
+                self.assertIn("it no longer improves your Craft", found[0])
+                self.assertIn("always do", found[0])          # the top rung (TD3)
+                self.assertNotRegex(found[0], r"\d")
 
 
 class TestNothingThrottlesARepeat(CraftTestBase):

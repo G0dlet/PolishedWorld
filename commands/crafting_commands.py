@@ -188,6 +188,12 @@ class CmdCraftGated(CmdCraft):
     Attempting an advanced recipe you have not learned is refused at once --
     before the command searches your inventory for ingredients you would never
     get to use.
+
+    A recipe well above its skill floor is routine for you: you still make it,
+    your tools still wear, it still counts towards mastery, but it no longer
+    improves your Craft. The hardest recipes known to the world always do.
+    `recipes` marks routine recipes; `recipes <name>` says whether one still
+    teaches you.
     """
 
     # key/locks/parse are inherited from CmdCraft. func() is the START half of
@@ -430,7 +436,8 @@ class CmdRecipes(Command):
       recipes              - list common + learned recipes, and your disciplines
       recipes <discipline> - one discipline's recipes and how many you've made
       recipes <name>       - one recipe's ingredients, tool, skill floor, time,
-                             and how many you've made
+                             whether it still teaches you, and how many
+                             you've made
 
     The bare list shows the common recipes everyone can make plus any advanced
     recipes you have personally learned. `recipes <name>` details a recipe you
@@ -443,6 +450,12 @@ class CmdRecipes(Command):
     and once you have made a learned recipe five times you can inscribe, scribe
     or teach it. Your best single recipe in a discipline earns you a title:
     Apprentice at 5, Journeyman at 10, Master at 20.
+
+    A recipe well above its skill floor is routine for you: you still make it,
+    your tools still wear, it still counts towards mastery, but it no longer
+    improves your Craft. The hardest recipes known to the world always do.
+    `recipes` marks routine recipes; `recipes <name>` says whether one still
+    teaches you.
     """
 
     key = "recipes"
@@ -529,6 +542,13 @@ class CmdRecipes(Command):
                 for cls in bucket:
                     floor = getattr(cls, "min_skill", 0) or 0
                     note = f" |x(needs Craft {floor}%)|n" if floor > 0 else ""
+                    # Trivial-work gate (E.2, TD6): the rule is learnable only if
+                    # it is visible before the craft. routine_for is the call the
+                    # improvement roll makes, so the tag cannot disagree with
+                    # what a craft teaches -- and it reads .current, so a tool
+                    # or buff worn while looking does not move the tag.
+                    if routine_for(caller, cls):
+                        note += " |x(routine)|n"
                     lines.append(f"    |y{cls.name}|n{note}")
 
         # One line per discipline with at least one visible recipe, in
@@ -595,6 +615,18 @@ class CmdRecipes(Command):
         caller.msg("\n".join(lines))
 
     # --- detail --------------------------------------------------------------
+    def _teaches_line(self, cls):
+        """
+        The viewer's own verdict for `recipes <name>`: whether a success at this
+        recipe can still improve their Craft (Trivial Work TD6). Per-viewer, so
+        it is passed to render_recipe_detail as an extra line and never drawn
+        on a scroll (lesson 188). The label is wider than the others on
+        purpose: "Teaches:" alone would read as mastery's "you can teach this".
+        """
+        if routine_for(self.caller, cls):
+            return "  |wTeaches you:|n no -- this is routine work for you"
+        return "  |wTeaches you:|n yes"
+
     def _mastery_lines(self, cls):
         """
         The viewer's own lines for `recipes <name>`: count, roll modifier, the
@@ -650,7 +682,10 @@ class CmdRecipes(Command):
         # Presentation extracted to world.knowledge.render_recipe_detail (F.3)
         # so `recipes <name>` and `look <scroll>` render from one place. The
         # visibility gate above stays here -- it is command policy, not layout.
-        caller.msg(render_recipe_detail(cls, extra_lines=self._mastery_lines(cls)))
+        # The viewer's lines: the Teaches verdict first, beside Skill (it is a
+        # statement about the skill), then mastery's Made block.
+        extra = [self._teaches_line(cls), *self._mastery_lines(cls)]
+        caller.msg(render_recipe_detail(cls, extra_lines=extra))
 
 
 class CmdDisassemble(Command):
