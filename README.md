@@ -11,6 +11,17 @@ organisation (the only exception is the directory structure of the
 you must however also edit/add to your settings file to tell Evennia
 where to look for things.
 
+# Installing
+
+PolishedWorld runs on the Evennia version pinned in `requirements.txt`
+(Evennia 6.1.0, which needs Python 3.12 or later). In a fresh virtualenv,
+standing in this directory:
+
+    pip install -r requirements.txt
+    evennia --version
+
+The second command must report the pinned version before you go on.
+
 Your game's main configuration file is found in
 `server/conf/settings.py` (but you don't need to change it to get
 started). If you just created this directory (which means you'll already
