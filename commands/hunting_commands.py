@@ -109,6 +109,10 @@ class CmdHunt(Command):
                 # "hunting". opposed_check returns stalemate unless a side
                 # succeeds, so an ATTACKER win always carries a successful
                 # attacker roll -> pass that side's own skill_check dict.
+                # No difficulty datum comparable to `min_skill` here (flee_skill
+                # is the quarry's opposing roll, not a level the hunt is written
+                # for); meaningful=True is deliberate (Skill Progression decomp
+                # section 7 E.3, Trivial Work TD5), not an omission.
                 imp = caller.attempt_skill_improvement("hunting", result["attacker"])
                 # Caught. at_death() does its own kill messaging, spawns the
                 # corpse (from H3.2), and deletes the creature.
@@ -287,6 +291,10 @@ class CmdHarvest(Command):
         # On-use skill improvement (Component B.3). Trains the part's own skill
         # (usually "hunting"); the per-skill improve cooldown means a harvest
         # moments after the hunt is naturally throttled -- no double-dip.
+        # No difficulty datum comparable to `min_skill` here (part["difficulty"]
+        # is Legend's situational roll modifier, not a level the part is written
+        # for); meaningful=True is deliberate (Skill Progression decomp section
+        # 7 E.3, Trivial Work TD5), not an omission.
         imp = caller.attempt_skill_improvement(part["skill"], outcome)
 
         # 10. Apply the outcome.

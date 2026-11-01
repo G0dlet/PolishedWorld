@@ -33,8 +33,8 @@ decomp Q4): every recipe declares its own min_skill on the rungs 0 / 20 / 40 /
 is locked out of survival, and leather sits at 20 because the sling and the
 bandolier consume it. No product sits below a recipe that makes one of its
 inputs. min_skill is read four ways: the craft floor (crafting_base, .value),
-the transmission gate (world/knowledge.py, .current), disassemble's modifier
-(commands/crafting_commands.py) and the recipe displays.
+the trivial-work gate (world/knowledge.py routine_for, against .current),
+disassemble's modifier (commands/crafting_commands.py) and the recipe displays.
 tests/test_min_skill_ladder.py pins the ladder.
 """
 

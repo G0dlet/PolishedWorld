@@ -10,6 +10,9 @@ Covered:
 * `recipes <name>` -- the Made line after Skill and before Time, the next step
   until the cap, "you can teach this" only for a learned recipe at the
   threshold; the scroll path never shows any of it
+* routine work (Trivial Work T3.1) -- the `(routine)` tag on the bare list and
+  the "Teaches you:" line in `recipes <name>`, both read on `.current` through
+  routine_for; per viewer, and never on a scroll
 
 Counts are seeded with recipe_mastery.add, not driven crafts: the command only
 reads the count, and crafts driven through self.call are slow and have their
@@ -200,3 +203,90 @@ class TestRecipesDetail(_RecipesTestBase):
         self.assertIn("Skill:", desc)
         self.assertNotIn("Made:", desc)
         self.assertNotIn("you can teach this", desc)
+
+
+class TestRecipesRoutine(_RecipesTestBase):
+    """
+    T3.1 (E.2, TD6): the player can see which recipes still teach before
+    crafting. Twine (floor 0) is the edge case at Craft 30 vs 31, leather
+    (floor 20, learned) at 50 vs 51; with the band at 30 the first of each pair
+    teaches and the second is routine.
+
+    The bugs this presses on: the tag read on `.value` (TW12, from both sides),
+    the verdict drawn inside the shared renderer, where a scroll would carry it
+    to every reader (TW13; lesson 188), and the line computed for the wrong
+    viewer. Every negative check sits beside a positive receipt that the thing
+    it looks inside was drawn (the twine line, the Skill line).
+    """
+
+    TAGGED = r"(?m)^\s+twine \(routine\)$"
+    PLAIN = r"(?m)^\s+twine$"
+
+    def at(self, current, mod=0, char=None):
+        """Set Craft to `current` + `mod`: base first (lesson 199)."""
+        trait = (char or self.char1).skills.get("craft")
+        trait.base = current
+        trait.current = current
+        trait.mod = mod
+        self.assertEqual(trait.value, current + mod)
+
+    def test_the_list_tags_twine_at_31_and_not_at_30(self):
+        self.at(30)
+        out = self.recipes()
+        self.assertRegex(out, self.PLAIN)
+        self.assertNotRegex(out, self.TAGGED)
+        self.at(31)
+        self.assertRegex(self.recipes(), self.TAGGED)
+
+    def test_a_bonus_on_value_does_not_tag(self):
+        self.at(30, mod=40)                    # .value 70 would be routine
+        out = self.recipes()
+        self.assertRegex(out, self.PLAIN)
+        self.assertNotRegex(out, self.TAGGED)
+
+    def test_a_penalty_on_value_does_not_untag(self):
+        self.at(31, mod=-1)                    # .value 30 would teach
+        self.assertRegex(self.recipes(), self.TAGGED)
+
+    def test_the_tag_follows_the_floor_note(self):
+        self.char1.learn_recipe(LEATHER)
+        self.at(51)
+        self.assertRegex(self.recipes(), r"(?m)^\s+leather \(needs Craft 20%\) \(routine\)$")
+
+    def test_detail_says_yes_at_50_and_no_at_51_beside_skill(self):
+        self.char1.learn_recipe(LEATHER)
+        self.at(50)
+        out = self.recipes(LEATHER)
+        self.assertRegex(out, r"Teaches you:\s+yes\n")
+        self.assertLess(out.index("Skill:"), out.index("Teaches you:"))
+        self.assertLess(out.index("Teaches you:"), out.index("Made:"))
+        self.assertLess(out.index("Made:"), out.index("Time:"))
+        self.at(51)
+        self.assertRegex(
+            self.recipes(LEATHER), r"Teaches you:\s+no -- this is routine work for you\n"
+        )
+
+    def test_the_verdict_is_the_viewers_own(self):
+        # One recipe, two crafters a point apart: each sees their own answer.
+        for char in (self.char1, self.char2):
+            char.learn_recipe(LEATHER)
+        self.at(51)
+        self.at(50, char=self.char2)
+        mine = self.recipes(LEATHER)
+        theirs = self.call(CmdRecipes(), LEATHER, caller=self.char2)
+        self.assertRegex(mine, r"Teaches you:\s+no")
+        self.assertRegex(theirs, r"Teaches you:\s+yes")
+
+    def test_a_scroll_carries_no_verdict(self):
+        # The renderer is shared with the scroll (lesson 188): the reader at 51
+        # sees "no" in `recipes`, and the scroll says nothing either way.
+        self.char1.learn_recipe(LEATHER)
+        self.at(51)
+        self.assertRegex(self.recipes(LEATHER), r"Teaches you:\s+no")
+        scroll = spawn("scroll")[0]
+        scroll.stamp(LEATHER)
+        scroll.move_to(self.char1, quiet=True)
+        desc = scroll.get_display_desc(self.char1)
+        self.assertIn("Skill:", desc)
+        self.assertNotIn("Teaches", desc)
+        self.assertNotIn("routine", desc)

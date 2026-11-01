@@ -4,8 +4,11 @@ AC5.1 / E.1: pin the recipe catalogue's declared Craft-skill ladder.
 Each test guards a different failure mode. The declaration test catches a recipe
 that silently inherits the base floor or drifts from the locked 29-recipe table.
 The catalogue-shape test catches a missing zero rung, a lowered ceiling, or a
-progression gap too wide for the Skill Progression trivial band. Its negative
-fixtures keep that checker honest: a helper that always returns no violations
+progression gap too wide for the trivial band, read live from `trivial_band()`
+as the E.2 gate reads it; its override twin proves the read is live, and the
+ceiling test ties `ladder_top()` to the ceiling pinned here. Its negative
+fixtures keep that checker honest with a band of their own, so a calibration of
+the game's band cannot break them: a helper that always returns no violations
 must not make the catalogue test pass. The bootstrap test protects the survival
 loop from an accidental floor. Finally, the input-chain test reads real prototype
 tags and catches a product whose floor sits below the recipe that makes one of
@@ -13,12 +16,15 @@ its inputs, which would make the progression depend on another crafter bypassing
 the intended ladder.
 """
 
+from django.test import override_settings
 from evennia.contrib.game_systems.crafting.crafting import (
     _load_recipes,
     _RECIPE_CLASSES,
 )
 from evennia.prototypes.prototypes import search_prototype
 from evennia.utils.test_resources import EvenniaTestCase
+
+from world.knowledge import ladder_top, trivial_band
 
 
 LADDER = {
@@ -53,10 +59,16 @@ LADDER = {
     "bow": 60,
 }
 
+# The registry's top rung today. When smithing lands a higher rung, this line
+# and the registry change in the same commit; test_ladder_top_is_the_ceiling is
+# what says so.
 ALPHA_LADDER_CEILING = 60
-# E.2's SKILL_TRIVIAL_BAND does not exist yet; this pins the band from Skill
-# Progression decomp section 7.
-TRIVIAL_BAND_PIN = 30
+# The checker fixtures' own band, not the game's: the catalogue reads the live
+# SKILL_TRIVIAL_BAND through trivial_band(). The fixtures are built around 30
+# (wide_gap's gap is 40, valid's is 20), so a calibration to 40 would stop
+# wide_gap being bad and one below 20 would make valid bad; neither is a fault
+# in the checker.
+FIXTURE_BAND = 30
 BOOTSTRAP = ("stone knife", "bone needle", "stone axe", "twine", "waterskin")
 
 MATERIAL_CATEGORY = "crafting_material"
@@ -94,12 +106,30 @@ class TestMinSkillLadder(EvenniaTestCase):
                 self.assertIn("min_skill", cls.__dict__)
                 self.assertEqual(cls.min_skill, expected)
 
-    def test_the_catalogue_ladders_to_its_ceiling(self):
+    def catalogue_violations(self):
+        """The catalogue against the band the E.2 gate reads, read now."""
         values = [cls.min_skill for cls in self.recipes.values()]
-        self.assertEqual(
-            ladder_violations(values, ALPHA_LADDER_CEILING, TRIVIAL_BAND_PIN),
-            [],
-        )
+        return ladder_violations(values, ALPHA_LADDER_CEILING, trivial_band())
+
+    def test_the_catalogue_ladders_to_its_ceiling(self):
+        self.assertEqual(self.catalogue_violations(), [])
+
+    def test_the_catalogue_reads_the_live_band(self):
+        # The rungs are 20 apart, so a band of 10 opens every gap. A checker
+        # that kept its own 30 would report none (TW15).
+        with override_settings(SKILL_TRIVIAL_BAND=10):
+            self.assertEqual(trivial_band(), 10)  # receipt: the override landed
+            self.assertEqual(
+                self.catalogue_violations(),
+                [
+                    "rung gap 0 -> 20 exceeds band 10",
+                    "rung gap 20 -> 40 exceeds band 10",
+                    "rung gap 40 -> 60 exceeds band 10",
+                ],
+            )
+
+    def test_ladder_top_is_the_ceiling(self):
+        self.assertEqual(ladder_top(), ALPHA_LADDER_CEILING)
 
     def test_the_checker_flags_bad_ladders(self):
         wide_gap = [0, 20, 60]
@@ -108,29 +138,29 @@ class TestMinSkillLadder(EvenniaTestCase):
         )
         self.assertEqual(widest_gap, 40)
         self.assertTrue(
-            ladder_violations(wide_gap, ALPHA_LADDER_CEILING, TRIVIAL_BAND_PIN)
+            ladder_violations(wide_gap, ALPHA_LADDER_CEILING, FIXTURE_BAND)
         )
 
         no_zero = [20, 40, 60]
         self.assertNotEqual(min(no_zero), 0)
         self.assertTrue(
-            ladder_violations(no_zero, ALPHA_LADDER_CEILING, TRIVIAL_BAND_PIN)
+            ladder_violations(no_zero, ALPHA_LADDER_CEILING, FIXTURE_BAND)
         )
 
         low_ceiling = [0, 20, 40]
         self.assertNotEqual(max(low_ceiling), ALPHA_LADDER_CEILING)
         self.assertTrue(
-            ladder_violations(low_ceiling, ALPHA_LADDER_CEILING, TRIVIAL_BAND_PIN)
+            ladder_violations(low_ceiling, ALPHA_LADDER_CEILING, FIXTURE_BAND)
         )
 
         valid = [0, 20, 40, 60]
         self.assertEqual((min(valid), max(valid)), (0, ALPHA_LADDER_CEILING))
         self.assertLessEqual(
             max(upper - lower for lower, upper in zip(valid, valid[1:])),
-            TRIVIAL_BAND_PIN,
+            FIXTURE_BAND,
         )
         self.assertEqual(
-            ladder_violations(valid, ALPHA_LADDER_CEILING, TRIVIAL_BAND_PIN),
+            ladder_violations(valid, ALPHA_LADDER_CEILING, FIXTURE_BAND),
             [],
         )
 

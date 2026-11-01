@@ -46,6 +46,7 @@ from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 from world.skillcheck import skill_check
 from world.crafting_quality import quality_band, SUPERIOR
 from world.recipe_mastery import MASTERY_CAP, MASTERY_STEP
+from world.knowledge import routine_for
 
 
 class MongooseCraftRecipe(CraftingRecipe):
@@ -350,8 +351,24 @@ class MongooseCraftRecipe(CraftingRecipe):
         # Capture the summary (not discard it): post_craft threads it into the
         # player-facing feedback after the craft-result message (C.1). None when
         # gated out -- the common case.
+        # Trivial-work gate (E.2, Trivial Work TD2-TD4): a recipe the crafter has
+        # outgrown is not `meaningful`, so its success attempts no improvement
+        # roll. routine_for reads the permanent skill (.current), never
+        # _skill_value()'s .value -- a tool, buff or overload shifts this roll,
+        # not what the task can teach. Evaluated here, at the roll, so a timed
+        # craft is judged on the skill at completion, like the three modifiers.
+        # Only the tick is gated: tool wear above, the mastery count and the
+        # yield below all run as before.
         improve = getattr(self.crafter, "attempt_skill_improvement", None)
-        self.improvement_result = improve(self.skill_name, outcome) if improve else None
+        self.improvement_result = (
+            improve(
+                self.skill_name,
+                outcome,
+                meaningful=not routine_for(self.crafter, type(self)),
+            )
+            if improve
+            else None
+        )
 
         # Per-recipe mastery (Recipe Mastery M2.1, MD2). The single writer of
         # recipe_mastery: one completed craft per successful CHECK. Gated on
@@ -359,7 +376,10 @@ class MongooseCraftRecipe(CraftingRecipe):
         # "raw" policy every recipe inherits, that branch is taken on failure
         # and fumble too (lesson 177), so a gate there would count failures.
         # A product later set down at the weight ceiling still counts -- the
-        # write happens here, before delivery. For a timed craft this runs at
+        # write happens here, before delivery. A routine success counts too
+        # (Trivial Work TD7): practice still steadies your hands at the recipe
+        # (the mastery roll term) after it has stopped making you better at
+        # Craft. For a timed craft this runs at
         # completion, like the roll. getattr-guarded like
         # attempt_skill_improvement: a crafter without the handler neither
         # counts nor errors.
