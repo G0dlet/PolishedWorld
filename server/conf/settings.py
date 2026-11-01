@@ -34,6 +34,12 @@ from evennia.settings_default import *
 # This is the name of your game. Make it catchy!
 SERVERNAME = "PolishedWorld"
 CMDSET_UNLOGGEDIN = "evennia.contrib.base_systems.menu_login.UnloggedinCmdSet"
+# Registration is closed: staff create every account (Launch Minimum LM4, LM7).
+# This one setting closes every player door: the menu login above
+# (menu_login.py:93), Evennia's `create` (unloggedin.py:178; not installed here)
+# and the website's auth/register, which Evennia leaves ungated and
+# web/website/views/accounts.py gates on this same setting.
+NEW_ACCOUNT_REGISTRATION_ENABLED = False
 # CONNECTION_SCREEN_MODULE = "evennia.contrib.base_systems.menu_login.connection_screens"
 
 # ============================================================

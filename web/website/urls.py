@@ -10,10 +10,16 @@ from django.urls import path
 
 from evennia.web.website.urls import urlpatterns as evennia_website_urlpatterns
 
+from web.website.views.accounts import GatedAccountCreateView
+
 # add patterns here
 urlpatterns = [
-    # path("url-pattern", imported_python_view),
-    # path("url-pattern", imported_python_view),
+    # Registration, gated on NEW_ACCOUNT_REGISTRATION_ENABLED (Launch Minimum
+    # L1.2). Evennia's view does not read the setting (views/accounts.py:43-70).
+    # Listed first so it wins: Django serves the first match, and Evennia's
+    # ungated auth/register follows below and again in web/urls.py. Same path
+    # and name, so {% url 'register' %} in Evennia's login.html still reverses.
+    path("auth/register", GatedAccountCreateView.as_view(), name="register"),
 ]
 
 # read by Django
