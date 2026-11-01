@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 11 · 2026-11-01** — **E.2 shipped**: merged to `main` as `d5450ad` (tree `9dfa0fb`), every task recorded in `docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 2. §7 gains a dated *shipped* note under the Rev 10 pointer, and its heading drops ⛔ BLOCKED; the rest of the section, its status line included, stands as written, as the design source it is. Nothing else changes.
 > **Rev 10 · 2026-10-31** — **E.2 is decomposed, in its own document: `docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1.** §7 gains a pointer and three corrections against the code and the rulebook, none of them a design change: (1) *both live call sites* in `attempt_skill_improvement`'s docstring is **six** (craft, repair, hunt-attack, hunt-harvest, disassemble, scribe); (2) disassemble **has** a difficulty datum — it subtracts `min_skill` from its roll (`commands/crafting_commands.py:736`) — so it leaves E.3's list and is gated with craft (TD5); (3) *routine tasks do not earn an Improvement Roll* is not a rule in *Legend* (core p. 68: Improvement Rolls are the Games Master's award at a story's close), so the gate is the on-use adaptation's stand-in for that judgement, faithful in spirit (TD9). The two-jobs choice is made — *accept* (TD1) — and the wall is answered: the registry's top rung always teaches (TD3). No decision in §2 changed.
 > **Rev 9 · 2026-10-26** — **two claims corrected against the code, from the Alpha Content close-out (AC6, finding AC5.1-2/6).** §1 said every `min_skill` gate and tool buff reads `skill.current`; the craft roll and the craft floor read the effective `.value`, and only teaching reads `.current`. §7 said `min_skill` carries *two* jobs; the code reads it **four** ways today — the craft floor, the transmission gate (inscribe, scribe, teach), the disassemble modifier and the displays — and E.2 would make a fifth. §7 also said a *tool* buff may lift you over the floor; a tool's ±20 shifts the roll, never the floor — only a buff on the trait does. E.1 shipped in the Alpha Content epic (AC5.1); E.2 stays homed in BACKLOG. No decision changed.
 > **Rev 8 · 2026-08-24** — **Component D.2 is delivered and Stage 4.5 is closed.** The 100% cap is gone and Legend's second band is live. §6 gains a Delivered block covering the five locked decisions (no numeric ceiling, `descs` untouched, write-time migration, the bar's accepted resolution limit, and `int_bonus` reporting the *applied* INT). The substantive finding is **why a read-time migration was not available here**: B.2 could solve its equivalent problem read-time because *we owned the read*, but a `CounterTrait`'s ceiling is enforced inside **Evennia's own `current` setter**, so a stored `max=100` clamps before any reader sees it. The repair therefore runs at write time through the single writer (P-2) — idempotent by construction, and immune to the restored-backup case a one-shot script cannot cover. Also records that **the cap lived in eight places, not the five that were inventoried**, and that the three extra ones were all prose; that `improvement_roll` had **zero** tests before this task, so the 416-test baseline proved nothing about the arithmetic being changed; the **fifth falsified production claim** (`world/recipes.py`'s *"max craft quality is 110 (skill cap 100)"*) — the first caught *before* it went false rather than after; and a **provably equivalent mutant** (`> 100` vs `>= 100` in the `target` expression differ for no integer input), which corrects a claim this task's own code comment makes about where the band boundary is expressed. **Component E leaves the epic** rather than holding it open: it is BLOCKED on content nobody has scheduled, and a stage held open by an unscheduled trigger blocks Stage 5 without anyone having decided to.
@@ -1000,7 +1001,7 @@ proving the repair fired inside a real tick and not inside a `@py` call.
 
 ---
 
-## 7. Component E — the difficulty gate ⛔ BLOCKED, and **no longer part of this epic**
+## 7. Component E — the difficulty gate, **no longer part of this epic** (shipped as E.2, 2026-11-01)
 
 > **Moved out 2026-08-24, at Stage 4.5 close-out.** E is blocked on a content
 > trigger that belongs to no scheduled stage, and a stage held open by an
@@ -1028,6 +1029,13 @@ proving the repair fired inside a real tick and not inside a `@py` call.
 > was told to make explicitly is made: *accept* (TD1); and the wall the ⛔
 > section warns of is answered by TD3, the registry's top rung never going
 > routine.
+>
+> **Shipped 2026-11-01 (Rev 11):** E.2 merged to `main` as `d5450ad` (tree
+> `9dfa0fb`); the Trivial Work decomposition's Rev 2 records every task. The
+> *Status* line below is history: E.1 shipped as Alpha Content AC5.1
+> (`a4bf108`), E.2 here, and E.3 stands as written, except that disassemble
+> joined the gate (TD5) and scribe is filed in BACKLOG (*Scribe teaches Craft
+> with no difficulty datum*).
 
 **Status: BLOCKED on recipe content. Do not schedule it after D; it is not a
 "later" task, it is a task with an unmet precondition.** Written down now because

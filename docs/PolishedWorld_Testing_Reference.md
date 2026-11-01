@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 17 · 2026-11-01** — **the trivial-work findings (decomposition Rev 2; merged as `d5450ad`).** **New §17: trivial work** — the in-game protocols of T2.1 (craft), T2.2 (disassemble) and T3.1 (`recipes` and help), written from the protocols as run at home, with `;`-chained lines split one statement per `@py` line (§2) and every cleanup written as one line per starting state (lesson 190, which recurred in T2.2's protocol); the `mod` technique for a near-certain roll without moving a `.current` gate; and the three-receipt pattern. Two steps of the decomposition's protocol shape were not run in game; §17 names the unit tests that carry them. Nothing else changes.
 > **Rev 16 · 2026-10-31** — **the per-recipe mastery findings (decomposition Rev 2; merged as `abe9e6b`).** **New §16: per-recipe mastery** — the in-game protocol (the count, `recipes`, `recipes <discipline>`, `recipes <name>`, the teach threshold, and a cleanup written as one line per answer, lesson 190), run in the sandbox before it was written down, and M5.1's in-game check of `skill_check` over 10 000 rolls. **§11f** gains three: teach and accept in a unit test need `has_account` patched with a `PropertyMock` (Evennia Ref §11 has the cause); a craft driven as `char2` never rolls (unexplained, filed in BACKLOG); and a counting wrapper that finds every test reaching a shared primitive (13 candidate modules where greps found 8). **§13** gains how to count the suite without running it, and the run that closed the feature: 971 in 43 modules, OK.
 > **Rev 15 · 2026-10-30** — **the weight feature's findings (decomposition Rev 11; merged as `7230823`), filed where they apply.** **New §15: weight and encumbrance** — the first check when `get` refuses (closes the decomposition's OQ4), the five silent paths, the five places a new object may land on the floor and the line order there, the builder rule for a missing `enc`, and the in-game protocol, run in the sandbox as a plain character and as a superuser before it was written down. **§13** gains the test policy (Adam, 2026-10-30): a task is received with a targeted run, the whole suite runs once per feature before its merge; and the parallel runner, `ForkTestRunner` with `--parallel auto`, and why `auto` must be written. **§3:** a lambda cannot see a name bound earlier on the same line. **§4:** the weight surface as one tuple, and a recipe's `msg` that is a tuple. **§7:** a protocol line runs as written, and what must survive a reload lives in `db`. **§11:** a craft's receipt is its result line. **§11b:** a mutation that restores the old line can survive once the work has moved. **§11f:** `self.call` returns every line, and a probe's `inspect.stack` attribution lands on a mixin's file. **§11j:** a superuser test calls `cache_lock_bypass`.
 > **Rev 14 · 2026-10-29** — **Character creation's findings (decomposition Rev 2), filed where they apply.** **New §11l: a predicted value carries its type** — `30.0 == 30` and `"28/28" in "28/28.0"` both pass, so a protocol writes the repr it expects and a render assertion is anchored against a decimal tail. **§7** gains the builder escape from a persistent menu (from another character — the menu shadows `py`) and the step-0 probe that keeps placeholders out of command cells. **§11b** gains three mutation rules: probe between a table's keys, make every fixture value differ from its default, and test a guard where the stamp's writer lives. **§11c** gains four prose-loop rules: grep before counting existing tests as coverage, grep before locking "one home", spike a framework claim before locking it, and check every player-facing sentence against the code. **§11f**: the fixture puppets `char1` in every setUp, the `repuppet()` helper, and how to drive an EvMenu in a unit test. **§11h**: a reload does not call `at_post_puppet`, and a persistent menu eats the first line after it. **§12**: 6.1.0's login dialog, the unknown-command line, and `execute_cmd`'s Deferred. **§14**: the second `git am`'s first line is predictable, `--abort` needs the identity flags too, `diff --check` before `format-patch`, and bash-only syntax inside `bash -c`.
@@ -941,6 +942,134 @@ From `docs/PolishedWorld_Recipe_Mastery_Decomposition.md` (§11 has every task's
 ```
 
 At target 0 (01 critical, 02–05 automatic success, 96–98 automatic failure, 99–00 fumble): failure 9273, success 413, fumble 213, critical 101, against an expected 93 / 4 / 2 / 1 %. At target 120 (01–12 critical, 13–95 success, 96–99 automatic failure, 00 fumble): success 8320, critical 1188, failure 383, fumble 109, against 83 / 12 / 4 / 1 %. Every count lies within about one percentage point of its band; a band off by more than that is a resolution-order bug, not chance.
+
+## 17. Trivial work
+
+From `docs/PolishedWorld_Trivial_Work_Decomposition.md` (§10 has every task's record); merged 2026-11-01 as `d5450ad`. A recipe is *routine* for a crafter when `current − min_skill > SKILL_TRIVIAL_BAND` (30) and its floor is below the registry's top rung (`world.knowledge.routine_for`, which reads `.current`, never `.value`). A routine craft or dismantle still completes, but attempts no improvement roll; `recipes` marks it and `recipes <name>` says so.
+
+The three protocols below were run at home during E.2 (2026-10-31 – 11-01). They were run with `;`-chained `@py` lines in a client that does not split on `;`; here each statement has its own `@py` line (§2), otherwise the expressions are as run. `@reload` first, then `inventory` (lesson 71). Two steps of the decomposition's protocol shape were **not** run in game, and the unit tests carry them: the ticking side of a craft at Craft 30 (`tests/test_craft_command.py::TestRoutineCraftDoesNotTeach.test_at_30_twine_still_teaches`; a tick banks Craft XP on the development character), and the top rung at Craft 150 (`tests/test_trivial_work.py::TestTopRungExemption`, and `test_the_top_rung_exemption_reaches_the_craft` in the same class as above).
+
+**The three-receipt pattern** (§11, lesson 185). A step whose point is that something did **not** happen, here that no improvement roll was attempted, first proves the code path ran, with receipts read before the absence: for a craft, the product and the mastery count (and a worn tool where there is one); for a dismantle, the recipe learned, the piece gone from `ObjectDB` and `disassemble` on cooldown. Only then is `cooldowns.ready("improve_craft")` → `True` evidence; alone, it is also what a command that bailed early leaves.
+
+**The `mod` technique.** To make a roll near-certain in game without moving a gate that reads `.current`, raise `mod`: the roll reads `.value` (`current + mod`), the gate `.current`. The ceiling is about 95 %, because 96–00 always fail (§16's bands), so a target of 95 or more is as good as it gets, and about one attempt in twenty still fails. Each use is TD2 live as well: T2.2's value of 115 at 50 still ticked, and T3.1's value of 70 at 30 drew no tag. A negative `mod` needs `base` set first, because `CounterTrait.mod` clamps `base + mod` against the minimum using **base**, not current (lesson 199).
+
+**Craft** (T2.1: the routine side, twine at Craft 31 with `mod` 70).
+
+0. Note where you stand; step 4 restores it:
+   ```
+   @py self.msg(str((self.skills.get("craft").current, self.skills.get("craft").mod)))
+   ```
+1. Spawn the material, three times:
+   ```
+   @spawn plant_fiber
+   ```
+2. Set the skill and read the count:
+   ```
+   @py self.cooldowns.clear()
+   @py self.skills.get("craft").current = 31
+   @py self.skills.get("craft").mod = 70
+   @py self.msg(str((self.skills.get("craft").current, self.skills.get("craft").value, self.recipe_mastery.count("twine"))))
+   ```
+   → current 31, value 101, and the twine count *n*.
+3. Craft:
+   ```
+   craft twine from fiber-1, fiber-2, fiber-3
+   ```
+   When it completes (about 20 s), read the receipts:
+   ```
+   @py self.msg(str((self.recipe_mastery.count("twine"), self.cooldowns.ready("improve_craft"))))
+   ```
+   - `(n+1, True)`, and no *Crafting improves* line → passed: the count proves the roll succeeded and `do_craft` ran, and `True` proves no roll was attempted although `.value` was 101.
+   - `(n, True)` → the roll failed (96–00) and the step proves nothing: run steps 1–3 again.
+4. Clean up. The twine count keeps its +1; §16's cleanup removes every count if that matters.
+   ```
+   @py self.skills.get("craft").mod = <mod from step 0>
+   @py self.skills.get("craft").current = <current from step 0>
+   ```
+
+**Disassemble** (T2.2: cloth, floor 20, at Craft 50, which teaches, and 51, which is routine; `mod` 65 and 64 keep the value at 115).
+
+0. Note where you stand, and snapshot the XP the step at 50 will bank:
+   ```
+   @py self.msg(str((self.skills.get("craft").current, self.skills.get("craft").mod, self.knows_recipe("cloth"))))
+   @py self.db.pw22_xp = dict(self.attributes.get("skill_xp", default={}))
+   ```
+   - cloth `True` → the dismantle has to teach it, so `@py self.tags.remove("cloth", category="known_recipe")`
+   - cloth `False` → nothing to do
+1. At 50:
+   ```
+   @py self.cooldowns.clear()
+   @py self.skills.get("craft").current = 50
+   @py self.skills.get("craft").mod = 65
+   @py self.msg(str((self.skills.get("craft").current, self.skills.get("craft").value)))
+   @py evennia.create_object("typeclasses.objects.Object", key="tw22bolt", location=self).db.recipe = "cloth"
+   disassemble tw22bolt
+   @py self.msg(str((self.knows_recipe("cloth"), self.cooldowns.ready("disassemble"), self.cooldowns.ready("improve_craft"))))
+   ```
+   - current 50, value 115; *…You now know the cloth recipe.*, then the Crafting improvement line with its bar; `(True, False, False)` → passed.
+   - *The piece falls apart…* → the roll failed (96–00): run the cooldown line, the `create_object` line and `disassemble` again.
+2. At 51:
+   ```
+   @py self.cooldowns.clear()
+   @py self.tags.remove("cloth", category="known_recipe")
+   @py self.skills.get("craft").current = 51
+   @py self.skills.get("craft").mod = 64
+   @py self.msg(str((self.skills.get("craft").current, self.skills.get("craft").value)))
+   @py evennia.create_object("typeclasses.objects.Object", key="tw22bolt", location=self).db.recipe = "cloth"
+   disassemble tw22bolt
+   @py self.msg(str((self.knows_recipe("cloth"), self.cooldowns.ready("disassemble"), self.cooldowns.ready("improve_craft"))))
+   ```
+   - current 51, value 115; the learn line and **no** improvement line; `(True, False, True)` → passed: three receipts that the command ran, then a ready `improve_craft`.
+   - *The piece falls apart…* → as in step 1.
+3. Clean up, always:
+   ```
+   @py self.skills.get("craft").mod = <mod from step 0>
+   @py self.skills.get("craft").current = <current from step 0>
+   @py self.attributes.add("skill_xp", self.db.pw22_xp)
+   @py del self.db.pw22_xp
+   @py self.cooldowns.clear()
+   ```
+   Then one line per answer from step 0:
+   - cloth was `False` → `@py self.tags.remove("cloth", category="known_recipe")`
+   - cloth was `True` → nothing to do: step 2 taught it again.
+
+**`recipes` and help** (T3.1: twine at 30 and 31, then 30 with `mod` 40). Nothing here writes state but the skill.
+
+0. Note where you stand; step 5 restores it:
+   ```
+   @py self.msg(str((self.skills.get("craft").current, self.skills.get("craft").mod)))
+   ```
+1. At 30:
+   ```
+   @py self.skills.get("craft").current = 30
+   recipes
+   recipes twine
+   ```
+   → twine without a tag; in the detail, `Teaches you: yes` between *Skill* and *Made*.
+2. At 31:
+   ```
+   @py self.skills.get("craft").current = 31
+   recipes
+   recipes twine
+   ```
+   → `twine (routine)`, and every rung-0 recipe you know tagged, rung 20 not; in the detail, `Teaches you: no -- this is routine work for you`.
+3. TD2 live: at 30 with `mod` 40 the value is 70, and twine is still untagged:
+   ```
+   @py self.skills.get("craft").current = 30
+   @py self.skills.get("craft").mod = 40
+   recipes
+   ```
+4. The help:
+   ```
+   help craft
+   help recipes
+   ```
+   → each has one paragraph on routine work, with no number in it; `help craft` shows the gated command's text (`CmdCraftGated`), not the contrib's.
+5. Clean up:
+   ```
+   @py self.skills.get("craft").mod = <mod from step 0>
+   @py self.skills.get("craft").current = <current from step 0>
+   ```
 
 ## Domain quick-refs
 

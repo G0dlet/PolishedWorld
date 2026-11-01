@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 58 · 2026-11-01** — the E.2 close-out (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 2; merged to `main` as `d5450ad`, tree `9dfa0fb`; suite 1004 OK; roadmap Rev 37). **Closed:** *The recipe catalogue does not span the skill scale* goes **SCHEDULED → DONE** and drops its ⛔ (E.1 in Alpha Content AC5.1, E.2 in `d5450ad`); earlier rev lines and entries that cite it with the ⛔ are left as written. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — T2.2 gave disassemble its first command tests of an outcome, four of them; its tiers, repair and hunt are still untested, so the entry stays OPEN; *`recipes` lists floored recipes under "can craft"* — its trigger fired at T3.1, which changed `CmdRecipes`, and was not taken; re-armed to the launch-minimum decomposition. *A craft driven as `char2`…* is unchanged: no E.2 test crafts as `char2`.
 > **Rev 57 · 2026-10-31** — E.2 decomposed (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1; roadmap Rev 36). **Status changed:** *⛔ The recipe catalogue does not span the skill scale* goes **BLOCKED → SCHEDULED** — its own last annotation said E.2's trigger was *the decision to build the gate*, and (F) made it; the entry keeps its ⛔ until the gate ships. **Added** (*Crafting & Tools*): *Disassemble yields parts and raw materials* — Adam's standing intention, filed as post-alpha with the economy constraint he set (lossy, and a failed roll can destroy the material outright), and taking mastery decomp OQ3 as its question; *Scribe teaches Craft with no difficulty datum* — the grind the gate removes, one command away, filed with a ledger trigger. **Annotated:** *A craft driven as `char2` in a unit test never rolls* — E.2 needs no second crafter, so its trigger no longer names it.
 > **Rev 56 · 2026-10-31** — the per-recipe mastery close-out (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 2; merged to `main` as `abe9e6b`, tree `2e71112`; suite 971 OK). **Closed:** *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* goes **SCHEDULED → DONE** (M5.1, `129618e`). **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — mastery added none for the three, and the same gap is recorded for `scribe` and `teach`, which got their first command tests in M2.1 and M3.1; *`CmdCraftGated` recipe-resolver duplication* — the Rev 24 constraint's mastery sentence is corrected: it placed both mastery readers in `world/knowledge.py`, and only the handler's landed there; the discipline view reuses an existing read in `commands/crafting_commands.py`. The constraint held in its general form (*inside an existing consumer module*). **Added** (*Crafting & Tools*): *`opposed_check` lets an automatic success win on a roll outside the skill range*. **Added** (*Tooling & Process*): *A craft driven as `char2` in a unit test never rolls*.
 > **Rev 55 · 2026-10-30** — one entry **scheduled**: *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* is taken by the per-recipe mastery decomposition (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 1, MD8) as its last code task, M5.1, with the resolution order fixed there (fumble → automatic failure → critical → automatic success → `roll <= target`) and tests at targets 0, 3, 97 and 120. The trigger fired as written: the next session touching skill resolution was mastery. No code changes.
@@ -424,7 +425,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Rev 13 / System Map Rev 2 (2026-08-03). Answered 2026-08-05.
 - **Status:** SCHEDULED — not DONE until C.1 ships it.
 
-### ⛔ The recipe catalogue does not span the skill scale
+### The recipe catalogue does not span the skill scale
 - **What:** `world/recipes.py` holds **eight** recipes, of which exactly **one**
   sets `min_skill` (`LeatherBootsRecipe`, 30); the rest default to 0. There is no
   ladder of increasingly demanding work for a crafter to climb.
@@ -521,7 +522,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   ceiling of 60 leaves a soft edge at 91 that moves itself when a higher rung
   lands. The two-jobs hazard is resolved by accepting the coupling and naming
   it. Code on `feature/trivial-work`; this entry goes DONE at its close-out.
-- **Status:** SCHEDULED (E.2 only — E.1 DONE, AC5.1; E.2 decomposed 2026-10-31)
+- **Annotation (2026-11-01, E.2 shipped — merged `d5450ad`, Trivial Work decomposition Rev 2):**
+  the gate is live. `do_craft` and `disassemble` pass
+  `meaningful=not routine_for(…)`, which reads `.current` against
+  `SKILL_TRIVIAL_BAND` (30) and never gates the registry's top rung
+  (`ladder_top()`, 60 today), so the ladder teaches to a soft edge at 91 that
+  moves when a higher rung lands; `recipes` marks routine recipes and
+  `recipes <name>` says whether one still teaches. `tests/test_min_skill_ladder.py`
+  reads the live band and ties `ladder_top()` to `ALPHA_LADDER_CEILING`. Scribe
+  stays outside the gate, filed as *Scribe teaches Craft with no difficulty
+  datum*.
+- **Status:** DONE (E.1: Alpha Content AC5.1, merged `a4bf108`; E.2: merged `d5450ad`, Trivial Work decomposition Rev 2)
 
 ### Disassemble yields parts and raw materials — decide the salvage economy before code
 - **What:** `disassemble` today has one purpose: reverse-engineer an *unknown*
@@ -2202,6 +2213,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   reading, `world/crafting_base.py:265`).
 - **Trigger:** The next change to `CmdRecipes`, or E.2 (which adds a second
   number worth showing: where a recipe stops teaching).
+- **Annotation (2026-11-01, E.2 close-out):** the trigger fired (T3.1 changed
+  `CmdRecipes`, and E.2 shipped) and was not taken. E.2's second number became a
+  tag, ` (routine)` after the floor note (`commands/crafting_commands.py:551`),
+  not a number; the heading (`:533`) and the floor note (`:544`) stand as
+  described above. **Re-armed:** the launch-minimum decomposition (alpha
+  prerequisite 6).
 - **Origin:** Alpha Content AC5.1 protocol (2026-10-26).
 - **Status:** OPEN
 
@@ -2657,6 +2674,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   mastery count), and `teach` with the student's accept path its first three in
   M3.1 (`tests/test_knowledge.py::TestTeachGate`). Neither yet tests its own
   outcomes in full.
+- **Note (2026-11-01, E.2 T2.2):** The trigger fired for disassemble and was
+  taken in part. `tests/test_craft_command.py::TestRoutineDisassembleDoesNotTeach`
+  is its first command test of an outcome: four tests at Craft 50/51 on cloth,
+  each asserting the recipe learned, the piece destroyed and the `disassemble`
+  cooldown set before it reads `improve_craft`. What each roll tier does is
+  still untested, and repair and hunt, which E.2 did not change, still have
+  nothing of their own.
 - **Origin:** Weight W3.1 (decomposition Rev 6), filed at W6.1.
 - **Status:** OPEN
 
