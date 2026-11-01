@@ -54,3 +54,6 @@ nosetests.xml
 
 # VSCode config
 .vscode
+
+# Launch Minimum activity log (world/activity_log.py): local data, never committed
+server/logs/*.jsonl
