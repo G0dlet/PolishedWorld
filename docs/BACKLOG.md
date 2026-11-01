@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 59 · 2026-11-01** — the launch minimum decomposed (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 1; roadmap Rev 38). **Status changed, five entries:** *Persistent alpha instance* BLOCKED → SCHEDULED (L6) — its trigger had fired on `d5450ad` untouched (lesson 195); *Evennia is not pinned in the repo* OPEN → SCHEDULED (L1.1); *Worn clothing leaves without `remove()`* OPEN → SCHEDULED (L3.1); *`recipes` lists floored recipes under "can craft"* OPEN → SCHEDULED (L3.2); *World-loot scroll seed* BLOCKED → SCHEDULED (L3.3). **Re-triggered:** *System Map describes the world as of Stage 4* — *before the alpha opens* → the Stage 5 design session. **Annotated:** *Seasonal supply & population memory* (the ledger data it waits on is the activity log, not `economy_log`), *Scribe teaches Craft with no difficulty datum* (the `improve` kind is the log it asks for). **Added** (*Character creation*): *Every knowledge-gated recipe has a profession grantor* — a live recount found thirteen of seventeen `requires_knowledge` recipes with no grantor; the scroll seed covers the alpha, the profession question is post-alpha.
 > **Rev 58 · 2026-11-01** — the E.2 close-out (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 2; merged to `main` as `d5450ad`, tree `9dfa0fb`; suite 1004 OK; roadmap Rev 37). **Closed:** *The recipe catalogue does not span the skill scale* goes **SCHEDULED → DONE** and drops its ⛔ (E.1 in Alpha Content AC5.1, E.2 in `d5450ad`); earlier rev lines and entries that cite it with the ⛔ are left as written. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — T2.2 gave disassemble its first command tests of an outcome, four of them; its tiers, repair and hunt are still untested, so the entry stays OPEN; *`recipes` lists floored recipes under "can craft"* — its trigger fired at T3.1, which changed `CmdRecipes`, and was not taken; re-armed to the launch-minimum decomposition. *A craft driven as `char2`…* is unchanged: no E.2 test crafts as `char2`.
 > **Rev 57 · 2026-10-31** — E.2 decomposed (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1; roadmap Rev 36). **Status changed:** *⛔ The recipe catalogue does not span the skill scale* goes **BLOCKED → SCHEDULED** — its own last annotation said E.2's trigger was *the decision to build the gate*, and (F) made it; the entry keeps its ⛔ until the gate ships. **Added** (*Crafting & Tools*): *Disassemble yields parts and raw materials* — Adam's standing intention, filed as post-alpha with the economy constraint he set (lossy, and a failed roll can destroy the material outright), and taking mastery decomp OQ3 as its question; *Scribe teaches Craft with no difficulty datum* — the grind the gate removes, one command away, filed with a ledger trigger. **Annotated:** *A craft driven as `char2` in a unit test never rolls* — E.2 needs no second crafter, so its trigger no longer names it.
 > **Rev 56 · 2026-10-31** — the per-recipe mastery close-out (`docs/PolishedWorld_Recipe_Mastery_Decomposition.md` Rev 2; merged to `main` as `abe9e6b`, tree `2e71112`; suite 971 OK). **Closed:** *`skill_check` has no automatic success (01–05) or automatic failure (96–00)* goes **SCHEDULED → DONE** (M5.1, `129618e`). **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — mastery added none for the three, and the same gap is recorded for `scribe` and `teach`, which got their first command tests in M2.1 and M3.1; *`CmdCraftGated` recipe-resolver duplication* — the Rev 24 constraint's mastery sentence is corrected: it placed both mastery readers in `world/knowledge.py`, and only the handler's landed there; the discipline view reuses an existing read in `commands/crafting_commands.py`. The constraint held in its general form (*inside an existing consumer module*). **Added** (*Crafting & Tools*): *`opposed_check` lets an automatic success win on a roll outside the skill range*. **Added** (*Tooling & Process*): *A craft driven as `char2` in a unit test never rolls*.
@@ -589,6 +590,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Craft rising on books rather than on crafts for any character — or the next
   change to scribe's roll, whichever comes first.
 - **Origin:** Trivial Work decomposition TD5 (2026-10-31).
+- **Annotation (2026-11-01, launch minimum decomposition, LM2):** the
+  improvement log this trigger asks for is the activity log's `improve` kind
+  (skill, from, to, meaningful) — written from `attempt_skill_improvement` when
+  it returns a result. The question *does Craft rise on books rather than on
+  crafts for anyone* is answered by `activity_report` over the alpha's file.
 - **Status:** OPEN
 
 ### Alpha content epic — decompose before code (FAS 1 cut → seeding → catalogue → E.1)
@@ -820,7 +826,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
     an accident.
   - No loot-table infrastructure — the goal is the valve, not a drop system.
 - **Origin:** Recipe Knowledge decomp §14 (Task I.1) + §2 (c).
-- **Status:** BLOCKED (on world content existing, and on a real player base)
+- **Annotation (2026-11-01, launch minimum decomposition — recomputed, and the
+  table above is overtaken):** against `world/recipes.py` (29 recipes, 17
+  `requires_knowledge`) and `world/professions.py:66–70`, `cloth` and `leather`
+  have two grantors, `linen shirt` and `leather boots` one, and **thirteen have
+  none** — hood, scrollcase, bandolier, breeches, sack, backpack, shoes, robe,
+  reversible clothes, linen cuirass, saddlebag, bone armour, tent. Profession
+  grant being the only bootstrap, those thirteen are fountains (a sink with no
+  source): nobody in a cohort can ever learn the tent. Alpha Content B5 gated
+  them and CC6 kept four professions; neither counted. So this is a launch
+  requirement, not a valve, and task L3.3 seeds **one stamped scroll per gated
+  recipe with fewer than two grantors** (fifteen) through `world/seeding.py`'s
+  idempotent path (seed id `alpha.scroll.<recipe>`, `Scroll.stamp`), consumed by
+  `learn`, **replenished by staff on request** (`reseed_scroll`, a runbook line)
+  — the one-shot-vs-respawn decision this entry asks for is *manual, for the
+  alpha*. A test pins that every `requires_knowledge` recipe has a profession
+  grant or a seed row, so the next recipe batch cannot ship a fountain. The
+  profession side is its own entry (*Every knowledge-gated recipe has a
+  profession grantor*, Character creation, post-alpha).
+- **Status:** SCHEDULED (Launch Minimum L3.3)
 
 ### Crafting resolves instantly
 - **What:** `craft` produces its output in the same tick it is typed. The crafting
@@ -946,6 +970,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Character creation decomposition CC6 (2026-10-26). Shipped without
   it (decomposition Rev 2, 2026-10-29).
 - **Status:** BLOCKED (skill count / alpha data)
+
+### Every knowledge-gated recipe has a profession grantor
+- **What:** `world/professions.py` grants five recipes across four professions;
+  `world/recipes.py` gates seventeen (`requires_knowledge = True`, Alpha Content
+  B5). Thirteen have no grantor — hood, scrollcase, bandolier, breeches, sack,
+  backpack, shoes, robe, reversible clothes, linen cuirass, saddlebag, bone
+  armour, tent — and profession grant is the only bootstrap source, so they are
+  fountains. For the alpha, *World-loot scroll seed* (launch minimum L3.3) seeds
+  one scroll per under-granted recipe and a test keeps every gated recipe sourced.
+  This entry owns the other answer: professions that cover the catalogue — more
+  professions, bigger bundles, or a *Craft (Any)* generalist with a wider grant —
+  which is chargen data and needs its own design (who gets the tent?).
+- **Why deferred:** The scroll seed makes the alpha work; which recipes a
+  profession *should* grant is better decided from what the cohort actually
+  learned and traded than from a table written before anyone played.
+- **Trigger:** Alpha close-out data — `knowledge` lines in the activity log
+  showing which scrolls were learned, by whom, and which recipes were never
+  learned at all; or the next recipe batch that adds gated recipes (the source
+  test will fail until each has a grantor or a seed row, and this entry decides
+  which).
+- **Origin:** Launch minimum decomposition LM9 (2026-11-01), the live recount
+  against the 29-recipe catalogue; the BACKLOG's scroll-seed table was from the
+  four-recipe slice.
+- **Status:** BLOCKED (alpha close-out data)
 
 ### Cultural Background (Legend p.15–18)
 - **What:** Barbarian / Civilised / Nomad / Primitive as a creation choice,
@@ -1648,7 +1696,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Before the persistent alpha instance, or the first report of a
   garment worn by two characters.
 - **Origin:** Weight decomposition Rev 8 (W4.1 confirmation step), filed at W6.1.
-- **Status:** OPEN
+- **Annotation (2026-11-01, launch minimum decomposition):** task L3.1 —
+  `at_post_move` on `ClothingWithBuffs` calls `remove()` when a worn garment
+  leaves its wearer by `put`, `drop` or `give`. The trade path needs nothing:
+  assignment to `location` runs no hook (`evennia/objects/models.py:307–346`)
+  and barter already refuses worn items (`world/barter.py:64`), which L3.1's
+  test pins.
+- **Status:** SCHEDULED (Launch Minimum L3.1)
 
 ---
 
@@ -1875,6 +1929,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   not under one.
 - **Origin:** Session 2026-10-30 — "what does a living world still lack",
   reviewed against `main` `a1ad0ee` (roadmap Rev 32, BACKLOG Rev 51).
+- **Annotation (2026-11-01, launch minimum decomposition, LM2/LM8):** *two game-
+  months of ledger data in `world/economy_log.py`* cannot be met by that ledger
+  — it records mint and burn only. Read it as two game-months of the **activity
+  log** (`server/logs/activity.jsonl`, launch minimum L2; `trade` lines carry
+  both sides and the coin, `world/activity_report.py` lists prices per item and
+  game-month). Two game-months is fourteen real days; the alpha's close-out
+  floor is eight weeks, so the data will exist.
 - **Status:** BLOCKED (alpha instance + two game-months of ledger data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
@@ -2220,7 +2281,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   described above. **Re-armed:** the launch-minimum decomposition (alpha
   prerequisite 6).
 - **Origin:** Alpha Content AC5.1 protocol (2026-10-26).
-- **Status:** OPEN
+- **Annotation (2026-11-01, launch minimum decomposition):** taken as task L3.2
+  — two headings split by the viewer's Craft (`.value`, the floor's own
+  reading), the floor note only where it binds, the `(routine)` tag only under
+  the first.
+- **Status:** SCHEDULED (Launch Minimum L3.2)
 
 > **Not listed here:** *Search / disambiguation UX + item identity* — already a
 > written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
@@ -2485,7 +2550,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   need a migration — the cost the close-out wipe exists to avoid.
 - **Origin:** FAS 1 costing session (2026-10-17), roadmap Rev 27 (D3) — the gap
   Rev 38 recorded: no entry owned a persistent alpha instance.
-- **Status:** BLOCKED (alpha prerequisites)
+- **Annotation (2026-11-01, launch minimum decomposition):** the trigger fired
+  on `d5450ad` — prerequisites 1–5 and 7 on `main`, *Death contract surfaces*
+  since `123ac53` — and the entry was not touched until this session (lesson
+  195). Decided together with the launch minimum, as the text asks:
+  `docs/PolishedWorld_Launch_Minimum_Decomposition.md` LM5–LM7 and LM10 (one
+  decomposition; the instance is its Component L6, after the merge, on a tag of
+  `main`; an EU VPS, `evennia==6.1.0` pinned, SQLite, daily off-box backup for
+  14 days; staff-made accounts, 8–10 invited; the contract in `help alpha`; a
+  schema change is additive or an announced wipe seven days ahead). The close-
+  out this entry promised a date for: eight real weeks and fifty logged trades,
+  or fourteen days without a login; then export, the GameGold player count, the
+  wipe.
+- **Status:** SCHEDULED (Launch Minimum L6)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
 
@@ -2637,7 +2714,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the first install nobody watches. Pin `evennia==6.1.0` in a
   `requirements.txt` then, or earlier if a machine is found off the tag.
 - **Origin:** Alpha Content AC3.2 and AC4.0 (2026-10-24).
-- **Status:** OPEN
+- **Annotation (2026-11-01, launch minimum decomposition):** the trigger is the
+  persistent instance and it is now scheduled; the pin is task L1.1
+  (`requirements.txt`, `evennia==6.1.0`), first in the order so that L6.1's `pip
+  show evennia` is the receipt.
+- **Status:** SCHEDULED (Launch Minimum L1.1)
 
 ### System Map describes the world as of Stage 4
 - **What:** `docs/PolishedWorld_System_Map.md` was last revised 2026-08-03
@@ -2653,6 +2734,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   built — whichever comes first.
 - **Origin:** Character creation CC4.1 (2026-10-29): the decomposition asked
   whether the map describes chargen; it describes nothing after Stage 4.
+- **Annotation (2026-11-01, launch minimum decomposition, LM8):** the trigger
+  moves from *before the alpha opens* to **the Stage 5 design session** — the
+  first reader that needs the map, and the first session with the time to draw
+  it. Nothing the cohort does reads it, and the launch minimum is kept to what
+  the cohort needs. The *Runnable seam checker* half of the trigger stands.
 - **Status:** OPEN
 
 ---
