@@ -177,14 +177,19 @@ class TestWriteFailureNeverRaises(_LogDirTest):
 REPO = pathlib.Path(__file__).resolve().parent.parent
 PRODUCTION = ("commands", "server", "typeclasses", "web", "world")
 
-# Every activity_log.record( call in production code, per file. L2.2a lands
-# the ten production sites; L2.2b adds the six circulation sites.
+# Every activity_log.record( call in production code, per file: sixteen.
+# L2.2a landed the ten production sites, L2.2b the six circulation sites.
 SITES = {
-    "commands/crafting_commands.py": 6,  # dismantle, inscribe, scribe, learn x3
-    "commands/foraging_commands.py": 1,  # forage
-    "commands/hunting_commands.py": 1,   # harvest
-    "commands/repair_commands.py": 1,    # repair
-    "world/crafting_base.py": 1,         # craft (post_craft)
+    "commands/consumption_commands.py": 2,  # eat, drink
+    "commands/crafting_commands.py": 6,     # dismantle, inscribe, scribe, learn x3
+    "commands/foraging_commands.py": 1,     # forage
+    "commands/hunting_commands.py": 1,      # harvest
+    "commands/repair_commands.py": 1,       # repair
+    "commands/work_commands.py": 1,         # work (paid path)
+    "typeclasses/characters.py": 1,         # improve (attempt_skill_improvement)
+    "typeclasses/corpse.py": 1,             # crumble
+    "world/barter.py": 1,                   # trade (_finish_and_clear)
+    "world/crafting_base.py": 1,            # craft (post_craft)
 }
 
 

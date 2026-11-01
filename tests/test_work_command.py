@@ -96,6 +96,7 @@ from typeclasses.treasury import Treasury
 from world import economy_log, timed_actions
 
 from tests.test_currency import LedgerIsolationMixin
+from tests.test_activity_log import ActivityLogMixin
 
 
 def _marker_of(char):
@@ -868,3 +869,40 @@ class TestCommandSurface(WorkTestBase):
         cmdset = CharacterCmdSet()
         cmdset.at_cmdset_creation()
         self.assertIn("work", [cmd.key for cmd in cmdset.commands])
+
+
+class TestPaidWorkIsLogged(ActivityLogMixin, WorkTestBase):
+    """Launch Minimum L2.2: a paid chore writes one work line (the faucet)."""
+
+    def setUp(self):
+        super().setUp()
+        override = override_settings(TREASURY_DBREF=self.treasury.dbref)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def test_a_paid_chore_writes_one_work_line(self):
+        self.start_and_finish("sweep")
+        paid = TEMPLE_TASKS["sweep"]["copper"]
+        self.assertEqual(self.char1.currency.value, paid)  # receipt: it paid
+        (entry,) = self.activity_records("work")
+        self.assertEqual(
+            (entry["actor"], entry["task"], entry["copper"], entry["treasury"]),
+            ([self.char1.dbref, self.char1.key], "sweep", paid, self.treasury.dbref),
+        )
+
+
+class TestDryWorkWritesNothing(ActivityLogMixin, WorkTestBase):
+    """Pressured by LM-M7 (record on the dry path): no coin moved, no line."""
+
+    TREASURY_FUNDING = 10  # less than any chore pays
+
+    def setUp(self):
+        super().setUp()
+        override = override_settings(TREASURY_DBREF=self.treasury.dbref)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def test_a_dry_treasury_writes_nothing(self):
+        self.start_and_finish("sweep")
+        self.assertEqual(self.char1.currency.value, 0)  # receipt: the dry path ran
+        self.assertEqual(self.activity_records("work"), [])

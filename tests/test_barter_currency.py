@@ -48,6 +48,10 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 from tests.test_currency import LedgerIsolationMixin
 from tests.test_work_command import captured_messages
 from world import economy_log
+from unittest import mock
+
+from world import activity_log
+from tests.test_activity_log import ActivityLogMixin
 from world.barter import (
     CmdPWAccept,
     CmdPWDecline,
@@ -705,3 +709,61 @@ class TestAcceptCommandStaleGuard(
         self.call(CmdPWAccept(), "", caller=self.char1)
         self.assertEqual(self.char1.currency.value, self.START_BALANCE - 500)
         self.assertEqual(self.char2.currency.value, self.START_BALANCE + 500)
+
+
+class TestTradeIsLogged(ActivityLogMixin, TradeFixtureMixin, LedgerIsolationMixin, EvenniaTest):
+    """
+    Launch Minimum L2.2: a completed trade writes one line with both parties,
+    both item lists and both agreed coin amounts -- the alpha's price datum.
+    A trade that did not happen (a stale offer, a forced teardown) is not a
+    price and writes nothing. Driven through the handler, as TestSettlement is.
+    """
+
+    def test_a_completed_trade_writes_both_sides(self):
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char1, currency=5 * COPPER_PER_SILVER)
+        self.handler.offer(self.char2, sword)
+        self.assertTrue(self._complete())
+        (entry,) = self.activity_records("trade")
+        self.assertEqual(
+            (entry["actor"], entry["part_a"], entry["part_b"], entry["a_items"],
+             entry["b_items"], entry["a_copper"], entry["b_copper"]),
+            ([self.char1.dbref, self.char1.key], [self.char1.dbref, self.char1.key],
+             [self.char2.dbref, self.char2.key], [], ["iron sword"], 500, 0),
+        )
+
+    def test_the_line_is_written_after_the_swap(self):
+        # Pressured by LM-M6 (record before the swap). The spy reads the world
+        # at the moment record() is called: the sword must already be part_a's
+        # and the coin already part_b's. The line's fields alone cannot tell
+        # before from after -- both are read off the offer -- so this is the
+        # test that pins the ordering.
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, sword)
+        seen = []
+        real = activity_log.record
+
+        def spy(kind, actor, **fields):
+            if kind == "trade":
+                seen.append((sword.location, self.char2.currency.value))
+            return real(kind, actor, **fields)
+
+        with mock.patch.object(activity_log, "record", side_effect=spy):
+            self._complete()
+        self.assertEqual(seen, [(self.char1, self.START_BALANCE + 500)])
+
+    def test_a_stale_offer_writes_nothing(self):
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char1, currency=500)
+        self.handler.offer(self.char2, sword)
+        sword.location = self.room1  # dropped between offer and accept
+        self._complete()
+        self.assertEqual(sword.location, self.room1)  # receipt: nothing moved
+        self.assertEqual(self.activity_records("trade"), [])
+
+    def test_a_forced_teardown_writes_nothing(self):
+        sword = self._item("iron sword", location=self.char2)
+        self.handler.offer(self.char2, sword)
+        self.assertTrue(self.handler.finish(force=True))  # receipt: torn down
+        self.assertEqual(self.activity_records("trade"), [])

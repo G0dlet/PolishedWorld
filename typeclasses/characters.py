@@ -22,6 +22,7 @@ from world.currency import CurrencyHandler
 from world import encumbrance
 from world import survival_ticker
 from world import timed_actions
+from world import activity_log
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -956,6 +957,18 @@ class Character(ObjectParent, ClothedCharacter):
         result = self.improve_skill_on_use(skill_key)
         if result and result["rolled"]:
             self.cooldowns.add(cd_key, self.improvement_cooldown)
+            # Launch Minimum L2.2: a tick is an event; a gated attempt (None)
+            # is not. `old`/`new` are the engine's own names for the skill %
+            # before and after (usually equal: XP banks in grains), and `xp` is
+            # what this tick banked, which is the number that always moves.
+            activity_log.record(
+                "improve",
+                self,
+                skill=skill_key,
+                old=result["old"],
+                new=result["new"],
+                xp=result["xp_gained"],
+            )
         return result
 
     def _improvement_feedback(self, result):
