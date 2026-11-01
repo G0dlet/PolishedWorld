@@ -6,15 +6,27 @@ test reads is exactly the file that test wrote. The classes follow the
 promises the module makes: one event is one line (and a line holds what the
 report will need); many events are many lines, in order, in one file; a
 programming error raises and writes nothing; a write failure never raises.
+
+It also exports what the site tests use (L2.2): ``ActivityLogMixin`` gives any
+test class a fresh ``LOG_DIR`` and a ``last_record()`` reader, and
+``TestSiteCensus`` pins how many ``activity_log.record(`` calls production code
+makes, file by file (lesson 200), so adding or losing a site is a deliberate
+change to a number.
+
+Importing from here is safe: the mixin and the two readers are not
+``TestCase`` subclasses, so a module that imports them does not collect and
+re-run this module's tests.
 """
 
+import ast
 import json
 import os
+import pathlib
 import tempfile
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 
 from evennia.utils.test_resources import EvenniaTest
 
@@ -26,24 +38,61 @@ FIXED_TIME = {
 }
 
 
-class _LogDirTest(EvenniaTest):
-    """Shared setup: LOG_DIR is a temp dir; helpers to read the lines back."""
+def records(log_dir, kind=None):
+    """Every line in ``log_dir``'s activity log, parsed; only ``kind`` if given."""
+    target = os.path.join(log_dir, activity_log.FILENAME)
+    if not os.path.exists(target):
+        return []
+    with open(target, encoding="utf-8") as handle:
+        entries = [json.loads(raw) for raw in handle.read().splitlines()]
+    return [entry for entry in entries if kind is None or entry["kind"] == kind]
+
+
+def last_record(log_dir, kind=None):
+    """The last line (of ``kind``, if given), or None when there is none."""
+    found = records(log_dir, kind)
+    return found[-1] if found else None
+
+
+class ActivityLogMixin:
+    """
+    A fresh, empty ``LOG_DIR`` per test, and readers for the lines written to it.
+
+    Put it FIRST in the bases (``class T(ActivityLogMixin, SomeFixture)``) so
+    the fixture's own ``setUp`` runs inside ``super().setUp()`` and the
+    override is in place before the test body. ``record()`` reads
+    ``settings.LOG_DIR`` on every call, so nothing else needs patching.
+
+    Every site test filters by kind: from L2.2b, a craft or a dismantle that
+    ticks a skill writes an ``improve`` line too, so "the last line" alone
+    would be the wrong question.
+    """
 
     def setUp(self):
         super().setUp()
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.tmp = tmp.name
-        override = override_settings(LOG_DIR=self.tmp)
+        self.activity_dir = tmp.name
+        override = override_settings(LOG_DIR=self.activity_dir)
         override.enable()
         self.addCleanup(override.disable)
 
+    def activity_records(self, kind=None):
+        return records(self.activity_dir, kind)
+
+    def last_record(self, kind=None):
+        return last_record(self.activity_dir, kind)
+
+
+class _LogDirTest(ActivityLogMixin, EvenniaTest):
+    """Shared setup for this module's own tests."""
+
+    def setUp(self):
+        super().setUp()
+        self.tmp = self.activity_dir
+
     def lines(self):
-        target = os.path.join(self.tmp, activity_log.FILENAME)
-        if not os.path.exists(target):
-            return []
-        with open(target, encoding="utf-8") as handle:
-            return [json.loads(raw) for raw in handle.read().splitlines()]
+        return self.activity_records()
 
 
 class TestOneEventOneLine(_LogDirTest):
@@ -97,7 +146,7 @@ class TestManyEventsInOrder(_LogDirTest):
 
 
 class TestProgrammingErrorsRaise(_LogDirTest):
-    """Pressured by LM-M5 (kind check) and LM-M6 (reserved-name check)."""
+    """Pressured by LM-M5 (kind check) and LM-M5b (reserved-name check)."""
 
     def test_unknown_kind_raises_and_writes_nothing(self):
         with self.assertRaises(ValueError):
@@ -121,3 +170,69 @@ class TestWriteFailureNeverRaises(_LogDirTest):
             activity_log.record("craft", self.char1, recipe="twine")  # must not raise
         self.assertEqual(log_err.call_count, 1)
         self.assertFalse(os.path.exists(missing))
+
+
+# --------------------------------------------------------------------------- census
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+PRODUCTION = ("commands", "server", "typeclasses", "web", "world")
+
+# Every activity_log.record( call in production code, per file. L2.2a lands
+# the ten production sites; L2.2b adds the six circulation sites.
+SITES = {
+    "commands/crafting_commands.py": 6,  # dismantle, inscribe, scribe, learn x3
+    "commands/foraging_commands.py": 1,  # forage
+    "commands/hunting_commands.py": 1,   # harvest
+    "commands/repair_commands.py": 1,    # repair
+    "world/crafting_base.py": 1,         # craft (post_craft)
+}
+
+
+def _record_calls(tree):
+    """Calls spelled ``activity_log.record(...)`` in one parsed module."""
+    return sum(
+        1
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "record"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "activity_log"
+    )
+
+
+def census():
+    """{relative path: call count} over the production packages."""
+    found = {}
+    for package in PRODUCTION:
+        for path in sorted((REPO / package).rglob("*.py")):
+            count = _record_calls(ast.parse(path.read_text(encoding="utf-8")))
+            if count:
+                found[path.relative_to(REPO).as_posix()] = count
+    return found
+
+
+class TestSiteCensus(SimpleTestCase):
+    """
+    Pressured by LM-M8 (a site dropped). Counts call sites with the AST, not
+    tests (lesson 183): a site deleted with its test, or a thirteenth added
+    without one, both change this dict. A ``from world.activity_log import
+    record`` would hide a site from the census; the import style is the
+    module, so the spelling counted here is the only one in use.
+    """
+
+    def test_every_site_is_counted_file_by_file(self):
+        self.assertEqual(census(), SITES)
+
+    def test_no_site_imports_record_by_name(self):
+        offenders = []
+        for package in PRODUCTION:
+            for path in sorted((REPO / package).rglob("*.py")):
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+                for node in ast.walk(tree):
+                    if (
+                        isinstance(node, ast.ImportFrom)
+                        and node.module == "world.activity_log"
+                    ):
+                        offenders.append(path.relative_to(REPO).as_posix())
+        self.assertEqual(offenders, [])

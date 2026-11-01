@@ -59,6 +59,7 @@ from world.knowledge import (
 )
 from world.crafting_base import MongooseCraftRecipe
 from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
+from tests.test_activity_log import ActivityLogMixin
 from world.recipes import (
     ClothRecipe,
     LeatherBootsRecipe,
@@ -538,3 +539,123 @@ class TestLearnCommand(EvenniaCommandTest):
 
     def test_learn_without_target_asks_what(self):
         self.call(CmdLearn(), "", "Study what?", caller=self.char1)
+
+
+class TestKnowledgeIsLogged(ActivityLogMixin, EvenniaCommandTest):
+    """
+    Launch Minimum L2.2: the five knowledge paths each write one line --
+    inscribe and scribe (a carrier made), learn from a scroll, a book or a
+    teacher (knowledge moved). `carrier` is the object's dbref read before any
+    delete(): a deleted object's dbref is "#None", which the scroll and the
+    crumbling book would otherwise write. A learn that moves nothing (the
+    recipe already known) writes no line.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(
+            type(self.char1), "has_account",
+            new_callable=mock.PropertyMock, return_value=1,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.char1.skills.get("craft").current = 60  # clears SCRIBE_MIN_CRAFT
+
+    def _master(self, char=None):
+        char = char or self.char1
+        char.learn_recipe(CLOTH)
+        char.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD)
+
+    def _hand(self, *prototypes):
+        objs = spawn(*prototypes)
+        for obj in objs:
+            obj.move_to(self.char1, quiet=True)
+        return objs
+
+    def _only(self):
+        (entry,) = self.activity_records("knowledge")
+        return entry
+
+    def test_inscribe_logs_the_scroll_it_made(self):
+        self._master()
+        (cloth,) = self._hand("cloth")
+        cloth_key = cloth.key
+        self.call(CmdInscribe(), CLOTH, "You carefully inscribe", caller=self.char1)
+        (scroll,) = [o for o in self.char1.contents if o.db.recipe == CLOTH]
+        entry = self._only()
+        self.assertEqual(
+            (entry["verb"], entry["recipe"], entry["medium"], entry["carrier"],
+             entry["consumed"]),
+            ("inscribe", CLOTH, "scroll", scroll.dbref, [cloth_key]),
+        )
+
+    def test_scribe_logs_the_book_it_bound(self):
+        self._master()
+        inputs = self._hand("cloth", "cloth", "twine")
+        keys = sorted(obj.key for obj in inputs)
+        self.call(CmdScribe(), CLOTH, "You bind a book", caller=self.char1)
+        (book,) = [o for o in self.char1.contents if o.db.recipes]
+        entry = self._only()
+        self.assertEqual(
+            (entry["verb"], entry["recipe"], entry["medium"], entry["carrier"],
+             sorted(entry["consumed"]), entry["condition"]),
+            ("scribe", [CLOTH], "book", book.dbref, keys, book.condition),
+        )
+
+    def test_learn_from_a_scroll_logs_the_scroll_spent(self):
+        (scroll,) = self._hand("scroll")
+        scroll.stamp(CLOTH)
+        ref = scroll.dbref
+        self.call(CmdLearn(), "scroll", "You study", caller=self.char1)
+        self.assertIsNone(scroll.pk)  # receipt: spent
+        entry = self._only()
+        self.assertEqual(
+            (entry["verb"], entry["recipe"], entry["medium"], entry["carrier"]),
+            ("learn", CLOTH, "scroll", ref),
+        )
+
+    def test_learn_from_a_book_logs_the_book_studied(self):
+        (book,) = self._hand("book")
+        book.stamp([CLOTH])
+        book.condition = 100
+        self.call(CmdLearn(), f"{CLOTH} from {book.key}", "You study", caller=self.char1)
+        self.assertTrue(self.char1.knows_recipe(CLOTH))
+        entry = self._only()
+        self.assertEqual(
+            (entry["verb"], entry["recipe"], entry["medium"], entry["carrier"],
+             entry["crumbled"]),
+            ("learn", CLOTH, "book", book.dbref, False),
+        )
+
+    def test_a_book_that_crumbles_still_logs_its_dbref(self):
+        (book,) = self._hand("book")
+        book.stamp([CLOTH])
+        book.condition = 20  # one study (BOOK_WEAR_PER_STUDY) breaks it
+        ref, key = book.dbref, book.key
+        self.call(CmdLearn(), f"{CLOTH} from {key}", "You study", caller=self.char1)
+        self.assertIsNone(book.pk)  # receipt: it crumbled
+        entry = self._only()
+        self.assertEqual((entry["carrier"], entry["crumbled"]), (ref, True))
+
+    def test_a_lesson_logs_the_student_and_the_teacher(self):
+        self._master()
+        self.char2.ndb.pending_teach = (self.char1, CLOTH, time.time() + 60)
+        self.call(CmdLearn(), f"{CLOTH} from {self.char1.key}", caller=self.char2)
+        self.assertTrue(self.char2.knows_recipe(CLOTH))
+        entry = self._only()
+        self.assertEqual(
+            (entry["actor"], entry["verb"], entry["recipe"], entry["medium"],
+             entry["counterpart"]),
+            ([self.char2.dbref, self.char2.key], "teach", CLOTH, "lesson",
+             [self.char1.dbref, self.char1.key]),
+        )
+
+    def test_a_learn_that_moves_nothing_writes_nothing(self):
+        self.char1.learn_recipe(CLOTH)
+        (scroll,) = self._hand("scroll")
+        scroll.stamp(CLOTH)
+        self.call(CmdLearn(), "scroll", "You already know this recipe.", caller=self.char1)
+        self.assertIsNotNone(scroll.pk)
+        self.assertEqual(self.activity_records(), [])

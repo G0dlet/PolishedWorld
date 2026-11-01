@@ -28,6 +28,7 @@ from evennia.objects.models import ObjectDB
 from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands.hunting_commands import CmdHarvest
+from tests.test_activity_log import ActivityLogMixin
 
 CHARACTER = "typeclasses.characters.Character"
 ROOM = "typeclasses.rooms.Room"
@@ -133,3 +134,44 @@ class TestCreatureCorpsesStillHarvest(_GuardFixture, EvenniaCommandTest):
 
         self.assertIn(LISTING, output)
         self.assertNotIn(REFUSAL, output)
+
+
+class TestHarvestIsLogged(ActivityLogMixin, _GuardFixture, EvenniaCommandTest):
+    """
+    Launch Minimum L2.2: a harvest that spent the part writes one gather line
+    -- the yield on a success, nothing taken on a botch -- and a plain failure,
+    which changed nothing, writes none. The roll is pinned at the command's
+    own `skill_check`, so the three branches are the only variable.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.corpse = self.make_corpse("logcarcass", typeclass=CORPSE)
+
+    def harvest(self, result, success):
+        outcome = {"success": success, "result": result, "crit_score": 0}
+        with mock.patch("commands.hunting_commands.skill_check", return_value=outcome):
+            self.call(CmdHarvest(), "meat from logcarcass", caller=self.char1)
+
+    def test_a_clean_take_logs_its_yield(self):
+        before = set(self.char1.contents)
+        self.harvest("success", True)
+        taken = sorted(obj.key for obj in set(self.char1.contents) - before)
+        self.assertTrue(taken)  # receipt: the success branch spawned something
+        (entry,) = self.activity_records("gather")
+        self.assertEqual(
+            (entry["command"], entry["node"], entry["part"], entry["prototype"],
+             sorted(entry["yields"]), entry["success"]),
+            ("harvest", "logcarcass", "meat", "rabbit_meat", taken, True),
+        )
+
+    def test_a_botch_logs_the_part_lost(self):
+        self.harvest("fumble", False)
+        self.assertTrue(self.corpse.db.harvested.get("meat"))  # receipt: slot spent
+        (entry,) = self.activity_records("gather")
+        self.assertEqual((entry["yields"], entry["success"]), ([], False))
+
+    def test_a_plain_failure_writes_nothing(self):
+        self.harvest("failure", False)
+        self.assertFalse(self.char1.cooldowns.ready("harvest"))  # receipt: resolved
+        self.assertEqual(self.activity_records("gather"), [])

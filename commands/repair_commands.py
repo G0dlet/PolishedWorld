@@ -22,6 +22,7 @@ from world.skillcheck import skill_check, CRITICAL, FUMBLE
 from world.crafting_quality import quality_band, SUPERIOR
 from world.thermal import apply_thermal_stress
 from typeclasses.durable import DurableObject
+from world import activity_log
 
 # Realtime seconds before repair can be re-run (in line with the tailoring
 # recipes' craft_duration ~40; a craft waits before it resolves, a repair after).
@@ -140,12 +141,24 @@ class CmdRepair(Command):
         )
         result = outcome["result"]
 
+        consumed = [obj.key for obj in materials]  # read before delete()
         for obj in materials:
             obj.delete()
         caller.cooldowns.add("repair", REPAIR_COOLDOWN)
 
         new = self._resolved_condition(current, outcome)
         target.db.condition = new
+        # Launch Minimum L2.2: after the last write, before the first message.
+        # Every resolved attempt spends its materials, so every one is a line.
+        activity_log.record(
+            "repair",
+            caller,
+            item=target.key,
+            consumed=consumed,
+            tier=result,
+            before=current,
+            after=new,
+        )
         name = target.get_display_name(caller)
 
         if result == CRITICAL:

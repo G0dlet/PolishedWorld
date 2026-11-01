@@ -39,7 +39,7 @@ from world.recipe_mastery import (
     MASTERY_STEP_SIZE,
     MASTERY_TITLES,
 )
-from world import timed_actions
+from world import activity_log, timed_actions
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
 # conservative dev value: the disassemble roll is already destructive (the item
@@ -775,6 +775,7 @@ class CmdDisassemble(Command):
         # The single-threaded reactor makes read-roll-delete atomic against a
         # concurrent disassemble, and delete() runs exactly once.
         name = target.get_display_name(caller)
+        target_key = target.key  # read before delete(), for the event line
         target.delete()
         caller.cooldowns.add("disassemble", DISASSEMBLE_COOLDOWN)
 
@@ -807,6 +808,17 @@ class CmdDisassemble(Command):
                 caller.msg(text)
         else:
             caller.msg("The piece falls apart before you grasp how it was made.")
+
+        # Launch Minimum L2.2: the item is gone on both outcomes, so both are
+        # events. Last, because the success branch's last write (learn_recipe)
+        # sits between that branch's messages.
+        activity_log.record(
+            "dismantle",
+            caller,
+            target=target_key,
+            recipe=recipe_name,
+            learned=bool(outcome["success"]),
+        )
 
 
 class CmdInscribe(Command):
@@ -895,6 +907,7 @@ class CmdInscribe(Command):
             caller.msg("The inscription smears and fails; nothing is lost.")
             return
 
+        material_key = material.key  # read before delete(), for the event line
         material.delete()
         # stamp() owns the scroll's identity (recipe + searchable key); flavour
         # and the readable detail render live from the stamp in the Scroll
@@ -904,6 +917,17 @@ class CmdInscribe(Command):
         set_down = caller.receive_or_set_down([scroll])
 
         caller.cooldowns.add("inscribe", INSCRIBE_COOLDOWN)
+        # Launch Minimum L2.2: after the last write, before the first message.
+        # `carrier` lets the report follow the scroll to the learn that spends it.
+        activity_log.record(
+            "knowledge",
+            caller,
+            verb="inscribe",
+            recipe=recipe_name,
+            medium="scroll",
+            carrier=scroll.dbref,
+            consumed=[material_key],
+        )
         caller.msg(
             f"You carefully inscribe the |y{recipe_name}|n recipe onto a scroll."
         )
@@ -1048,6 +1072,7 @@ class CmdScribe(Command):
             caller.msg("The binding falls apart in your hands; nothing is lost.")
             return
 
+        consumed = [material.key for material in to_consume]  # before delete()
         for material in to_consume:
             material.delete()
 
@@ -1061,6 +1086,17 @@ class CmdScribe(Command):
         set_down = caller.receive_or_set_down([book])
 
         caller.cooldowns.add("scribe", SCRIBE_COOLDOWN)
+        # Launch Minimum L2.2: after the last write, before the first message.
+        activity_log.record(
+            "knowledge",
+            caller,
+            verb="scribe",
+            recipe=list(recipe_names),
+            medium="book",
+            carrier=book.dbref,
+            consumed=consumed,
+            condition=condition,
+        )
         listed = ", ".join(recipe_names)
         tail = SCRIBE_TIER_FLAVOUR.get(tier, "")
         caller.msg(f"You bind a book of |y{listed}|n. {tail}".rstrip())
@@ -1324,7 +1360,18 @@ class CmdLearn(Command):
         # display name first (get_display_name needs a live object); delete() runs
         # exactly once, atomically against a concurrent learn.
         name = target.get_display_name(caller)
+        scroll_ref = target.dbref  # a deleted object's dbref reads "#None"
         target.delete()
+
+        # Launch Minimum L2.2: after the last write, before the first message.
+        activity_log.record(
+            "knowledge",
+            caller,
+            verb="learn",
+            recipe=recipe_name,
+            medium="scroll",
+            carrier=scroll_ref,
+        )
 
         caller.msg(
             f"You study the {name} and commit the |y{recipe_name}|n recipe to "
@@ -1434,6 +1481,18 @@ class CmdLearn(Command):
             )
             return True
 
+        # Launch Minimum L2.2: the lesson is the teach event. `teach` only
+        # leaves an offer (ndb.pending_teach); knowledge moves here, on the
+        # student's accept, so the student is the actor and the teacher the
+        # counterpart. An already-known recipe returned above: nothing moved.
+        activity_log.record(
+            "knowledge",
+            caller,
+            verb="teach",
+            recipe=recipe_name,
+            medium="lesson",
+            counterpart=[teacher.dbref, teacher.key],
+        )
         caller.msg(
             f"{teacher.get_display_name(caller)} walks you through the "
             f"|y{recipe_name}|n recipe until it sticks. You have learned it."
@@ -1506,7 +1565,9 @@ class CmdLearn(Command):
         # break; is_broken reads condition <= 0. delete() runs exactly once, atomic
         # against a concurrent study on the single-threaded reactor.
         name = book.get_display_name(caller)
+        book_ref = book.dbref  # a deleted object's dbref reads "#None"
         book.apply_wear(BOOK_WEAR_PER_STUDY)
+        crumbled = bool(book.is_broken)
         if book.is_broken:
             book.delete()
             caller.msg(
@@ -1518,3 +1579,15 @@ class CmdLearn(Command):
                 f"You study the |y{match}|n recipe from the {name}, committing it to "
                 "memory. The book is more thumbed for it."
             )
+
+        # Launch Minimum L2.2: last, because the crumbling branch's delete()
+        # is this path's last write and sits before that branch's message.
+        activity_log.record(
+            "knowledge",
+            caller,
+            verb="learn",
+            recipe=match,
+            medium="book",
+            carrier=book_ref,
+            crumbled=crumbled,
+        )

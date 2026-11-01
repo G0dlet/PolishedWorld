@@ -18,6 +18,7 @@ from evennia.utils import logger
 
 # Assumes the game template's base command. Adjust if yours lives elsewhere.
 from commands.command import Command
+from world import activity_log
 
 FORAGE_COOLDOWN = 60  # real seconds between forage attempts, per character
 
@@ -151,6 +152,18 @@ class CmdForage(Command):
 
         # 8. Commit cooldown and announce — only on success.
         caller.cooldowns.add("forage", FORAGE_COOLDOWN)
+        # Launch Minimum L2.2: the event line, after the last write (the
+        # cooldown) and before the first message. Only a forage that took a
+        # unit gets here; every refusal above returned with nothing taken.
+        activity_log.record(
+            "gather",
+            caller,
+            command="forage",
+            node=node.key,
+            prototype=node.yield_prototype,
+            yields=[item.key],
+            success=True,
+        )
         caller.msg(f"You forage {item.get_display_name(caller)} from the {node.get_display_name(caller)}.")
         if set_down:
             caller.msg(caller.set_down_message(set_down))

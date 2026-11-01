@@ -21,6 +21,7 @@ from world.skillcheck import (
     opposed_check, skill_check, ATTACKER, DEFENDER, CRITICAL, FUMBLE,
 )
 from world.harvest_templates import get_template, get_part, compute_yield
+from world import activity_log
 
 HUNT_COOLDOWN = 30      # real seconds between hunt attempts, per character
 HARVEST_COOLDOWN = 30   # real seconds between harvest attempts, per character
@@ -363,6 +364,23 @@ class CmdHarvest(Command):
         # 11. An attempt resolved (success/fumble/failure) -> commit the cooldown.
         #     Every earlier `return` is a free bailout that never reaches here.
         caller.cooldowns.add("harvest", HARVEST_COOLDOWN)
+
+        # Launch Minimum L2.2: one line when the attempt spent the part -- a
+        # clean take (the yield) or a botch (the part ruined, nothing taken).
+        # A plain failure changed nothing and can be retried, so it is not an
+        # event. After the cooldown, the attempt's last write; the outcome
+        # lines went first because they sit inside the branches above.
+        if outcome["success"] or result == FUMBLE:
+            activity_log.record(
+                "gather",
+                caller,
+                command="harvest",
+                node=corpse.key,
+                prototype=part["prototype"],
+                part=part_name,
+                yields=[obj.key for obj in spawned] if outcome["success"] else [],
+                success=bool(outcome["success"]),
+            )
 
     # ------------------------------------------------------------------ helpers
 
