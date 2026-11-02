@@ -36,8 +36,11 @@ from typeclasses.characters import KNOWN_RECIPE_CATEGORY
 from world.crafting_base import MongooseCraftRecipe
 from world.recipes import (
     BackpackRecipe,
+    ClothRecipe,
     LeatherBootsRecipe,
     LeatherRecipe,
+    TentRecipe,
+    TwineRecipe,
     WaterskinRecipe,
 )
 
@@ -249,9 +252,11 @@ class TestRecipesRoutine(_RecipesTestBase):
         self.assertRegex(self.recipes(), self.TAGGED)
 
     def test_the_tag_follows_the_floor_note(self):
+        # Since L3.2 a recipe you can craft carries no floor note, so the tag
+        # stands alone after the name.
         self.char1.learn_recipe(LEATHER)
         self.at(51)
-        self.assertRegex(self.recipes(), r"(?m)^\s+leather \(needs Craft 20%\) \(routine\)$")
+        self.assertRegex(self.recipes(), r"(?m)^\s+leather \(routine\)$")
 
     def test_detail_says_yes_at_50_and_no_at_51_beside_skill(self):
         self.char1.learn_recipe(LEATHER)
@@ -290,3 +295,86 @@ class TestRecipesRoutine(_RecipesTestBase):
         self.assertIn("Skill:", desc)
         self.assertNotIn("Teaches", desc)
         self.assertNotIn("routine", desc)
+
+
+
+class TestRecipesCanCraft(_RecipesTestBase):
+    """
+    L3.2: the bare list is split by the floor rule the craft gate enforces
+    (`meets_floor`, `.value >= min_skill`), and the floor note appears only
+    where the floor is above the viewer.
+
+    The bugs this presses on: the boundary drawn as `>` (cloth at exactly 20),
+    the note left on recipes you are past, the split read on `.current` while
+    the gate reads `.value`, and `(routine)` on a recipe the gate refuses.
+    Every negative check sits beside a positive receipt that the group it
+    looks inside was drawn.
+    """
+
+    CAN = "Recipes you can craft:"
+    CANNOT = "Recipes you know but cannot craft yet:"
+
+    def setUp(self):
+        super().setUp()
+        self.char1.learn_recipe(ClothRecipe.name)
+        self.char1.learn_recipe(TentRecipe.name)
+
+    def at(self, current, mod=0):
+        """Set Craft to `current` + `mod`: base first (lesson 199)."""
+        trait = self.char1.skills.get("craft")
+        trait.base = current
+        trait.current = current
+        trait.mod = mod
+        self.assertEqual(trait.value, current + mod)
+
+    def groups(self):
+        """(can, cannot): the text under each heading, '' for a heading not drawn."""
+        out = self.recipes().split("Disciplines", 1)[0]
+        can = out.split(self.CAN, 1)[1].split(self.CANNOT, 1)[0] if self.CAN in out else ""
+        cannot = out.split(self.CANNOT, 1)[1] if self.CANNOT in out else ""
+        return can, cannot
+
+    def test_at_20_cloth_is_craftable_and_the_tent_is_not(self):
+        self.at(20)
+        can, cannot = self.groups()
+        self.assertRegex(can, rf"(?m)^\s+{TwineRecipe.name}")
+        self.assertRegex(can, r"(?m)^\s+cloth$")
+        self.assertRegex(cannot, r"(?m)^\s+tent \(needs Craft 60%\)$")
+        self.assertNotIn("tent", can)
+        self.assertNotIn("cloth", cannot)
+
+    def test_at_19_cloth_waits_with_its_floor(self):
+        self.at(19)
+        can, cannot = self.groups()
+        self.assertRegex(can, rf"(?m)^\s+{TwineRecipe.name}")
+        self.assertRegex(cannot, r"(?m)^\s+cloth \(needs Craft 20%\)$")
+
+    def test_at_100_one_heading_no_notes(self):
+        self.at(100)
+        out = self.recipes()
+        self.assertIn(self.CAN, out)
+        self.assertNotIn(self.CANNOT, out)
+        self.assertNotIn("needs Craft", out)
+        self.assertRegex(out, r"(?m)^\s+tent$")                # top rung: never routine (TD3)
+        self.assertRegex(out, rf"(?m)^\s+{TwineRecipe.name} \(routine\)$")
+
+    def test_a_penalty_on_value_moves_cloth_down(self):
+        self.at(25, mod=-10)                    # .current 25 would pass the floor
+        can, cannot = self.groups()
+        self.assertRegex(can, rf"(?m)^\s+{TwineRecipe.name}")
+        self.assertRegex(cannot, r"(?m)^\s+cloth \(needs Craft 20%\)$")
+
+    def test_a_bonus_on_value_moves_the_tent_up(self):
+        self.at(40, mod=25)                     # .current 40 would not
+        can, cannot = self.groups()
+        self.assertRegex(can, r"(?m)^\s+tent$")
+        self.assertNotIn("tent", cannot)
+
+    def test_a_recipe_you_cannot_craft_is_never_routine(self):
+        # .current 60 is 40 above leather's floor (routine past the band of
+        # 30); .value 10 is below it, so the gate refuses it.
+        self.char1.learn_recipe(LEATHER)
+        self.at(60, mod=-50)
+        can, cannot = self.groups()
+        self.assertRegex(cannot, r"(?m)^\s+leather \(needs Craft 20%\)$")
+        self.assertNotIn("routine", cannot)

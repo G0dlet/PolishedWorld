@@ -46,7 +46,7 @@ from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 from world.skillcheck import skill_check
 from world.crafting_quality import quality_band, SUPERIOR
 from world.recipe_mastery import MASTERY_CAP, MASTERY_STEP
-from world.knowledge import routine_for
+from world.knowledge import meets_floor, routine_for
 from world import activity_log
 
 
@@ -305,8 +305,9 @@ class MongooseCraftRecipe(CraftingRecipe):
         # that penalty shifts the ROLL in do_craft ("how well"), not the gate ("may
         # you try"), so a skilled but tool-less crafter passes here and then rolls at
         # -20. Orthogonal to Stage 3's knowledge-gate. min_skill defaults to 0
-        # (ungated), so trivial survival recipes are never blocked.
-        if self._skill_value() < self.min_skill:
+        # (ungated), so trivial survival recipes are never blocked. The rule is
+        # meets_floor's, which `recipes` also sorts its list by (L3.2).
+        if not meets_floor(self.crafter, self):
             self.msg(f"Your Craft is too unskilled (need {self.min_skill}%).")
             raise CraftingError(f"{self.name} requires Craft {self.min_skill}%.")
 

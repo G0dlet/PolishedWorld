@@ -32,7 +32,7 @@ from world.skillcheck import skill_check
 from evennia.prototypes.spawner import spawn
 from evennia.utils import logger
 
-from world.knowledge import _can_transmit, render_recipe_detail, routine_for
+from world.knowledge import _can_transmit, meets_floor, render_recipe_detail, routine_for
 from world.recipe_mastery import (
     DISCIPLINES,
     MASTERY_CAP,
@@ -430,7 +430,7 @@ _DISCIPLINE_LABELS = dict(DISCIPLINES)
 
 class CmdRecipes(Command):
     """
-    List the recipes you can craft, or inspect one in detail.
+    List the recipes you know, or inspect one in detail.
 
     Usage:
       recipes              - list common + learned recipes, and your disciplines
@@ -440,7 +440,10 @@ class CmdRecipes(Command):
                              you've made
 
     The bare list shows the common recipes everyone can make plus any advanced
-    recipes you have personally learned. `recipes <name>` details a recipe you
+    recipes you have personally learned, in two groups: those your Craft lets
+    you attempt now, and those you know but whose skill floor is above you,
+    each with the Craft it needs. A buff or a penalty on your Craft moves
+    recipes between the two while it lasts. `recipes <name>` details a recipe you
     can see: its ingredients, whether a tool helps, any skill floor, how long it
     takes to craft, and what it produces. Recipes you have not learned stay
     hidden -- their ingredients are part of what you learn, buy, or are taught.
@@ -526,30 +529,57 @@ class CmdRecipes(Command):
         return [c for c in visible if getattr(c, "discipline", None) == discipline]
 
     # --- overview ------------------------------------------------------------
+    @staticmethod
+    def _list_note(caller, cls, craftable):
+        """
+        The tag after a recipe's name in the bare list (L3.2).
+
+        A recipe you can craft never shows its floor -- you are past it -- and
+        may show `(routine)`. A recipe you cannot craft yet shows the floor it
+        needs and is never routine: routine_for reads `.current`, so a penalty
+        on `.value` could otherwise tag a recipe the gate refuses.
+        """
+        if not craftable:
+            floor = getattr(cls, "min_skill", 0) or 0
+            return f" |x(needs Craft {floor}%)|n"
+        # Trivial-work gate (E.2, TD6): the rule is learnable only if it is
+        # visible before the craft. routine_for is the call the improvement
+        # roll makes, so the tag cannot disagree with what a craft teaches --
+        # and it reads .current, so a tool or buff worn while looking does not
+        # move the tag.
+        return " |x(routine)|n" if routine_for(caller, cls) else ""
+
     def _show_list(self):
         caller = self.caller
         common, known, hidden = _visible_recipes(caller)
 
-        lines = ["\n|wRecipes you can craft:|n", "|g" + "=" * 50 + "|n"]
-
+        lines = []
         if not common and not known:
+            lines += ["\n|wRecipes you can craft:|n", "|g" + "=" * 50 + "|n"]
             lines.append("  You know no recipes yet.")
         else:
-            for label, bucket in (("Common", common), ("Known", known)):
-                if not bucket:
+            # Two groups by the floor rule pre_craft enforces (L3.2): meets_floor
+            # is the call the skill-gate makes, so a recipe listed as craftable is
+            # one the gate lets you attempt right now. A group with no recipes
+            # prints no heading -- at Craft 100 only the first is shown.
+            groups = (
+                ("Recipes you can craft:", True),
+                ("Recipes you know but cannot craft yet:", False),
+            )
+            for heading, craftable in groups:
+                buckets = [
+                    (label, [c for c in bucket if meets_floor(caller, c) is craftable])
+                    for label, bucket in (("Common", common), ("Known", known))
+                ]
+                if not any(members for _label, members in buckets):
                     continue
-                lines.append(f"  |w{label}|n")
-                for cls in bucket:
-                    floor = getattr(cls, "min_skill", 0) or 0
-                    note = f" |x(needs Craft {floor}%)|n" if floor > 0 else ""
-                    # Trivial-work gate (E.2, TD6): the rule is learnable only if
-                    # it is visible before the craft. routine_for is the call the
-                    # improvement roll makes, so the tag cannot disagree with
-                    # what a craft teaches -- and it reads .current, so a tool
-                    # or buff worn while looking does not move the tag.
-                    if routine_for(caller, cls):
-                        note += " |x(routine)|n"
-                    lines.append(f"    |y{cls.name}|n{note}")
+                lines += [f"\n|w{heading}|n", "|g" + "=" * 50 + "|n"]
+                for label, members in buckets:
+                    if not members:
+                        continue
+                    lines.append(f"  |w{label}|n")
+                    for cls in members:
+                        lines.append(f"    |y{cls.name}|n{self._list_note(caller, cls, craftable)}")
 
         # One line per discipline with at least one visible recipe, in
         # DISCIPLINES order. "known" here is what the list above shows: common
