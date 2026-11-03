@@ -2,7 +2,9 @@
 The alpha's authored area, as data. Alpha content epic, Task AC3.1.
 
 This module is pure data: no Evennia imports, no logic. `world/seeding.py`
-builds it into a database with `seed_world()`; nothing else reads it.
+builds it into a database with `seed_world()` (and one scroll at a time with
+`reseed_scroll()`); the only other reader is `tests/test_recipe_sources.py`,
+which counts `SCROLLS` as a source for knowledge-gated recipes.
 
 WHY THE WORLD IS DATA IN GIT
 ----------------------------
@@ -20,6 +22,8 @@ looks up before creating it again. The schema:
     alpha.room.<room>                 a room
     alpha.exit.<from-room>.<name>     an exit, named after where it stands
     alpha.node.<room>.<prototype>     a resource node
+    alpha.scroll.<recipe>             a stamped recipe scroll (spaces in the
+                                      recipe name become underscores)
 
 A seed_id is an identity, not a label: renaming one makes the seeder build a
 second object next to the first. Room keys and descs can be reworded freely
@@ -52,6 +56,19 @@ ROOM FIELDS
                     "hot" pins a microclimate (world/thermal.py:thermal_regime)
     spawn_creatures None, or {creature prototype_key: target count}; the
                     seeder also adds the tag CreatureSpawnScript queries
+
+SCROLL FIELDS (Launch Minimum L3.3)
+-----------------------------------
+    seed_id         see above
+    recipe          the canonical recipe name the scroll is stamped with
+                    (`Scroll.stamp`), a `requires_knowledge` recipe
+    room            the seed_id of the room it is placed in
+
+Scrolls are the one seeded object a player consumes (`learn` deletes it), so
+"skip, never sync" needs more than the seed tag here: the seeder records every
+scroll it has placed, and `seed_world()` never places one twice, even after it
+was learned. Replenishing is a staff decision, one recipe at a time, with
+`reseed_scroll(<recipe>)` (see world/seeding.py).
 """
 
 # The one exit that does not start in a seeded room stands in Limbo -- the
@@ -192,4 +209,44 @@ NODES = (
      "room": "alpha.room.ridge", "prototype": "stone_outcrop"},
     {"seed_id": "alpha.node.ridge.flint_scatter",
      "room": "alpha.room.ridge", "prototype": "flint_scatter"},
+)
+
+
+# Launch Minimum LM9: one stamped scroll per knowledge-gated recipe with fewer
+# than two profession grantors (world/professions.py) -- linen shirt and leather
+# boots (one grantor each) and the thirteen with none. Without these, a recipe
+# with no grantor can never be learned by anyone; tests/test_recipe_sources.py
+# fails if a gated recipe has neither a grant nor a row here. All in the temple,
+# the room every player sees first and where the Treasury stands (OQ2).
+SCROLLS = (
+    {"seed_id": "alpha.scroll.linen_shirt",
+     "recipe": "linen shirt", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.leather_boots",
+     "recipe": "leather boots", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.hood",
+     "recipe": "hood", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.scrollcase",
+     "recipe": "scrollcase", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.bandolier",
+     "recipe": "bandolier", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.breeches",
+     "recipe": "breeches", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.sack",
+     "recipe": "sack", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.backpack",
+     "recipe": "backpack", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.shoes",
+     "recipe": "shoes", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.robe",
+     "recipe": "robe", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.reversible_clothes",
+     "recipe": "reversible clothes", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.linen_cuirass",
+     "recipe": "linen cuirass", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.saddlebag",
+     "recipe": "saddlebag", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.bone_armour",
+     "recipe": "bone armour", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.tent",
+     "recipe": "tent", "room": "alpha.room.temple"},
 )

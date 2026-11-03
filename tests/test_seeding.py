@@ -27,6 +27,13 @@ WHAT IS WORTH TESTING HERE
    thermal_regime, every exit joins the rooms it names, every room can be
    reached from Limbo and every passage leads back, and a missing
    Limbo stops the seeder before it creates anything.
+7. **Scrolls are placed once** (Launch Minimum L3.3): the first run places
+   fifteen stamped scrolls in the temple; a scroll that was learned is not put
+   back by `seed_world()` (the ledger), nor is one that exists without a ledger
+   entry (find_seeded); `reseed_scroll()` adds exactly one, spawns nothing
+   while the seeded scroll exists anywhere, and refuses a recipe with no row.
+   The counts are written by hand (lesson 74). That every gated recipe has a
+   source is `tests/test_recipe_sources.py`'s job.
 
 HOW TO RUN
 ----------
@@ -35,20 +42,25 @@ HOW TO RUN
 from django.test import override_settings
 from evennia.objects.models import ObjectDB
 from evennia.prototypes.prototypes import search_prototype
+from evennia.server.models import ServerConfig
 from evennia.utils.search import search_tag
-from evennia.utils.test_resources import EvenniaTest
+from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
+from commands.crafting_commands import CmdLearn
 from world import seed_data
 from world.thermal import thermal_regime
 from world.seeding import (
     AREA_TAG,
+    SCROLL_LEDGER_KEY,
     SEED_CATEGORY,
     SPAWN_TAG,
     find_seeded,
+    reseed_scroll,
     seed_world,
 )
 
 NODE_TYPECLASS = "typeclasses.resources.ResourceNode"
+SCROLL_TYPECLASS = "typeclasses.scroll.Scroll"
 
 
 def seeded_objects():
@@ -71,8 +83,10 @@ class TestIdempotency(SeedingBase):
             "rooms": {"created": len(seed_data.ROOMS), "skipped": 0},
             "exits": {"created": len(seed_data.EXITS), "skipped": 0},
             "nodes": {"created": len(seed_data.NODES), "skipped": 0},
+            "scrolls": {"created": len(seed_data.SCROLLS), "skipped": 0},
         })
-        total = len(seed_data.ROOMS) + len(seed_data.EXITS) + len(seed_data.NODES)
+        total = (len(seed_data.ROOMS) + len(seed_data.EXITS)
+                 + len(seed_data.NODES) + len(seed_data.SCROLLS))
         self.assertEqual(len(seeded_objects()), total)
 
         second = self.seed()
@@ -80,6 +94,7 @@ class TestIdempotency(SeedingBase):
             "rooms": {"created": 0, "skipped": len(seed_data.ROOMS)},
             "exits": {"created": 0, "skipped": len(seed_data.EXITS)},
             "nodes": {"created": 0, "skipped": len(seed_data.NODES)},
+            "scrolls": {"created": 0, "skipped": len(seed_data.SCROLLS)},
         })
         # The database agrees with the summary.
         self.assertEqual(len(seeded_objects()), total)
@@ -167,7 +182,10 @@ class TestNoTreasury(SeedingBase):
 
 class TestSeedData(SeedingBase):
     def test_seed_ids_are_unique(self):
-        ids = [x["seed_id"] for x in seed_data.ROOMS + seed_data.EXITS + seed_data.NODES]
+        ids = [
+            x["seed_id"]
+            for x in seed_data.ROOMS + seed_data.EXITS + seed_data.NODES + seed_data.SCROLLS
+        ]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_every_node_prototype_resolves_to_a_resource_node(self):
@@ -225,3 +243,91 @@ class TestSeedData(SeedingBase):
         with self.assertRaises(RuntimeError):
             seed_world()
         self.assertEqual(seeded_objects(), [])
+
+
+def scrolls_tagged(seed_id):
+    return list(search_tag(seed_id, category=SEED_CATEGORY))
+
+
+def scroll_count():
+    return ObjectDB.objects.filter(db_typeclass_path=SCROLL_TYPECLASS).count()
+
+
+class TestScrollSeed(EvenniaCommandTest):
+    """
+    Launch Minimum L3.3: one stamped scroll per SCROLLS row, placed once.
+
+    EvenniaCommandTest (EvenniaTest plus `.call()`), so the learn test runs the
+    real `learn` and its delete, not a stand-in for it.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def seed(self):
+        return seed_world(limbo=self.room1)
+
+    def test_first_run_places_fifteen_stamped_scrolls_in_the_temple(self):
+        summary = self.seed()
+        self.assertEqual(summary["scrolls"], {"created": 15, "skipped": 0})
+        self.assertEqual(scroll_count(), 15)
+        temple = find_seeded("alpha.room.temple")
+        for spec in seed_data.SCROLLS:
+            with self.subTest(seed_id=spec["seed_id"]):
+                scroll = find_seeded(spec["seed_id"])
+                self.assertEqual(scroll.typeclass_path, SCROLL_TYPECLASS)
+                # Stamped: both halves Scroll.stamp writes.
+                self.assertEqual(scroll.db.recipe, spec["recipe"])
+                self.assertEqual(scroll.key, f"scroll of {spec['recipe']}")
+                self.assertEqual(scroll.location, temple)
+
+    def test_a_learned_scroll_is_not_put_back_by_seed_world(self):
+        self.seed()
+        find_seeded("alpha.scroll.tent").move_to(self.char1, quiet=True)
+        self.call(CmdLearn(), "scroll of tent", caller=self.char1)
+        # Receipt that learn ran and consumed it -- the seed tag went with it.
+        self.assertTrue(self.char1.knows_recipe("tent"))
+        self.assertIsNone(find_seeded("alpha.scroll.tent"))
+
+        summary = self.seed()
+
+        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 15})
+        self.assertIsNone(find_seeded("alpha.scroll.tent"))
+        self.assertEqual(scroll_count(), 14)
+
+    def test_a_scroll_missing_from_the_ledger_is_still_skipped_while_it_exists(self):
+        self.seed()
+        ServerConfig.objects.conf(SCROLL_LEDGER_KEY, delete=True)
+
+        summary = self.seed()
+
+        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 15})
+        self.assertEqual(scroll_count(), 15)
+
+    def test_reseed_scroll_adds_exactly_one(self):
+        self.seed()
+        find_seeded("alpha.scroll.tent").delete()
+
+        first = reseed_scroll("tent")
+        second = reseed_scroll("tent")
+
+        self.assertIsNotNone(first)
+        self.assertEqual(first.db.recipe, "tent")
+        self.assertEqual(first.key, "scroll of tent")
+        self.assertEqual(first.location, find_seeded("alpha.room.temple"))
+        self.assertIsNone(second)
+        self.assertEqual(len(scrolls_tagged("alpha.scroll.tent")), 1)
+        self.assertEqual(scroll_count(), 15)
+
+    def test_reseed_scroll_spawns_nothing_while_the_seeded_scroll_is_carried(self):
+        self.seed()
+        find_seeded("alpha.scroll.tent").move_to(self.char1, quiet=True)
+
+        self.assertIsNone(reseed_scroll("tent"))
+        self.assertEqual(len(scrolls_tagged("alpha.scroll.tent")), 1)
+
+    def test_reseed_scroll_refuses_a_recipe_without_a_row(self):
+        self.seed()
+        # cloth is knowledge-gated but has two profession grantors, so no row.
+        with self.assertRaises(ValueError):
+            reseed_scroll("cloth")
+        self.assertEqual(scroll_count(), 15)
