@@ -24,6 +24,11 @@ from django.conf import settings
 
 from evennia import utils
 
+# Underscore on purpose: menu_login picks the screen at random among this
+# module's public string globals (utils.string_from_module), so an imported
+# public string would become a second screen shown on every other connect.
+from world.alpha_contract import CONNECTION_LINE as _CONNECTION_LINE
+
 CONNECTION_SCREEN = r"""
 |y
  ____       _ _     _              _   __        __         _     _ 
@@ -35,6 +40,8 @@ CONNECTION_SCREEN = r"""
               |W---|n  |WA frontier survival realm|n  |W---|n
 
          |xPowered by Evennia  -  Mongoose Legend d100|n
+
+     {line}
 """.format(
-    settings.SERVERNAME, utils.get_evennia_version("short")
+    settings.SERVERNAME, utils.get_evennia_version("short"), line=_CONNECTION_LINE
 )
