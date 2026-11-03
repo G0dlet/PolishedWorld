@@ -117,7 +117,7 @@ class TestRecipesDiscipline(_RecipesTestBase):
 
     def test_lists_visible_recipes_with_count(self):
         out = self.recipes("leatherwork")
-        self.assertIn("Leatherwork recipes you can craft:", out)
+        self.assertIn("Leatherwork recipes you know:", out)
         self.assertRegex(out, rf"{WATERSKIN}\s+made 0 \(\+0\)")
         self.assertNotIn(BACKPACK, out)
         self.assertNotIn(LEATHER + " ", out)
@@ -135,7 +135,7 @@ class TestRecipesDiscipline(_RecipesTestBase):
         self.char1.learn_recipe(LEATHER)
         out = self.recipes("leather")
         self.assertIn("Needs:", out)
-        self.assertNotIn("recipes you can craft", out)
+        self.assertNotIn("recipes you know:", out)
 
     def test_discipline_resolves_before_a_recipe_of_the_same_name(self):
         # No real recipe is named after a discipline, so make one (RM23b).
@@ -150,7 +150,7 @@ class TestRecipesDiscipline(_RecipesTestBase):
 
         with mock.patch.dict(_RECIPE_CLASSES, {"weaving": FakeWeaving}):
             out = self.recipes("weaving")
-        self.assertIn("Weaving recipes you can craft:", out)
+        self.assertIn("Weaving recipes you know:", out)
         self.assertNotIn("Needs:", out)
 
     def test_unknown_word_falls_through(self):

@@ -630,7 +630,7 @@ class CmdRecipes(Command):
         members = sorted(self._members(common + known, discipline), key=lambda c: c.name)
 
         lines = [
-            f"\n|w{discipline.capitalize()} recipes you can craft:|n",
+            f"\n|w{discipline.capitalize()} recipes you know:|n",
             "|g" + "=" * 50 + "|n",
         ]
         if not members:
