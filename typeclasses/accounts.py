@@ -23,6 +23,7 @@ several more options for customizing the Guest account system.
 """
 
 from evennia.accounts.accounts import DefaultAccount, DefaultGuest
+from evennia.utils import logger
 
 from world import chargen
 
@@ -150,6 +151,26 @@ class Account(DefaultAccount):
         """
         super().at_post_create_character(character, **kwargs)
         chargen.mark_chargen_pending(character)
+
+    def at_post_login(self, session=None, **kwargs):
+        """
+        After the default login (auto-puppet included), make sure the report
+        commands are on this account's cmdset stack -- lazily, so accounts
+        made before `ingame_reports` get them at their next login.
+
+        A failure here is logged and swallowed: a missing `bug` command must
+        never cost a player their login.
+        """
+        super().at_post_login(session=session, **kwargs)
+        try:
+            # Imported here, not at module level: the contrib does
+            # `from evennia import CmdSet`, which is None until
+            # `evennia._init()` has run (`evennia/__init__.py:61`).
+            from commands.report_commands import ensure_reports_cmdset
+
+            ensure_reports_cmdset(self)
+        except Exception:
+            logger.log_trace(f"ingame_reports: no report cmdset for {self.key}")
 
 
 class Guest(DefaultGuest):

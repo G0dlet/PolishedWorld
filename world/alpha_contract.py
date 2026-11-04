@@ -7,7 +7,8 @@ which order: the world is wiped at close-out; how death works (`help death`);
 every economic act is logged; some accounts are automated test players
 (decomposition Rev 2); GameGold is not part of the alpha and nothing minted is
 a promise of value; a wipe before close-out is announced ahead; how to reach
-staff.
+staff. After LM7's claims, one paragraph on `bug`, `idea` and `report`
+(`commands/report_commands.py`, BACKLOG `ingame_reports` lock 8).
 
 Two surfaces carry it, and both read from HERE so they cannot drift apart:
 
@@ -54,7 +55,12 @@ def help_text():
         "this entry.\n\n"
         "|wTo reach staff|n, use |wpage <name> = <message>|n; your invitation "
         "names the staff accounts. For anything the whole group may hit, say "
-        "it on the Public channel: |wpub <message>|n."
+        "it on the Public channel: |wpub <message>|n.\n\n"
+        "|wTo report a bug or an idea|n, use |wbug <message>|n or "
+        "|widea <message>|n. Both work anywhere, character creation included. "
+        "If one thing is wrong, name it: |wbug <thing> = <message>|n. To "
+        "report a player: |wreport <player> = <message>|n. Staff read every "
+        "report."
     )
 
 
