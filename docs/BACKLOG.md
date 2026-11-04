@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 62 · 2026-11-04** — alpha decision (G) (roadmap Rev 40; `docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 2): the alpha measures operations and onboarding, not pillar 1, and the economy waits on a milestone the roadmap now names as **[OPEN] No milestone measures the economy**. **Re-anchored** to that milestone: *Recipe invention*, *Every knowledge-gated recipe has a profession grantor* and *Wanted board* (Trigger and Status: *alpha close-out data* → *economy-milestone data*; each *Why deferred* that said the alpha measures the economy is corrected), *Disassemble yields parts and raw materials* (Why deferred and Trigger), and *Seasonal supply & population memory* (annotated; Status reads the economy milestone; part (1)'s light-week exception unchanged). **Annotated:** *Persistent alpha instance* — its purpose narrows, its close-out is LM10 Rev 2's, automated test players are allowed, and it is the instance listed on the Game Index. **Added** (*Tooling & Process*): ***Automated test players*** (BLOCKED on the instance), constraints locked by (G3) — staff-made accounts filtered out of the log by dbref, and `dummyrunner` never on the instance. **Added** (*Tooling & Process*), unrelated to (G) and filed in the same commit at Adam's request: ***In-world gazette*** — a paper per game-month from the activity report, read in game first and posted outside later, meant to spark passive curiosity rather than to advertise; no invented events, staff reads every issue, players anonymous unless they opt in. Read and left: the dated 2026-10-17 annotations that say the alpha exists to test pillar 1 (true when written), *Free Skill Points*, *First-steps hints*, *Player mail* and *A `hunter` profession* (their close-out triggers read what testers did or asked for, which the alpha still shows, not prices). No code changes.
 > **Rev 61 · 2026-11-04** — five entries **added** from a gap review against `roadmap.md`, this file and the launch-minimum decomposition (each subject had no home in any of the three); contribs verified against the pinned `v6.1.0` tag. **Added** (*Tooling & Process*): ***In-game bug, idea and player reports — `ingame_reports`***, ⚠️ **first after the launch minimum**: Adam's call, to keep the launch-minimum sessions as decomposed; the alpha otherwise has no in-game way for a tester to report anything. **Added** (*UX & Item Identity*): ***First-steps hints*** (BLOCKED on what the reports show) and ***A screen-reader pass*** (OPEN, before a public opening). **Added** (*Currency*): ***Wanted board*** and ***Player mail — `game_systems/mail`***, both post-alpha and both text-only by rule, so neither becomes the remote `pay` the *Bank / post office* entry exists to refuse. Roadmap Rev 39 carries the achievements contrib note and the p.72–73 citation fix in the same commit. No code changes.
 > **Rev 60 · 2026-11-04** — two entries **added**, both from one design chat with Adam, neither touching the alpha order. **Added** (*Crafting & Tools*): ***Recipe invention — rediscover a gated recipe by experiment***, BLOCKED on alpha close-out data: a sixth knowledge source that needs neither a sender nor an item, so a recipe can never die out, priced as the most expensive channel so knowledge stays worth trading; filed with the shape proposed and the questions a decomposition must lock, and deliberately not built before the alpha measures whether knowledge dies out at all. It records one citation fix on the way: Legend's Craft teacher-gate is p.72–73 (Recipe Knowledge decomp Rev 1), not the p.70–71 the roadmap still cites. **Added** (*Tooling & Process*): ***Public dev board — a read-only kanban page on the game website***, OPEN with six decisions locked (A–F): `docs/board.md` as the one source, one card per epic, a stdlib-parsed `/board/` view with no model and no login, OPEN after the launch minimum merges. No code changes.
 > **Rev 59 · 2026-11-01** — the launch minimum decomposed (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 1; roadmap Rev 38). **Status changed, five entries:** *Persistent alpha instance* BLOCKED → SCHEDULED (L6) — its trigger had fired on `d5450ad` untouched (lesson 195); *Evennia is not pinned in the repo* OPEN → SCHEDULED (L1.1); *Worn clothing leaves without `remove()`* OPEN → SCHEDULED (L3.1); *`recipes` lists floored recipes under "can craft"* OPEN → SCHEDULED (L3.2); *World-loot scroll seed* BLOCKED → SCHEDULED (L3.3). **Re-triggered:** *System Map describes the world as of Stage 4* — *before the alpha opens* → the Stage 5 design session. **Annotated:** *Seasonal supply & population memory* (the ledger data it waits on is the activity log, not `economy_log`), *Scribe teaches Craft with no difficulty datum* (the `improve` kind is the log it asks for). **Added** (*Character creation*): *Every knowledge-gated recipe has a profession grantor* — a live recount found thirteen of seventeen `requires_knowledge` recipes with no grantor; the scroll seed covers the alpha, the profession question is post-alpha.
@@ -547,20 +548,21 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   with the intention and are not up for tuning away: salvage **never returns all
   of the material**, and a bad roll **can destroy the material outright** —
   the dismantler risks the item and gets back less than went in.
-- **Why deferred:** It is a new material **source**, and the alpha exists to
-  watch prices form with the sources the catalogue has (pillar 1). Adding a
-  second source before the first cohort has produced a ledger changes the thing
-  being measured. It also needs its own decisions, none of which E.2 should
-  guess: what fraction returns and on which outcome tiers; whether a crafted
-  item remembers its inputs (`db.recipe` is a name, not a bill of materials) or
-  salvage reads the recipe's current inputs; how the learn and salvage modes
-  split on a known vs unknown recipe; and a Source/Sink Ledger row — disassemble
-  is today a pure sink (item destroyed, knowledge gained) and salvage makes it a
-  partial source that weakens crafting's material sink, which is why *lossy* is
-  a constraint and not a knob.
-- **Trigger:** A design session after alpha close-out, with the alpha ledger
-  open — the question it must answer first is whether material scarcity needs a
-  second source at all.
+- **Why deferred:** It is a new material **source**, and prices are to be watched
+  forming with the sources the catalogue has (pillar 1 — the alpha's question
+  until roadmap (G), now the economy milestone's). Adding a second source before
+  that milestone has produced a ledger changes the thing being measured. It also
+  needs its own decisions, none of which E.2 should guess: what fraction returns
+  and on which outcome tiers; whether a crafted item remembers its inputs
+  (`db.recipe` is a name, not a bill of materials) or salvage reads the recipe's
+  current inputs; how the learn and salvage modes split on a known vs unknown
+  recipe; and a Source/Sink Ledger row — disassemble is today a pure sink (item
+  destroyed, knowledge gained) and salvage makes it a partial source that weakens
+  crafting's material sink, which is why *lossy* is a constraint and not a knob.
+- **Trigger:** A design session once the economy milestone has a ledger (roadmap
+  [OPEN] *No milestone measures the economy*; was *after alpha close-out*,
+  re-anchored by roadmap (G5), 2026-11-04), with that ledger open — the question
+  it must answer first is whether material scarcity needs a second source at all.
 - **Prerequisite met in advance:** the trivial-work gate (E.2, TD5) gates
   disassemble alongside craft, so *craft a routine item → take it apart* cannot
   become the Craft grind the day salvage lands. Do not remove that gate when
@@ -891,18 +893,21 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (4) whether a failed attempt gives any hint; (5) its Source/Sink Ledger row and
   an activity-log kind (or `knowledge` with a `via` field); (6) whether it
   retires the staff reseed of *World-loot scroll seed* after the alpha.
-- **Why deferred:** It is a new knowledge source, and the alpha exists to measure
-  the economy with the sources it has — the same reason *Disassemble yields parts
-  and raw materials* waits. The alpha may show that the scroll seed and staff
-  reseed are enough; if so this entry saves an epic.
-- **Trigger:** Alpha close-out data — `knowledge` lines in the activity log
-  showing gated recipes never learnt, or the same recipe reseeded on request more
-  than once. Decide it in the same session as *Every knowledge-gated recipe has a
-  profession grantor* (Professions & Chargen): both answer *who can source this
-  recipe*, and deciding one without the other sizes the other wrong.
+- **Why deferred:** It is a new knowledge source, and the economy is to be
+  measured with the sources it has (the alpha's question until roadmap (G); now
+  the economy milestone's) — the same reason *Disassemble yields parts and raw
+  materials* waits. The alpha may show that the scroll seed and staff reseed are
+  enough; if so this entry saves an epic.
+- **Trigger:** Economy-milestone data (roadmap [OPEN] *No milestone measures the
+  economy*; re-anchored from alpha close-out data by roadmap (G5), 2026-11-04) —
+  `knowledge` lines in the activity log showing gated recipes never learnt, or the
+  same recipe reseeded on request more than once. Decide it in the same session as
+  *Every knowledge-gated recipe has a profession grantor* (Professions & Chargen):
+  both answer *who can source this recipe*, and deciding one without the other
+  sizes the other wrong.
 - **Origin:** Adam, design chat 2026-11-04 (seed recipes and the risk of knowledge
   dying out).
-- **Status:** BLOCKED (alpha close-out data)
+- **Status:** BLOCKED (economy-milestone data)
 
 ### Crafting resolves instantly
 - **What:** `craft` produces its output in the same tick it is typed. The crafting
@@ -1043,15 +1048,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Why deferred:** The scroll seed makes the alpha work; which recipes a
   profession *should* grant is better decided from what the cohort actually
   learned and traded than from a table written before anyone played.
-- **Trigger:** Alpha close-out data — `knowledge` lines in the activity log
-  showing which scrolls were learned, by whom, and which recipes were never
-  learned at all; or the next recipe batch that adds gated recipes (the source
-  test will fail until each has a grantor or a seed row, and this entry decides
-  which).
+- **Trigger:** Economy-milestone data (roadmap [OPEN] *No milestone measures the
+  economy*; re-anchored from alpha close-out data by roadmap (G5), 2026-11-04) —
+  `knowledge` lines in the activity log showing which scrolls were learned, by
+  whom, and which recipes were never learned at all; or the next recipe batch that
+  adds gated recipes (the source test will fail until each has a grantor or a seed
+  row, and this entry decides which).
 - **Origin:** Launch minimum decomposition LM9 (2026-11-01), the live recount
   against the 29-recipe catalogue; the BACKLOG's scroll-seed table was from the
   four-recipe slice.
-- **Status:** BLOCKED (alpha close-out data)
+- **Status:** BLOCKED (economy-milestone data)
 
 ### Cultural Background (Legend p.15–18)
 - **What:** Barbarian / Civilised / Nomad / Primitive as a creation choice,
@@ -1994,7 +2000,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   both sides and the coin, `world/activity_report.py` lists prices per item and
   game-month). Two game-months is fourteen real days; the alpha's close-out
   floor is eight weeks, so the data will exist.
-- **Status:** BLOCKED (alpha instance + two game-months of ledger data);
+- **Annotation (2026-11-04, roadmap (G); launch minimum LM10 Rev 2):** the alpha
+  no longer measures prices, and one to three human traders cannot say whether
+  prices move. The file will exist, as the annotation above says; its meaning will
+  not. Read the trigger's *two game-months* from the economy milestone's log
+  (roadmap [OPEN] *No milestone measures the economy*), with automated actors
+  filtered out as LM10 does. Part (1)'s light-week exception is unchanged.
+- **Status:** BLOCKED (economy milestone + two game-months of activity-log data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
 ---
@@ -2648,6 +2660,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   out this entry promised a date for: eight real weeks and fifty logged trades,
   or fourteen days without a login; then export, the GameGold player count, the
   wipe.
+- **Annotation (2026-11-04, roadmap Rev 40 (G); launch minimum LM10 Rev 2):** the
+  instance's purpose narrows — it runs to measure operations and onboarding, not
+  to let prices emerge (*What* above is the 2026-10-17 purpose, as written). The
+  close-out the previous annotation dates is replaced: eight real weeks **and**
+  five checks (no lost state, a live restore, a live tagged deploy, every
+  traceback fixed or filed, one non-staff human to a first `craft` unaided), no
+  early close, no GameGold player count. Automated test players may play, made
+  per LM7 and filtered out of the log offline (*Automated test players*). It is
+  the instance listed on the Evennia Game Index, its description saying how to
+  ask for an account (L6.3).
 - **Status:** SCHEDULED (Launch Minimum L6)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
@@ -2957,6 +2979,68 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Adam, gap review 2026-11-04.
 - **Status:** BLOCKED (launch minimum close) — first after it
 
+### Automated test players — a scripted load run and a few LLM agents
+- **What:** Software-driven players, in two kinds. **(a) Scripted:** Evennia's own
+  load runner, `evennia --dummyrunner N`, whose clients look, move and create at a
+  set rate (actions in `evennia/server/profiling/dummyrunner_settings.py`) — for
+  concurrency and lag against SQLite. **(b) Agents:** a small harness in which a
+  language model reads one telnet client's output and sends one command at a
+  time, to find what a stranger finds: parser confusion, gaps in `help`, a
+  chargen step that stops a newcomer. A model run on Adam's own hardware costs
+  electricity; a hosted API is billed per token — at one action per agent every
+  30 s and about 3k input tokens a call, ten agents read about 3.6 M input tokens
+  an hour — so start with one agent, and never run inference on the VPS, which it
+  would share with Evennia.
+- **Constraints locked by roadmap (G3):** (1) an agent is an account made by staff
+  per LM7 — registration stays closed — and its account and character dbrefs are
+  in the runbook; every reading of the activity log drops lines with an automated
+  party (LM10 Rev 2), offline, so the instance runs no code for them;
+  (2) **`dummyrunner` never touches the alpha instance**: it logs in with
+  `create` (`dummyrunner_settings.py:123, 137` at `v6.1.0`), which L1.2 closed,
+  and the settings mixin it requires sets `PERMISSION_ACCOUNT_DEFAULT =
+  "Developer"` and lifts the creation throttle (`settings_mixin.py:20–22`) — it
+  runs against a scratch copy of the game dir only; (3) `help alpha` says that
+  automated players exist (L4.2, Rev 2).
+- **Open:** whether an agent's character is recognisable in game (a name
+  convention or a description line) — honesty to players against a test of how
+  strangers read each other; an agent's memory between sessions (a notes file per
+  agent); which model, decided by what the hardware runs.
+- **Why deferred:** Not a launch requirement; the launch minimum runs as
+  decomposed.
+- **Trigger:** The alpha instance open (L6). (a) first, on a scratch copy; (b)
+  with one agent, more only if the first finds things.
+- **Origin:** Adam, design chat 2026-11-04 (few human testers expected).
+- **Status:** BLOCKED (alpha instance open)
+
+### In-world gazette — a paper per game-month, read in game and posted outside
+- **What:** A short, playful account of what happened in the world, one issue per
+  game-month (seven real days at `TIME_FACTOR = 4`), written from the aggregates
+  `world/activity_report.py` already computes — what was gathered, crafted,
+  traded and learned, and where. Read in game first; later posted outside the
+  game to spark **passive curiosity** — something a stranger stumbles on and
+  follows because it is fun, not advertising.
+- **Constraints set with the idea:** (1) **no invented events** — if a model
+  writes the prose it gets only the aggregates and writes around them; a paper
+  that reports what never happened misleads the players who read it; (2) **staff
+  reads every issue before it is published**, at least until issues have shown
+  they need no correcting; (3) **players are anonymous by default** ("a tanner
+  from the Old Temple"); a name appears only by the player's opt-in, and the
+  player contract says the paper exists; (4) automated test players are filtered
+  out of its data like any reading of the log (LM10 Rev 2); (5) service
+  credentials live in `secret_settings.py`, never in the repo.
+- **Open:** the in-game form (an object, a board, a help-style entry); the outside
+  channel — X was the first idea, and its API terms and price have changed
+  several times, so they are checked when part 2 fires, with Mastodon (open API,
+  closer to the project's self-hosting line) as the alternative; whether an issue
+  is generated on the box by a timer or offline at home.
+- **Why deferred:** Not a launch requirement, and with one to three human players
+  an issue has little to report.
+- **Trigger:** Part 1 (in game): after *In-game bug, idea and player reports* and
+  *Public dev board*. Part 2 (posted outside): when several in-game issues have run
+  and Adam judges them worth reading outside the game.
+- **Origin:** Adam, design chat 2026-11-04.
+- **Status:** BLOCKED — part 1 on the reports and the dev board; part 2 on part 1
+
 ---
 
 ## Currency
@@ -3255,15 +3339,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   barter, so the board is not the remote payment *Bank / post office* refuses.
   Trust between players is part of the economy. A post expires (or the poster
   removes it) so the board does not fill with dead orders.
-- **Why deferred:** It is a new demand channel, and the alpha measures trade with
-  the channels it has. The ledger shows whether trades fail for lack of a
-  meeting.
-- **Trigger:** Alpha close-out data — few trades against many crafted goods, or
-  testers asking for it (via the reports).
+- **Why deferred:** It is a new demand channel, and the economy milestone measures
+  trade with the channels it has (the alpha's question until roadmap (G)). The
+  ledger shows whether trades fail for lack of a meeting.
+- **Trigger:** Economy-milestone data (roadmap [OPEN] *No milestone measures the
+  economy*; re-anchored from alpha close-out data by roadmap (G5), 2026-11-04) —
+  few trades against many crafted goods, or testers asking for it (via the
+  reports).
 - **Open:** an activity-log kind for a post, so the report can tie a posted
   price to the trade that followed; one board or one per settlement (Stage 6).
 - **Origin:** Adam, gap review 2026-11-04.
-- **Status:** BLOCKED (alpha close-out data)
+- **Status:** BLOCKED (economy-milestone data)
 
 ### Player mail — `game_systems/mail`
 - **What:** Messages to players who are offline, from the contrib verified at
