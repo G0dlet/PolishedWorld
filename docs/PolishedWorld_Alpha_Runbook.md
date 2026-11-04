@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 2 · 2026-11-04** — Launch Minimum decomposition Rev 2 (decision (G)): a new §9 *Automated test players* — the list LM10's filter reads, the filter verified live on the work dev DB, and `evennia --dummyrunner` ruled off the box; §8's close-out rewritten to LM10 Rev 2 (copy, filter, report, the five checks into the roadmap, wipe — Rev 1's GameGold step is gone), with a pointer per check and the incident table for check (1); §5 and §7 name the checks they hold; *What not to do* becomes §10.
 > **Rev 1 · 2026-11-04** — first version (Launch Minimum L4.1). Accounts, moderation, the economy, scrolls and the log verified live on the work dev DB (Evennia 6.1.0, two extra accounts); backup verified for `.backup` and `integrity_check`; deploy, the nightly backup, the restore and the wipe are written and marked with the task that runs them.
 > **Canonical:** `docs/PolishedWorld_Alpha_Runbook.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -334,6 +335,8 @@ The two lines the protocol added (`tail -2 server/logs/activity.jsonl`):
 - Read the report before and after, not its absolute counts, wherever tests have ever run against that game directory.
 - **Never run `evennia test` in the box's game directory**: test runs write fixture lines (actor `#6 Char`, game-year 229) into the same file.
 - Server errors are not in this file. `evennia -log` tails `server/logs/server.log` and `portal.log`; the traceback of §2's channel crash was there, stamped `2026-11-04 18:07:48 [!!]`.
+- **LM10 check (4)** is read there, in `server/logs/`, not here: by close-out every traceback since the instance opened has a fix on `main` or an entry in `docs/BACKLOG.md`.
+- At close-out the report runs over a **filtered copy** (§9), never over the box's file: automated test players' lines are not data about players.
 
 ---
 
@@ -374,6 +377,8 @@ evennia reload
 
 Backup (§6) before every deploy. A change to the connection screen and to file-help entries takes effect on `evennia reload` (seen in L4.2). Which changes need `evennia reboot` (portal-side: ports, protocols) is verified in L6.1.
 
+**LM10 check (3)** needs at least one tagged deploy applied to the **running** instance by this sequence, without a wipe — L6.1's first deploy onto an empty box does not count. When it happens, its receipt goes here: the tag, the date, and `pip show evennia`'s version line.
+
 ---
 
 ## 8. The wipe
@@ -386,18 +391,131 @@ Backup (§6) before every deploy. A change to the connection screen and to file-
 wall The world will be wiped on <date>, at least seven days from today. Everything you carry and everything you made will be gone. Read help alpha.
 ```
 
-**Close-out**, in this order (LM10), each copied **off the box** before the next:
+### The five checks, and where each receipt is kept
 
-1. `activity.jsonl`;
-2. the ledger: `@economy audit`'s output, pasted;
-3. a `.backup` of the database (§6);
-4. the report (§5) over the copied file;
-5. the GameGold trigger's player count, set from that data;
-6. then the wipe.
+The alpha closes when LM10's time has run **and** its five checks hold; the roadmap's alpha entry carries the numbers. Each check is read from a file or a receipt:
+
+| LM10 check | Receipt kept in |
+| --- | --- |
+| (1) no lost state | the incident table below, written as it happens |
+| (2) a live restore | §6: L6.2's rehearsal repeated on the box while the alpha runs |
+| (3) a live deploy | §7: one tagged deploy onto the running instance, without a wipe |
+| (4) tracebacks accounted for | `server/logs/` (§5): each one fixed on `main` or entered in `docs/BACKLOG.md` |
+| (5) onboarding unaided | a non-staff human's first `craft` line in the **filtered** log (§9), and that player's own answer that staff did not help beyond `help` — the log cannot say it |
+
+### Incidents (check 1)
+
+An incident is a player losing something the game's own rules did not take. Death, decay and a trade are rules; a crash, a bad deploy, or a restore that rolls a player back are not. One row each, the day it happens:
+
+| Date | Who lost what | Cause | Put back? | Fix on `main` or BACKLOG entry |
+| --- | --- | --- | --- | --- |
+| — | none yet | | | |
+
+### Close-out, in this order (LM10)
+
+1. Copy **off the box**: `activity.jsonl`; the ledger (`@economy audit`'s output, pasted); a `.backup` of the database (§6).
+2. Filter the automated test players out of the copied log (§9).
+3. Run the report (§5) over the filtered copy.
+4. Write checks (1)–(5), each with its receipt, into the roadmap's alpha entry.
+5. Then the wipe.
+
+There is no GameGold step: the alpha no longer sets the GameGold trigger (LM10 Rev 2; roadmap (G4)).
 
 ---
 
-## 9. What not to do
+## 9. Automated test players
+
+Automated test players are allowed (LM10). They are accounts made exactly like a player's (§1: `Account.create`, `Player`), and their characters go through chargen like anyone's. What drives them is not on the box — the instance runs no code for them — and they are taken out of every reading of the log, offline, by the filter below.
+
+### The list
+
+Every automated account gets a row here **the day it is created, before its first login**, so no line it writes is ever unlisted. The filter reads the character column; the account column is for §2 (`boot` and `ban` act on the account).
+
+| Account | Account dbref | Character dbref | Created |
+| --- | --- | --- | --- |
+| *(none yet on the box)* | | | |
+
+Both dbrefs come from the creation receipts (§1): `Account.create` prints the account (`(tester(account#4), [])`), and `@find <account name>` prints the character, a statue until the first login (`stone statue of scratch(#169)`). The dev run's values — `tester`, `account#4`, `#168` — belong to a human-driven test account, listed only to verify the filter.
+
+### The filter
+
+A line is dropped when **any party** in it is listed: the actor, either side of a trade (`part_a`, `part_b`), or the other side of a lesson (`counterpart`). A trade between a human and an automated player goes too — its price is not a human's price. The rule reads every `[dbref, key]` pair in the line instead of naming fields, so a party field added later is covered without an edit. `room` is a bare dbref, not a pair, and is never matched. A line that is not JSON passes through untouched, so the report still counts it as malformed.
+
+Run it **off the box**, over the copy (§8), with each listed character dbref as one argument. Quote each dbref: zsh reads an unquoted `#168` as a comment, and the filter then drops nothing.
+
+```
+python3 -c 'import json, sys
+bots = set(sys.argv[2:])
+for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+    try:
+        ev = json.loads(line)
+    except ValueError:
+        sys.stdout.write(line)
+        continue
+    if isinstance(ev, dict) and any(
+        isinstance(v, list) and len(v) == 2 and isinstance(v[0], str) and v[0] in bots
+        for v in ev.values()
+    ):
+        continue
+    sys.stdout.write(line)' activity.jsonl '<character dbref>' … > activity-filtered.jsonl
+```
+
+Receipt, the work dev log on 2026-11-04, with `#168` listed (the program text exactly as above):
+
+```
+wc -l < /tmp/act.jsonl
+66
+grep -c '"#168"' /tmp/act.jsonl
+2
+python3 -c 'import json, sys
+bots = set(sys.argv[2:])
+for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+    try:
+        ev = json.loads(line)
+    except ValueError:
+        sys.stdout.write(line)
+        continue
+    if isinstance(ev, dict) and any(
+        isinstance(v, list) and len(v) == 2 and isinstance(v[0], str) and v[0] in bots
+        for v in ev.values()
+    ):
+        continue
+    sys.stdout.write(line)' /tmp/act.jsonl '#168' > /tmp/act-filtered.jsonl
+wc -l < /tmp/act-filtered.jsonl
+64
+grep -c '"#168"' /tmp/act-filtered.jsonl
+0
+python -m world.activity_report /tmp/act-filtered.jsonl
+activity report: /tmp/act-filtered.jsonl
+lines 64 · malformed 0
+
+per kind
+  craft      36
+  dismantle  4
+  improve    12
+  knowledge  10
+  work       2
+
+per game-month
+  0001-02  knowledge 1 · work 1
+  0229-02  craft 36 · dismantle 4 · improve 12 · knowledge 9 · work 1
+
+price list (copper; one item against coin only)
+  (none)
+  trades: 0 priced · 0 mixed
+...
+census: 5 of 10 kinds seen; missing: consume, crumble, gather, repair, trade; unknown: -
+```
+
+The two lines dropped are §5's two protocol lines — the `grep` (text) and the filter (structure) agree on them independently. Against §5's report of the same file: `trade` 1 → 0 and its price row gone (the trade had `#168` as `part_a`), `knowledge` 11 → 10, malformed 0 in both. Read the census twice at close-out: a kind missing only from the filtered report was seen only by automated players.
+
+### Never `evennia --dummyrunner` on the box
+
+Evennia's load tester is not an automated test player. It logs in with `create` (`evennia/server/profiling/dummyrunner_settings.py:123, 137` at `v6.1.0`), the door L1.2 closed, and the settings mixin it needs makes every new account a Developer (`settings_mixin.py:20`) and lifts the creation throttle (`:22–23`) and the login throttle (`:24`): on the box that is a hole, not a test. It runs only against a scratch copy of the game directory.
+
+---
+
+## 10. What not to do
 
 - **No GameGold on the box.** The alpha's money is game coin (`help alpha`); nothing on the instance holds or moves GameGold.
 - **No hand-placed money.** Money enters only by `@economy mint … confirm` (§3); a coin object made any other way is what `@economy audit` exists to catch.
@@ -407,5 +525,7 @@ wall The world will be wiped on <date>, at least seven days from today. Everythi
 - **No account deletion during the alpha** (§1): ban instead; a deleted account leaves its character behind.
 - **No `ban/ip` over your own address** without staying logged in (§2).
 - **No `evennia test` in the box's game directory** (§5).
+- **No `evennia --dummyrunner` against the box** (§9): it grants Developer to every account it makes.
+- **No automated account without its row in §9's list** before its first login: its lines would count as a player's.
 - **Do not leave a staff character to starve.** Survival runs on staff characters too: `G0dlet` died of thirst in Limbo partway through this protocol (*"You have died."*). Feed it, or expect a corpse mid-moderation.
 - **Text after the colon in `trade` is spoken aloud**: `trade G0dlet : smoke` printed `You say, "smoke"` in the room. It is an emote, not a note.
