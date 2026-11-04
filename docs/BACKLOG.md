@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 61 · 2026-11-04** — five entries **added** from a gap review against `roadmap.md`, this file and the launch-minimum decomposition (each subject had no home in any of the three); contribs verified against the pinned `v6.1.0` tag. **Added** (*Tooling & Process*): ***In-game bug, idea and player reports — `ingame_reports`***, ⚠️ **first after the launch minimum**: Adam's call, to keep the launch-minimum sessions as decomposed; the alpha otherwise has no in-game way for a tester to report anything. **Added** (*UX & Item Identity*): ***First-steps hints*** (BLOCKED on what the reports show) and ***A screen-reader pass*** (OPEN, before a public opening). **Added** (*Currency*): ***Wanted board*** and ***Player mail — `game_systems/mail`***, both post-alpha and both text-only by rule, so neither becomes the remote `pay` the *Bank / post office* entry exists to refuse. Roadmap Rev 39 carries the achievements contrib note and the p.72–73 citation fix in the same commit. No code changes.
 > **Rev 60 · 2026-11-04** — two entries **added**, both from one design chat with Adam, neither touching the alpha order. **Added** (*Crafting & Tools*): ***Recipe invention — rediscover a gated recipe by experiment***, BLOCKED on alpha close-out data: a sixth knowledge source that needs neither a sender nor an item, so a recipe can never die out, priced as the most expensive channel so knowledge stays worth trading; filed with the shape proposed and the questions a decomposition must lock, and deliberately not built before the alpha measures whether knowledge dies out at all. It records one citation fix on the way: Legend's Craft teacher-gate is p.72–73 (Recipe Knowledge decomp Rev 1), not the p.70–71 the roadmap still cites. **Added** (*Tooling & Process*): ***Public dev board — a read-only kanban page on the game website***, OPEN with six decisions locked (A–F): `docs/board.md` as the one source, one card per epic, a stdlib-parsed `/board/` view with no model and no login, OPEN after the launch minimum merges. No code changes.
 > **Rev 59 · 2026-11-01** — the launch minimum decomposed (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 1; roadmap Rev 38). **Status changed, five entries:** *Persistent alpha instance* BLOCKED → SCHEDULED (L6) — its trigger had fired on `d5450ad` untouched (lesson 195); *Evennia is not pinned in the repo* OPEN → SCHEDULED (L1.1); *Worn clothing leaves without `remove()`* OPEN → SCHEDULED (L3.1); *`recipes` lists floored recipes under "can craft"* OPEN → SCHEDULED (L3.2); *World-loot scroll seed* BLOCKED → SCHEDULED (L3.3). **Re-triggered:** *System Map describes the world as of Stage 4* — *before the alpha opens* → the Stage 5 design session. **Annotated:** *Seasonal supply & population memory* (the ledger data it waits on is the activity log, not `economy_log`), *Scribe teaches Craft with no difficulty datum* (the `improve` kind is the log it asks for). **Added** (*Character creation*): *Every knowledge-gated recipe has a profession grantor* — a live recount found thirteen of seventeen `requires_knowledge` recipes with no grantor; the scroll seed covers the alpha, the profession question is post-alpha.
 > **Rev 58 · 2026-11-01** — the E.2 close-out (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 2; merged to `main` as `d5450ad`, tree `9dfa0fb`; suite 1004 OK; roadmap Rev 37). **Closed:** *The recipe catalogue does not span the skill scale* goes **SCHEDULED → DONE** and drops its ⛔ (E.1 in Alpha Content AC5.1, E.2 in `d5450ad`); earlier rev lines and entries that cite it with the ⛔ are left as written. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — T2.2 gave disassemble its first command tests of an outcome, four of them; its tiers, repair and hunt are still untested, so the entry stays OPEN; *`recipes` lists floored recipes under "can craft"* — its trigger fired at T3.1, which changed `CmdRecipes`, and was not taken; re-armed to the launch-minimum decomposition. *A craft driven as `char2`…* is unchanged: no E.2 test crafts as `char2`.
@@ -2351,6 +2352,34 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 
 ---
 
+### First-steps hints
+- **What:** One-time contextual tips, each fired by a character's first
+  occurrence of an event — the first hunger warning points at `forage`, the
+  first failed craft at `recipes`, the first nightfall at shelter. A per-character
+  set of hints already shown; nothing repeats; a player can turn them off. The
+  only onboarding today is `help alpha` (launch minimum L4.1), which serves the
+  invited cohort, not a stranger.
+- **Why deferred:** Which hints matter is a question the alpha answers: guessing
+  where newcomers stall writes tips for the wrong moments.
+- **Trigger:** Alpha reports (*In-game bug, idea and player reports*) or close-out
+  data showing where testers got stuck — or a decision to open beyond an
+  invited cohort, whichever first.
+- **Origin:** Adam, gap review 2026-11-04.
+- **Status:** BLOCKED (alpha reports)
+
+### A screen-reader pass
+- **What:** Play the core loop with Evennia's `SCREENREADER` option on (a
+  per-session option, validated in `evennia/commands/default/account.py:668` at
+  `v6.1.0`) and fix what reads badly: `recipes` and other `EvTable` output,
+  colour carrying meaning without words, ASCII decoration. Text MUDs have a
+  real blind and low-vision audience; this is a review with small fixes, not
+  a feature.
+- **Why deferred:** The invited cohort is known; a stranger with a screen
+  reader is not yet a player.
+- **Trigger:** Before the first opening beyond an invited cohort.
+- **Origin:** Adam, gap review 2026-11-04.
+- **Status:** OPEN
+
 ## Tooling & Process
 
 ### `PolishedWorld_System_Backlog.md` lives at the wrong altitude for its location
@@ -2889,6 +2918,45 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Adam, design chat 2026-11-04.
 - **Status:** OPEN
 
+### In-game bug, idea and player reports — `ingame_reports`
+- **What:** Install `evennia.contrib.base_systems.ingame_reports` (verified on
+  `v6.1.0`): `bug [<target> =] <text>`, `idea <text>` (and `ideas` to list your
+  own), `report <player> = <text>`, and a staff `manage reports` menu with
+  status tags. `ReportsCmdSet` goes on the **AccountCmdSet**, so it works OOC
+  too — a tester stuck in chargen can still file. A `bug` with a target stores
+  the object with the text, which is the context a report written afterwards,
+  out of band, loses.
+- **Verified shape (`reports.py`, `menu.py` at `v6.1.0`):** one global script per
+  report type (`<type>_reports`, created on demand, `reports.py:57–74`); each
+  report is a `Msg` with a read lock — `bug` `pperm(Developer)` (`:249`), `idea`
+  `pperm(Builder)` (`:282`), `report` the base default `pperm(Admin)` (`:141`);
+  `manage reports` is `cmd:pperm(Admin)` (`:94`); settings
+  `INGAME_REPORT_TYPES` and `INGAME_REPORT_STATUS_TAGS`.
+- **Gotchas to carry into the task:**
+  - ⚠️ The menu **filters by read lock** (`menu.py:57`). The launch minimum's
+    staff account is Admin for `boot`; an Admin-only account opens the bug list
+    and sees it **empty, with no error**. Superuser bypasses locks, so the dev
+    account will not show it. Decide the lock levels against the real staff
+    account and test from it.
+  - Reports are `Msg` rows in `evennia.db3`, so the alpha wipe deletes them.
+    The close-out `sqlite3 .backup` keeps them, but unreadably; add a readable
+    export (a short script over `Msg.objects.search_message(receiver=hub)`) to
+    the runbook's close-out step in the same task.
+  - Each report is its own `Msg`: no shared counter, nothing to race. Spam is
+    limited only by `MAX_COMMAND_RATE`; decide whether a per-account cooldown is
+    wanted.
+  - Decide the types: all three, or drop `report` for an invited cohort of
+    8–10 (moderation is the runbook's `boot`/`ban`).
+- **Why deferred:** Adam's call (2026-11-04): the launch-minimum sessions run as
+  decomposed, without a new task inserted. Nothing in the launch minimum
+  depends on it.
+- **Trigger:** ⚠️ **The first session after the launch minimum closes** — before
+  the dev board and before anything else in this file. If the cohort is already
+  in, it ships to the running instance through the runbook's deploy sequence.
+  Its reports are the trigger data for *First-steps hints*.
+- **Origin:** Adam, gap review 2026-11-04.
+- **Status:** BLOCKED (launch minimum close) — first after it
+
 ---
 
 ## Currency
@@ -3175,6 +3243,46 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Status:** OPEN
 
 ---
+
+### Wanted board (buy orders)
+- **What:** A physical notice board, first in the temple, where a player posts
+  what they want to buy and for how much ("5 leather, 2s") and anyone reading it
+  can answer. With a small cohort rarely online together, demand has to wait for
+  supply; today it can only be shouted into an empty room. The buyer sets the
+  price and no NPC takes part — pillar 1 as it stands.
+- **Constraints set with the idea:** **no escrow and no remote settlement** —
+  the board carries text; the deal is still closed face to face with `pay` or
+  barter, so the board is not the remote payment *Bank / post office* refuses.
+  Trust between players is part of the economy. A post expires (or the poster
+  removes it) so the board does not fill with dead orders.
+- **Why deferred:** It is a new demand channel, and the alpha measures trade with
+  the channels it has. The ledger shows whether trades fail for lack of a
+  meeting.
+- **Trigger:** Alpha close-out data — few trades against many crafted goods, or
+  testers asking for it (via the reports).
+- **Open:** an activity-log kind for a post, so the report can tie a posted
+  price to the trade that followed; one board or one per settlement (Stage 6).
+- **Origin:** Adam, gap review 2026-11-04.
+- **Status:** BLOCKED (alpha close-out data)
+
+### Player mail — `game_systems/mail`
+- **What:** Messages to players who are offline, from the contrib verified at
+  `v6.1.0`: `CmdMail` on the Account cmdset (IC and OOC, account to account)
+  and/or `CmdMailCharacter` on the Character cmdset (IC only, character to
+  character); both store `Msg` rows. For a cohort across time zones it is how a
+  trade gets arranged.
+- **Constraint:** **text only — never coin or goods.** Sending items or money
+  to someone elsewhere is the remote settlement *Bank / post office* exists to
+  refuse; mail must not reopen it.
+- **Open:** account mail or character mail (or both, which gives two separate
+  inboxes); instant everywhere, or delivered at a place (pairs with the post
+  office's location).
+- **Why deferred:** Post-alpha by Adam's ordering; the cohort can coordinate out
+  of band, and the alpha shows whether that is enough.
+- **Trigger:** Alpha close-out — testers missing each other, or asking for it in
+  the reports.
+- **Origin:** Adam, gap review 2026-11-04.
+- **Status:** BLOCKED (alpha close-out)
 
 ## GameGold
 
