@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 63 · 2026-11-04** — the launch-minimum close-out (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 3; merged to `main` as `df0dc4e`, PR #21, tree `9e95861`, tagged `alpha-20261104`; suite 1116 OK; roadmap Rev 41). **Closed:** *Evennia is not pinned in the repo* (L1.1, `6764f3b`), *Worn clothing leaves without `remove()`* (L3.1, `2c56c07`), *`recipes` lists floored recipes under "can craft"* (L3.2 `076b3e2` and L3.2b `9e06197`; the floor gate's anchor is `world/crafting_base.py:309`, not `:265`) and *World-loot scroll seed* (L3.3, `14c0fd3`; replenishment is the staff's `reseed_scroll`) — SCHEDULED → DONE. **Status changed:** *Persistent alpha instance* SCHEDULED → OPEN, pending L6: the code it waited on is merged and tagged. **Added** (*Tooling & Process*): ***Channel boot/ban crash upstream*** — `channel/boot` and `channel/ban` crash in Evennia 6.1.0 and on Evennia's `main`, so the alpha moderates at account level; trigger: channel moderation needed during the alpha, or an Evennia upgrade. **Annotated:** *Automated test players* — the runbook half of constraint (1) is built (runbook §9, L4.1b) and constraint (3) is (L4.2b); its `settings_mixin.py` anchor reads `:20, 22–24`. **Triggers fired at L5.1:** *In-game bug, idea and player reports* BLOCKED → OPEN (the launch minimum's code is closed; it goes first, before the board) and *Public dev board* annotated (its trigger, the merge, has fired; it goes after the reports and, ideally, before the invitations of L6.3). **Corrected:** *First-steps hints* and *Public dev board* named `help alpha` as launch minimum L4.1; it is L4.2. *Scribe teaches Craft with no difficulty datum*'s 2026-11-01 annotation named the `improve` fields as planned; a new annotation names them as built.
 > **Rev 62 · 2026-11-04** — alpha decision (G) (roadmap Rev 40; `docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 2): the alpha measures operations and onboarding, not pillar 1, and the economy waits on a milestone the roadmap now names as **[OPEN] No milestone measures the economy**. **Re-anchored** to that milestone: *Recipe invention*, *Every knowledge-gated recipe has a profession grantor* and *Wanted board* (Trigger and Status: *alpha close-out data* → *economy-milestone data*; each *Why deferred* that said the alpha measures the economy is corrected), *Disassemble yields parts and raw materials* (Why deferred and Trigger), and *Seasonal supply & population memory* (annotated; Status reads the economy milestone; part (1)'s light-week exception unchanged). **Annotated:** *Persistent alpha instance* — its purpose narrows, its close-out is LM10 Rev 2's, automated test players are allowed, and it is the instance listed on the Game Index. **Added** (*Tooling & Process*): ***Automated test players*** (BLOCKED on the instance), constraints locked by (G3) — staff-made accounts filtered out of the log by dbref, and `dummyrunner` never on the instance. **Added** (*Tooling & Process*), unrelated to (G) and filed in the same commit at Adam's request: ***In-world gazette*** — a paper per game-month from the activity report, read in game first and posted outside later, meant to spark passive curiosity rather than to advertise; no invented events, staff reads every issue, players anonymous unless they opt in. Read and left: the dated 2026-10-17 annotations that say the alpha exists to test pillar 1 (true when written), *Free Skill Points*, *First-steps hints*, *Player mail* and *A `hunter` profession* (their close-out triggers read what testers did or asked for, which the alpha still shows, not prices). No code changes.
 > **Rev 61 · 2026-11-04** — five entries **added** from a gap review against `roadmap.md`, this file and the launch-minimum decomposition (each subject had no home in any of the three); contribs verified against the pinned `v6.1.0` tag. **Added** (*Tooling & Process*): ***In-game bug, idea and player reports — `ingame_reports`***, ⚠️ **first after the launch minimum**: Adam's call, to keep the launch-minimum sessions as decomposed; the alpha otherwise has no in-game way for a tester to report anything. **Added** (*UX & Item Identity*): ***First-steps hints*** (BLOCKED on what the reports show) and ***A screen-reader pass*** (OPEN, before a public opening). **Added** (*Currency*): ***Wanted board*** and ***Player mail — `game_systems/mail`***, both post-alpha and both text-only by rule, so neither becomes the remote `pay` the *Bank / post office* entry exists to refuse. Roadmap Rev 39 carries the achievements contrib note and the p.72–73 citation fix in the same commit. No code changes.
 > **Rev 60 · 2026-11-04** — two entries **added**, both from one design chat with Adam, neither touching the alpha order. **Added** (*Crafting & Tools*): ***Recipe invention — rediscover a gated recipe by experiment***, BLOCKED on alpha close-out data: a sixth knowledge source that needs neither a sender nor an item, so a recipe can never die out, priced as the most expensive channel so knowledge stays worth trading; filed with the shape proposed and the questions a decomposition must lock, and deliberately not built before the alpha measures whether knowledge dies out at all. It records one citation fix on the way: Legend's Craft teacher-gate is p.72–73 (Recipe Knowledge decomp Rev 1), not the p.70–71 the roadmap still cites. **Added** (*Tooling & Process*): ***Public dev board — a read-only kanban page on the game website***, OPEN with six decisions locked (A–F): `docs/board.md` as the one source, one card per epic, a stdlib-parsed `/board/` view with no model and no login, OPEN after the launch minimum merges. No code changes.
@@ -599,6 +600,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (skill, from, to, meaningful) — written from `attempt_skill_improvement` when
   it returns a result. The question *does Craft rise on books rather than on
   crafts for anyone* is answered by `activity_report` over the alpha's file.
+- **Annotation (2026-11-04, launch minimum close-out):** as built (L2.2b), the
+  `improve` line's fields are `skill`, `old`, `new` and `xp`, not *from, to,
+  meaningful*: `from` is a Python keyword, `xp` because `old == new` on most
+  ticks, and a line is written only when a tick fired, so `meaningful` would
+  always be true. The report sums ticks and xp per skill.
 - **Status:** OPEN
 
 ### Alpha content epic — decompose before code (FAS 1 cut → seeding → catalogue → E.1)
@@ -848,7 +854,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   grant or a seed row, so the next recipe batch cannot ship a fountain. The
   profession side is its own entry (*Every knowledge-gated recipe has a
   profession grantor*, Character creation, post-alpha).
-- **Status:** SCHEDULED (Launch Minimum L3.3)
+- **Annotation (2026-11-04, launch minimum close-out):** shipped as L3.3,
+  `14c0fd3`. Fifteen rows in `world/seed_data.py` `SCROLLS`, all in
+  `alpha.room.temple`. Tag-only idempotence could not hold: `learn` deletes the
+  scroll and its seed tag, so a `ServerConfig` ledger (`seed.scrolls_placed`)
+  records each placement and `seed_world()` never places a learned scroll
+  again. Replenishment is the staff's `reseed_scroll(<recipe>)` (runbook §4).
+  The source test (`tests/test_recipe_sources.py`) was red with thirteen
+  recipes before the rows existed. Decomposition Rev 3, L3.3's Shipped line.
+- **Status:** DONE (`14c0fd3`, merged in `df0dc4e`; launch minimum L3.3, decomposition Rev 3)
 
 ### Recipe invention — rediscover a gated recipe by experiment (the knowledge floor)
 - **What:** A sixth knowledge source. Today every source of a gated recipe needs
@@ -1766,7 +1780,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   assignment to `location` runs no hook (`evennia/objects/models.py:307–346`)
   and barter already refuses worn items (`world/barter.py:64`), which L3.1's
   test pins.
-- **Status:** SCHEDULED (Launch Minimum L3.1)
+- **Annotation (2026-11-04, launch minimum close-out):** shipped as L3.1,
+  `2c56c07`: `at_post_move` runs `remove()` quietly when the garment left a
+  character (`inherits_from`, since the contrib's `get_worn_clothes` is a module
+  function) and clears the flag directly otherwise. Barter's guard is read at
+  finish, not at offer. A covered layer stays worn when its cover leaves.
+- **Status:** DONE (`2c56c07`, merged in `df0dc4e`; launch minimum L3.1, decomposition Rev 3)
 
 ---
 
@@ -2355,7 +2374,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   — two headings split by the viewer's Craft (`.value`, the floor's own
   reading), the floor note only where it binds, the `(routine)` tag only under
   the first.
-- **Status:** SCHEDULED (Launch Minimum L3.2)
+- **Annotation (2026-11-04, launch minimum close-out):** shipped as L3.2,
+  `076b3e2`, and L3.2b, `9e06197`. The floor's reading is at
+  `world/crafting_base.py:309`, not `:265` as cited above; it and the list now
+  share one rule, `world.knowledge.meets_floor()`. L3.2b gave `recipes
+  <discipline>` the heading *"<Discipline> recipes you know:"*, since that view
+  listed floored recipes under "can craft" too.
+- **Status:** DONE (`076b3e2` and `9e06197`, merged in `df0dc4e`; launch minimum L3.2, decomposition Rev 3)
 
 > **Not listed here:** *Search / disambiguation UX + item identity* — already a
 > written, cross-cutting entry in `roadmap.md` §backlog (rides on Stage 2/3 alias
@@ -2369,7 +2394,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   occurrence of an event — the first hunger warning points at `forage`, the
   first failed craft at `recipes`, the first nightfall at shelter. A per-character
   set of hints already shown; nothing repeats; a player can turn them off. The
-  only onboarding today is `help alpha` (launch minimum L4.1), which serves the
+  only onboarding today is `help alpha` (launch minimum L4.2), which serves the
   invited cohort, not a stranger.
 - **Why deferred:** Which hints matter is a question the alpha answers: guessing
   where newcomers stall writes tips for the wrong moments.
@@ -2670,7 +2695,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   per LM7 and filtered out of the log offline (*Automated test players*). It is
   the instance listed on the Evennia Game Index, its description saying how to
   ask for an account (L6.3).
-- **Status:** SCHEDULED (Launch Minimum L6)
+- **Annotation (2026-11-04, launch minimum close-out):** the code is on `main`
+  (`df0dc4e`, PR #21) and tagged `alpha-20261104`, the tag L6.1 checks out.
+  What is left is L6 — provision and deploy, backup and logs, seed, accounts,
+  the Game Index listing and the first invitation — which is operations on the
+  box, run from `docs/PolishedWorld_Alpha_Runbook.md`.
+- **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
 
@@ -2826,7 +2856,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   persistent instance and it is now scheduled; the pin is task L1.1
   (`requirements.txt`, `evennia==6.1.0`), first in the order so that L6.1's `pip
   show evennia` is the receipt.
-- **Status:** SCHEDULED (Launch Minimum L1.1)
+- **Annotation (2026-11-04, launch minimum close-out):** shipped as L1.1,
+  `6764f3b`; both machines read 6.1.0 (home on Python 3.14.7, work on 3.14.8).
+  L6.1's `pip show evennia` on the box is the receipt the pin exists for.
+- **Status:** DONE (`6764f3b`, merged in `df0dc4e`; launch minimum L1.1, decomposition Rev 3)
+
+### Channel boot/ban crash upstream
+- **What:** In Evennia 6.1.0, `channel/boot` crashes before it changes
+  anything: `boot_user` reads `nick.value[3]` on the values
+  `target.nicks.get(category="channel", return_tuple=True)` returns, which are
+  tuples (`evennia/commands/default/comms.py:632`). `channel/ban` calls
+  `boot_user` first (`:663`) and crashes the same way. Found live in launch
+  minimum L4.1 against an account with channel nicks; the same lines stand on
+  Evennia's `main` (read 2026-11-04).
+- **Why deferred:** The alpha moderates at account level — `boot`, and `ban`
+  with a reason — which works (runbook §2 says *do not use* the channel
+  commands, decision A at L4.1). A cohort of a few invited humans has no channel
+  to police yet, and a project override of `CmdChannel` would be code to
+  maintain against an upstream fix.
+- **Trigger:** Channel moderation is needed during the alpha, or an Evennia
+  upgrade (re-read `boot_user` and run `channel/boot` once against an account
+  with channel nicks before the runbook's line changes). Reporting it upstream
+  is open at any time.
+- **Origin:** Launch Minimum L4.1 (2026-11-04), decomposition Rev 3 LM3.
+- **Status:** OPEN
 
 ### System Map describes the world as of Stage 4
 - **What:** `docs/PolishedWorld_System_Map.md` was last revised 2026-08-03
@@ -2936,8 +2989,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Notes for the build:** `docs/board.md` is a new `docs/**/*.md` file, so the
   catalogue loop's expected count rises by one and `docs/README.md` gains a row;
   decide there whether it carries a Rev header (git history is the changelog, as
-  for the roadmap). The `help alpha` line lands with the board, not in L4.1.
+  for the roadmap). The `help alpha` line lands with the board, not in L4.2.
 - **Origin:** Adam, design chat 2026-11-04.
+- **Annotation (2026-11-04, launch minimum close-out):** the trigger fired at
+  L5.1 (`df0dc4e`). *In-game bug, idea and player reports* goes first, by its
+  own text; this entry follows it, before L6.3's invitations if it can.
 - **Status:** OPEN
 
 ### In-game bug, idea and player reports — `ingame_reports`
@@ -2977,7 +3033,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   in, it ships to the running instance through the runbook's deploy sequence.
   Its reports are the trigger data for *First-steps hints*.
 - **Origin:** Adam, gap review 2026-11-04.
-- **Status:** BLOCKED (launch minimum close) — first after it
+- **Annotation (2026-11-04, launch minimum close-out):** the trigger has fired:
+  the launch minimum's code is merged and tagged (`df0dc4e`, `alpha-20261104`),
+  and what remains of it, L6, is operations on the box. Read with *Public dev
+  board*'s trigger (merged, ideally before the cohort is invited), the order is
+  this entry, then the board, both before L6.3's invitations; L6.1 and L6.2
+  (provision, deploy, backup) do not wait on either.
+- **Status:** OPEN — first, before the dev board
 
 ### Automated test players — a scripted load run and a few LLM agents
 - **What:** Software-driven players, in two kinds. **(a) Scripted:** Evennia's own
@@ -2998,7 +3060,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (2) **`dummyrunner` never touches the alpha instance**: it logs in with
   `create` (`dummyrunner_settings.py:123, 137` at `v6.1.0`), which L1.2 closed,
   and the settings mixin it requires sets `PERMISSION_ACCOUNT_DEFAULT =
-  "Developer"` and lifts the creation throttle (`settings_mixin.py:20–22`) — it
+  "Developer"` and lifts the creation and login throttles
+  (`settings_mixin.py:20, 22–24`; corrected at Rev 63 from `:20–22`) — it
   runs against a scratch copy of the game dir only; (3) `help alpha` says that
   automated players exist (L4.2, Rev 2).
 - **Open:** whether an agent's character is recognisable in game (a name
@@ -3010,6 +3073,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The alpha instance open (L6). (a) first, on a scratch copy; (b)
   with one agent, more only if the first finds things.
 - **Origin:** Adam, design chat 2026-11-04 (few human testers expected).
+- **Annotation (2026-11-04, launch minimum close-out):** constraints (1) and (3)
+  are built where they said. The runbook's §9 (L4.1b) holds the list — account,
+  its dbref, the character's dbref, the date, a row before first login — and the
+  filter as one offline line that drops any line where a `[dbref, key]` pair
+  names a listed dbref, verified on the work dev log (66 → 64 lines with one
+  test account listed); `help alpha` says automated players exist (L4.2b).
+  The harness itself, (a) and (b), is still this entry's and still waits on the
+  instance.
 - **Status:** BLOCKED (alpha instance open)
 
 ### In-world gazette — a paper per game-month, read in game and posted outside

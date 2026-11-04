@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 3 · 2026-11-04** — §7 names the first tag: the launch minimum is merged (`df0dc4e`) and tagged **`alpha-20261104`**, which L6.1 checks out; *the tag exists only after the L5.1 merge* is no longer true. Nothing else changes (Launch Minimum L5.2).
 > **Rev 2 · 2026-11-04** — Launch Minimum decomposition Rev 2 (decision (G)): a new §9 *Automated test players* — the list LM10's filter reads, the filter verified live on the work dev DB, and `evennia --dummyrunner` ruled off the box; §8's close-out rewritten to LM10 Rev 2 (copy, filter, report, the five checks into the roadmap, wipe — Rev 1's GameGold step is gone), with a pointer per check and the incident table for check (1); §5 and §7 name the checks they hold; *What not to do* becomes §10.
 > **Rev 1 · 2026-11-04** — first version (Launch Minimum L4.1). Accounts, moderation, the economy, scrolls and the log verified live on the work dev DB (Evennia 6.1.0, two extra accounts); backup verified for `.backup` and `integrity_check`; deploy, the nightly backup, the restore and the wipe are written and marked with the task that runs them.
 > **Canonical:** `docs/PolishedWorld_Alpha_Runbook.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -364,7 +365,7 @@ python -c "import sqlite3,os; s=sqlite3.connect('server/evennia.db3'); d=sqlite3
 
 ## 7. Deploy
 
-**Not yet run — L6.1** (the tag exists only after the L5.1 merge). The sequence, in the game directory as the `evennia` user:
+**Not yet run — L6.1.** The first tag is **`alpha-20261104`** (on `df0dc4e`, the launch-minimum merge); later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
 
 ```
 git fetch --prune

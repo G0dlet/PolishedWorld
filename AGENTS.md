@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 9 · 2026-11-04** — the opening line says **Python ≥ 3.12** and names the pinned Evennia 6.1.0 (`requirements.txt`, Launch Minimum L1.1), whose wheel requires it; it said *Python 3.11+*. Nothing else changes.
 > **Rev 8 · 2026-10-26** — §4 says **when `_finalize_item` is required, not only when it is forbidden**, and the recipe schema carries **`requires_knowledge` and `min_skill`** (Alpha Content close-out, AC6). AC4.1 found the gap: §4 forbade `_finalize_item` unasked, while every garment output must call `_apply_garment_quality(obj)` — without it a shoddy garment was born at condition 100 while the linen shirt is born at 50. AC5.1 found the schema silent on `min_skill`, which every recipe now declares. The example is `LinenShirtRecipe` as it stands in `world/recipes.py`.
 > **Rev 7 · 2026-10-24** — §3 schemas carry `enc` (Alpha Content AC4.0, Decomposition Rev 3): every item prototype has a non-negative int Encumbrance with its rulebook page or Q6 reason; §3.1/§3.2/§3.3/§3.6 examples show it, §3.4/§3.5 say creatures and nodes carry none, and §6 gains the line. Test (g) in `tests/test_material_registry.py` enforces it — it lives on `feature/alpha-content` until that branch merges. §3.6 admits `bottom` and `accessory`, which `CLOTHING_TYPE_ORDERED` already holds. §3.2's `KNIFE` now matches the shipped prototype (`typeclasses.tools.Tool`, not `Object`), and §3's table gains `Tool`, `Scroll` and `Book`, which it had missed. §4: a batch brief that gives `craft_duration` is the request.
 > **Rev 6 · 2026-10-14** — §4 recipe schema: `craft_cooldown` → `craft_duration` (Epic A, TA2.2). A craft now takes its time up front, on the shared timed-action slot, and the per-recipe cooldown is gone: one time knob, not two. A recipe that still defines `craft_cooldown` fails `tests/test_craft_command.py`. The template had been stale since TA2.1, which added `craft_duration` without updating it.
@@ -12,7 +13,7 @@
 > **Canonical:** `AGENTS.md` @ G0dlet/PolishedWorld — git wins.
 
 You are a code agent working in **PolishedWorld**, a high-fantasy sandbox-survival
-MUD built on the **Evennia** framework (Python 3.11+) using the **Mongoose Legend**
+MUD built on the **Evennia** framework (6.1.0, pinned; Python ≥ 3.12) using the **Mongoose Legend**
 (d100 percentile) ruleset.
 
 Your job in this repo is **content data generation**: producing prototypes,
