@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 60 · 2026-11-04** — two entries **added**, both from one design chat with Adam, neither touching the alpha order. **Added** (*Crafting & Tools*): ***Recipe invention — rediscover a gated recipe by experiment***, BLOCKED on alpha close-out data: a sixth knowledge source that needs neither a sender nor an item, so a recipe can never die out, priced as the most expensive channel so knowledge stays worth trading; filed with the shape proposed and the questions a decomposition must lock, and deliberately not built before the alpha measures whether knowledge dies out at all. It records one citation fix on the way: Legend's Craft teacher-gate is p.72–73 (Recipe Knowledge decomp Rev 1), not the p.70–71 the roadmap still cites. **Added** (*Tooling & Process*): ***Public dev board — a read-only kanban page on the game website***, OPEN with six decisions locked (A–F): `docs/board.md` as the one source, one card per epic, a stdlib-parsed `/board/` view with no model and no login, OPEN after the launch minimum merges. No code changes.
 > **Rev 59 · 2026-11-01** — the launch minimum decomposed (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 1; roadmap Rev 38). **Status changed, five entries:** *Persistent alpha instance* BLOCKED → SCHEDULED (L6) — its trigger had fired on `d5450ad` untouched (lesson 195); *Evennia is not pinned in the repo* OPEN → SCHEDULED (L1.1); *Worn clothing leaves without `remove()`* OPEN → SCHEDULED (L3.1); *`recipes` lists floored recipes under "can craft"* OPEN → SCHEDULED (L3.2); *World-loot scroll seed* BLOCKED → SCHEDULED (L3.3). **Re-triggered:** *System Map describes the world as of Stage 4* — *before the alpha opens* → the Stage 5 design session. **Annotated:** *Seasonal supply & population memory* (the ledger data it waits on is the activity log, not `economy_log`), *Scribe teaches Craft with no difficulty datum* (the `improve` kind is the log it asks for). **Added** (*Character creation*): *Every knowledge-gated recipe has a profession grantor* — a live recount found thirteen of seventeen `requires_knowledge` recipes with no grantor; the scroll seed covers the alpha, the profession question is post-alpha.
 > **Rev 58 · 2026-11-01** — the E.2 close-out (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 2; merged to `main` as `d5450ad`, tree `9dfa0fb`; suite 1004 OK; roadmap Rev 37). **Closed:** *The recipe catalogue does not span the skill scale* goes **SCHEDULED → DONE** and drops its ⛔ (E.1 in Alpha Content AC5.1, E.2 in `d5450ad`); earlier rev lines and entries that cite it with the ⛔ are left as written. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — T2.2 gave disassemble its first command tests of an outcome, four of them; its tiers, repair and hunt are still untested, so the entry stays OPEN; *`recipes` lists floored recipes under "can craft"* — its trigger fired at T3.1, which changed `CmdRecipes`, and was not taken; re-armed to the launch-minimum decomposition. *A craft driven as `char2`…* is unchanged: no E.2 test crafts as `char2`.
 > **Rev 57 · 2026-10-31** — E.2 decomposed (`docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1; roadmap Rev 36). **Status changed:** *⛔ The recipe catalogue does not span the skill scale* goes **BLOCKED → SCHEDULED** — its own last annotation said E.2's trigger was *the decision to build the gate*, and (F) made it; the entry keeps its ⛔ until the gate ships. **Added** (*Crafting & Tools*): *Disassemble yields parts and raw materials* — Adam's standing intention, filed as post-alpha with the economy constraint he set (lossy, and a failed roll can destroy the material outright), and taking mastery decomp OQ3 as its question; *Scribe teaches Craft with no difficulty datum* — the grind the gate removes, one command away, filed with a ledger trigger. **Annotated:** *A craft driven as `char2` in a unit test never rolls* — E.2 needs no second crafter, so its trigger no longer names it.
@@ -845,6 +846,62 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   profession side is its own entry (*Every knowledge-gated recipe has a
   profession grantor*, Character creation, post-alpha).
 - **Status:** SCHEDULED (Launch Minimum L3.3)
+
+### Recipe invention — rediscover a gated recipe by experiment (the knowledge floor)
+- **What:** A sixth knowledge source. Today every source of a gated recipe needs
+  something that can run out: profession grant needs the right profession in the
+  cohort, scroll / book / teach need a sender who already knows it,
+  reverse-engineering (`disassemble`) needs a finished item, and the alpha's
+  scroll seed needs staff (`reseed_scroll`, Launch Minimum L3.3). Invention needs
+  none of them: a skilled crafter experiments with a gated recipe's real inputs
+  and, on a hard roll, works the recipe out. Players do **not** design recipes —
+  they rediscover ones already in the catalogue. Its purpose is a floor: with
+  invention, the number of characters who know a recipe can fall to zero and
+  still come back.
+- **Shape proposed (2026-11-04 chat; to be locked by a decomposition, not here):**
+  - **The dearest channel.** Teach < scroll < disassemble < invent, so buying or
+    being taught stays the rational choice and knowledge keeps its price
+    (pillar 1). The floor exists for when nobody is selling.
+  - **The gate is the cost, never the secret.** Inputs are not secret — the repo
+    is public and a wiki will list them — so a mechanic built on guessing the
+    combination gates nothing. The price is paid in materials, a roll and time.
+  - **Inputs consumed on every outcome** — a sink; success yields the
+    *knowledge*, never the item, so inventing is no shortcut to production.
+  - **Adjacent rungs only.** A recipe is inventable only by someone who knows a
+    recipe on the rung below in the same discipline (the E.1 ladder, rungs
+    0 / 20 / 40 / 60), so invention climbs the catalogue rather than jumping it.
+  - **A skill floor above the recipe's `min_skill`** plus a Hard roll — a master's
+    act, not a novice's.
+  - **A long timed action** on Epic A's slot — the rate limit and the
+    brute-force guard in one.
+  - **Multiplayer:** knowledge is per character, so there is no shared state to
+    race; an alt who invents and then teaches is the economy working, not an
+    exploit.
+- **Legend:** *Craft (Advanced)* can only be learnt from a teacher (Legend
+  p.72–73, Recipe Knowledge decomp Rev 1 — the roadmap's "p.70–71" is the
+  uncorrected citation). That gate is on the *skill*; invention transfers
+  *recipe knowledge*, which is a MUD convention Legend does not have (roadmap,
+  *Recipe knowledge & discovery*). The skill floor keeps it in Legend's spirit:
+  only someone already trained can work something out alone.
+- **Open questions for the decomposition:** (1) the whole gated catalogue, or
+  only some — Adam asked whether the top recipes should stay teach-only;
+  (2) the floor margin and the roll's difficulty; (3) whether an attempt can
+  improve Craft or recipe mastery (and how the trivial-work gate, E.2, reads it);
+  (4) whether a failed attempt gives any hint; (5) its Source/Sink Ledger row and
+  an activity-log kind (or `knowledge` with a `via` field); (6) whether it
+  retires the staff reseed of *World-loot scroll seed* after the alpha.
+- **Why deferred:** It is a new knowledge source, and the alpha exists to measure
+  the economy with the sources it has — the same reason *Disassemble yields parts
+  and raw materials* waits. The alpha may show that the scroll seed and staff
+  reseed are enough; if so this entry saves an epic.
+- **Trigger:** Alpha close-out data — `knowledge` lines in the activity log
+  showing gated recipes never learnt, or the same recipe reseeded on request more
+  than once. Decide it in the same session as *Every knowledge-gated recipe has a
+  profession grantor* (Professions & Chargen): both answer *who can source this
+  recipe*, and deciding one without the other sizes the other wrong.
+- **Origin:** Adam, design chat 2026-11-04 (seed recipes and the risk of knowledge
+  dying out).
+- **Status:** BLOCKED (alpha close-out data)
 
 ### Crafting resolves instantly
 - **What:** `craft` produces its output in the same tick it is typed. The crafting
@@ -2789,6 +2846,47 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   per crafter and its tests set one character's `.current`; Trivial Work
   decomposition T2.1.)*
 - **Origin:** Recipe mastery M2.1 (2026-10-30), filed at M6.1.
+- **Status:** OPEN
+
+### Public dev board — a read-only kanban page on the game website
+- **What:** A page that shows players and visitors what is being worked on, as an
+  easy kanban: three columns, one card per epic. Chosen over hosting a project
+  tool (NearBeach was considered: an internal team tool with logins, a second
+  service and database to run, and a second source of truth beside `roadmap.md`)
+  and over GitHub Projects (zero code, but unversioned and one more place to
+  sync). Decisions locked 2026-11-04 (Adam took the recommendations as given):
+  - **A — Source:** `docs/board.md`, plain Markdown — headings `## Planned`,
+    `## In progress`, `## Done`, one card per bullet. Readable on GitHub as is,
+    no dependency (YAML would need PyYAML), parsed with a few lines of stdlib.
+    Lives in `docs/`, so it moves with doc patches on `main`.
+  - **B — Granularity:** one card per epic, about 10–15 cards, English, written
+    for players ("Tanning and leather goods", not "H5"). Moved at epic start
+    and close-out — the moments the roadmap is already updated. The board is a
+    shop window for the roadmap, never a planning tool; the roadmap stays the
+    truth.
+  - **C — Page:** a read-only Django view at `/board/` on Evennia's website,
+    routed through the project's `web/website/urls.py`; no model, no admin, no
+    login. The file is read per request, so a moved card shows without a
+    `reload` — cheap at fifteen cards and a handful of visitors.
+  - **D — Failure:** a missing or unreadable file renders "Board unavailable",
+    never a 500; unknown headings are ignored and a bullet outside a column is
+    skipped.
+  - **E — Reach:** a line in `help alpha` first. A link in the site menu needs a
+    template override — verify the base template's blocks against the pinned
+    Evennia source in the build session before promising it.
+  - **F — Out of scope:** drag-and-drop, an editor, comments, GitHub sync,
+    task-level cards.
+- **Why deferred:** The launch minimum orders the alpha's remaining work and the
+  board is not a prerequisite. It is one session (view, template, tests,
+  protocol) with a low blast radius — like the web character sheet, independent
+  of game systems.
+- **Trigger:** `feature/launch-minimum` merged (L5) — ideally built before the
+  cohort is invited (L6), otherwise the first session after.
+- **Notes for the build:** `docs/board.md` is a new `docs/**/*.md` file, so the
+  catalogue loop's expected count rises by one and `docs/README.md` gains a row;
+  decide there whether it carries a Rev header (git history is the changelog, as
+  for the roadmap). The `help alpha` line lands with the board, not in L4.1.
+- **Origin:** Adam, design chat 2026-11-04.
 - **Status:** OPEN
 
 ---
