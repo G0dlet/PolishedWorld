@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 27 · 2026-11-04** — **what the launch minimum learned, verified against the pinned `v6.1.0`** (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 3; merged as `df0dc4e`). New **§16: accounts, registration, moderation and logs** — registration's three doors and why the route cannot simply be dropped (16.1); `Account.create` against `create_account` (16.2); `ban`'s kept space before the colon (16.3); `ban` does not disconnect, refused logins count against the login throttle, and `@accounts/delete` checks Developer inside (16.4); `channel/boot` and `channel/ban` crash (16.5); every public string in the screen module is a connection screen (16.6); `log_file`'s thread and rotation (16.7); and five smaller findings (16.8). §13 gains two rows.
 > **Rev 26 · 2026-10-30** — **what the weight feature learned, verified against the pinned `v6.1.0`** (`docs/PolishedWorld_Weight_Decomposition.md` Rev 11; merged as `7230823`). **§11.31 grows:** `move_to` passes `move_type` and its `**kwargs` to eight hooks, which is how a caller's own keyword (the project's `enc_quiet`) reaches `at_pre_object_receive`; what each hook's exception does (abort before the move, `False` after it, and the exit's *You cannot go there.*); `move_to(None)` returns before any hook; an exit moves with `move_type="traverse"`; `create_object(location=…)` runs `at_object_receive` before the attributes are written; the containers contrib's base is `settings.BASE_OBJECT_TYPECLASS`, `put` is permitted by `get_from` and asks `at_pre_put_in` only through `hasattr`. Its sentence *crafting output arrives that way* (by assignment) is corrected: crafting output now goes through `move_to`, and the assignments left are the crafting contrib's `CmdCraft.func` and barter's swap. **§8.5** gains the contrib's own assignment after `craft()` and `post_craft` in a `finally`. **§11.26** gains where the superuser bypass is decided and cached. **§3.5 corrected:** it gave `(current + mod) * mult` as `.value` for counters *and* gauges; a gauge's `.value` is its `current`.
 > **Rev 25 · 2026-10-29** — **what character creation learned, verified against the pinned `v6.1.0`** (`docs/PolishedWorld_Character_Creation_Decomposition.md` Rev 2). New **§3.6**: trait numbers — `.value` is a float whenever `mult` is (always, by default), counters and gauges round `.current` on read only when `.base` is an int, `GaugeTrait.value` is `.current`, `base` setters drop or clamp silently, and any property set on a trait is stored. New **§11.30** `utils.percent()` never divides by zero; **§11.31** `move_to`'s nine hooks and the containers contrib's two (filed from the weight decomposition's §3); **§11.32** which doors call `at_post_puppet` — login does, every `EvenniaTest` setUp does, `@reload` does not — and the one door every account-born character passes; **§11.33** file-help entries and the unknown-command line. New **§15 EvMenu**: the node contract, the cmdset that is the gate and shadows `py`, and persistent menus — what is saved, what a second `EvMenu` destroys, and the lazy restore that swallows a line. §13 gains two rows.
 > **Rev 24 · 2026-10-26** — new **§11.29: `search_prototype(no_db=True)` returns homogenized prototypes**, verified against the pinned `v6.1.0` (`evennia/prototypes/prototypes.py`). Filed by the Alpha Content epic (Decomp §3 finding 6 (iv)) and written in its close-out (AC6): a test or seeder that reads a loaded prototype by the module dict's top-level keys reads a shape the spawner never sees.
@@ -1804,6 +1805,8 @@ Roadmap cross-ref: backlog item *"Search / disambiguation UX + item identity"*.
 | Wilderness | `evennia.contrib.grid.wilderness` | Not in use — source-verified for Stage 6 (§14) |
 | EvMenu | `evennia.utils.evmenu` (built-in) | In use (`world/chargen_menu.py`, `world/chargen.py`; §15) |
 | File help entries | `FILE_HELP_ENTRY_MODULES` (built-in) | In use (`world/help_entries.py`; §11.33) |
+| Accounts, bans, moderation commands | `evennia.accounts.accounts.DefaultAccount.create`; `evennia.commands.default.admin` (built-in) | In use — staff-made accounts, account-level moderation (§16; `channel/boot|ban` broken in 6.1.0, §16.5) |
+| Menu login | `evennia.contrib.base_systems.menu_login` | In use (`CMDSET_UNLOGGEDIN`; registration closed, §16.1; screens §16.6) |
  
 ---
  
@@ -2012,6 +2015,58 @@ stops at, `InterruptMapLink` (`i`) the same for a link.
 - Restoring replays the saved kwargs exactly — including a stale one-off message carried in them.
 - `menu._session` is set at construction (`:612`) and again on every command (`:448`); after a reconnect it names the old session until the next command.
 
+
+## 16. Accounts, registration, moderation and logs (launch minimum)
+
+*(Verified against the pinned `v6.1.0`, 2026-11-01 – 11-04, and live on the work dev DB in launch minimum L4.1; re-read for this section on 2026-11-04. Filed by the launch-minimum close-out, `docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 3. The staff lines that use these findings are `docs/PolishedWorld_Alpha_Runbook.md` §1–§2.)*
+
+### 16.1 Registration has three doors, and the setting closes two
+
+`NEW_ACCOUNT_REGISTRATION_ENABLED` (`settings_default.py:40`, `True` as shipped) is read by Evennia's telnet `create` (`commands/default/unloggedin.py:178`) and by the menu_login contrib (`contrib/base_systems/menu_login/menu_login.py:93`). The website's `AccountCreateView` (`web/website/views/accounts.py:33`, `form_valid` `:43`) never reads it: the template hides the form (`general_context.py:72` sets `REGISTER_ENABLED`), but a POST to `auth/register` (`web/website/urls.py:20`) still creates an account.
+
+- **Which door is live depends on `CMDSET_UNLOGGEDIN`.** The project's is the menu_login contrib, whose cmdset installs no telnet `create`; at its prompt any text is a username, and a new one with the setting off gets *Registration is currently disabled.* — so `help alpha` typed there gets the same answer.
+- **The route cannot simply be removed.** `website/registration/login.html:41` (and `_menu.html:95`) reverse `{% url 'register' %}` without a guard, so dropping the name breaks the login page; and the root `evennia/web/urls.py:28` includes `evennia.web.website.urls`, which a game's `web/urls.py` appends after its own patterns by default — a route filtered out of the game's include is served by Evennia's.
+- **The project's answer:** route `auth/register` first, under the same path and name, to a subclass that answers 404 while the setting is off (`web/website/views/accounts.py` `GatedAccountCreateView`). One setting closes every door, and `tests/test_registration_closed.py` notices if an upgrade reopens one.
+
+### 16.2 `Account.create`, not `create_account`
+
+`evennia.utils.create.create_account` (`utils/create.py:240`) is the raw manager call: no username or password validation, no default channels, no character. `DefaultAccount.create(username=, password=, permissions=…)` (`accounts/accounts.py:999`, a classmethod) is what the website and `create` use, and returns `(account, errors)`:
+
+- it validates the username and the password and returns `(None, [messages])` on a weak password (the validators' texts — too short, too common, entirely numeric);
+- it joins the new account to `DEFAULT_CHANNELS` (Public);
+- with `AUTO_CREATE_CHARACTER_WITH_ACCOUNT = True` (`settings_default.py:802`) it creates the character at once — before any login it stands as a statue in Limbo in this project.
+
+Permissions default to Player; pass `permissions=["Admin"]` for staff.
+
+### 16.3 `ban` keeps the space before the colon
+
+`CmdBan` splits name and reason with `self.args.rsplit(":", 1)` and lower-cases the name, but never strips it (`commands/default/admin.py:200–204`). `ban tester : smoke` stores `'tester '`. At login `is_banned` compares the stored name to the stripped, lower-cased username (`accounts/accounts.py:659`), so the ban **never matches**. The `bans` table does not show the trailing space; only the confirmation prompt does (*Are you sure you want to Name-ban 'tester ' [Y]/N?*). `boot` (`args.split(":", 1)` with a strip) and `@accounts/delete` (`system.py:485`, the same) are not affected. **Rule: `<name>:<reason>`, no space before the colon.**
+
+### 16.4 `ban` does not disconnect, and refused logins count
+
+Nothing in `CmdBan` touches a session: a ban only refuses the **next** login (`accounts.py:737–747` in `authenticate`, `:1065` in `create`). Staff boot after banning. Each refused login of a banned name or address calls `LOGIN_THROTTLE.update(ip, …)` (`accounts.py:747`), so it counts toward `LOGIN_THROTTLE_LIMIT` (5 per 5 minutes per IP, `settings_default.py:840–841`) like a wrong password — a protocol run from one address can lock itself out. `ban/ip` with a subnet that covers your own address refuses your next login, not your current one.
+
+`@accounts` is locked `cmd:perm(listaccounts) or perm(Admin)` (`commands/default/system.py:466`), but `/delete` checks `Developer` inside the command (`:477`): an Admin sees the command and is refused at *You are not allowed to delete accounts.* `account.delete()` (`:523`) leaves the account's character behind; staff find and destroy it separately.
+
+### 16.5 ⚠️ `channel/boot` and `channel/ban` crash
+
+`CmdChannel.boot_user` (`commands/default/comms.py:610`) collects the target's channel nicks with `target.nicks.get(category="channel", return_tuple=True)` and reads `nick.value[3]` on each (`:632`); the values returned are tuples, so the comprehension raises before the account is disconnected from anything. `ban_user` (`:647`) calls `boot_user` first (`:663`) and crashes the same way. Found live in L4.1 with `channel/boot Public = tester:smoke` against `tester`, an account `Account.create` had joined to Public; the same lines stand on Evennia's `main` (read 2026-11-04). The project moderates at account level instead (`boot`, `ban`); BACKLOG *Channel boot/ban crash upstream* owns the rest.
+
+### 16.6 The connection screen is any public string in its module
+
+Both the menu login (`menu_login.py:100–104`) and the default unloggedin look (`unloggedin.py:289–293`) call a `connection_screen()` callable if the module has one, and otherwise `utils.random_string_from_module(CONNECTION_SCREEN_MODULE)` (`utils/utils.py:1572`) — a random choice among the module's globals that are strings, do not start with `_` and are not modules (`variable_from_module`, `:1531–1534`, through `string_from_module`, `:1543`). **Every public string global is a screen.** A string imported into the screen module for use inside it (the project's `CONNECTION_LINE`) must be imported under a leading underscore, or it becomes a second screen shown on some connects.
+
+### 16.7 `log_file` rotates and runs on a thread
+
+`evennia.utils.logger.log_file` (`utils/logger.py:557`) writes through `deferToThread` (`:585`) on a handle cached by `_open_log_file` (`:516`), which rotates at `CHANNEL_LOG_ROTATE_SIZE` (1 MB, `settings_default.py:198`; at least 1000 bytes, `logger.py:534`) through `EvenniaLogFile` (`:439`), whose `rotate` copies the last `CHANNEL_LOG_NUM_TAIL_LINES` (20, `settings_default.py:195`) into the new file. Right for a channel log a human scrolls; wrong for an event log a reader counts — lines are duplicated across a rotation and can arrive out of order. The activity log (`world/activity_log.py`) appends synchronously with `open(path, "a")` instead.
+
+### 16.8 Smaller findings from the same sessions
+
+- **A deleted object's dbref reads `"#None"`** (`typeclasses/models.py:479–483`, `"#%s" % self.id`): read keys and dbrefs before `delete()` if a record needs them.
+- **`get` runs `move_to` first and `at_get` after** (`commands/default/general.py:472–475`; the containers contrib's get, `containers.py:209–224`): an `at_post_move` hook runs before `at_get`.
+- **The clothing contrib's `get_worn_clothes` is a module function** (`contrib/game_systems/clothing/clothing.py:174`), not a character method: `hasattr(character, "get_worn_clothes")` is always false.
+- **`ServerConfig.objects.conf(key, value)`** (`server/manager.py:21`) is a small persistent key-value store (pickled values) that survives reloads and needs no Script: L3.3 keeps its scroll ledger there, and `server_bans` lives there too.
+- **Evennia 6.1.0 requires Python ≥ 3.12** (`pyproject.toml`, `requires-python`).
 ---
 
 **Freshness:** tracked in the Rev header at the top of this file (Evennia baseline: `main`; §12 spot-checked 2026-07-01; §14 verified against `main` **and** the `v6.1.0` tag, 2026-08-14).

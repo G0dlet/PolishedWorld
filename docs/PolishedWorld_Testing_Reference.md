@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 18 · 2026-11-04** — **the launch-minimum findings (decomposition Rev 3; merged as `df0dc4e`, tagged `alpha-20261104`).** **New §18: the launch minimum** — how to read the activity log in a protocol (the file, never `evennia test` alongside, before-and-after readings, the line shapes per kind), and the protocols as run: L2.2b's circulation sites, L2.3's report, L3.1's worn clothing (the stacks, not the sum; a statue as receiver), L3.2's `recipes` split, L3.3's scroll seed (the seed tag first; three runs around a `learn`; `reseed_scroll` twice), L4.1's three-client run (A–E, the throttle rule; outputs in the runbook), L4.2's connection screen and help, and L4.1b's filter. Steps not run in game name the unit tests that carry them.
 > **Rev 17 · 2026-11-01** — **the trivial-work findings (decomposition Rev 2; merged as `d5450ad`).** **New §17: trivial work** — the in-game protocols of T2.1 (craft), T2.2 (disassemble) and T3.1 (`recipes` and help), written from the protocols as run at home, with `;`-chained lines split one statement per `@py` line (§2) and every cleanup written as one line per starting state (lesson 190, which recurred in T2.2's protocol); the `mod` technique for a near-certain roll without moving a `.current` gate; and the three-receipt pattern. Two steps of the decomposition's protocol shape were not run in game; §17 names the unit tests that carry them. Nothing else changes.
 > **Rev 16 · 2026-10-31** — **the per-recipe mastery findings (decomposition Rev 2; merged as `abe9e6b`).** **New §16: per-recipe mastery** — the in-game protocol (the count, `recipes`, `recipes <discipline>`, `recipes <name>`, the teach threshold, and a cleanup written as one line per answer, lesson 190), run in the sandbox before it was written down, and M5.1's in-game check of `skill_check` over 10 000 rolls. **§11f** gains three: teach and accept in a unit test need `has_account` patched with a `PropertyMock` (Evennia Ref §11 has the cause); a craft driven as `char2` never rolls (unexplained, filed in BACKLOG); and a counting wrapper that finds every test reaching a shared primitive (13 candidate modules where greps found 8). **§13** gains how to count the suite without running it, and the run that closed the feature: 971 in 43 modules, OK.
 > **Rev 15 · 2026-10-30** — **the weight feature's findings (decomposition Rev 11; merged as `7230823`), filed where they apply.** **New §15: weight and encumbrance** — the first check when `get` refuses (closes the decomposition's OQ4), the five silent paths, the five places a new object may land on the floor and the line order there, the builder rule for a missing `enc`, and the in-game protocol, run in the sandbox as a plain character and as a superuser before it was written down. **§13** gains the test policy (Adam, 2026-10-30): a task is received with a targeted run, the whole suite runs once per feature before its merge; and the parallel runner, `ForkTestRunner` with `--parallel auto`, and why `auto` must be written. **§3:** a lambda cannot see a name bound earlier on the same line. **§4:** the weight surface as one tuple, and a recipe's `msg` that is a tuple. **§7:** a protocol line runs as written, and what must survive a reload lives in `db`. **§11:** a craft's receipt is its result line. **§11b:** a mutation that restores the old line can survive once the work has moved. **§11f:** `self.call` returns every line, and a probe's `inspect.stack` attribution lands on a mixin's file. **§11j:** a superuser test calls `cache_lock_bypass`.
@@ -1070,6 +1071,150 @@ The three protocols below were run at home during E.2 (2026-10-31 – 11-01). Th
    @py self.skills.get("craft").mod = <mod from step 0>
    @py self.skills.get("craft").current = <current from step 0>
    ```
+
+## 18. The launch minimum — activity log, registration, moderation
+
+From `docs/PolishedWorld_Launch_Minimum_Decomposition.md` (§12 has every task's record; each task's *Shipped* line has what the build changed); merged 2026-11-04 as `df0dc4e`, tagged `alpha-20261104`. The protocols below are the ones run during the launch-minimum sessions, at home (L2.2–L3.1) and at work (L3.2–L4.2b), written here in the form they were run; where a step was not run in game, the unit test that carries it is named. L4.1's commands and their exact outputs live in `docs/PolishedWorld_Alpha_Runbook.md`, which was written from that run, so they are not repeated here.
+
+### 18.1 Reading the activity log in a protocol
+
+- **The file** is `server/logs/activity.jsonl` (gitignored). Read one line with `tail -n 1 server/logs/activity.jsonl` after each step, or the whole file with `python -m world.activity_report server/logs/activity.jsonl`, which needs no running server.
+- **Never run `evennia test` while a protocol reads the dev log** (lesson 215). Tests that pass a site without `ActivityLogMixin` write fixture lines into the developer's own file — actor `#6`/`Char`, game-year 229 — by decision (L2.2's isolation option (a); the instance runs no tests). It happened twice during the sessions. The order that works: tests first, then `rm server/logs/activity.jsonl` if a clean file is wanted, `evennia reload`, then the protocol.
+- **Read before and after, never absolute counts.** A dev log carries old protocol and fixture lines. The report's month key is `"YYYY-MM"` with a zero-padded year, so fixture lines (`0229-xx`) and live lines (`0001-xx`) sort into different rows.
+- **Line shapes, as the protocols showed them.** Every line has `ts`, `gt {year, month, day, hour}` (1-based display values), `kind`, `actor [dbref, key]` and `room`, then:
+
+| kind | written by | fields |
+| --- | --- | --- |
+| gather | `forage`, `harvest` | `command`, `node`, `prototype`, `yields` (list), `success`; harvest also `part` (on a clean take and a botch, not on a plain failure) |
+| craft | `post_craft` | `recipe`, `consumed`, `product`, `quality`, `tier`, `duration` |
+| dismantle | `disassemble` | `target`, `recipe`, `learned` |
+| repair | `repair` | `item`, `consumed`, `tier`, `before`, `after` |
+| knowledge | `inscribe`, `scribe`, `learn` ×3 | `verb` (inscribe/scribe/learn/teach), `recipe` (scribe: a list), `medium` (scroll/book/lesson), `carrier` or `counterpart`; inscribe and scribe `consumed`; scribe `condition`; a book's `crumbled` |
+| trade | `_finish_and_clear` | `part_a`, `part_b` (`[dbref, key]`), `a_items`, `b_items` (keys), `a_copper`, `b_copper` (agreed gross); the actor is `part_a` |
+| work | `_finish_task` | `task`, `copper`, `treasury` (paid path only) |
+| consume | `eat`, `drink` | `verb`, `item`, `gauge`, `delta` (the gain after the clamp); drink `charges_left` |
+| crumble | `Corpse.crumble` | the corpse is the actor; `owner` (id or null), `lost` |
+| improve | `attempt_skill_improvement` | `skill`, `old`, `new`, `xp` (only when a tick fired) |
+
+### 18.2 L2.2b — the circulation sites (home, 2026-11-01)
+
+`tail -n 1 server/logs/activity.jsonl` after each step.
+
+0. `inventory` (lesson 71).
+1. **Eat.**
+   ```
+   @py f = evennia.create_object("typeclasses.consumables.Food", key="logbread", location=me); me.traits.hunger.current = 50
+   eat logbread
+   ```
+   → `kind` consume, `verb` eat, `delta` 20.
+2. **Drink.**
+   ```
+   @py d = evennia.create_object("typeclasses.consumables.Drink", key="logskin", location=me); me.traits.thirst.current = 50
+   drink logskin
+   ```
+   → `verb` drink, `delta` 15, `charges_left` 4.
+3. **Improve**, the unit test's own expression:
+   ```
+   @py me.attempt_skill_improvement("craft", {"success": True, "result": "success", "crit_score": 0})
+   ```
+   → `kind` improve, `skill` craft, `xp` above 0 (the run: `old` 20, `new` 21, `xp` 4). Run the same line again at once: the cooldown writes nothing, and `tail` shows the same line.
+4. **Crumble.**
+   ```
+   @py c = evennia.create_object("typeclasses.corpse.Corpse", key="logcarcass", location=here); c.db.death_time = 1; evennia.create_object("typeclasses.objects.Object", key="logtrinket", location=c, home=here)
+   harvest logcarcass
+   ```
+   → the corpse crumbles; the line's `actor` is the corpse, `lost` `["logtrinket"]`, `owner` null.
+5. **Trade** needs a second account and **work** a Treasury; at home neither existed, so both were left to their unit tests (`TestTradeIsLogged`, `TestPaidWorkIsLogged`, `TestDryWorkWritesNothing`) and taken later in game: work at work during L3.1–L3.2 (`work candles`: the report's `work` 1 → 2, 25 copper), trade in L4.1 (a length of twine for 5 copper, the price list's first row).
+6. `wc -l server/logs/activity.jsonl` → 4. `git status` clean.
+
+L2.2a's protocol (forage, harvest, craft, dismantle, the knowledge sites) wrote five lines the same way; each of its ten sites is carried by its own `Test…IsLogged` class and by `TestSiteCensus`.
+
+### 18.3 L2.3 — the report (home, 2026-11-02)
+
+Tests first; then `rm server/logs/activity.jsonl`, `evennia reload`; then in game `forage` and `eat` one food; then
+
+```
+python -m world.activity_report server/logs/activity.jsonl
+```
+
+→ two lines, both in month `0001-02` (the live clock), no malformed lines. This run found the month-order bug before the push: unpadded keys sorted `"10-01"` before `"9-13"`, which the fixture's years 229/230 could not show (lesson 218).
+
+### 18.4 L3.1 — worn clothing leaves the body (home, 2026-11-02)
+
+**R** is the reading, the same expressions the tests use, and it reads without recomputing:
+
+```
+@py b = me.buffs.get("cold_stress"); from world.thermal import worn_warmth; self.msg(str((worn_warmth(me), b.stacks if b else 0)))
+```
+
+1. `inventory` and `look`: no other hood (lesson 71).
+2. Pin the room cold and set the baseline:
+   ```
+   @py here.db.thermal_regime = "cold"
+   @py from world.thermal import apply_thermal_stress; apply_thermal_stress(me)
+   ```
+   **R** → `(0, 4)`.
+3. `spawn hood`, `get hood`, `wear hood`; **R** → `(1, 3)`.
+4. `drop hood`; **R** → `(0, 4)`. **The receipt**: without the hook the stacks read 3 until the next tick — `worn_warmth` drops on its own, the stacks do not.
+5. `get hood`; `inventory` shows it carried, not worn.
+6. **Give to a statue** (no second login needed: `CmdGive` does not check puppeting, lesson 224). Note where the statue stands, then bring it:
+   ```
+   @py self.msg(str(me.search("Test2", global_search=True).location))
+   @tel Test2 = here
+   wear hood
+   give hood to Test2
+   @py t = me.search("Test2"); from world.thermal import worn_warmth; h = me.search("hood", candidates=t.contents); self.msg(str((worn_warmth(t), h.db.worn, h.dbref)))
+   ```
+   → `(0, False, #N)`; **R** → `(0, 4)`.
+7. Clean up: `@tel #N = me`, `@tel Test2 = <the place from step 6>`, `@py here.attributes.remove("thermal_regime")`.
+
+The covering layer and the trade guard are carried by `TestCoveringLayerLeaves` and `TestTradeRefusesWornGarment`.
+
+### 18.5 L3.2 — `recipes` splits by what you can craft (work, 2026-11-03)
+
+1. Read Craft first and keep the numbers: `@py self.msg(str((me.skills.get("craft").current, me.skills.get("craft").mod)))`.
+2. Move `.value` with `mod` (the floor reads `.value`) to put known recipes on both sides of their floors, and read `recipes` at each: recipes at or below the value stand under *Recipes you can craft:* with no floor note; the rest under *Recipes you know but cannot craft yet:* with `(needs Craft N%)`; `(routine)` only in the first group.
+3. `recipes weaving` → the heading *Weaving recipes you know:* (L3.2b).
+4. `help recipes` → the paragraph on the two headings.
+5. **Restore `mod` to the value step 1 read**, not a value shown later (lesson 223 — the run set 20 where step 1 had read 0, and had to set it again).
+
+### 18.6 L3.3 — the scroll seed (work, 2026-11-03)
+
+1. **Check the seed tag first** (lesson 227): `@py from world.seeding import find_seeded; self.msg(str(find_seeded("alpha.room.temple")))`. On the work DB it was `None` — a hand-built temple — so the area was seeded in this run (backup first: `sqlite3 server/evennia.db3 ".backup $HOME/evennia-pre-L3.3.db3"`).
+2. `@py from world.seeding import seed_world; self.msg(str(seed_world()))` → the scrolls entry `created: 15` (the run: rooms, nodes, … and 15; Old Temple `#120`).
+3. `look scroll of tent` → the recipe block (4× cloth, Craft 60 %, 45 s): the stamp holds.
+4. A second `seed_world()` → scrolls `{'created': 0, 'skipped': 15}`.
+5. `learn` the tent scroll → *the scroll crumbles away*.
+6. A third `seed_world()` → still `created: 0`, and `look` shows fourteen scrolls: the ledger, not the tag, keeps the learned scroll out.
+7. `@py from world.seeding import reseed_scroll; self.msg(str(reseed_scroll("tent")))` → `scroll of tent`; the same line again → `None`.
+8. The report: month `0001-02` gained `knowledge 1` (the `learn`); a test run in between had added three fixture lines in `0229-02` (lesson 215, again).
+
+### 18.7 L4.1 — the runbook's live run (work, 2026-11-03/04)
+
+**Three clients**, each `telnet localhost 4000` in its own terminal: **G** = the Developer account (logged in throughout part C), **W** = `warden` (Admin), **T** = `tester` (player). Rules: no `evennia test` between A4 and E1 (lesson 215); every refused login from 127.0.0.1 counts against `LOGIN_THROTTLE` (five per five minutes), so the protocol made only two — type passwords right, and on *Too many login failures* wait five minutes.
+
+- **A — the shell, nothing changes:** `sqlite3 --version`; `.backup` to `~/evennia-pre-L4.1.db3`; `PRAGMA integrity_check` → `ok`; the report and `wc -l` as the before-reading (64 lines).
+- **B — accounts, as G:** `Account.create` with a weak password → `(None, [...])` with the validators' texts; then `warden` (`permissions=["Admin"]`), `tester` and `scratch` → `(account, [])`; `@accounts`. Log W and T in; both meet chargen. `Account.create` had already made each character as a statue in Limbo.
+- **C — moderation:** `ban` from W is refused (*Command 'ban tester' is not available*): Developer-locked, and the receipt is the refusal. `wall`, `boot`, `ban <name>:<reason>` then `boot`, the refused login, `bans`, `unban 1`; `ban tester : smoke` with spaces stores `'tester '` and T logged straight back in (lesson 228); `ban/ip 127.0.0.*` refuses new local logins while G and W stay connected — **never let go of G in part C**; `@accounts/delete` from W refused inside the command, from G it deletes the account and leaves the statue. `channel/boot` crashed (Evennia Ref §16.5).
+- **D — the economy and the trade:** `@economy`, `@economy audit`; a trade between G and T, a length of twine against 5 copper.
+- **E — after:** the report and `wc -l` again: 64 → 66 lines, knowledge 11, trade 1, and the first price row.
+
+Every command's exact output is in the runbook (§1–§5); none was copied from a docstring.
+
+### 18.8 L4.2 — `help alpha` and the connection screen (work, 2026-11-03)
+
+1. Disconnect and reconnect several times (the run: seven): the connection screen is whole every time and always carries the line *This is a closed alpha — read `help alpha` after you log in.* A second, partial screen on some connects would mean a public string in the screen module (Evennia Ref §16.6, lesson 229).
+2. At the login prompt, before logging in, any text is a username: `help alpha` there prints *Registration is currently disabled.* — the command is typed **after** login (lesson 230).
+3. Logged in: `help alpha`, `help cohort`, `help contract` → the same entry; `help death` → the death contract, which `help alpha` points to.
+4. `pub <message>` → the Public channel answers, as `help alpha` tells players to use it.
+
+### 18.9 L4.1b — the automated-player filter (work, 2026-11-04)
+
+The runbook's §9 holds the filter line; this is how it was proved. With `tester`'s character `#168` listed (a stand-in for an automated account — it had played the trade and a `learn`):
+
+1. Before: `wc -l` (66), `grep -c '"#168"' server/logs/activity.jsonl` (2), and the report.
+2. Run §9's filter into a copy. In zsh with `interactivecomments`, an unquoted `#168` is a comment: dbrefs are always quoted.
+3. After, on the copy: 64 lines; `grep -c` → 0; the report: trade 1 → 0 **and its price row gone**, knowledge 11 → 10, malformed 0 in both. Predict a dropped line's effect in every view of the report, not only the line count (lesson 235).
 
 ## Domain quick-refs
 
