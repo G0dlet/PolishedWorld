@@ -156,6 +156,38 @@ def routine_for(crafter, recipe_cls):
     return current - floor > trivial_band()
 
 
+def meets_floor(crafter, recipe):
+    """
+    Return True if `crafter` may attempt `recipe` now -- its skill floor is met.
+
+    Args:
+        crafter (Object): whoever would craft. Read through `getattr`, as
+            `MongooseCraftRecipe._skill_value` reads it: an object without a
+            `skills` handler, or without the recipe's skill, stands at 0.
+        recipe (type or MongooseCraftRecipe): a recipe class or instance. Its
+            `min_skill` (missing/None -> 0) is the floor and its `skill_name`
+            (default "craft") names the trait.
+
+    Returns:
+        bool: True iff the crafter's effective skill (`.value`) is at least
+            the floor.
+
+    Notes:
+        The one floor rule (Launch Minimum L3.2). `pre_craft`'s skill-gate
+        calls it, and so does `recipes` when it sorts a list into "can craft"
+        and "cannot craft yet", so the list cannot promise what the gate then
+        refuses. It reads `.value`, unlike `routine_for` beside it: the gate
+        asks "may you try right now", so a buff or penalty on the trait moves
+        a recipe across the floor while it lasts. The tool modifier and the
+        overload penalty are roll terms, not trait mods, and never reach it.
+    """
+    floor = getattr(recipe, "min_skill", 0) or 0
+    skills = getattr(crafter, "skills", None)
+    trait = skills.get(getattr(recipe, "skill_name", "craft")) if skills else None
+    value = trait.value if trait else 0
+    return value >= floor
+
+
 def _can_transmit(char, recipe_name):
     """
     Return True if `char` may inscribe/scribe/teach the recipe `recipe_name`.

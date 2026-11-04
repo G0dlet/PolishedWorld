@@ -35,6 +35,7 @@ from evennia.contrib.game_systems.barter.barter import (
 )
 
 from evennia.utils import logger
+from world import activity_log
 
 from world import encumbrance
 from world.currency import format_copper, parse_amount
@@ -701,6 +702,10 @@ class PWTradeHandler(BaseTradeHandler):
         a_amount = self.part_a_currency
         b_amount = self.part_b_currency
 
+        # Launch Minimum L2.2: what each side gave, read before super() nulls
+        # the offer lists (upstream barter.py:377-378).
+        a_items = [obj.key for obj in (self.part_a_offers or [])]
+        b_items = [obj.key for obj in (self.part_b_offers or [])]
         result = super().finish(force=force)
         if not result:
             # Nothing happened. The standing offer, coin included, survives.
@@ -708,6 +713,22 @@ class PWTradeHandler(BaseTradeHandler):
 
         if completing:
             self._settle_currency(a_amount, b_amount)
+            # Launch Minimum L2.2: the trade line, after the swap and the
+            # settlement -- the alpha's only price datum. Barter moves goods by
+            # assignment, so no move hook could have written it. A stale offer
+            # never reaches here: finish() resets the accepts, so `completing`
+            # is False. Amounts are the agreed (gross) ones, as the players saw
+            # them; the netted transfer is an implementation detail.
+            activity_log.record(
+                "trade",
+                self.part_a,
+                part_a=[self.part_a.dbref, self.part_a.key],
+                part_b=[self.part_b.dbref, self.part_b.key],
+                a_items=a_items,
+                b_items=b_items,
+                a_copper=a_amount,
+                b_copper=b_amount,
+            )
 
         self.part_a_currency = 0
         self.part_b_currency = 0

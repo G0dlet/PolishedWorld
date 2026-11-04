@@ -106,6 +106,7 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 from commands.crafting_commands import CmdScribe
 from world.progression import _BAR_EMPTY, _BAR_FULL, level_for_xp, xp_threshold
 from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
+from tests.test_activity_log import ActivityLogMixin
 
 # The shipped calibration, pinned. See the module docstring for why this file
 # pins where its two siblings sweep.
@@ -896,3 +897,40 @@ class TestImprovementCallSiteCensus(EvenniaTest):
                     found[path.relative_to(root).as_posix()] = n
         self.assertEqual(found, self.EXPECTED)
         self.assertEqual(sum(found.values()), 6)
+
+
+class TestImproveIsLogged(ActivityLogMixin, EvenniaTest):
+    """
+    Launch Minimum L2.2: a tick writes one improve line; a gated attempt
+    (unmeaningful, failed, or on cooldown) returns None and writes none. A
+    tick usually leaves the percentage where it was -- XP banks in grains --
+    so the line pins `xp > 0` and `old <= new`, not `old < new`.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+    SUCCESS = {"success": True, "result": "success", "crit_score": 0}
+
+    def test_a_tick_writes_one_line(self):
+        result = self.char1.attempt_skill_improvement("craft", self.SUCCESS)
+        self.assertIsNotNone(result)  # receipt: a tick fired
+        (entry,) = self.activity_records("improve")
+        self.assertEqual(
+            (entry["actor"], entry["skill"], entry["old"], entry["new"], entry["xp"]),
+            ([self.char1.dbref, self.char1.key], "craft", result["old"],
+             result["new"], result["xp_gained"]),
+        )
+        self.assertGreater(entry["xp"], 0)
+        self.assertLessEqual(entry["old"], entry["new"])
+
+    def test_gated_attempts_write_nothing(self):
+        failed = {"success": False, "result": "failure", "crit_score": 0}
+        self.assertIsNone(self.char1.attempt_skill_improvement("craft", failed))
+        self.assertIsNone(
+            self.char1.attempt_skill_improvement("craft", self.SUCCESS, meaningful=False)
+        )
+        self.assertEqual(self.activity_records("improve"), [])
+
+    def test_a_tick_on_cooldown_writes_nothing_more(self):
+        self.assertIsNotNone(self.char1.attempt_skill_improvement("craft", self.SUCCESS))
+        self.assertIsNone(self.char1.attempt_skill_improvement("craft", self.SUCCESS))
+        self.assertEqual(len(self.activity_records("improve")), 1)

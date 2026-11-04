@@ -24,6 +24,7 @@ from evennia import AttributeProperty
 from evennia.objects.objects import DefaultObject
 
 from world import gametime_utils
+from world import activity_log
 from world import weather as weather_logic
 from .objects import ObjectParent
 
@@ -209,8 +210,19 @@ class Corpse(ObjectParent, DefaultObject):
         # Contents first, then the carcass (see docstring). Per-item decay
         # (loot lingering after the body is gone) is a BACKLOG refinement; it
         # would land here, once.
+        lost = [obj.key for obj in contents]  # read before delete()
         for obj in contents:
             obj.delete()
+        # Launch Minimum L2.2: the corpse is its own actor (no player caused
+        # this), so the line is written while it still has an id and a room --
+        # after the contents, the sink the report counts, and before the
+        # carcass itself: a deleted object's dbref reads "#None".
+        activity_log.record(
+            "crumble",
+            self,
+            owner=self.db.owner,
+            lost=lost,
+        )
         self.delete()
         return True
 

@@ -26,11 +26,13 @@ Each dict is on the form
 
 # Built from live constants, so each topic says what its system does: `help
 # death` and the line a dying character receives (world/death_contract.py),
-# `help chargen` and the creation menu (world/chargen.py). If an import ever
+# `help chargen` and the creation menu (world/chargen.py), `help alpha` and the
+# connection screen's line (world/alpha_contract.py). If an import ever
 # fails, Evennia logs "Could not find file-help module" and skips EVERY entry in
 # this module -- `help death` answering in-game is the receipt that it loaded.
 from world.death_contract import help_entry as _death_help_entry
 from world.chargen import help_entry as _chargen_help_entry
+from world.alpha_contract import help_entry as _alpha_help_entry
 
 HELP_ENTRY_DICTS = [
     {
@@ -65,4 +67,5 @@ HELP_ENTRY_DICTS = [
     },
     _death_help_entry(),
     _chargen_help_entry(),
+    _alpha_help_entry(),
 ]

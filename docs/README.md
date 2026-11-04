@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 19 · 2026-11-04** — index `PolishedWorld_Alpha_Runbook.md` (the alpha runbook, Launch Minimum L4.1: accounts, moderation, the economy, scrolls, the log, backup, deploy, the wipe). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (31/0).
 > **Rev 18 · 2026-11-01** — index `PolishedWorld_Launch_Minimum_Decomposition.md` (the launch minimum, the alpha's sixth prerequisite, together with the persistent alpha instance). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (30/0).
 > **Rev 17 · 2026-11-01** — the Lessons register row reads *1–205*. The E.2 close-out appended lessons 194–205, and the row quoted the old range (lesson 193). No document added or removed; the directory-vs-list loop still reads 29/0. Nothing else about the index changes.
 > **Rev 16 · 2026-10-31** — index `PolishedWorld_Trivial_Work_Decomposition.md` (E.2, the trivial-work gate — the second half of the alpha's first prerequisite). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (29/0). Nothing else about the index changes.
@@ -82,6 +83,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Recipe mastery decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Mastery_Decomposition.md` |
 | Trivial work (E.2) decomposition | tactical (feature tasks) | `docs/PolishedWorld_Trivial_Work_Decomposition.md` |
 | Launch minimum decomposition (prerequisite 6 + the alpha instance) | tactical (feature and runbook tasks) | `docs/PolishedWorld_Launch_Minimum_Decomposition.md` |
+| Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
 | System backlog (14 systems, build order) | strategic (unlocks the crafting tree) | `docs/crafting/PolishedWorld_System_Backlog.md` |

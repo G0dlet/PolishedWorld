@@ -46,7 +46,8 @@ from evennia.contrib.game_systems.crafting import CraftingRecipe, CraftingError
 from world.skillcheck import skill_check
 from world.crafting_quality import quality_band, SUPERIOR
 from world.recipe_mastery import MASTERY_CAP, MASTERY_STEP
-from world.knowledge import routine_for
+from world.knowledge import meets_floor, routine_for
+from world import activity_log
 
 
 class MongooseCraftRecipe(CraftingRecipe):
@@ -304,8 +305,9 @@ class MongooseCraftRecipe(CraftingRecipe):
         # that penalty shifts the ROLL in do_craft ("how well"), not the gate ("may
         # you try"), so a skilled but tool-less crafter passes here and then rolls at
         # -20. Orthogonal to Stage 3's knowledge-gate. min_skill defaults to 0
-        # (ungated), so trivial survival recipes are never blocked.
-        if self._skill_value() < self.min_skill:
+        # (ungated), so trivial survival recipes are never blocked. The rule is
+        # meets_floor's, which `recipes` also sorts its list by (L3.2).
+        if not meets_floor(self.crafter, self):
             self.msg(f"Your Craft is too unskilled (need {self.min_skill}%).")
             raise CraftingError(f"{self.name} requires Craft {self.min_skill}%.")
 
@@ -426,8 +428,10 @@ class MongooseCraftRecipe(CraftingRecipe):
         # inputs' ENC no longer counts, as in inscribe and scribe. A product
         # delivered first could be set down for a load that is about to go,
         # and its "You are overloaded." would stand -- delete() is silent.
+        consumed = []
         if self._should_consume(tier):
             for obj in self.validated_consumables:
+                consumed.append(obj.key)  # read before delete(): the line needs it
                 obj.delete()
 
         set_down = []
@@ -442,6 +446,22 @@ class MongooseCraftRecipe(CraftingRecipe):
                 self.msg(self.crafter.set_down_message(set_down))
         else:
             self.msg(self.fail_no_item_message)
+
+        # Launch Minimum L2.2: the event line, after the last write (inputs
+        # deleted, product handed over or set down). Every rolled craft writes
+        # one, product or not: a failure that ate its inputs is a sink the
+        # report has to see. An improve line, when L2.2b lands, is written by
+        # do_craft and so precedes this one in the file.
+        activity_log.record(
+            "craft",
+            self.crafter,
+            recipe=self.name,
+            consumed=consumed,
+            product=[obj.key for obj in craft_result] if craft_result else [],
+            quality=craft_result[0].db.quality if craft_result else None,
+            tier=tier,
+            duration=getattr(self, "craft_duration", None),
+        )
 
         # C.1 tick-feedback: right after the craft-result line so "you made X"
         # and "your Crafting improved" read as one beat. getattr-guarded to match

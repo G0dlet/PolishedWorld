@@ -135,6 +135,7 @@ from evennia.utils import logger
 from commands.command import Command
 from typeclasses.treasury import get_treasury
 from world import timed_actions
+from world import activity_log
 from world.currency import format_copper
 
 # --------------------------------------------------------------------------
@@ -444,6 +445,16 @@ def _finish_task(caller, task_key, marker):
 
     # Only now, and only here.
     caller.cooldowns.add(_cooldown_key(task_key), task["cooldown"])
+    # Launch Minimum L2.2: the faucet line, on the paid path only -- after the
+    # transfer and the cooldown, before the first message. A dry Treasury
+    # returned above: no coin moved, no line.
+    activity_log.record(
+        "work",
+        caller,
+        task=task_key,
+        copper=task["copper"],
+        treasury=treasury.dbref,
+    )
 
     caller.msg(
         f"{task['done_actor']}\n"

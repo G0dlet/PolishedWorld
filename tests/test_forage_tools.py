@@ -51,6 +51,7 @@ from commands.foraging_commands import (
     CmdForage,
 )
 from world.crafting_base import MongooseCraftRecipe
+from tests.test_activity_log import ActivityLogMixin
 
 
 STOCK = 6  # node starts full; regen over a test's runtime is 0 at 1800 game-s/unit
@@ -202,3 +203,35 @@ class TestToolVocabularyMatchesCrafting(EvenniaCommandTest):
 
     def test_tag_category_is_the_crafting_contribs(self):
         self.assertEqual(TOOL_TAG_CATEGORY, MongooseCraftRecipe.tool_tag_category)
+
+
+class TestForageIsLogged(ActivityLogMixin, ForageToolBase):
+    """
+    Launch Minimum L2.2: a forage that took a unit writes exactly one gather
+    line, and a refusal writes none. Pressured by LM-M8 (the site dropped):
+    the first test finds no line.
+    """
+
+    def test_a_forage_writes_one_gather_line(self):
+        self.make_tool()
+        self.forage(msg="You forage")
+        (entry,) = self.activity_records()
+        (stick,) = self.sticks()
+        self.assertEqual(
+            {key: entry[key] for key in
+             ("kind", "actor", "command", "node", "prototype", "yields", "success")},
+            {
+                "kind": "gather",
+                "actor": [self.char1.dbref, self.char1.key],
+                "command": "forage",
+                "node": "test tree",
+                "prototype": "stick",
+                "yields": [stick.key],
+                "success": True,
+            },
+        )
+
+    def test_a_refusal_writes_nothing(self):
+        self.forage(msg=REFUSAL)
+        self.assert_nothing_claimed()  # receipt: the refusal path ran
+        self.assertEqual(self.activity_records(), [])

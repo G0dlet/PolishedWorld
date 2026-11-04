@@ -110,6 +110,7 @@ from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 from world.recipes import ClothRecipe, ClubRecipe, TwineRecipe
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
+from tests.test_activity_log import ActivityLogMixin
 
 
 TWINE = "twine from fiber-1, fiber-2, fiber-3"
@@ -910,3 +911,68 @@ class TestRoutineDisassembleDoesNotTeach(CraftTestBase):
         # .value 51 would be routine; .current 50 is what the gate reads.
         self.dismantle(50, mod=1)
         self.assert_ticked()
+
+
+class TestCraftIsLogged(ActivityLogMixin, CraftTestBase):
+    """
+    Launch Minimum L2.2: a rolled craft writes one craft line naming what it
+    consumed and what it made; a craft the contrib stops before the roll (an
+    input gone during the wait) writes none.
+    """
+
+    def test_a_completed_craft_writes_one_craft_line(self):
+        fibre_keys = sorted(obj.key for obj in self.fibres)
+        self.finish(self.start_craft())
+        (twine,) = self.twine_in(self.char1)
+        (entry,) = self.activity_records("craft")
+        self.assertEqual(
+            (entry["actor"], entry["recipe"], sorted(entry["consumed"]),
+             entry["product"], entry["quality"], entry["duration"]),
+            ([self.char1.dbref, self.char1.key], "twine", fibre_keys,
+             [twine.key], twine.db.quality, TwineRecipe.craft_duration),
+        )
+        self.assertIn(entry["tier"], ("critical", "success", "failure", "fumble"))
+
+    def test_a_craft_stopped_before_the_roll_writes_nothing(self):
+        scheduled = self.start_craft()
+        self.fibres[2].location = self.room1
+        self.finish(scheduled)
+        self.assertTrue(all(obj.pk for obj in self.fibres))  # receipt: nothing ran
+        self.assertEqual(self.activity_records("craft"), [])
+
+
+class TestDismantleIsLogged(ActivityLogMixin, CraftTestBase):
+    """
+    Launch Minimum L2.2: the piece is destroyed on both outcomes, so both write
+    a dismantle line; `learned` tells them apart. Same fixture as
+    TestRoutineDisassembleDoesNotTeach (cloth, floor 20, Craft 50).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.char1.skills.get("craft").current = 50
+        self.char1.cooldowns.clear()
+        self.piece = create_object(
+            "typeclasses.objects.Object", key="w31bolt", location=self.char1
+        )
+        self.piece.db.recipe = "cloth"
+        self.piece_id = self.piece.id
+
+    def dismantle(self, roll):
+        with mock.patch(ROLL, return_value=roll):
+            self.call(CmdDisassemble(), "w31bolt", caller=self.char1)
+        self.assertFalse(ObjectDB.objects.filter(id=self.piece_id).exists())  # receipt
+
+    def test_a_success_logs_the_recipe_learned(self):
+        self.dismantle(SUCCESS_ROLL)
+        (entry,) = self.activity_records("dismantle")
+        self.assertEqual(
+            (entry["target"], entry["recipe"], entry["learned"]),
+            ("w31bolt", "cloth", True),
+        )
+
+    def test_a_failure_logs_the_piece_lost(self):
+        self.dismantle(FAILURE_ROLL)
+        self.assertFalse(self.char1.knows_recipe("cloth"))
+        (entry,) = self.activity_records("dismantle")
+        self.assertEqual((entry["target"], entry["learned"]), ("w31bolt", False))

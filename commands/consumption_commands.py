@@ -11,6 +11,7 @@ ticker on its next pass once the gauge is back above zero.
 from evennia.utils.utils import inherits_from
 from commands.command import Command
 from world import timed_actions
+from world import activity_log
 from typeclasses.consumables import Food, Drink
 
 
@@ -42,12 +43,25 @@ class CmdEat(Command):
         if not obj.pk:
             return  # already consumed (defensive; see notes)
 
+        item_key = obj.key  # read before delete(), for the event line
+        hunger_before = caller.traits.hunger.current
         caller.traits.hunger.current += obj.restore_amount  # auto-clamps to max
         caller.msg(obj.consume_message.format(key=obj.get_display_name(caller)))
         caller.location.msg_contents(
             f"{caller.key} eats {obj.key}.", exclude=caller
         )
         obj.delete()
+        # Launch Minimum L2.2: after the last write (the food deleted). The
+        # field is `verb`, not `kind`: `kind` is reserved by record(). `delta`
+        # is what the gauge actually gained, after the trait's own clamp.
+        activity_log.record(
+            "consume",
+            caller,
+            verb="eat",
+            item=item_key,
+            gauge="hunger",
+            delta=caller.traits.hunger.current - hunger_before,
+        )
 
 
 class CmdDrink(Command):
@@ -82,8 +96,19 @@ class CmdDrink(Command):
             caller.msg(f"{obj.get_display_name(caller)} is empty.")
             return
 
+        thirst_before = caller.traits.thirst.current
         caller.traits.thirst.current += obj.restore_amount  # auto-clamps to max
         obj.charges -= 1
+        # Launch Minimum L2.2: after the last write, before the first message.
+        activity_log.record(
+            "consume",
+            caller,
+            verb="drink",
+            item=obj.key,
+            gauge="thirst",
+            delta=caller.traits.thirst.current - thirst_before,
+            charges_left=obj.charges,
+        )
         caller.msg(obj.consume_message.format(key=obj.get_display_name(caller)))
         if obj.is_empty():
             caller.msg(f"{obj.get_display_name(caller)} runs dry.")

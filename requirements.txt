@@ -1,0 +1,5 @@
+# Pinned on purpose: every source anchor in docs/ is verified against Evennia
+# 6.1.0, and an unpinned install picks up whatever main ships that day.
+# Upgrading is a decision: bump this line, re-verify the anchors, run the suite.
+# (BACKLOG "Evennia is not pinned in the repo"; Launch Minimum L1.1.)
+evennia==6.1.0

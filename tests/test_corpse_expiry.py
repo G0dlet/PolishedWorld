@@ -39,6 +39,7 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.hunting_commands import CmdHarvest
 from typeclasses.corpse import Corpse
+from tests.test_activity_log import ActivityLogMixin
 
 CHARACTER = "typeclasses.characters.Character"
 ROOM = "typeclasses.rooms.Room"
@@ -297,3 +298,30 @@ class TestSweepMethod(_CorpseFixture, EvenniaTest):
         self.assertEqual(swept, 0)
         self.assertTrue(exists(corpse.id))
 
+
+class TestCrumbleIsLogged(ActivityLogMixin, _CorpseFixture, EvenniaTest):
+    """
+    Launch Minimum L2.2: a crumble writes one line, the corpse as its own
+    actor, naming what was lost with it. Written before the carcass is
+    deleted, so the dbref is real and the room is known; a repeated crumble is
+    a no-op and writes nothing more.
+    """
+
+    def test_a_crumble_writes_the_corpse_and_what_it_held(self):
+        corpse = self.make_corpse("logcorpse")
+        self.make_ring(corpse, home=self.room2)
+        corpse.db.owner = self.char1.id
+        ref = corpse.dbref
+        self.assertTrue(corpse.crumble())
+        (entry,) = self.activity_records("crumble")
+        self.assertEqual(
+            (entry["actor"], entry["room"], entry["owner"], entry["lost"]),
+            ([ref, "logcorpse"], self.room1.dbref, self.char1.id, ["janitorring"]),
+        )
+
+    def test_a_second_crumble_writes_nothing_more(self):
+        corpse = self.make_corpse("logcorpse", typeclass=CORPSE)
+        self.assertTrue(corpse.crumble())
+        self.assertFalse(corpse.crumble())
+        (entry,) = self.activity_records("crumble")
+        self.assertEqual((entry["owner"], entry["lost"]), (None, []))
