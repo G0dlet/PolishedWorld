@@ -59,11 +59,13 @@ class TestContractText(EvenniaTest):
         self.assertIn("help death", self.text)
 
     def test_claims_in_lm7_order(self):
-        # wiped at close-out, death, logged, GameGold, wipe notice, staff
+        # wiped at close-out, death, logged, automated test players (decomp
+        # Rev 2), GameGold, wipe notice, staff
         markers = (
             "wiped when the alpha ends",
             "help death",
             "economic act is logged",
+            "automated test players",
             "GameGold is not part of the alpha",
             "announced at least",
             "To reach staff",

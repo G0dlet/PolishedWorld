@@ -4,17 +4,18 @@ The cohort contract, in player words (Launch Minimum LM7, task L4.2).
 A closed alpha asks invited players to spend real weeks in a world that will
 be wiped. LM7 decides what they are told before they agree to that, and in
 which order: the world is wiped at close-out; how death works (`help death`);
-every economic act is logged; GameGold is not part of the alpha and nothing
-minted is a promise of value; a wipe before close-out is announced ahead; how
-to reach staff.
+every economic act is logged; some accounts are automated test players
+(decomposition Rev 2); GameGold is not part of the alpha and nothing minted is
+a promise of value; a wipe before close-out is announced ahead; how to reach
+staff.
 
 Two surfaces carry it, and both read from HERE so they cannot drift apart:
 
     help alpha          `help_entry()`, listed in `world/help_entries.py`
     connection screen   `CONNECTION_LINE`, in `server/conf/connection_screens.py`
 
-The text carries no number that goes stale. The alpha's length and its trade
-floor live in the roadmap (LM10), where they are decided; the one number here,
+The text carries no number that goes stale. The alpha's length and its
+close-out checks live in the roadmap (LM10), where they are decided; the one number here,
 the seven days of a wipe notice, is the rule itself, not a schedule.
 
 This module imports nothing from Django or Evennia on purpose: the connection
@@ -40,8 +41,10 @@ def help_text():
         "risks.\n\n"
         "|wEvery economic act is logged|n: gathering, crafting, trading, "
         "working, eating and drinking, repairing, learning and improving a "
-        "skill. Staff read the log after the alpha to see how the economy "
-        "behaved.\n\n"
+        "skill. Staff read the log to see how the game is played.\n\n"
+        "|wSome accounts are automated test players|n, run by staff. They "
+        "follow the same rules as you, and they are left out when staff read "
+        "the log.\n\n"
         "|wGameGold is not part of the alpha.|n Coin here is game coin. "
         "Nothing minted, earned or traded in the alpha is a promise of value "
         "outside it.\n\n"
