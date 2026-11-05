@@ -1,0 +1,37 @@
+{% extends "website/base.html" %}
+
+{% block titleblock %}Dev board{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col">
+    <h1>Dev board</h1>
+    <p>What is being built in {{ game_name }}, one card per larger piece of work.
+      Cards move when work starts and when it is finished.</p>
+  </div>
+</div>
+{% if columns is None %}
+<div class="row">
+  <div class="col">
+    <p class="text-muted">{{ unavailable }}.</p>
+  </div>
+</div>
+{% else %}
+<div class="row">
+  {% for column in columns %}
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="h5 mb-0">{{ column.title }}</h2></div>
+      <ul class="list-group list-group-flush">
+        {% for card in column.cards %}
+        <li class="list-group-item">{{ card }}</li>
+        {% empty %}
+        <li class="list-group-item text-muted">Nothing here right now.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

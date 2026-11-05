@@ -11,6 +11,7 @@ from django.urls import path
 from evennia.web.website.urls import urlpatterns as evennia_website_urlpatterns
 
 from web.website.views.accounts import GatedAccountCreateView
+from web.website.views.board import BoardView
 
 # add patterns here
 urlpatterns = [
@@ -20,6 +21,8 @@ urlpatterns = [
     # ungated auth/register follows below and again in web/urls.py. Same path
     # and name, so {% url 'register' %} in Evennia's login.html still reverses.
     path("auth/register", GatedAccountCreateView.as_view(), name="register"),
+    # The public dev board, read-only, no login (BACKLOG *Public dev board*).
+    path("board/", BoardView.as_view(), name="board"),
 ]
 
 # read by Django
