@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 66 · 2026-11-05** — the dev board close-out (merged to `main` as `fbbe222`, PR #23, tree `3cc3400`; suite 1159 with exactly the two known treasury failures). **Closed:** *Public dev board* OPEN → DONE, with its five build locks: no Rev header on `docs/board.md`; fifteen cards; `help alpha` ends with the path `/board/`; a menu link by extending Evennia's `_menu.html`; branch `feature/dev-board`. **Status changed:** *In-game gazette* BLOCKED → OPEN for part 1, its last blocker gone; part 2 still waits on part 1. **Annotated:** *Persistent alpha instance* — L6.1 deploys the new tag `alpha-20261105` (on `fbbe222`), not `alpha-20261104`. No code changes.
 > **Rev 65 · 2026-11-05** — the `ingame_reports` close-out (merged to `main` as `588bc69`, PR #22, tree `612267d`; suite 1137 OK). **Closed:** *In-game bug, idea and player reports* OPEN → DONE, with its eight locks and one struck claim (a cmdset on the AccountCmdSet does not reach chargen; the reports are their own cmdset at priority 2, Union). **Added** (*Tooling & Process*): ***Per-account cooldown on reports*** — lock (4)'s deferral; trigger: spam in the alpha or opening beyond the cohort. **Annotated:** *Public dev board* — next, before L6.3, and a new tag is needed after it; *In-world gazette* — part 1 now waits on the board alone; *Two treasury tests assume the developer's settings match the shipped ones* — confirmed by name at 1137, and GitHub Desktop's auto-stash named as the way the line went missing. No code changes.
 > **Rev 64 · 2026-11-05** — one entry **added** (*Currency*), from a design chat in which nothing was decided: ***Player shops and market stalls (sell orders)***, BLOCKED on economy-milestone data and Stage 5's `CoinPile`. It is filed beside *Wanted board* because it is that entry's mirror — the board carries buy orders, a stall carries sell orders, and with a small cohort rarely online together the two halves of a trade otherwise have to meet in person. Only the shop half lands here: housing itself is stage-sized and already homed in `roadmap.md` (*Persistent storage / housing / settlements*), so per this file's scope rule it is annotated there (roadmap Rev 42) rather than duplicated. The entry records the five questions the idea raised as open, not as constraints. No code changes.
 > **Rev 63 · 2026-11-04** — the launch-minimum close-out (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 3; merged to `main` as `df0dc4e`, PR #21, tree `9e95861`, tagged `alpha-20261104`; suite 1116 OK; roadmap Rev 41). **Closed:** *Evennia is not pinned in the repo* (L1.1, `6764f3b`), *Worn clothing leaves without `remove()`* (L3.1, `2c56c07`), *`recipes` lists floored recipes under "can craft"* (L3.2 `076b3e2` and L3.2b `9e06197`; the floor gate's anchor is `world/crafting_base.py:309`, not `:265`) and *World-loot scroll seed* (L3.3, `14c0fd3`; replenishment is the staff's `reseed_scroll`) — SCHEDULED → DONE. **Status changed:** *Persistent alpha instance* SCHEDULED → OPEN, pending L6: the code it waited on is merged and tagged. **Added** (*Tooling & Process*): ***Channel boot/ban crash upstream*** — `channel/boot` and `channel/ban` crash in Evennia 6.1.0 and on Evennia's `main`, so the alpha moderates at account level; trigger: channel moderation needed during the alpha, or an Evennia upgrade. **Annotated:** *Automated test players* — the runbook half of constraint (1) is built (runbook §9, L4.1b) and constraint (3) is (L4.2b); its `settings_mixin.py` anchor reads `:20, 22–24`. **Triggers fired at L5.1:** *In-game bug, idea and player reports* BLOCKED → OPEN (the launch minimum's code is closed; it goes first, before the board) and *Public dev board* annotated (its trigger, the merge, has fired; it goes after the reports and, ideally, before the invitations of L6.3). **Corrected:** *First-steps hints* and *Public dev board* named `help alpha` as launch minimum L4.1; it is L4.2. *Scribe teaches Craft with no difficulty datum*'s 2026-11-01 annotation named the `improve` fields as planned; a new annotation names them as built.
@@ -2702,6 +2703,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   What is left is L6 — provision and deploy, backup and logs, seed, accounts,
   the Game Index listing and the first invitation — which is operations on the
   box, run from `docs/PolishedWorld_Alpha_Runbook.md`.
+- **Annotation (2026-11-05, dev board close-out):** the reports and the board
+  are merged after `alpha-20261104`, so L6.1 checks out **`alpha-20261105`**
+  (on `fbbe222`, the dev-board merge) instead; runbook §7, Rev 5.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
@@ -3007,7 +3011,29 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   merged (`588bc69`), so this entry is next, before L6.3. Both land after the
   tag `alpha-20261104`: a new `alpha-YYYYMMDD` on `main` is needed before L6.3,
   or they reach a running instance through runbook §7.
-- **Status:** OPEN
+- **Locked at build (2026-11-05, as proposed after reading `base.html` and
+  `_menu.html` at `v6.1.0`):** (1) `docs/board.md` has no Rev header: a card
+  moves at epic start and close-out, which the roadmap's Rev already records
+  (the entry's "as for the roadmap" was wrong: the roadmap has Rev headers);
+  it shipped with the code, as data the view reads, and the catalogue is 32.
+  (2) Fifteen cards: four Planned (Stages 5–8), one In progress (the closed
+  alpha), ten Done. (3) `help alpha` ends with a paragraph naming the path
+  `/board/`, after the reports; the path only, since the host is decided at
+  L6.1 and a port would add a number to the text — the invitation names the
+  site (L6.3). (4) A menu link: `web/templates/website/_menu.html` extends
+  Evennia's template of the same name and adds *Dev board* after
+  `{{ block.super }}` (Evennia Ref §18). (5) `feature/dev-board`, `--no-track`.
+  Parser rule settled in the build: **any** heading that is not a column
+  closes the open one, so a `###` cannot leak its bullets into the column above.
+- **Shipped:** `19a1fd9` (tree `3cc3400`), merged to `main` as `fbbe222` (PR #23,
+  tree `3cc3400`). 22 tests (`tests/test_dev_board.py`); suite 1159 at work with
+  `--parallel auto` (475.0 s), failing exactly the two named treasury tests of
+  *Two treasury tests assume the developer's settings match the shipped ones*
+  (the local `TREASURY_DBREF` line was set). 12 of 12 mutations killed; one
+  first survived on a fixture gap, not dead code — the fixture's bare `-` never
+  reached the empty-card guard (Testing Ref §20). Protocol in the browser and in
+  game, 2026-11-05: Testing Ref §20.
+- **Status:** DONE (`19a1fd9`, merged in `fbbe222`)
 
 ### In-game bug, idea and player reports — `ingame_reports`
 - **What:** Install `evennia.contrib.base_systems.ingame_reports` (verified on
@@ -3167,7 +3193,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Adam, design chat 2026-11-04.
 - **Annotation (2026-11-05, `ingame_reports` close-out):** the reports half of
   part 1's trigger is met (`588bc69`); part 1 now waits on the dev board alone.
-- **Status:** BLOCKED — part 1 on the dev board (the reports are DONE); part 2 on part 1
+- **Annotation (2026-11-05, dev board close-out):** the board is merged
+  (`fbbe222`), so part 1's trigger has fired. Its own *Why deferred* still
+  holds — with one to three humans an issue has little to report — so it is
+  actionable, not urgent, and comes after L6.3.
+- **Status:** OPEN — part 1; part 2 BLOCKED on part 1
 
 ---
 

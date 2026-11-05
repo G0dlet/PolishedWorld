@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 5 · 2026-11-05** — §7 names the tag L6.1 deploys: **`alpha-20261105`** on `fbbe222` (the dev-board merge), which carries the report commands and the board; `alpha-20261104` predates both and is not deployed. §7 also says how the dev board moves: `docs/board.md` is read on every request, so a card moved by a deploy shows without `evennia reload`.
 > **Rev 4 · 2026-11-05** — the report commands (BACKLOG *In-game bug, idea and player reports*, merged `588bc69`): §2 gains a row in *Who can do what* and a *Reports* section (what players type, the three `manage` menus as run from `warden`, how to read a report, the cached list); §7 notes that a change through the login hook reaches a connected player only at their next login; §8's close-out step 1 exports the reports before the wipe.
 > **Rev 3 · 2026-11-04** — §7 names the first tag: the launch minimum is merged (`df0dc4e`) and tagged **`alpha-20261104`**, which L6.1 checks out; *the tag exists only after the L5.1 merge* is no longer true. Nothing else changes (Launch Minimum L5.2).
 > **Rev 2 · 2026-11-04** — Launch Minimum decomposition Rev 2 (decision (G)): a new §9 *Automated test players* — the list LM10's filter reads, the filter verified live on the work dev DB, and `evennia --dummyrunner` ruled off the box; §8's close-out rewritten to LM10 Rev 2 (copy, filter, report, the five checks into the roadmap, wipe — Rev 1's GameGold step is gone), with a pointer per check and the incident table for check (1); §5 and §7 name the checks they hold; *What not to do* becomes §10.
@@ -383,7 +384,7 @@ python -c "import sqlite3,os; s=sqlite3.connect('server/evennia.db3'); d=sqlite3
 
 ## 7. Deploy
 
-**Not yet run — L6.1.** The first tag is **`alpha-20261104`** (on `df0dc4e`, the launch-minimum merge); later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
+**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261105`** (on `fbbe222`, the dev-board merge). `alpha-20261104` (on `df0dc4e`, the launch-minimum merge) predates the report commands and the dev board, and is not deployed. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
 
 ```
 git fetch --prune
@@ -395,6 +396,8 @@ evennia reload
 ```
 
 Backup (§6) before every deploy. A change to the connection screen and to file-help entries takes effect on `evennia reload` (seen in L4.2). **A change that arrives through the login hook reaches a connected player only at their next login**: `evennia reload` does not run `at_post_login` (seen for the report commands, 2026-11-05). After such a deploy, say so: `wall Log out and in once to get the new commands.` Which changes need `evennia reboot` (portal-side: ports, protocols) is verified in L6.1.
+
+**The dev board** (`/board/`) is `docs/board.md`, read on every request: a deploy whose tag moves a card shows it at once, with no `evennia reload`. A missing or unreadable file shows *Board unavailable*, never an error page. Cards move on `main` at epic start and close-out, with the roadmap (seen on the work dev DB, 2026-11-05; Testing Ref §20).
 
 **LM10 check (3)** needs at least one tagged deploy applied to the **running** instance by this sequence, without a wipe — L6.1's first deploy onto an empty box does not count. When it happens, its receipt goes here: the tag, the date, and `pip show evennia`'s version line.
 

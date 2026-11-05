@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 20 · 2026-11-05** — **the dev board (BACKLOG Rev 66; merged as `fbbe222`).** **New §20: the dev board** — how the view's tests reach the file (a patched module global, read per request), the shipped-file test that catches a heading typo, a mutation that survived on a fixture gap rather than dead code, and the protocol as run on the work machine, with what each step proved and what it did not.
 > **Rev 19 · 2026-11-05** — **the `ingame_reports` findings (BACKLOG Rev 65; merged as `588bc69`).** **New §19: in-game reports** — what the tests read through (the real cmdhandler, the reader's own lock check and the staff menu's node; EvenniaTest's `setUp` logs in, so `at_post_login` runs in every test), the three-client protocol as run, with the three menu predictions that missed and why, and how to read the menu (a cached list, `manage reports` is the player type, the menu creates hubs and the export does not). **§13** gains one rule: a GitHub Desktop step can stash the local `TREASURY_DBREF` line, which turns the suite green for the wrong reason — read `git --no-pager stash list` and the settings diff before judging a full run.
 > **Rev 18 · 2026-11-04** — **the launch-minimum findings (decomposition Rev 3; merged as `df0dc4e`, tagged `alpha-20261104`).** **New §18: the launch minimum** — how to read the activity log in a protocol (the file, never `evennia test` alongside, before-and-after readings, the line shapes per kind), and the protocols as run: L2.2b's circulation sites, L2.3's report, L3.1's worn clothing (the stacks, not the sum; a statue as receiver), L3.2's `recipes` split, L3.3's scroll seed (the seed tag first; three runs around a `learn`; `reseed_scroll` twice), L4.1's three-client run (A–E, the throttle rule; outputs in the runbook), L4.2's connection screen and help, and L4.1b's filter. Steps not run in game name the unit tests that carry them.
 > **Rev 17 · 2026-11-01** — **the trivial-work findings (decomposition Rev 2; merged as `d5450ad`).** **New §17: trivial work** — the in-game protocols of T2.1 (craft), T2.2 (disassemble) and T3.1 (`recipes` and help), written from the protocols as run at home, with `;`-chained lines split one statement per `@py` line (§2) and every cleanup written as one line per starting state (lesson 190, which recurred in T2.2's protocol); the `mod` technique for a near-certain roll without moving a `.current` gate; and the three-receipt pattern. Two steps of the decomposition's protocol shape were not run in game; §17 names the unit tests that carry them. Nothing else changes.
@@ -1254,6 +1255,28 @@ Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `test
 - A list is cached in `ndb` when it is first shown (`menu.py:41`): a report filed while W has the menu open appears after `q` and `manage <type>` again.
 - `manage reports` is the **player** reports (`reports.py:117`). Bugs and ideas are `manage bugs` and `manage ideas`.
 - The export reads every hub with a type's key and never creates one; the menu does create (`_get_report_hub`), so the first `manage <type>` of an unused type leaves an empty hub behind, which is harmless.
+
+## 20. The dev board (`/board/`)
+
+*(BACKLOG *Public dev board*, DONE; code `web/website/views/board.py`, `web/templates/website/board.html`, `web/templates/website/_menu.html`; data `docs/board.md`; tests `tests/test_dev_board.py`. The template findings are Evennia Ref §18.)*
+
+### 20.1 What the tests read
+
+- **The file through a patched global.** The view reads `board.BOARD_PATH` inside `get_context_data`, so `patch.object(board, "BOARD_PATH", tmp_path)` points every request at a test file. A path bound at import (a default argument, a module-level `read_text()`) would ignore the patch, and the per-request tests would read the real file.
+- **Per request, from the response.** `self.client.get("/board/").context["columns"]` is the parsed board of that request; writing the file between two GETs and comparing the two contexts is the test of "no `reload`". A mutation that caches the first read fails it.
+- **The shipped file as data.** `TestShippedBoard` counts the top-level bullets in the real `docs/board.md` and requires every one to reach a column. A heading typo (`## Inprogress`) closes the column and drops its cards silently; the count catches it on the commit that moves a card.
+- **A surviving mutation can mean a fixture gap.** `if card:` → `if True:` first survived: the fixture's empty bullet was a bare `-`, which never passes the `"- "` bullet test and so never reaches the guard. The line was live; the data never arrived at it. The fix is a test with `"- \n"` written as an escape, so the source has no trailing blank for `git diff --check` to flag.
+- **No login, stated by the test.** `test_renders_cards_without_login` calls `self.client.logout()` before the GET, so it holds whatever the fixture's client carries; a `LoginRequiredMixin` mutation turns its 200 into a redirect.
+
+### 20.2 The protocol, as run (work, 2026-11-05)
+
+0. `evennia reload`.
+1. `http://localhost:4001/board/` → *Dev board*, Planned 4, In progress 1, Done 10. The browser was logged in as staff (the menu showed *Admin*), so this step did **not** prove the page needs no login; step 4's `curl`, which sends no cookie, and `test_renders_cards_without_login` do.
+2. `http://localhost:4001/` → Evennia's links, then *Dev board* last: the extending `_menu.html` keeps the parent's block.
+3. Move `- Combat` from Planned to In progress in `docs/board.md`, reload the browser page only → Combat under In progress. `git --no-pager diff docs/board.md` showed the one move; `git restore docs/board.md`; `git status -s` showed only `server/conf/settings.py`.
+4. `mv docs/board.md docs/board.md.off`; `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4001/board/` → `200`; `curl -s http://localhost:4001/board/ | grep -c "Board unavailable"` → `1`; `mv` back, and the cards returned without a reload.
+5. In game, `help alpha` → its last paragraph names `/board/`, after the reports paragraph.
+6. Full suite, after `git --no-pager stash list` and `git --no-pager diff --stat` (only `settings.py`): 1159, `FAILED (failures=2)`, exactly the two treasury tests the local `TREASURY_DBREF` line fails.
 
 ## Domain quick-refs
 
