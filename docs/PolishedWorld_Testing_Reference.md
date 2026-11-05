@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 19 · 2026-11-05** — **the `ingame_reports` findings (BACKLOG Rev 65; merged as `588bc69`).** **New §19: in-game reports** — what the tests read through (the real cmdhandler, the reader's own lock check and the staff menu's node; EvenniaTest's `setUp` logs in, so `at_post_login` runs in every test), the three-client protocol as run, with the three menu predictions that missed and why, and how to read the menu (a cached list, `manage reports` is the player type, the menu creates hubs and the export does not). **§13** gains one rule: a GitHub Desktop step can stash the local `TREASURY_DBREF` line, which turns the suite green for the wrong reason — read `git --no-pager stash list` and the settings diff before judging a full run.
 > **Rev 18 · 2026-11-04** — **the launch-minimum findings (decomposition Rev 3; merged as `df0dc4e`, tagged `alpha-20261104`).** **New §18: the launch minimum** — how to read the activity log in a protocol (the file, never `evennia test` alongside, before-and-after readings, the line shapes per kind), and the protocols as run: L2.2b's circulation sites, L2.3's report, L3.1's worn clothing (the stacks, not the sum; a statue as receiver), L3.2's `recipes` split, L3.3's scroll seed (the seed tag first; three runs around a `learn`; `reseed_scroll` twice), L4.1's three-client run (A–E, the throttle rule; outputs in the runbook), L4.2's connection screen and help, and L4.1b's filter. Steps not run in game name the unit tests that carry them.
 > **Rev 17 · 2026-11-01** — **the trivial-work findings (decomposition Rev 2; merged as `d5450ad`).** **New §17: trivial work** — the in-game protocols of T2.1 (craft), T2.2 (disassemble) and T3.1 (`recipes` and help), written from the protocols as run at home, with `;`-chained lines split one statement per `@py` line (§2) and every cleanup written as one line per starting state (lesson 190, which recurred in T2.2's protocol); the `mod` technique for a near-certain roll without moving a `.current` gate; and the three-receipt pattern. Two steps of the decomposition's protocol shape were not run in game; §17 names the unit tests that carry them. Nothing else changes.
 > **Rev 16 · 2026-10-31** — **the per-recipe mastery findings (decomposition Rev 2; merged as `abe9e6b`).** **New §16: per-recipe mastery** — the in-game protocol (the count, `recipes`, `recipes <discipline>`, `recipes <name>`, the teach threshold, and a cleanup written as one line per answer, lesson 190), run in the sandbox before it was written down, and M5.1's in-game check of `skill_check` over 10 000 rolls. **§11f** gains three: teach and accept in a unit test need `has_account` patched with a `PropertyMock` (Evennia Ref §11 has the cause); a craft driven as `char2` never rolls (unexplained, filed in BACKLOG); and a counting wrapper that finds every test reaching a shared primitive (13 candidate modules where greps found 8). **§13** gains how to count the suite without running it, and the run that closed the feature: 971 in 43 modules, OK.
@@ -793,6 +794,16 @@ messages rather than usage hints:
   configuration before judging a red (`git stash list`, the settings file), and
   compare the failing tests' *names* with the expected list, never their count: a
   new failure plus a fixed expected one leaves the count unchanged.
+- **GitHub Desktop can take the settings line away.** A Desktop step with
+  uncommitted changes in the tree stashes them under
+  `!!GitHub_Desktop<branch>`, so `TREASURY_DBREF` is gone from the working tree
+  without anyone typing `git stash`, and the suite turns green for the wrong
+  reason. Seen at the `ingame_reports` close-out (2026-11-05): two green runs at
+  1137 had run without the line, and with it restored the same command failed
+  the two expected tests by name (BACKLOG Rev 34's entry). Before judging a
+  full run, read `git --no-pager stash list` and `git --no-pager diff
+  server/conf/settings.py`; a bare `git stash list` opens the pager, and its
+  output is gone from the scrollback when it closes.
 - **`evennia test --settings settings.py -v 2 …` runs no tests.** The `evennia`
   launcher defines `-v` as `--version` (`evennia_launcher.py`, `v6.1.0`): it
   prints the version and exits before the test command starts. Run single classes
@@ -1215,6 +1226,34 @@ The runbook's §9 holds the filter line; this is how it was proved. With `tester
 1. Before: `wc -l` (66), `grep -c '"#168"' server/logs/activity.jsonl` (2), and the report.
 2. Run §9's filter into a copy. In zsh with `interactivecomments`, an unquoted `#168` is a comment: dbrefs are always quoted.
 3. After, on the copy: 64 lines; `grep -c` → 0; the report: trade 1 → 0 **and its price row gone**, knowledge 11 → 10, malformed 0 in both. Predict a dropped line's effect in every view of the report, not only the line count (lesson 235).
+
+## 19. In-game reports (`ingame_reports`)
+
+*(BACKLOG *In-game bug, idea and player reports*, DONE; code `commands/report_commands.py`, `Account.at_post_login`, `world/report_export.py`; tests `tests/test_report_commands.py`. The Evennia findings behind it are Evennia Ref §17.)*
+
+### 19.1 What the tests read, and what they must not
+
+- **File through the real cmdhandler.** `char1.execute_cmd(line, session=self.session)` runs merging, so a test of "`bug` works inside chargen" proves the cmdset reaches the menu. `.call()` skips the merge and the locks, and would pass with the cmdset on the wrong priority.
+- **Read locks from the reader's side.** Who can read a report is read with `msg.access(account, "read")` and, for staff, from the staff menu's own node: `menu.menunode_list_reports(account, "")` with `account.ndb._evmenu = SimpleNamespace(hub=hub)`. Access to `manage` is `Command.access(account, "cmd")`. Each of the three locks has its own reader that a mutation turns: the Admin `warden` (a Developer bug lock empties its list), a Builder (upstream's Builder idea lock lets it read), and a plain player (an `all()` lock).
+- **EvenniaTest logs in.** Its `setUp` goes through `SESSION_HANDLER.login` (`utils/test_resources.py:244`), so `at_post_login` runs in every test: "the login put the cmdset on the stack" needs no call of its own, and a test that calls `at_post_login` again sees one `log_trace` from the fixture's missing default channel beside its own. Count the trace calls that carry your text, not all of them.
+
+### 19.2 The protocol, as run (work, 2026-11-05)
+
+Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `tester` (`#168`), later `probe`.
+
+0. After `evennia reload`, C, still connected from before: `bug before relogin` → *Command 'bug before relogin' is not available.* The cmdset arrives at login, never at a reload. All three log out and in.
+1. C: `inventory`, `bug the well is dry`, `bug me = testing a bug with a target`, `idea rope bridges over the river`, `ideas`, `report warden = protocol test, please ignore`; then `ooc`, `idea an ooc idea`. Each answers *Your report has been filed.* or *Thank you for your suggestion!*; `ideas` lists the idea with its time.
+2. G: `@py from typeclasses.accounts import Account; r = Account.create(username="probe", password="..."); self.msg(str(r))` → `(probe(account#6), [])`. C logs in as `probe` and meets chargen at *Spent 70 of 80*; `bug stuck in character creation` → *filed*; then `str 12` → *Spent 72 of 80.* The menu answers after the report.
+3. W: `manage bugs` lists the three bugs. Open the one with a target, *Mark as in progress*, `q`. Then `manage ideas` (2) and `manage reports` (1).
+4. G: `@py from world.report_export import export_reports; self.msg(str(export_reports()))` → `('…/server/logs/reports-20261105T173947Z.jsonl', 6)`. In the shell, `cat` it: six lines, oldest first; the targeted bug carries `"status": ["in progress"]` and `"target": [["#168", "tester"]]`, the player report `[["#3", "warden"]]`, and no line carries `report` as a status.
+
+**Three predictions that missed, all at step 3.** The detail line read *by tester(account 4) about stone statue of tester*, not *by tester about tester*: the menu prints senders with `str()` (`menu.py:145`) and targets through `get_display_name(caller)` (`:148`), which is the project's own `Character.get_display_name`, and `tester` was logged out, so a statue. The tag line read *in progress and report*: the menu shows every tag (`:146`), the contrib's creation tag included; only the export leaves it out. Predict a menu's output through the project's overrides of the hooks it calls.
+
+### 19.3 Reading the menu
+
+- A list is cached in `ndb` when it is first shown (`menu.py:41`): a report filed while W has the menu open appears after `q` and `manage <type>` again.
+- `manage reports` is the **player** reports (`reports.py:117`). Bugs and ideas are `manage bugs` and `manage ideas`.
+- The export reads every hub with a type's key and never creates one; the menu does create (`_get_report_hub`), so the first `manage <type>` of an unused type leaves an empty hub behind, which is harmless.
 
 ## Domain quick-refs
 

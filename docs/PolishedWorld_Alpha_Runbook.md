@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 4 · 2026-11-05** — the report commands (BACKLOG *In-game bug, idea and player reports*, merged `588bc69`): §2 gains a row in *Who can do what* and a *Reports* section (what players type, the three `manage` menus as run from `warden`, how to read a report, the cached list); §7 notes that a change through the login hook reaches a connected player only at their next login; §8's close-out step 1 exports the reports before the wipe.
 > **Rev 3 · 2026-11-04** — §7 names the first tag: the launch minimum is merged (`df0dc4e`) and tagged **`alpha-20261104`**, which L6.1 checks out; *the tag exists only after the L5.1 merge* is no longer true. Nothing else changes (Launch Minimum L5.2).
 > **Rev 2 · 2026-11-04** — Launch Minimum decomposition Rev 2 (decision (G)): a new §9 *Automated test players* — the list LM10's filter reads, the filter verified live on the work dev DB, and `evennia --dummyrunner` ruled off the box; §8's close-out rewritten to LM10 Rev 2 (copy, filter, report, the five checks into the roadmap, wipe — Rev 1's GameGold step is gone), with a pointer per check and the incident table for check (1); §5 and §7 name the checks they hold; *What not to do* becomes §10.
 > **Rev 1 · 2026-11-04** — first version (Launch Minimum L4.1). Accounts, moderation, the economy, scrolls and the log verified live on the work dev DB (Evennia 6.1.0, two extra accounts); backup verified for `.backup` and `integrity_check`; deploy, the nightly backup, the restore and the wipe are written and marked with the task that runs them.
@@ -107,6 +108,7 @@ During the alpha, **ban, do not delete** (§2): a ban is undone with one line; a
 | `boot`, `wall`, `userpassword`, `@accounts` | Admin | run from `warden` |
 | `ban`, `unban`, `@accounts/delete`, `@economy` | Developer | from `warden`: `Command 'ban tester' is not available. Maybe you meant "rest", "eat" or "barter"?` · `Command '@economy' is not available. Maybe you meant "@open", "@copy" or "ooc"?` · `You are not allowed to delete accounts.` |
 | `channel/boot`, `channel/ban` | channel `control` (Admin) | **broken in 6.1.0** — see below |
+| `manage bugs`, `manage ideas`, `manage reports` | Admin (and each report's `read:pperm(Admin)`) | run from `warden`, 2026-11-05 — see *Reports* below |
 
 Not run in this protocol: `emit` (Builder), `perm` (Developer), `force` (Builder).
 
@@ -225,6 +227,22 @@ AttributeError: 'str' object has no attribute 'value'
 `boot_user` reads `nick.value[3]` from `nicks.get(..., return_tuple=True)`, which returns the nick's value, not the Attribute (`commands/default/comms.py:629–633`); every account made with `Account.create` has a channel nick (`pub`), so it fails for every player. `channel/ban` calls `boot_user` first (`comms.py:663`) and fails the same way. The crash comes before `channel.disconnect()`, so **nothing changes**: in the run the player's `pub hello` still printed `[Public] tester: hello` afterwards. The line is unchanged on Evennia's `main` as of 2026-11-04.
 
 Misuse of *Public* is handled at account level: `boot`, then `ban` if it continues. (BACKLOG entry *Channel boot/ban crash upstream*, filed at the launch-minimum close-out.)
+
+### Reports — `bug`, `idea`, `report` (players) and `manage` (Admin)
+
+Players file with `bug <message>`, `bug <thing> = <message>`, `idea <message>` (`ideas` lists their own) and `report <player> = <message>`; `help alpha` tells them so. The commands work everywhere, OOC and inside character creation included, but a player gets them **at their next login**: `evennia reload` does not run the login hook (§7).
+
+Staff read them in a menu, one per type:
+
+```
+manage bugs
+manage ideas
+manage reports        # the PLAYER reports, not all of them
+```
+
+Pick a number to open a report; its detail line reads *<time> by <account>(account N) about <target>*, where a logged-out character's name shows as *stone statue of <name>*. Mark it *in progress*, *rejected* or *closed*; `q` leaves. The tag line also shows `report`, the tag every report is filed with — it is not a status. A list is read when the menu opens: a report filed while it is open appears after `q` and `manage <type>` again. Seen from `warden` on the work dev DB, 2026-11-05.
+
+Reports are rows in the database and the wipe deletes them; close-out step 1 (§8) exports them first.
 
 ---
 
@@ -376,7 +394,7 @@ evennia migrate
 evennia reload
 ```
 
-Backup (§6) before every deploy. A change to the connection screen and to file-help entries takes effect on `evennia reload` (seen in L4.2). Which changes need `evennia reboot` (portal-side: ports, protocols) is verified in L6.1.
+Backup (§6) before every deploy. A change to the connection screen and to file-help entries takes effect on `evennia reload` (seen in L4.2). **A change that arrives through the login hook reaches a connected player only at their next login**: `evennia reload` does not run `at_post_login` (seen for the report commands, 2026-11-05). After such a deploy, say so: `wall Log out and in once to get the new commands.` Which changes need `evennia reboot` (portal-side: ports, protocols) is verified in L6.1.
 
 **LM10 check (3)** needs at least one tagged deploy applied to the **running** instance by this sequence, without a wipe — L6.1's first deploy onto an empty box does not count. When it happens, its receipt goes here: the tag, the date, and `pip show evennia`'s version line.
 
@@ -414,7 +432,7 @@ An incident is a player losing something the game's own rules did not take. Deat
 
 ### Close-out, in this order (LM10)
 
-1. Copy **off the box**: `activity.jsonl`; the ledger (`@economy audit`'s output, pasted); a `.backup` of the database (§6).
+1. Copy **off the box**: `activity.jsonl`; the ledger (`@economy audit`'s output, pasted); the reports, exported first as Developer with `@py from world.report_export import export_reports; self.msg(str(export_reports()))` → `server/logs/reports-<UTC stamp>.jsonl`, one JSON line per report with type, date, sender, target, status and text (§2, *Reports*); a `.backup` of the database (§6).
 2. Filter the automated test players out of the copied log (§9).
 3. Run the report (§5) over the filtered copy.
 4. Write checks (1)–(5), each with its receipt, into the roadmap's alpha entry.

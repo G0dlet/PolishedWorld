@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 65 · 2026-11-05** — the `ingame_reports` close-out (merged to `main` as `588bc69`, PR #22, tree `612267d`; suite 1137 OK). **Closed:** *In-game bug, idea and player reports* OPEN → DONE, with its eight locks and one struck claim (a cmdset on the AccountCmdSet does not reach chargen; the reports are their own cmdset at priority 2, Union). **Added** (*Tooling & Process*): ***Per-account cooldown on reports*** — lock (4)'s deferral; trigger: spam in the alpha or opening beyond the cohort. **Annotated:** *Public dev board* — next, before L6.3, and a new tag is needed after it; *In-world gazette* — part 1 now waits on the board alone; *Two treasury tests assume the developer's settings match the shipped ones* — confirmed by name at 1137, and GitHub Desktop's auto-stash named as the way the line went missing. No code changes.
 > **Rev 64 · 2026-11-05** — one entry **added** (*Currency*), from a design chat in which nothing was decided: ***Player shops and market stalls (sell orders)***, BLOCKED on economy-milestone data and Stage 5's `CoinPile`. It is filed beside *Wanted board* because it is that entry's mirror — the board carries buy orders, a stall carries sell orders, and with a small cohort rarely online together the two halves of a trade otherwise have to meet in person. Only the shop half lands here: housing itself is stage-sized and already homed in `roadmap.md` (*Persistent storage / housing / settlements*), so per this file's scope rule it is annotated there (roadmap Rev 42) rather than duplicated. The entry records the five questions the idea raised as open, not as constraints. No code changes.
 > **Rev 63 · 2026-11-04** — the launch-minimum close-out (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 3; merged to `main` as `df0dc4e`, PR #21, tree `9e95861`, tagged `alpha-20261104`; suite 1116 OK; roadmap Rev 41). **Closed:** *Evennia is not pinned in the repo* (L1.1, `6764f3b`), *Worn clothing leaves without `remove()`* (L3.1, `2c56c07`), *`recipes` lists floored recipes under "can craft"* (L3.2 `076b3e2` and L3.2b `9e06197`; the floor gate's anchor is `world/crafting_base.py:309`, not `:265`) and *World-loot scroll seed* (L3.3, `14c0fd3`; replenishment is the staff's `reseed_scroll`) — SCHEDULED → DONE. **Status changed:** *Persistent alpha instance* SCHEDULED → OPEN, pending L6: the code it waited on is merged and tagged. **Added** (*Tooling & Process*): ***Channel boot/ban crash upstream*** — `channel/boot` and `channel/ban` crash in Evennia 6.1.0 and on Evennia's `main`, so the alpha moderates at account level; trigger: channel moderation needed during the alpha, or an Evennia upgrade. **Annotated:** *Automated test players* — the runbook half of constraint (1) is built (runbook §9, L4.1b) and constraint (3) is (L4.2b); its `settings_mixin.py` anchor reads `:20, 22–24`. **Triggers fired at L5.1:** *In-game bug, idea and player reports* BLOCKED → OPEN (the launch minimum's code is closed; it goes first, before the board) and *Public dev board* annotated (its trigger, the merge, has fired; it goes after the reports and, ideally, before the invitations of L6.3). **Corrected:** *First-steps hints* and *Public dev board* named `help alpha` as launch minimum L4.1; it is L4.2. *Scribe teaches Craft with no difficulty datum*'s 2026-11-01 annotation named the `improve` fields as planned; a new annotation names them as built.
 > **Rev 62 · 2026-11-04** — alpha decision (G) (roadmap Rev 40; `docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 2): the alpha measures operations and onboarding, not pillar 1, and the economy waits on a milestone the roadmap now names as **[OPEN] No milestone measures the economy**. **Re-anchored** to that milestone: *Recipe invention*, *Every knowledge-gated recipe has a profession grantor* and *Wanted board* (Trigger and Status: *alpha close-out data* → *economy-milestone data*; each *Why deferred* that said the alpha measures the economy is corrected), *Disassemble yields parts and raw materials* (Why deferred and Trigger), and *Seasonal supply & population memory* (annotated; Status reads the economy milestone; part (1)'s light-week exception unchanged). **Annotated:** *Persistent alpha instance* — its purpose narrows, its close-out is LM10 Rev 2's, automated test players are allowed, and it is the instance listed on the Game Index. **Added** (*Tooling & Process*): ***Automated test players*** (BLOCKED on the instance), constraints locked by (G3) — staff-made accounts filtered out of the log by dbref, and `dummyrunner` never on the instance. **Added** (*Tooling & Process*), unrelated to (G) and filed in the same commit at Adam's request: ***In-world gazette*** — a paper per game-month from the activity report, read in game first and posted outside later, meant to spark passive curiosity rather than to advertise; no invented events, staff reads every issue, players anonymous unless they opt in. Read and left: the dated 2026-10-17 annotations that say the alpha exists to test pillar 1 (true when written), *Free Skill Points*, *First-steps hints*, *Player mail* and *A `hunter` profession* (their close-out triggers read what testers did or asked for, which the alpha still shows, not prices). No code changes.
@@ -2736,6 +2737,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Epic A TA1.2, 2026-10-08. Local run: 453 tests, 2 failures, both
   traced to the local `TREASURY_DBREF`. The sandbox clone, which has no local
   settings, ran 453 green.
+- **Annotation (2026-11-05, `ingame_reports` close-out):** confirmed by name at
+  1137 tests: with `TREASURY_DBREF = "#10"` set, `--parallel auto` fails exactly
+  these two and nothing else. Two green runs the same evening had run without
+  the line: a GitHub Desktop step had stashed it, as
+  `!!GitHub_Desktop<feature/ingame-reports>` in `git stash list` (Testing Ref §13). An earlier run that day ended
+  in `TestAccount already exists` inside a worker; it did not recur with the line
+  set, and is recorded here only so a recurrence has somewhere to point.
 - **Status:** OPEN
 
 ### `Idmapper flush called more than once` — probably a timing artifact, not memory
@@ -2995,14 +3003,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Annotation (2026-11-04, launch minimum close-out):** the trigger fired at
   L5.1 (`df0dc4e`). *In-game bug, idea and player reports* goes first, by its
   own text; this entry follows it, before L6.3's invitations if it can.
+- **Annotation (2026-11-05, `ingame_reports` close-out):** the reports are
+  merged (`588bc69`), so this entry is next, before L6.3. Both land after the
+  tag `alpha-20261104`: a new `alpha-YYYYMMDD` on `main` is needed before L6.3,
+  or they reach a running instance through runbook §7.
 - **Status:** OPEN
 
 ### In-game bug, idea and player reports — `ingame_reports`
 - **What:** Install `evennia.contrib.base_systems.ingame_reports` (verified on
   `v6.1.0`): `bug [<target> =] <text>`, `idea <text>` (and `ideas` to list your
   own), `report <player> = <text>`, and a staff `manage reports` menu with
-  status tags. `ReportsCmdSet` goes on the **AccountCmdSet**, so it works OOC
-  too — a tester stuck in chargen can still file. A `bug` with a target stores
+  status tags. ~~`ReportsCmdSet` goes on the **AccountCmdSet**, so it works OOC
+  too — a tester stuck in chargen can still file.~~ *(False: chargen's EvMenu
+  shadows the AccountCmdSet; see* Locked *(7) below.)* A `bug` with a target stores
   the object with the text, which is the context a report written afterwards,
   out of band, loses.
 - **Verified shape (`reports.py`, `menu.py` at `v6.1.0`):** one global script per
@@ -3040,7 +3053,48 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   board*'s trigger (merged, ideally before the cohort is invited), the order is
   this entry, then the board, both before L6.3's invitations; L6.1 and L6.2
   (provision, deploy, backup) do not wait on either.
-- **Status:** OPEN — first, before the dev board
+- **Locked (2026-11-04, all as proposed after reading `reports.py`/`menu.py` at
+  `v6.1.0`):** (1) no decomposition doc: this entry and Testing Ref §19 are the
+  record, and the catalogue stays at 31. (2) One read lock for all three types,
+  `read:pperm(Admin)`, on subclasses in `commands/report_commands.py`, so the
+  Admin staff account `warden` sees every list; Developer and superuser pass it
+  by hierarchy. The lock is written onto each `Msg` when it is filed. (3) All
+  three types. Dropping `players` would also kill the command's own key:
+  `manage reports` opens the `players` type (`reports.py:117`); bugs and ideas
+  are `manage bugs` and `manage ideas`. (4) No per-account cooldown; filed as
+  *Per-account cooldown on reports*. (5) A readable export,
+  `world/report_export.py`, one JSON line per report, run by `@py` at
+  close-out step 1 (runbook §8). (6) `feature/ingame-reports`, docs on `main`.
+  Two locks were added at the same stop: **(7)** the commands are their own
+  cmdset on the account, priority 2 and mergetype Union, added lazily by
+  `Account.at_post_login`. Chargen is an EvMenu with `auto_quit=False`, whose
+  cmdset is Replace at priority 1; the cmdhandler merges session, account and
+  puppet cmdsets in one pool by priority (Evennia Ref §17.2), so the
+  AccountCmdSet (−10) was shadowed exactly where a stuck tester needs `bug`.
+  **(8)** `help alpha` gains one paragraph, after LM7's staff claim, naming
+  `bug`, `idea` and `report`.
+- **Shipped:** `c88c8ed` (tree `e005e16`), merged to `main` as `588bc69` (PR #22,
+  tree `612267d`). 21 tests (`tests/test_report_commands.py`); suite 1137 OK
+  with `--parallel auto` (463.9 s). 15 of 15 mutations killed, each by its
+  predicted test; a 16th survived on a redundant `__doc__` copy (Evennia's
+  command metaclass already inherits it, Evennia Ref §17.3), which was removed
+  before the commit. In-game protocol with three clients on 2026-11-05: Testing
+  Ref §19.
+- **Status:** DONE (`c88c8ed`, merged in `588bc69`)
+
+### Per-account cooldown on reports
+- **What:** `bug`, `idea` and `report` file one `Msg` each with no rate limit of
+  their own. The only limiter is `MAX_COMMAND_RATE` (80 commands per second per
+  session, `settings_default.py:278`), which is a flood guard, not a spam guard.
+  A cooldown would be a `CooldownHandler` on the Account, which has none today
+  (the project's handler lives on `Character`), shared by the three commands.
+- **Why deferred:** Lock (4) of *In-game bug, idea and player reports*: the
+  cohort is 8–10 invited players, staff can `boot` and `ban` (runbook §2), and a
+  tester who files three bugs in a row is the feature working.
+- **Trigger:** Report spam seen during the alpha, or a decision to open beyond
+  an invited cohort, whichever first.
+- **Origin:** `ingame_reports` STOPP 0, 2026-11-04.
+- **Status:** OPEN
 
 ### Automated test players — a scripted load run and a few LLM agents
 - **What:** Software-driven players, in two kinds. **(a) Scripted:** Evennia's own
@@ -3111,7 +3165,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   *Public dev board*. Part 2 (posted outside): when several in-game issues have run
   and Adam judges them worth reading outside the game.
 - **Origin:** Adam, design chat 2026-11-04.
-- **Status:** BLOCKED — part 1 on the reports and the dev board; part 2 on part 1
+- **Annotation (2026-11-05, `ingame_reports` close-out):** the reports half of
+  part 1's trigger is met (`588bc69`); part 1 now waits on the dev board alone.
+- **Status:** BLOCKED — part 1 on the dev board (the reports are DONE); part 2 on part 1
 
 ---
 
