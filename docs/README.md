@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 21 · 2026-11-05** — index `docs/board.md` (the public dev board: three columns, one card per epic, read by the website's `/board/` on every request; BACKLOG *Public dev board*). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. The board carries no Rev header: a card moves at epic start and close-out, which the roadmap's own Rev already records.
 > **Rev 20 · 2026-11-04** — the Lessons register row reads *1–237*: the launch-minimum close-out appended lessons 206–237 (Launch Minimum L5.2). The runbook's altitude, *operational*, first used at Rev 19, is confirmed: it is the only document here that is a set of procedures rather than plans or references, and no list of altitudes exists for it to contradict. No document added or removed; the directory-vs-list loop still reads 31/0.
 > **Rev 19 · 2026-11-04** — index `PolishedWorld_Alpha_Runbook.md` (the alpha runbook, Launch Minimum L4.1: accounts, moderation, the economy, scrolls, the log, backup, deploy, the wipe). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (31/0).
 > **Rev 18 · 2026-11-01** — index `PolishedWorld_Launch_Minimum_Decomposition.md` (the launch minimum, the alpha's sixth prerequisite, together with the persistent alpha instance). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (30/0).
@@ -65,6 +66,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Doc | Altitude | Canonical path |
 |---|---|---|
 | Strategic roadmap | strategic (epics / milestones) | `docs/roadmap.md` |
+| Dev board (the roadmap for players, read by `/board/`) | strategic (epics, one card each) | `docs/board.md` |
 | System map | structural (how built systems connect) | `docs/PolishedWorld_System_Map.md` |
 | Source/sink ledger | structural (economy pillar-1 audit) | `docs/PolishedWorld_SourceSink_Ledger.md` |
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |

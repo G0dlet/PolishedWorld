@@ -1,0 +1,12 @@
+{% extends "website/_menu.html" %}
+{% comment %}
+PolishedWorld's menu: Evennia's own (evennia/web/templates/website/_menu.html
+at v6.1.0), plus a link to the dev board. This file extends the template of
+the same name; Django finds Evennia's copy because the game's web/templates
+comes first in TEMPLATES["DIRS"] and the extends skips this file. A copy of
+Evennia's menu would drift from it at the next upgrade. BACKLOG *Public dev
+board*, lock E.
+{% endcomment %}
+{% block navbar_left %}{{ block.super }}
+      <li><a class="nav-link" href="{% url 'board' %}">Dev board</a></li>
+{% endblock %}

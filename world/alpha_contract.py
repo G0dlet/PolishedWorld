@@ -8,7 +8,10 @@ every economic act is logged; some accounts are automated test players
 (decomposition Rev 2); GameGold is not part of the alpha and nothing minted is
 a promise of value; a wipe before close-out is announced ahead; how to reach
 staff. After LM7's claims, one paragraph on `bug`, `idea` and `report`
-(`commands/report_commands.py`, BACKLOG `ingame_reports` lock 8).
+(`commands/report_commands.py`, BACKLOG `ingame_reports` lock 8), and last
+one on the dev board's address (BACKLOG *Public dev board*, lock E). The
+address is the path only: the host is decided when the instance is
+provisioned, and a port would put a number in the text.
 
 Two surfaces carry it, and both read from HERE so they cannot drift apart:
 
@@ -60,7 +63,9 @@ def help_text():
         "|widea <message>|n. Both work anywhere, character creation included. "
         "If one thing is wrong, name it: |wbug <thing> = <message>|n. To "
         "report a player: |wreport <player> = <message>|n. Staff read every "
-        "report."
+        "report.\n\n"
+        "|wTo see what is being built|n, open |w/board/|n on the game's "
+        "website: the dev board, one card per larger piece of work."
     )
 
 
