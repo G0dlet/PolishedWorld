@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 64 · 2026-11-05** — one entry **added** (*Currency*), from a design chat in which nothing was decided: ***Player shops and market stalls (sell orders)***, BLOCKED on economy-milestone data and Stage 5's `CoinPile`. It is filed beside *Wanted board* because it is that entry's mirror — the board carries buy orders, a stall carries sell orders, and with a small cohort rarely online together the two halves of a trade otherwise have to meet in person. Only the shop half lands here: housing itself is stage-sized and already homed in `roadmap.md` (*Persistent storage / housing / settlements*), so per this file's scope rule it is annotated there (roadmap Rev 42) rather than duplicated. The entry records the five questions the idea raised as open, not as constraints. No code changes.
 > **Rev 63 · 2026-11-04** — the launch-minimum close-out (`docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 3; merged to `main` as `df0dc4e`, PR #21, tree `9e95861`, tagged `alpha-20261104`; suite 1116 OK; roadmap Rev 41). **Closed:** *Evennia is not pinned in the repo* (L1.1, `6764f3b`), *Worn clothing leaves without `remove()`* (L3.1, `2c56c07`), *`recipes` lists floored recipes under "can craft"* (L3.2 `076b3e2` and L3.2b `9e06197`; the floor gate's anchor is `world/crafting_base.py:309`, not `:265`) and *World-loot scroll seed* (L3.3, `14c0fd3`; replenishment is the staff's `reseed_scroll`) — SCHEDULED → DONE. **Status changed:** *Persistent alpha instance* SCHEDULED → OPEN, pending L6: the code it waited on is merged and tagged. **Added** (*Tooling & Process*): ***Channel boot/ban crash upstream*** — `channel/boot` and `channel/ban` crash in Evennia 6.1.0 and on Evennia's `main`, so the alpha moderates at account level; trigger: channel moderation needed during the alpha, or an Evennia upgrade. **Annotated:** *Automated test players* — the runbook half of constraint (1) is built (runbook §9, L4.1b) and constraint (3) is (L4.2b); its `settings_mixin.py` anchor reads `:20, 22–24`. **Triggers fired at L5.1:** *In-game bug, idea and player reports* BLOCKED → OPEN (the launch minimum's code is closed; it goes first, before the board) and *Public dev board* annotated (its trigger, the merge, has fired; it goes after the reports and, ideally, before the invitations of L6.3). **Corrected:** *First-steps hints* and *Public dev board* named `help alpha` as launch minimum L4.1; it is L4.2. *Scribe teaches Craft with no difficulty datum*'s 2026-11-01 annotation named the `improve` fields as planned; a new annotation names them as built.
 > **Rev 62 · 2026-11-04** — alpha decision (G) (roadmap Rev 40; `docs/PolishedWorld_Launch_Minimum_Decomposition.md` Rev 2): the alpha measures operations and onboarding, not pillar 1, and the economy waits on a milestone the roadmap now names as **[OPEN] No milestone measures the economy**. **Re-anchored** to that milestone: *Recipe invention*, *Every knowledge-gated recipe has a profession grantor* and *Wanted board* (Trigger and Status: *alpha close-out data* → *economy-milestone data*; each *Why deferred* that said the alpha measures the economy is corrected), *Disassemble yields parts and raw materials* (Why deferred and Trigger), and *Seasonal supply & population memory* (annotated; Status reads the economy milestone; part (1)'s light-week exception unchanged). **Annotated:** *Persistent alpha instance* — its purpose narrows, its close-out is LM10 Rev 2's, automated test players are allowed, and it is the instance listed on the Game Index. **Added** (*Tooling & Process*): ***Automated test players*** (BLOCKED on the instance), constraints locked by (G3) — staff-made accounts filtered out of the log by dbref, and `dummyrunner` never on the instance. **Added** (*Tooling & Process*), unrelated to (G) and filed in the same commit at Adam's request: ***In-world gazette*** — a paper per game-month from the activity report, read in game first and posted outside later, meant to spark passive curiosity rather than to advertise; no invented events, staff reads every issue, players anonymous unless they opt in. Read and left: the dated 2026-10-17 annotations that say the alpha exists to test pillar 1 (true when written), *Free Skill Points*, *First-steps hints*, *Player mail* and *A `hunter` profession* (their close-out triggers read what testers did or asked for, which the alpha still shows, not prices). No code changes.
 > **Rev 61 · 2026-11-04** — five entries **added** from a gap review against `roadmap.md`, this file and the launch-minimum decomposition (each subject had no home in any of the three); contribs verified against the pinned `v6.1.0` tag. **Added** (*Tooling & Process*): ***In-game bug, idea and player reports — `ingame_reports`***, ⚠️ **first after the launch minimum**: Adam's call, to keep the launch-minimum sessions as decomposed; the alpha otherwise has no in-game way for a tester to report anything. **Added** (*UX & Item Identity*): ***First-steps hints*** (BLOCKED on what the reports show) and ***A screen-reader pass*** (OPEN, before a public opening). **Added** (*Currency*): ***Wanted board*** and ***Player mail — `game_systems/mail`***, both post-alpha and both text-only by rule, so neither becomes the remote `pay` the *Bank / post office* entry exists to refuse. Roadmap Rev 39 carries the achievements contrib note and the p.72–73 citation fix in the same commit. No code changes.
@@ -3421,6 +3422,44 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   price to the trade that followed; one board or one per settlement (Stage 6).
 - **Origin:** Adam, gap review 2026-11-04.
 - **Status:** BLOCKED (economy-milestone data)
+
+### Player shops and market stalls (sell orders)
+- **What:** A player-owned place where goods are set out at a price the owner
+  chose and sold to a buyer who is present — including while the owner is
+  offline. The mirror of *Wanted board*: the board carries buy orders, a stall
+  carries sell orders, and with a small cohort rarely online together the two
+  halves of a trade otherwise have to meet in person. The smallest form is a
+  **market stall** rented in the starter settlement — a container with price
+  tags and a till — which needs no land system; the larger form is a shop in a
+  player's own house, which waits on roadmap *Persistent storage / housing /
+  settlements* (annotated 2026-11-05, roadmap Rev 42).
+- **Open — raised with the idea, none decided:**
+  1. **Offline sales and pillar 1.** Does a stall that sells while its owner
+     sleeps break *no NPC vendors*? The case that it does not: goods and price
+     are the player's, the buyer is in the room, and nothing is created. It is
+     to be decided, not drift in through a first implementation.
+  2. **The till is coin at a place.** Currency is never deleted by any cleanup
+     path (roadmap Rev 26), so `@economy audit` must count a till, and an
+     abandoned stall's till goes to the Treasury with a ledger entry, as an
+     abandoned `CoinPile` does.
+  3. **One buyer per item.** A purchase checks stock, price and the buyer's
+     wallet and moves goods and coin in one call with no `yield` (S4-R1, as
+     `pay`), so two buyers of the last item cannot both succeed.
+  4. **Theft.** A stall nobody can break into is risk-free storage — the free
+     version of what *Bank / post office* makes cost a journey. Break-in needs
+     Stage 5.
+  5. **Rent and the log.** Whether a stall fee is a coin sink (to the
+     Treasury) or there is none; and an activity-log kind for a sale whose
+     seller is absent, so the report can read shop prices beside barter.
+- **Why deferred:** A new supply channel, deferred for *Wanted board*'s reason:
+  the economy milestone measures trade with the channels it has, and the log
+  shows whether trades fail for lack of a meeting. And the till is coin lying at
+  a place, a shape that does not exist before Stage 5's `CoinPile`.
+- **Trigger:** Economy-milestone data (roadmap [OPEN] *No milestone measures the
+  economy*) — decided together with *Wanted board*, since both answer the same
+  missing meeting; not built before Stage 5's `CoinPile`.
+- **Origin:** Adam, design chat 2026-11-05.
+- **Status:** BLOCKED (economy-milestone data; Stage 5 `CoinPile`)
 
 ### Player mail — `game_systems/mail`
 - **What:** Messages to players who are offline, from the contrib verified at
