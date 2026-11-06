@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 67 · 2026-11-06** — the webclient decomposition (`docs/PolishedWorld_Webclient_Decomposition.md` Rev 1). **Added** (*Health & Injury*): ***Character panel: Legend combat state*** (BLOCKED on Stage 5 locational HP; the panel shows only what the server holds until then, WC12), carrying a rule check for the Stage 5 session — roadmap Rev 20 calls the *disabled* tier RAW, and *Legend* p. 145 makes a limb useless only on a lost opposed Resilience test; and ***Hero Points in a persistent world*** (BLOCKED on the Stage 5 design session; *Legend* pp. 87–88 earns them per story, which a persistent world does not have). No entry closed.
 > **Rev 66 · 2026-11-05** — the dev board close-out (merged to `main` as `fbbe222`, PR #23, tree `3cc3400`; suite 1159 with exactly the two known treasury failures). **Closed:** *Public dev board* OPEN → DONE, with its five build locks: no Rev header on `docs/board.md`; fifteen cards; `help alpha` ends with the path `/board/`; a menu link by extending Evennia's `_menu.html`; branch `feature/dev-board`. **Status changed:** *In-game gazette* BLOCKED → OPEN for part 1, its last blocker gone; part 2 still waits on part 1. **Annotated:** *Persistent alpha instance* — L6.1 deploys the new tag `alpha-20261105` (on `fbbe222`), not `alpha-20261104`. No code changes.
 > **Rev 65 · 2026-11-05** — the `ingame_reports` close-out (merged to `main` as `588bc69`, PR #22, tree `612267d`; suite 1137 OK). **Closed:** *In-game bug, idea and player reports* OPEN → DONE, with its eight locks and one struck claim (a cmdset on the AccountCmdSet does not reach chargen; the reports are their own cmdset at priority 2, Union). **Added** (*Tooling & Process*): ***Per-account cooldown on reports*** — lock (4)'s deferral; trigger: spam in the alpha or opening beyond the cohort. **Annotated:** *Public dev board* — next, before L6.3, and a new tag is needed after it; *In-world gazette* — part 1 now waits on the board alone; *Two treasury tests assume the developer's settings match the shipped ones* — confirmed by name at 1137, and GitHub Desktop's auto-stash named as the way the line went missing. No code changes.
 > **Rev 64 · 2026-11-05** — one entry **added** (*Currency*), from a design chat in which nothing was decided: ***Player shops and market stalls (sell orders)***, BLOCKED on economy-milestone data and Stage 5's `CoinPile`. It is filed beside *Wanted board* because it is that entry's mirror — the board carries buy orders, a stall carries sell orders, and with a small cohort rarely online together the two halves of a trade otherwise have to meet in person. Only the shop half lands here: housing itself is stage-sized and already homed in `roadmap.md` (*Persistent storage / housing / settlements*), so per this file's scope rule it is annotated there (roadmap Rev 42) rather than duplicated. The entry records the five questions the idea raised as open, not as constraints. No code changes.
@@ -1525,6 +1526,47 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   proposal rejected in `docs/roadmap.md` Rev 21 (`[RESOLVED]` organ-level damage
   model). Original idea from another Evennia developer's RimWorld-derived system.
 - **Status:** BLOCKED (Stage 5 wound tiers)
+
+### Character panel: Legend combat state
+- **What:** The webclient's character panel gains what the style guide §6
+  fixes and the alpha cannot show: the silhouette's seven zones coloured by
+  wound level (Intact, Minor, Serious, Major, through the published zone masks
+  and CSS `mask-image`), the useless-limb state as its own symbol and text,
+  Combat Actions while in combat, and Hero Points. The data joins the `char`
+  snapshot (Webclient decomp WC5); no new OOB name.
+- **Why deferred:** The server holds none of it. A character has one `health`
+  gauge (CON × 2) and a `fatigue` survival gauge; hit locations, wound levels,
+  Combat Actions and Hero Points are Stage 5, and combat is outside the alpha.
+  A panel built now would show *Intact* for a system that does not exist
+  (Webclient decomp WC12, rejected option A).
+- **Rule check for the Stage 5 session:** roadmap Rev 20 defines the
+  *disabled* tier as "RAW Serious Wound: location unusable until back to
+  positive HP". In *Legend* (core p. 145) a Serious Wound to a limb makes it
+  useless only if the victim loses an opposed Resilience test against the
+  attack roll, and a Serious Wound to the head, chest or abdomen risks
+  unconsciousness instead. Either *disabled* follows that, or it is a
+  deliberate simplification and the roadmap stops calling it RAW. The style
+  guide §6 already follows the book.
+- **Trigger:** Stage 5's locational Hit Points shipped and in-game verified.
+- **Origin:** Webclient decomposition Rev 1, 2026-11-06 (D5).
+- **Status:** BLOCKED (Stage 5 locational HP)
+
+### Hero Points in a persistent world
+- **What:** Decide how a character earns Hero Points, and whether there is a
+  cap. *Legend* (core pp. 87–88): two at creation, two more at the close of a
+  story (zero to four by how the Adventurer performed), at most one ad-hoc
+  award per story, each spent once — a Combat Action when all are used, a
+  re-roll, downgrading a Major Wound to Serious, a hint, a heroic ability. The
+  passage sets no cap. A persistent MUD has no stories to close and no Games
+  Master to judge them, so the earning rule cannot be a citation; the style
+  guide §6 assumes no limit until this is decided.
+- **Why deferred:** Most uses are combat (Combat Actions, Glancing Blow), and
+  nothing spends a Hero Point before Stage 5. The webclient shows none until
+  then (Webclient decomp WC12).
+- **Trigger:** The Stage 5 design session.
+- **Origin:** Webclient decomposition Rev 1, 2026-11-06 (handoff open
+  question 3).
+- **Status:** BLOCKED (Stage 5 design session)
 
 ---
 
