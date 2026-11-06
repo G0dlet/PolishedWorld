@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 21 · 2026-11-06** — **the asset pipeline (Webclient decomposition W2.1–W2.4; merged as `37844da`).** **New §21: the asset pipeline** — running its tests outside `evennia test`, the three publishing commands and the shell `evennia reload` the browser check needs, what the tests read (the contrast formula pinned by the palette's own figures, three edge-rule fixtures that each reach one case, a mutation that survived on a fixture gap), and how a master from ChatGPT is received. **§13** gains one rule: read the parallel runner's result with `grep`, never `tail` — its teardown lines come after the result, one per worker.
 > **Rev 20 · 2026-11-05** — **the dev board (BACKLOG Rev 66; merged as `fbbe222`).** **New §20: the dev board** — how the view's tests reach the file (a patched module global, read per request), the shipped-file test that catches a heading typo, a mutation that survived on a fixture gap rather than dead code, and the protocol as run on the work machine, with what each step proved and what it did not.
 > **Rev 19 · 2026-11-05** — **the `ingame_reports` findings (BACKLOG Rev 65; merged as `588bc69`).** **New §19: in-game reports** — what the tests read through (the real cmdhandler, the reader's own lock check and the staff menu's node; EvenniaTest's `setUp` logs in, so `at_post_login` runs in every test), the three-client protocol as run, with the three menu predictions that missed and why, and how to read the menu (a cached list, `manage reports` is the player type, the menu creates hubs and the export does not). **§13** gains one rule: a GitHub Desktop step can stash the local `TREASURY_DBREF` line, which turns the suite green for the wrong reason — read `git --no-pager stash list` and the settings diff before judging a full run.
 > **Rev 18 · 2026-11-04** — **the launch-minimum findings (decomposition Rev 3; merged as `df0dc4e`, tagged `alpha-20261104`).** **New §18: the launch minimum** — how to read the activity log in a protocol (the file, never `evennia test` alongside, before-and-after readings, the line shapes per kind), and the protocols as run: L2.2b's circulation sites, L2.3's report, L3.1's worn clothing (the stacks, not the sum; a statue as receiver), L3.2's `recipes` split, L3.3's scroll seed (the seed tag first; three runs around a `learn`; `reseed_scroll` twice), L4.1's three-client run (A–E, the throttle rule; outputs in the runbook), L4.2's connection screen and help, and L4.1b's filter. Steps not run in game name the unit tests that carry them.
@@ -840,6 +841,8 @@ messages rather than usage hints:
 
   **Always write `auto` or a number after `--parallel`.** It takes an optional value, so the word after it is read as the process count: `--parallel tests` is refused with *'tests' is not an integer or the string 'auto'* (Django's `parallel_type`), not read as "parallel, run `tests`". A one-core sandbox gains nothing from it; run targeted modules serially there.
 
+  **Read its result with the `grep` above, never with `tail`.** The parallel runner prints the result first and then one `Destroying test database for alias 'default'...` line per worker, so a `tail -4` on a machine with more than four workers shows only teardown lines. That happened at W2.4 (webclient, 2026-11-06): the branch-tip run's result was cut, and the receipt was taken again on `main` after the merge.
+
 ## 14. Verifying a delivery
 
 Receipts for a patch or a guide, taken before it is handed over.
@@ -1277,6 +1280,29 @@ Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `test
 4. `mv docs/board.md docs/board.md.off`; `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4001/board/` → `200`; `curl -s http://localhost:4001/board/ | grep -c "Board unavailable"` → `1`; `mv` back, and the cards returned without a reload.
 5. In game, `help alpha` → its last paragraph names `/board/`, after the reports paragraph.
 6. Full suite, after `git --no-pager stash list` and `git --no-pager diff --stat` (only `settings.py`): 1159, `FAILED (failures=2)`, exactly the two treasury tests the local `TREASURY_DBREF` line fails.
+
+## 21. The asset pipeline (`art/tools/assetpipe.py`)
+
+*(Webclient decomposition W2.1–W2.4; code `art/tools/assetpipe.py`, tests `art/tools/test_assetpipe.py`; what it enforces is the style guide §10. The pipeline is offline tooling: the game server never imports it.)*
+
+### 21.1 Running it
+
+- **Tests run outside `evennia test`,** which never sees `art/`: `python -m unittest discover -s art/tools` from the repository root, with Pillow from `art/tools/requirements.txt` in the venv. 32 tests on `main` after W2.4; 43 on `feature/webclient` after W2.3. A full-suite receipt for a branch that touches the pipeline is therefore two lines: this one, and the suite's.
+- **Publishing is three commands,** in this order, after any change to a body master: `validate` the masters, `clean art/body/body_base.png --out web/static/polishedworld/characters/body`, `split-body --out web/static/polishedworld/characters/body`. `TestPublishedUpToDate` regenerates both into a temporary folder and compares pixels with what is committed, so a master committed without re-running the pipeline fails a test.
+- **The browser check needs the shell's `evennia reload`.** Only the launcher runs `collectstatic` (Webclient decomposition §3), and static files are served from `server/.static`; the in-game `reload` leaves the old file in place. Then open `http://localhost:4001/static/polishedworld/characters/body/body_base.png` (work machine, W2.2: the eight files were served).
+
+### 21.2 What the tests read
+
+- **Images are built in a temporary folder,** pixel by pixel, except `TestRealMasters` and `TestPublishedUpToDate`, which read the committed files. A fixture is a few pixels on a magenta canvas of the prefix's native size.
+- **The contrast formula is pinned by the palette.** `TestContrast` recomputes every `contrast_panel` figure in `palette.json` and compares at two decimals; a formula that drifts from the one the palette was written with fails 27 subtests, not one.
+- **The edge rule's three cases each have a fixture that reaches only that case** (W2.3): a dark pixel on a side edge fails, the same pixel with background only at a corner passes, and a pixel whose only background contact is the image border fails. The border fixture first had magenta above and below its pixel as well, so the border never decided anything and mutation WM3 (*the border is not background*) survived; with figure on three sides the border is the only contact, and WM3 is killed. Same shape as §20.1: the line was live, the data never reached it.
+- **The threshold is the palette's.** `test_threshold_is_the_palettes` validates with `dataclasses.replace(palette, edge_min_contrast=…)` at 1.0 and 10.0, so a hard-coded 3.0 fails it.
+
+### 21.3 Receiving a master from ChatGPT (W2.3, as run 2026-11-06)
+
+1. **Compare with the committed master pixel by pixel** before running anything: how many pixels changed, from which colour to which, whether the magenta positions are identical (if not, the zone map must change too), and whether the zone map still covers exactly the figure's pixels.
+2. **Then `validate`.** On `main` before W2.3 the edge rules did not exist, so step 1 was the only check of what the brief asked for.
+3. **Check the property, not the brief's procedure.** The first delivery did exactly what the brief said — recolour the dark pixels that touch the background, 156 of them — and passed every check above, but eight hair pixels at the top of the head had never had an outline and stayed at 1.35:1 against Panel. The brief described a procedure where it should have stated the property (*every edge pixel reaches 3:1*); the second brief named the eight pixels, and W2.3 turned the property into a `validate` rule so the next master is held to it by the tool.
 
 ## Domain quick-refs
 

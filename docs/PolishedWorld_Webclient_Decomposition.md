@@ -1,10 +1,11 @@
 # PolishedWorld — Webclient Decomposition
 
+> **Rev 2 · 2026-11-06** — **Component 2 is done.** W2.4 merged `feature/webclient-assets` as `37844da` (PR #24, tree `9673cad`, the tree `merge-tree` predicted); W2.3 landed on `feature/webclient` as `bf66108` (tree `66a45d6`), with the outline in Muted after two ChatGPT rounds. Each gains a *Shipped* line and a row in §13. W2.3 was built with three choices locked at its start (exclusion set, the edge-contrast rule, the palette as the threshold's source) and one kept (the style guide waits for W8.2); the edge-contrast rule is an addition to the approach above, which named only the outline-colour rule. OQ-W2 and OQ-W3 are closed: the webclient is not an alpha prerequisite, and it gets a dev-board card in *In progress*. The board already held fifteen cards, the upper bound `tests/test_dev_board.py::test_card_count_is_lock_b` enforces for the board's lock B, so the card, the bound (15 → 20) and roadmap Rev 44 travel together on a short branch, `feature/board-cap` (Adam's choice A, 2026-11-06), which keeps the roadmap's rule that a card moves in the same commit as the roadmap line. Testing Ref §21 records the pipeline's tests and how a master is received.
 > **Rev 1 · 2026-11-06** — first version. Decomposes PolishedWorld's own webclient (three columns, panels fed by OOB, the text stream untouched) into eight components and nineteen tasks, against live source read the same day: `main` at `efd7d91` (tree `e137be1`), `feature/webclient-assets` at `6f17c54` (tree `40798d8`), Evennia `v6.1.0` (`e5265b7`; the work machine's install reports rev `a89a9b94e`, but the four files this feature leans on hash identical to the tag — §3), *Legend* core pp. 87–88 and 145–146. Six Evennia assumptions carried in by the handoff were checked at source before any lock: three held, one held only in part (an emitter listener *replaces* the previous one; unknown OOB names reach plugins through `onUnknownCmd`), one failed (no stock route carries a per-session client flag), and one holds only from the shell (`evennia reload` runs `collectstatic`, the in-game `reload` does not). A check of the stock client found five external hosts, among them an unpinned `golden-layout.com/files/latest`, which decides WC2. The handoff's proposal for duplicated room lists collided with roadmap [RESOLVED] *A graphical client is additive, never authoritative* (2026-09-09) and was replaced (WC4). Locks WC1–WC16 in §2; Adam took every recommendation (D1–D8). Two BACKLOG entries filed in the same commit (Rev 67).
 > **Canonical:** `docs/PolishedWorld_Webclient_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
 **Design sources:** `docs/PolishedWorld_Art_Style_Guide.md` (palette v0.2.1, §5 production rules, §6 Legend UI rules, §7 accessibility, §9 reference mockups, §10 asset pipeline); roadmap decision log, [RESOLVED] *A graphical client is additive, never authoritative*.
-**Status:** DECOMPOSED. W2.1–W2.2 shipped on `feature/webclient-assets` (as *Task 2.1/2.2*); nothing else built.
+**Status:** IN PROGRESS. Component 2 done (W2.1–W2.4); Component 3 next (W3.1).
 **Branches:** `feature/webclient-assets` (Component 2, merged by W2.4) and `feature/webclient` (Components 3–8, created from `main` after W2.4, `--no-track`).
 **Rough scope:** 19 tasks, ~6–8 sessions at 5 h/week; Component 7 can be cut to BACKLOG without touching anything before it (WC13).
 **Roles:** Claude writes code and checks rules against *Legend*; ChatGPT draws pixel art and sets visual direction; Adam is creative director and carries a handoff file between the two wherever §14 says one is needed.
@@ -115,12 +116,14 @@ Done on `main`: palette v0.2.1 and the style guide (Rev 1–3, `f2203d0`, `bcf24
 - **Approach:** `OUTLINE_KEY` becomes a tuple of keys: the chosen colour plus `background`; `split-body` excludes every pixel in any of them. `validate` gains one check for body masters: every pixel in the outline colour is 8-adjacent to `#FF00FF`, so the colour can only be the figure's one-pixel edge and never an inner fill — the property WC11 needs and the one the pipeline can test. Republish with `clean` and `split-body`. Style guide §5: the outline sentence and the open item are rewritten (docs commit on `main`, batched with W8.2 or earlier if Adam prefers).
 - **Testing** (`art/tools`, `python -m unittest discover -s art/tools`): a fixture figure with the new outline colour yields masks with no outline pixel set; a fixture with inner `#0E1512` eyes yields masks without them; a fixture using the outline colour as an inner fill is refused by `validate`; the contrast of the chosen colour against Panel is asserted ≥ 3.0 from `palette.json`.
 - **Commit:** `feat(art): outline in <colour>, split-body excludes outline and background (webclient W2.3)`
+- **Shipped (Rev 2):** `bf66108` on `feature/webclient`, tree `66a45d6`; 43 tests (32 + 11: `TestContrast` 2, `TestBodyEdge` 9); mutations WM1–WM8 killed. Locked at the task's start (Adam took every recommendation): **(a)** both Muted and Background are left out of the masks — written as `OUTLINE_KEY = "muted"`, `DETAIL_KEY = "background"` and `MASK_EXCLUDED_KEYS`, not a tuple-valued `OUTLINE_KEY`; **(b)** `validate` holds `body_base.png` to two rules: the outline-colour rule above (8 neighbours), and an **edge-contrast rule** this approach did not name — every figure pixel sharing a side with the background or the image border reaches the threshold against Panel. The contrast rule is the property WC11 is for; the outline rule alone would have passed the first delivery; **(c)** the surface and the threshold are read from `palette.json` (`contrast_surfaces.panel`, `rules.status_min_contrast`), never restated; **(d)** the style guide §5 is rewritten at W8.2, so `main`'s guide describes `main`'s assets until the merge. The master took two rounds: the first brief said *recolour the dark pixels on the edge*, and eight hair pixels at the top of the head (y=5, `dark_wood`, 1.35:1) had never had an outline; the second named them. Republishing changed `body_base.png` and `body_head.png` only (head loses the eight pixels); the other six masks are byte-identical. WM3 (*the image border is not background*) survived its first run on a fixture gap and was killed after the fixture was fixed (Testing Ref §21.2).
 
 ### Task W2.4 — Merge `feature/webclient-assets` (WC16)
 - **Goal:** The pipeline and the published body assets are on `main`, so the client branch starts from them.
 - **Dependencies:** W2.2.
 - **Approach:** `assetpipe` tests (32) and, per the test-suite policy, the full suite once on the branch tip (ForkTestRunner `--parallel auto`, `"#10"` stashed); PR with a merge commit; delete the branch. Testing Ref gains its section for the asset pipeline (validate / clean / split-body, the browser check of `/static/polishedworld/characters/body/`), as the handoff promised.
 - **Commit:** merge commit; docs commit on `main` for Testing Ref.
+- **Shipped (Rev 2):** PR #24 merged as `37844da` (tree `9673cad`, parents `cc82061` and `6f17c54`), branch deleted on origin. Receipts: `assetpipe` 32 OK on the branch tip (`6f17c54`); the full suite 1159 OK in 472 s on `main` after the merge (work machine, ForkTestRunner `--parallel auto`, `"#10"` stashed). The branch-tip suite run did happen, but its result line was cut by a `tail -4` in the delivered command (Testing Ref §13); the run on `main` reads the tree the merge was predicted to produce, so it is the receipt. Testing Ref §21 landed in this Rev's docs commit; the board card and roadmap Rev 44 follow on `feature/board-cap`.
 
 ## 7. Component 3 — Client shell (Claude, `feature/webclient`)
 
@@ -238,6 +241,8 @@ Decomp Rev 2 (records, *Shipped* lines); Testing Ref section for the webclient (
 | --- | --- | --- | --- |
 | W2.1 | `231855e` | `819e0ef` | as *Task 2.1* |
 | W2.2 | `6f17c54` | `40798d8` | as *Task 2.2* |
+| W2.4 | `37844da` | `9673cad` | merge, PR #24; suite 1159 OK on `main` |
+| W2.3 | `bf66108` | `66a45d6` | on `feature/webclient`; 43 art tests, WM1–WM8 |
 
 ## 14. Handoffs to ChatGPT
 
@@ -245,14 +250,14 @@ Adam carries one file per delivery. Claude writes it when the task that needs th
 
 | Handoff | Needed by | Content |
 | --- | --- | --- |
-| Outline colour | W2.3 | Redraw both body masters with the outer outline in one palette colour ≥ 3:1 against Panel and absent elsewhere in the figure (`muted` or `stone_light` suggested); inner dark details may stay Background; the two masters keep exactly the same coverage; the zone map stays hand-drawn. |
+| Outline colour *(delivered in two rounds, 2026-11-06)* | W2.3 | Redraw both body masters with the outer outline in one palette colour ≥ 3:1 against Panel and absent elsewhere in the figure (`muted` or `stone_light` suggested); inner dark details may stay Background; the two masters keep exactly the same coverage; the zone map stays hand-drawn. |
 | Panel icons | W5.2–W5.3, when Adam wants icons | Status and weather icons at 32×32 per style guide §5, names from its prefix list. Not needed for any task to ship: every panel works with text alone (WC14). |
 
 ## 15. Open questions (each with the task that closes it)
 
 - **OQ-W1 — JS unit tests.** `node --test` for the pure JS (clock arithmetic, routing decision) if Node is installed on both machines; browser protocol only otherwise. Closes at W4.3.
-- **OQ-W2 — Order against L6.3.** Recommendation: the webclient is not an alpha prerequisite (the stock client works; decision (G) measures onboarding, which this helps but does not gate), so invitations do not wait for it. Closes when Adam decides; recorded in the roadmap at W8.2 or earlier.
-- **OQ-W3 — A dev-board card.** Recommendation: one card, *Webclient*, In progress, moved at W8.1. Closes when Adam decides.
+- **OQ-W2 — Order against L6.3.** *Closed (Rev 2): taken as recommended; recorded in roadmap Rev 44 (on `feature/board-cap`).* Recommendation: the webclient is not an alpha prerequisite (the stock client works; decision (G) measures onboarding, which this helps but does not gate), so invitations do not wait for it. Closes when Adam decides; recorded in the roadmap at W8.2 or earlier.
+- **OQ-W3 — A dev-board card.** *Closed (Rev 2): taken as recommended; the card lands with `feature/board-cap`, which raises the board test's upper bound from 15 to 20.* Recommendation: one card, *Webclient*, In progress, moved at W8.1. Closes when Adam decides.
 - **OQ-W4 — jQuery version.** The newest 3.x release at least two weeks old that the five kept Evennia plugins run under; if any breaks, the version Evennia pins (3.2.1). Closes at W3.1.
 
 ## 16. Consequences worth reading twice
