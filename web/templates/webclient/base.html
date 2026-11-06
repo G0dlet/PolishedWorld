@@ -1,0 +1,106 @@
+{% load static %}{% comment %}
+PolishedWorld webclient page (webclient decomposition W3.1, locks WC2/WC3).
+
+This file REPLACES Evennia's evennia/web/templates/webclient/base.html at
+v6.1.0 (sha256 prefix 166eded5ac7e); it is not an extension of it. The
+upstream file loads jQuery, Bootstrap, GoldenLayout, favico.js and popper
+from third-party hosts, partly outside its blocks, so {% extends %} could
+not remove them (WC3). Everything here is served from the game's own host:
+tests/test_webclient_template.py fails on any src/href that starts with
+"http" or "//".
+
+Kept from upstream: the block names (jquery_import, guilib_import, scripts,
+connecting, client), the wsactive/csessid/wsurl globals evennia.js reads,
+and the cuid tab id. Dropped: Bootstrap, GoldenLayout and its config,
+favico.js, popper, and every plugin except the five below.
+
+Script order is load-bearing. webclient_gui.js does not sort plugins; it
+calls them in <script> order and stops at the first that claims an event.
+default_in claims every keydown and default_out claims every text and
+unknown command, so history must load before default_in (or the arrow keys
+never reach it), and project plugins go where marked, before history,
+so that default_out stays the last catch-all. A test pins this order.
+
+On upgrading Evennia: diff the upstream file against the hash above and
+carry over any change to the globals or the core script paths.
+{% endcomment %}<!DOCTYPE html>
+<html dir="ltr" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ game_name }}</title>
+
+    <!-- Evennia's colour classes (color-NNN) for the server's ANSI-to-HTML output.
+         Project styles load after it and override its layout rules (W3.2). -->
+    <link rel="stylesheet" type="text/css" href="{% static 'webclient/css/webclient.css' %}">
+
+    <link rel="icon" type="image/png" href="{% static 'website/images/evennia_logo.png' %}">
+
+    {% block jquery_import %}
+    <script src="{% static 'polishedworld/vendor/jquery-3.7.1.min.js' %}"></script>
+    {% endblock %}
+
+    <script>
+      if (!window.jQuery) {
+        document.write("<div class='err'>jQuery did not load from this server. The web client cannot start.</div>");
+      }
+    </script>
+
+    <!-- A low-quality UID to tell browser tabs apart (read by evennia.js) -->
+    <script>
+      function generateUID() {
+        return Math.random().toString(36).substring(2, 15) +
+               Math.random().toString(36).substring(2, 15);
+      }
+      var cuid = generateUID();
+    </script>
+
+    <!-- Websocket globals read by evennia.js -->
+    <script>
+      {% if websocket_enabled %}
+        var wsactive = true;
+      {% else %}
+        var wsactive = false;
+      {% endif %}
+
+      {% if browser_sessid %}
+        var csessid = "{{ browser_sessid }}";
+      {% else %}
+        var csessid = false;
+      {% endif %}
+
+      {% if websocket_url %}
+        var wsurl = "{{ websocket_url }}";
+      {% else %}
+        var wsurl = "ws://" + this.location.hostname + ":{{ websocket_port }}";
+      {% endif %}
+    </script>
+    <script src="{% static 'webclient/js/evennia.js' %}"></script>
+
+    {% block guilib_import %}
+    <script src="{% static 'webclient/js/webclient_gui.js' %}"></script>
+    <!-- Project plugins go here: after webclient_gui.js, before history.js. -->
+    <script src="{% static 'webclient/js/plugins/history.js' %}"></script>
+    <script src="{% static 'webclient/js/plugins/default_in.js' %}"></script>
+    <script src="{% static 'webclient/js/plugins/default_out.js' %}"></script>
+    {% endblock %}
+
+    {% block scripts %}
+    {% endblock %}
+  </head>
+  <body>
+    <div id="connecting">
+      {% block connecting %}
+      {% endblock %}
+    </div>
+
+    <noscript>
+      <div class="err">The {{ game_name }} web client needs JavaScript. A telnet client works without it.</div>
+    </noscript>
+
+    <div id="clientwrapper">
+      {% block client %}
+      {% endblock %}
+    </div>
+  </body>
+</html>

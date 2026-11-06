@@ -1,0 +1,28 @@
+{% extends "webclient/base.html" %}
+{% comment %}
+PolishedWorld webclient skeleton (W3.1). Unstyled here; W3.2 lays it out.
+
+The nesting #main > #main-sub > #messagewindow is deliberate: Evennia's
+default_out.js scrolls the message window's grandparent
+(mwin.parent().parent()), so <main> is the element that scrolls. Evennia's
+default_in.js and history.js find #inputfield and #inputsend by id, and
+default_out.js writes the prompt into .prompt.
+{% endcomment %}
+
+{% block client %}
+<aside id="pw-panel-left"></aside>
+
+<main id="main">
+  <div id="main-sub">
+    <div id="messagewindow"></div>
+  </div>
+</main>
+
+<aside id="pw-panel-right"></aside>
+
+<div id="input">
+  <div id="prompt" class="prompt"></div>
+  <textarea id="inputfield" aria-label="Command"></textarea>
+  <button id="inputsend" type="button">Send</button>
+</div>
+{% endblock %}
