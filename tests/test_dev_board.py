@@ -199,9 +199,12 @@ class TestShippedBoard(TestCase):
         self.assertEqual(cards, len(bullets))
 
     def test_card_count_is_lock_b(self):
+        # Lock B, amended 2026-11-06 (BACKLOG Rev 68): about 10-20 cards,
+        # revisited when the Done column crowds the page. The bound is a
+        # prompt to curate, not a limit on epics.
         cards = sum(len(column["cards"]) for column in self.columns)
         self.assertGreaterEqual(cards, 10)
-        self.assertLessEqual(cards, 15)
+        self.assertLessEqual(cards, 20)
 
     def test_every_column_has_a_card(self):
         for column in self.columns:

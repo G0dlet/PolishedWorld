@@ -19,6 +19,7 @@ a top-level bullet under one of them, and anything else is ignored.
 ## In progress
 
 - The closed alpha
+- A webclient with panels beside the text
 
 ## Done
 

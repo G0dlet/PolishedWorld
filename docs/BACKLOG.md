@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 68 · 2026-11-06** — the dev board's lock B is amended: *about 10–15 cards* becomes **about 10–20**, revisited when the Done column crowds the page. The board held fifteen cards, and the webclient's card (webclient decomposition OQ-W3) would have been the sixteenth, failing `tests/test_dev_board.py::test_card_count_is_lock_b`; every new epic adds a card, so the bound is a prompt to curate the Done column, not a limit on epics. Landed on `feature/board-cap` with the card, the test's bound and roadmap Rev 44. *Public dev board* stays DONE.
 > **Rev 67 · 2026-11-06** — the webclient decomposition (`docs/PolishedWorld_Webclient_Decomposition.md` Rev 1). **Added** (*Health & Injury*): ***Character panel: Legend combat state*** (BLOCKED on Stage 5 locational HP; the panel shows only what the server holds until then, WC12), carrying a rule check for the Stage 5 session — roadmap Rev 20 calls the *disabled* tier RAW, and *Legend* p. 145 makes a limb useless only on a lost opposed Resilience test; and ***Hero Points in a persistent world*** (BLOCKED on the Stage 5 design session; *Legend* pp. 87–88 earns them per story, which a persistent world does not have). No entry closed.
 > **Rev 66 · 2026-11-05** — the dev board close-out (merged to `main` as `fbbe222`, PR #23, tree `3cc3400`; suite 1159 with exactly the two known treasury failures). **Closed:** *Public dev board* OPEN → DONE, with its five build locks: no Rev header on `docs/board.md`; fifteen cards; `help alpha` ends with the path `/board/`; a menu link by extending Evennia's `_menu.html`; branch `feature/dev-board`. **Status changed:** *In-game gazette* BLOCKED → OPEN for part 1, its last blocker gone; part 2 still waits on part 1. **Annotated:** *Persistent alpha instance* — L6.1 deploys the new tag `alpha-20261105` (on `fbbe222`), not `alpha-20261104`. No code changes.
 > **Rev 65 · 2026-11-05** — the `ingame_reports` close-out (merged to `main` as `588bc69`, PR #22, tree `612267d`; suite 1137 OK). **Closed:** *In-game bug, idea and player reports* OPEN → DONE, with its eight locks and one struck claim (a cmdset on the AccountCmdSet does not reach chargen; the reports are their own cmdset at priority 2, Union). **Added** (*Tooling & Process*): ***Per-account cooldown on reports*** — lock (4)'s deferral; trigger: spam in the alpha or opening beyond the cohort. **Annotated:** *Public dev board* — next, before L6.3, and a new tag is needed after it; *In-world gazette* — part 1 now waits on the board alone; *Two treasury tests assume the developer's settings match the shipped ones* — confirmed by name at 1137, and GitHub Desktop's auto-stash named as the way the line went missing. No code changes.
@@ -3018,7 +3019,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
     `## In progress`, `## Done`, one card per bullet. Readable on GitHub as is,
     no dependency (YAML would need PyYAML), parsed with a few lines of stdlib.
     Lives in `docs/`, so it moves with doc patches on `main`.
-  - **B — Granularity:** one card per epic, about 10–15 cards, English, written
+  - **B — Granularity:** one card per epic, about 10–15 cards *(amended
+    2026-11-06, Rev 68: about 10–20, revisited when the Done column crowds
+    the page)*, English, written
     for players ("Tanning and leather goods", not "H5"). Moved at epic start
     and close-out — the moments the roadmap is already updated. The board is a
     shop window for the roadmap, never a planning tool; the roadmap stays the
