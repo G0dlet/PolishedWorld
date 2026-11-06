@@ -10,6 +10,7 @@ Usage (from the repository root)::
 
     python art/tools/assetpipe.py validate art/body/*.png
     python art/tools/assetpipe.py clean art/body/body_base.png --out web/static/polishedworld/characters/body
+    python art/tools/assetpipe.py split-body --out web/static/polishedworld/characters/body
 
 Exit codes: 0 = everything valid (and cleaned), 1 = at least one file
 failed validation, 2 = usage error (bad arguments, unreadable palette).
@@ -47,6 +48,18 @@ NATIVE_SIZES: dict[str, tuple[int, int]] = {
 # and never cleaned for publishing.
 ZONEMAP_NAMES = {"body_zonemap.png"}
 
+BODY_DIR = Path(__file__).resolve().parents[1] / "body"
+
+# The figure's outline is drawn in the palette's Background colour. Outline
+# pixels are left out of every zone mask so that tinting a zone in the client
+# never recolours the outline (decision B1, Task 2.2).
+OUTLINE_KEY = "background"
+
+# Zone masks are alpha masks for CSS mask-image: only the alpha channel
+# matters, the colour is never shown.
+MASK_ON = (255, 255, 255, 255)
+MASK_OFF = (0, 0, 0, 0)
+
 FILENAME_RE = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)*\.png$")
 
 # How many offending pixels to list per colour before summarising.
@@ -64,6 +77,7 @@ class Palette:
     colors: frozenset[RGB]
     chroma_key: RGB
     zone_keys: dict[str, RGB]
+    by_key: dict[str, RGB]
 
 
 @dataclass
@@ -96,6 +110,7 @@ def load_palette(path: Path = PALETTE_PATH) -> Palette:
         colors = frozenset(hex_to_rgb(c["hex"]) for c in data["colors"])
         chroma = hex_to_rgb(data["chroma_key"])
         zones = {name: hex_to_rgb(h) for name, h in data["zone_keys"].items()}
+        by_key = {c["key"]: hex_to_rgb(c["hex"]) for c in data["colors"]}
     except (OSError, ValueError, KeyError, TypeError) as err:
         raise PaletteError(f"cannot read palette {path}: {err}") from err
 
@@ -105,7 +120,9 @@ def load_palette(path: Path = PALETTE_PATH) -> Palette:
         raise PaletteError(f"tool colours overlap motif colours: {clash}")
     if len(set(zones.values())) != len(zones):
         raise PaletteError("two zones share the same key colour")
-    return Palette(colors=colors, chroma_key=chroma, zone_keys=zones)
+    if OUTLINE_KEY not in by_key:
+        raise PaletteError(f"palette has no {OUTLINE_KEY!r} colour for outlines")
+    return Palette(colors=colors, chroma_key=chroma, zone_keys=zones, by_key=by_key)
 
 
 def expected_size(name: str) -> tuple[int, int] | None:
@@ -238,6 +255,83 @@ def clean(path: Path, out_dir: Path, palette: Palette) -> Report:
     return report
 
 
+def build_body_masks(
+    base: Image.Image, zonemap: Image.Image, palette: Palette
+) -> tuple[dict[str, Image.Image], list[str]]:
+    """Return {zone: RGBA mask} from two valid RGB masters, or the errors.
+
+    The two masters must cover exactly the same pixels; a mismatch means one
+    of them was edited without the other, and the masks would no longer line
+    up with the figure. Pure function: nothing is written here.
+    """
+    if base.size != zonemap.size:
+        return {}, [f"size mismatch: base {base.size}, zone map {zonemap.size}"]
+
+    width, height = base.size
+    bpx, zpx = base.load(), zonemap.load()
+    key = palette.chroma_key
+    outline = palette.by_key[OUTLINE_KEY]
+    zone_of = {rgb: zone for zone, rgb in palette.zone_keys.items()}
+
+    mismatches = [
+        (x, y)
+        for y in range(height)
+        for x in range(width)
+        if (bpx[x, y] == key) != (zpx[x, y] == key)
+    ]
+    if mismatches:
+        shown = ", ".join(f"({x},{y})" for x, y in mismatches[:MAX_COORDS_SHOWN])
+        return {}, [
+            f"base and zone map cover different pixels: {len(mismatches)} px at {shown}"
+        ]
+
+    masks = {zone: Image.new("RGBA", base.size, MASK_OFF) for zone in palette.zone_keys}
+    counts = dict.fromkeys(palette.zone_keys, 0)
+    for y in range(height):
+        for x in range(width):
+            zone = zone_of.get(zpx[x, y])
+            if zone is not None and bpx[x, y] != outline:
+                masks[zone].putpixel((x, y), MASK_ON)
+                counts[zone] += 1
+
+    empty = [zone for zone, n in counts.items() if n == 0]
+    if empty:
+        return {}, [f"zone {zone} has no pixels inside the outline" for zone in empty]
+    return masks, []
+
+
+def split_body(base_path: Path, zonemap_path: Path, out_dir: Path, palette: Palette) -> Report:
+    """Validate both body masters, then write body_<zone>.png alpha masks.
+
+    All masks are built in memory before the first write, so a validation
+    error never leaves a partial set behind.
+    """
+    report = Report(zonemap_path)
+    for path in (base_path, zonemap_path):
+        sub = validate(path, palette)
+        report.errors += [f"{path.name}: {err}" for err in sub.errors]
+    if zonemap_path.name not in ZONEMAP_NAMES:
+        report.errors.append(f"{zonemap_path.name} is not a zone map")
+    if not report.ok:
+        return report
+
+    with Image.open(base_path) as b_img, Image.open(zonemap_path) as z_img:
+        masks, errors = build_body_masks(
+            b_img.convert("RGB"), z_img.convert("RGB"), palette
+        )
+    if errors:
+        report.errors += errors
+        return report
+
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for zone, mask in masks.items():
+            mask.save(out_dir / f"body_{zone}.png", format="PNG", optimize=True)
+    except OSError as err:
+        report.errors.append(f"cannot write output: {err}")
+    return report
+
+
 def _print_reports(reports: list[Report], verb: str) -> int:
     failed = 0
     for rep in reports:
@@ -260,8 +354,12 @@ def main(argv: list[str] | None = None) -> int:
     p_cln = sub.add_parser("clean", help="validate, then write transparent copies")
     p_cln.add_argument("files", nargs="+", type=Path)
     p_cln.add_argument("--out", type=Path, required=True, help="output directory")
-    p_val.add_argument("--palette", type=Path, default=PALETTE_PATH)
-    p_cln.add_argument("--palette", type=Path, default=PALETTE_PATH)
+    p_spl = sub.add_parser("split-body", help="write the seven zone alpha masks")
+    p_spl.add_argument("--base", type=Path, default=BODY_DIR / "body_base.png")
+    p_spl.add_argument("--zonemap", type=Path, default=BODY_DIR / "body_zonemap.png")
+    p_spl.add_argument("--out", type=Path, required=True, help="output directory")
+    for p in (p_val, p_cln, p_spl):
+        p.add_argument("--palette", type=Path, default=PALETTE_PATH)
     args = parser.parse_args(argv)
 
     try:
@@ -272,7 +370,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "validate":
         return _print_reports([validate(f, palette) for f in args.files], "valid")
-    return _print_reports([clean(f, args.out, palette) for f in args.files], "cleaned")
+    if args.command == "clean":
+        return _print_reports([clean(f, args.out, palette) for f in args.files], "cleaned")
+    report = split_body(args.base, args.zonemap, args.out, palette)
+    return _print_reports([report], "split")
 
 
 if __name__ == "__main__":

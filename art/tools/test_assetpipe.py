@@ -1,5 +1,5 @@
 """
-Task 2.1: the asset pipeline's validate and clean steps.
+Tasks 2.1 and 2.2: the asset pipeline's validate, clean and split-body steps.
 
 Run from the repository root (outside `evennia test`, which never sees art/):
 
@@ -21,7 +21,12 @@ one way the pipeline can let a broken asset through:
 * TestZoneMap -- the zone map allows only zone keys and needs all seven.
 * TestClean -- only valid masters are written; magenta becomes fully
   transparent and every other pixel keeps its exact colour.
+* TestSplitBody -- the seven masks are pure alpha, disjoint, leave the
+  outline out, and nothing is written when the masters disagree.
 * TestRealMasters -- the committed body masters pass.
+* TestPublishedUpToDate -- the files committed under web/static/ are what
+  the pipeline produces today, so a master edited without re-running the
+  pipeline is caught.
 * TestCli -- exit codes 0/1/2 as documented.
 """
 
@@ -210,6 +215,83 @@ class TestClean(_TmpCase):
         self.assertFalse((out / "body_zonemap.png").exists())
 
 
+class TestSplitBody(_TmpCase):
+    """A 32x64 figure: column x=5 is head (rows 0-2), x=6 is every other zone."""
+
+    def masters(self, base_px=None, zone_px=None):
+        zones = list(self.palette.zone_keys.items())
+        zmap = {(5, y): zones[0][1] for y in range(3)}
+        zmap.update({(6, i): rgb for i, (_z, rgb) in enumerate(zones[1:])})
+        bmap = {xy: SKIN for xy in zmap}
+        bmap[(5, 1)] = OUTLINE  # an outline pixel inside the head zone
+        bmap.update(base_px or {})
+        zmap.update(zone_px or {})
+        base = self.make("body_base.png", size=(32, 64), pixels=bmap)
+        zonemap = self.make("body_zonemap.png", size=(32, 64), pixels=zmap)
+        return base, zonemap
+
+    def split(self, base, zonemap):
+        out = self.dir / "out"
+        return assetpipe.split_body(base, zonemap, out, self.palette), out
+
+    def test_seven_pure_alpha_masks(self):
+        report, out = self.split(*self.masters())
+        self.assertTrue(report.ok, report.errors)
+        names = sorted(p.name for p in out.iterdir())
+        self.assertEqual(names, sorted(f"body_{z}.png" for z in self.palette.zone_keys))
+        for path in out.iterdir():
+            with Image.open(path) as img:
+                self.assertEqual((img.mode, img.size), ("RGBA", (32, 64)))
+                values = {rgba for _n, rgba in img.getcolors()}
+                self.assertEqual(values, {assetpipe.MASK_ON, assetpipe.MASK_OFF})
+
+    def test_outline_is_left_out_and_masks_are_disjoint(self):
+        report, out = self.split(*self.masters())
+        self.assertTrue(report.ok, report.errors)
+        with Image.open(out / "body_head.png") as head:
+            self.assertEqual(head.getpixel((5, 0)), assetpipe.MASK_ON)
+            self.assertEqual(head.getpixel((5, 1)), assetpipe.MASK_OFF)
+        on = []
+        for path in out.iterdir():
+            with Image.open(path) as img:
+                on += [(x, y) for y in range(64) for x in range(32)
+                       if img.getpixel((x, y))[3]]
+        self.assertEqual(len(on), len(set(on)))
+        self.assertEqual(len(on), 2 + 6)
+
+    def test_coverage_mismatch_writes_nothing(self):
+        base, zonemap = self.masters(base_px={(20, 20): SKIN})
+        report, out = self.split(base, zonemap)
+        self.assertIn("cover different pixels", report.errors[0])
+        self.assertIn("(20,20)", report.errors[0])
+        self.assertFalse(out.exists())
+
+    def test_zone_that_is_all_outline(self):
+        base, zonemap = self.masters(base_px={(6, 0): OUTLINE})
+        report, out = self.split(base, zonemap)
+        self.assertEqual(report.errors, ["zone chest has no pixels inside the outline"])
+        self.assertFalse(out.exists())
+
+    def test_invalid_master_is_named(self):
+        base, zonemap = self.masters(base_px={(5, 0): (1, 2, 3)})
+        report, out = self.split(base, zonemap)
+        self.assertTrue(report.errors[0].startswith("body_base.png: #010203"))
+        self.assertFalse(out.exists())
+
+    def test_size_mismatch(self):
+        base = self.make("body_base.png", size=(32, 64), pixels={(1, 1): SKIN})
+        small = Image.new("RGB", (16, 16), MAGENTA)
+        masks, errors = assetpipe.build_body_masks(
+            Image.open(base).convert("RGB"), small, self.palette)
+        self.assertEqual(masks, {})
+        self.assertIn("size mismatch", errors[0])
+
+    def test_base_passed_as_zone_map_is_refused(self):
+        base, _zonemap = self.masters()
+        report, _out = self.split(base, base)
+        self.assertIn("body_base.png is not a zone map", report.errors)
+
+
 class TestRealMasters(unittest.TestCase):
     def test_committed_body_masters_are_valid(self):
         palette = assetpipe.load_palette()
@@ -217,6 +299,29 @@ class TestRealMasters(unittest.TestCase):
             with self.subTest(name=name):
                 report = assetpipe.validate(REPO / "art" / "body" / name, palette)
                 self.assertEqual(report.errors, [])
+
+
+class TestPublishedUpToDate(_TmpCase):
+    PUBLISHED = REPO / "web" / "static" / "polishedworld" / "characters" / "body"
+
+    def assert_same_pixels(self, committed, fresh):
+        with Image.open(committed) as a, Image.open(fresh) as b:
+            self.assertEqual(a.size, b.size, committed.name)
+            self.assertEqual(
+                a.convert("RGBA").tobytes(), b.convert("RGBA").tobytes(),
+                f"{committed.name} is stale: re-run the pipeline (see assetpipe.py)")
+
+    def test_published_body_files_match_the_masters(self):
+        fresh = self.dir / "fresh"
+        self.assertTrue(assetpipe.clean(REPO / "art/body/body_base.png", fresh, self.palette).ok)
+        self.assertTrue(assetpipe.split_body(REPO / "art/body/body_base.png",
+                                             REPO / "art/body/body_zonemap.png",
+                                             fresh, self.palette).ok)
+        names = sorted(p.name for p in fresh.iterdir())
+        self.assertEqual(names, sorted(p.name for p in self.PUBLISHED.iterdir()))
+        for name in names:
+            with self.subTest(name=name):
+                self.assert_same_pixels(self.PUBLISHED / name, fresh / name)
 
 
 class TestCli(_TmpCase):
@@ -234,6 +339,14 @@ class TestCli(_TmpCase):
         self.assertIn("1/2 valid", text)
         missing = self.dir / "nope.json"
         self.assertEqual(self.run_cli("validate", str(good), "--palette", str(missing))[0], 2)
+
+    def test_split_body_exit_codes(self):
+        out = self.dir / "out"
+        code, text = self.run_cli("split-body", "--out", str(out))
+        self.assertEqual(code, 0, text)
+        self.assertEqual(len(list(out.iterdir())), 7)
+        bad = self.make("body_zonemap.png", size=(32, 64), pixels={(0, 0): (1, 2, 3)})
+        self.assertEqual(self.run_cli("split-body", "--zonemap", str(bad), "--out", str(out))[0], 1)
 
 
 if __name__ == "__main__":
