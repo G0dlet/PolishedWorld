@@ -1,0 +1,283 @@
+/* ---
+  PolishedWorld webclient stylesheet (webclient decomposition W3.2).
+
+  Linked after Evennia's webclient/css/webclient.css, which stays for its
+  color-NNN classes (the server's ANSI-to-HTML output). Rules here use the
+  same selectors as Evennia's, so they win by source order without
+  !important.
+
+  Colours come only from the palette: :root declares every colour in
+  art/palette/palette.json as --pw-<key>, verbatim, and
+  tests/test_webclient_theme.py fails if a value drifts from the JSON, if
+  `color:` uses a colour marked text:false, if a focus outline uses one
+  marked status:false, or if a raw colour appears outside :root and the
+  ANSI overrides at the end.
+
+  Layout is mobile first. One breakpoint, 80rem: two 17rem panels plus 80
+  monospace characters at .875rem (the 79-character banner). It is in rem
+  so it moves with the reader's font size. Below it the text area takes the
+  width and the panels open as drawers from the header buttons
+  (polishedworld/js/layout.js). W6.1's matchMedia must use the same value.
+--- */
+
+:root {
+  color-scheme: dark;
+  --pw-background:   #0E1512;
+  --pw-panel:        #17231F;
+  --pw-panel_light:  #24352F;
+  --pw-border_wood:  #865638;
+  --pw-copper:       #B87943;
+  --pw-gold_link:    #D8A657;
+  --pw-highlight:    #F2CC83;
+  --pw-text:         #E8DCC4;
+  --pw-muted:        #9D9B8C;
+  --pw-health:       #4CAF50;
+  --pw-deep_green:   #286C39;
+  --pw-warning:      #F0A12B;
+  --pw-serious:      #D94A40;
+  --pw-critical:     #C2558A;
+  --pw-info:         #4E9AC7;
+  --pw-magic:        #9B67CF;
+  --pw-dark_wood:    #4B3026;
+  --pw-stone:        #777C79;
+  --pw-stone_light:  #B0ADA0;
+  --pw-grass:        #63864B;
+  --pw-water:        #367D9A;
+  --pw-fire:         #F47B28;
+  --pw-skin_light:   #E7B98A;
+  --pw-skin_dark:    #A86E4D;
+  --pw-blossom_pink: #EFA0BA;
+  --pw-snow_ice:     #D7F0F4;
+  --pw-night_blue:   #172A4A;
+}
+
+/* Overall page. Evennia sets a monospace body, and .5rem below 480px;
+   the font-size here wins over that media rule by source order. */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--pw-background);
+  color: var(--pw-text);
+  font-family: system-ui, "DejaVu Sans", "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid var(--pw-gold_link);
+  outline-offset: 2px;
+}
+
+/* The grid. DOM order is input, header, panels, text (Tab order, lock 6);
+   the areas put them where mockup v3 shows them. */
+#clientwrapper {
+  box-sizing: border-box;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "header"
+    "text"
+    "input";
+  gap: .5rem;
+  padding: .5rem;
+}
+
+#pw-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.pw-title {
+  margin: 0 auto 0 0;
+  color: var(--pw-highlight);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.pw-panel-button {
+  min-height: 2.75rem;
+  padding: .375rem .75rem;
+  background: var(--pw-panel_light);
+  color: var(--pw-text);
+  border: 2px solid var(--pw-border_wood);
+  border-radius: .25rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Open or closed is shown by the marker, not by colour alone (WC14).
+   The "/ ''" alternative text keeps screen readers from reading the
+   triangle; browsers without it keep the first declaration. */
+.pw-panel-button::after {
+  content: " \25B8";
+  content: " \25B8" / "";
+}
+
+.pw-panel-button[aria-expanded="true"]::after {
+  content: " \25BE";
+  content: " \25BE" / "";
+}
+
+/* Side panels: framed surfaces; below the breakpoint, closed drawers. */
+#pw-panel-left, #pw-panel-right {
+  display: none;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow-y: auto;
+  padding: .75rem;
+  background: var(--pw-panel);
+  color: var(--pw-text);
+  border: 2px solid var(--pw-border_wood);
+  border-radius: .25rem;
+}
+
+#pw-panel-left.pw-open, #pw-panel-right.pw-open {
+  display: block;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  width: min(20rem, 85vw);
+}
+
+#pw-panel-left.pw-open { left: 0; }
+#pw-panel-right.pw-open { right: 0; }
+
+/* The text area. <main> is the scroll container: Evennia's default_out
+   scrolls #messagewindow's grandparent, so #messagewindow itself must not. */
+#main {
+  grid-area: text;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: .75rem 1rem;
+  background: var(--pw-background);
+  border: 2px solid var(--pw-border_wood);
+  border-radius: .25rem;
+  font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, "Courier New", monospace;
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+#messagewindow {
+  overflow: visible;
+  overflow-wrap: break-word;
+}
+
+/* Every message line keeps the server's spaces (banner, EvTable columns).
+   default_out.js:13 gives a line the class "out" only when kwargs is null,
+   and the server always sends an object (wire_formats/evennia_v1.py:103),
+   so text lines arrive as class="undefined" and .out never matches them;
+   parse_html leaves runs of spaces raw. This rule does not depend on the
+   class. */
+#messagewindow > div {
+  white-space: pre-wrap;
+}
+
+/* Message classes. Text lines rarely carry .out (above); default_out's
+   error path writes "msg err". The rules stay so that a line which does
+   carry a class gets palette colours rather than Evennia's. */
+.out {
+  color: var(--pw-text);
+  background-color: transparent;
+  white-space: pre-wrap;
+}
+
+.inp { color: var(--pw-muted); }
+.sys { color: var(--pw-health); }
+.err { color: var(--pw-fire); }
+.prompt { color: var(--pw-text); }
+
+/* Input row. Evennia fixes #input to the bottom of the window; here it is
+   a grid item under the text area. */
+#input {
+  grid-area: input;
+  position: static;
+  width: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+#prompt {
+  flex-basis: 100%;
+}
+
+#prompt:empty {
+  display: none;
+}
+
+#inputfield {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-width: 0;
+  height: 3rem;
+  padding: .5rem .75rem;
+  background: var(--pw-panel);
+  color: var(--pw-text);
+  border: 2px solid var(--pw-border_wood);
+  border-radius: .25rem;
+  font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, "Courier New", monospace;
+  font-size: 1rem;
+  resize: none;
+}
+
+#inputsend {
+  height: auto;
+  padding: 0 1rem;
+  background: var(--pw-panel_light);
+  color: var(--pw-highlight);
+  border: 2px solid var(--pw-border_wood);
+  border-radius: .25rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Three columns. The .pw-open selectors are repeated so a drawer left open
+   on a narrow window does not stay fixed after a widening. */
+@media (min-width: 80rem) {
+  #clientwrapper {
+    grid-template-columns: 17rem minmax(0, 1fr) 17rem;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "header header header"
+      "left   text   right"
+      "left   input  right";
+  }
+
+  .pw-panel-button {
+    display: none;
+  }
+
+  #pw-panel-left, #pw-panel-left.pw-open,
+  #pw-panel-right, #pw-panel-right.pw-open {
+    display: block;
+    position: static;
+    width: auto;
+  }
+
+  #pw-panel-left, #pw-panel-left.pw-open { grid-area: left; }
+  #pw-panel-right, #pw-panel-right.pw-open { grid-area: right; }
+}
+
+/* ANSI base colours (lock 3). Evennia's dark variants (|X |R |G |Y |B |M |C)
+   and its bright blue (|b) fall below 4.5:1 on the text area. Each is tinted
+   toward white just far enough to pass, keeping its hue; the other base
+   colours and the 240 xterm classes keep Evennia's values. */
+.color-000 { color: #808080; }
+.color-001 { color: #B56B6B; }
+.color-002 { color: #269326; }
+.color-003 { color: #848408; }
+.color-004 { color: #7A7ABD; }
+.color-005 { color: #B263B2; }
+.color-006 { color: #1A8D8D; }
+.color-012 { color: #6E6EFF; }

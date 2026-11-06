@@ -1,28 +1,41 @@
 {% extends "webclient/base.html" %}
 {% comment %}
-PolishedWorld webclient skeleton (W3.1). Unstyled here; W3.2 lays it out.
+PolishedWorld webclient skeleton (W3.1, laid out in W3.2).
 
 The nesting #main > #main-sub > #messagewindow is deliberate: Evennia's
 default_out.js scrolls the message window's grandparent
 (mwin.parent().parent()), so <main> is the element that scrolls. Evennia's
 default_in.js and history.js find #inputfield and #inputsend by id, and
 default_out.js writes the prompt into .prompt.
+
+DOM order is Tab order (W3.2, lock 6): the command line first, then the
+header's panel buttons (shown only below the breakpoint), the two panels,
+and the text last, so its links (W6.1) do not stand between the player and
+the panels. The stylesheet's grid areas place each part where mockup v3
+shows it. The panels take tabindex="-1" so layout.js can move focus into an
+opened drawer; that keeps them out of the Tab sequence.
 {% endcomment %}
 
 {% block client %}
-<aside id="pw-panel-left"></aside>
+<div id="input">
+  <div id="prompt" class="prompt"></div>
+  <textarea id="inputfield" aria-label="Command"></textarea>
+  <button id="inputsend" type="button">Send</button>
+</div>
+
+<header id="pw-header">
+  <p class="pw-title">{{ game_name }}</p>
+  <button class="pw-panel-button" type="button" aria-controls="pw-panel-left" aria-expanded="false">Character</button>
+  <button class="pw-panel-button" type="button" aria-controls="pw-panel-right" aria-expanded="false">World</button>
+</header>
+
+<aside id="pw-panel-left" aria-label="Character and survival" tabindex="-1"></aside>
+
+<aside id="pw-panel-right" aria-label="World and location" tabindex="-1"></aside>
 
 <main id="main">
   <div id="main-sub">
     <div id="messagewindow"></div>
   </div>
 </main>
-
-<aside id="pw-panel-right"></aside>
-
-<div id="input">
-  <div id="prompt" class="prompt"></div>
-  <textarea id="inputfield" aria-label="Command"></textarea>
-  <button id="inputsend" type="button">Send</button>
-</div>
 {% endblock %}

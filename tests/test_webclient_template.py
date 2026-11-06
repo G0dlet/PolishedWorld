@@ -1,5 +1,6 @@
 """
-Tests for the webclient page template (webclient decomposition W3.1, WC2/WC3).
+Tests for the webclient page template (webclient decomposition W3.1, WC2/WC3;
+W3.2 for the stylesheet order, landmarks and panel buttons).
 
 Each class names the bug it pressures:
 
@@ -22,6 +23,14 @@ Each class names the bug it pressures:
     TestSkeleton           the DOM no longer matches what Evennia's plugins
                            look up by id, or #messagewindow's grandparent is
                            not <main> (default_out scrolls the grandparent).
+    TestStylesheetOrder    the project stylesheet loads before Evennia's, so
+                           Evennia's stock rules (the black .out, the fixed
+                           #input) win again.
+    TestLandmarks          a side panel loses its label, Tab no longer
+                           reaches input, panels and text in that order, or
+                           a panel button stops naming the panel it opens.
+    TestLayoutScript       layout.js turns into a plugin; loaded after
+                           default_out, it would never see an event.
 """
 
 import hashlib
@@ -49,7 +58,21 @@ EXPECTED_SCRIPTS = [
     "webclient/js/plugins/history.js",
     "webclient/js/plugins/default_in.js",
     "webclient/js/plugins/default_out.js",
+    # Not a plugin (TestLayoutScript): opens and closes the panels below the
+    # breakpoint, so its place after default_out costs nothing (W3.2).
+    "polishedworld/js/layout.js",
 ]
+
+EXPECTED_STYLESHEETS = [
+    "webclient/css/webclient.css",  # Evennia's, kept for the color-NNN classes
+    "polishedworld/css/webclient.css",  # the project's, overrides by source order
+]
+
+PANEL_LABELS = {
+    "pw-panel-left": "Character and survival",
+    "pw-panel-right": "World and location",
+}
+LAYOUT_JS = "polishedworld/js/layout.js"
 
 # Any src= or href= whose value starts with a scheme or is protocol-relative.
 # Run over the raw page, comments included.
@@ -174,3 +197,53 @@ class TestSkeleton(_PageTest):
     def test_two_side_panels(self):
         asides = [a.get("id") for t, a in self.page.tags if t == "aside"]
         self.assertEqual(asides, ["pw-panel-left", "pw-panel-right"])
+
+
+class TestStylesheetOrder(_PageTest):
+    def test_project_stylesheet_after_evennias(self):
+        hrefs = [
+            _static_path(a["href"])
+            for t, a in self.page.tags
+            if t == "link" and a.get("rel") == "stylesheet"
+        ]
+        self.assertEqual(hrefs, EXPECTED_STYLESHEETS)
+
+
+class TestLandmarks(_PageTest):
+    def _index(self, predicate, what):
+        for i, (tag, attrs) in enumerate(self.page.tags):
+            if predicate(tag, attrs):
+                return i
+        self.fail("not on the page: %s" % what)
+
+    def test_panel_labels(self):
+        labels = {a.get("id"): a.get("aria-label") for t, a in self.page.tags if t == "aside"}
+        self.assertEqual(labels, PANEL_LABELS)
+
+    def test_tab_order_input_then_panels_then_text(self):
+        inputfield = self._index(lambda t, a: a.get("id") == "inputfield", "#inputfield")
+        send = self._index(lambda t, a: a.get("id") == "inputsend", "#inputsend")
+        first_aside = self._index(lambda t, a: t == "aside", "<aside>")
+        main = self._index(lambda t, a: t == "main", "<main>")
+        self.assertLess(inputfield, send)
+        self.assertLess(send, first_aside)
+        self.assertLess(first_aside, main)
+
+    def test_no_positive_tabindex(self):
+        for tag, attrs in self.page.tags:
+            if "tabindex" in attrs:
+                self.assertLessEqual(int(attrs["tabindex"]), 0, (tag, attrs))
+
+    def test_panel_buttons_control_the_panels(self):
+        buttons = [a for t, a in self.page.tags if t == "button" and a.get("aria-controls")]
+        self.assertEqual(sorted(a["aria-controls"] for a in buttons), sorted(PANEL_LABELS))
+        for attrs in buttons:
+            self.assertEqual(attrs.get("type"), "button", attrs)
+            self.assertEqual(attrs.get("aria-expanded"), "false", attrs)
+
+
+class TestLayoutScript(EvenniaTest):
+    def test_not_a_plugin(self):
+        path = finders.find(LAYOUT_JS)
+        self.assertIsNotNone(path, LAYOUT_JS)
+        self.assertNotIn("plugin_handler", Path(path).read_text(encoding="utf-8"))

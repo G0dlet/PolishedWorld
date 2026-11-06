@@ -12,7 +12,9 @@ tests/test_webclient_template.py fails on any src/href that starts with
 Kept from upstream: the block names (jquery_import, guilib_import, scripts,
 connecting, client), the wsactive/csessid/wsurl globals evennia.js reads,
 and the cuid tab id. Dropped: Bootstrap, GoldenLayout and its config,
-favico.js, popper, and every plugin except the five below.
+favico.js, popper, and every plugin except the five below. Added (W3.2):
+the project stylesheet, after Evennia's, and polishedworld/js/layout.js,
+which is not a plugin and loads last with defer.
 
 Script order is load-bearing. webclient_gui.js does not sort plugins; it
 calls them in <script> order and stops at the first that claims an event.
@@ -33,6 +35,7 @@ carry over any change to the globals or the core script paths.
     <!-- Evennia's colour classes (color-NNN) for the server's ANSI-to-HTML output.
          Project styles load after it and override its layout rules (W3.2). -->
     <link rel="stylesheet" type="text/css" href="{% static 'webclient/css/webclient.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'polishedworld/css/webclient.css' %}">
 
     <link rel="icon" type="image/png" href="{% static 'website/images/evennia_logo.png' %}">
 
@@ -84,6 +87,9 @@ carry over any change to the globals or the core script paths.
     <script src="{% static 'webclient/js/plugins/default_in.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/default_out.js' %}"></script>
     {% endblock %}
+
+    <!-- Not a plugin: opens the side panels below the layout breakpoint (W3.2). -->
+    <script defer src="{% static 'polishedworld/js/layout.js' %}"></script>
 
     {% block scripts %}
     {% endblock %}
