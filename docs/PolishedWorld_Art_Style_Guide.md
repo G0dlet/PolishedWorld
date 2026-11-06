@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 2 · 2026-11-06** — add the reference mockups in `art/reference/` (three WebP files, direction only) to the directory layout and a new §9.
 > **Rev 1 · 2026-11-06** — first version: palette v0.2.1 (locked), reserved tool colours, production rules, Legend UI rules, QA checklist.
 > **Canonical:** `docs/PolishedWorld_Art_Style_Guide.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -23,6 +24,7 @@ Pipeline:
 | Path | Contents | Served to players |
 |---|---|---|
 | `art/palette/` | Palette files (`palette.json`, `palette.hex`, `palette.gpl`) | No |
+| `art/reference/` | Concept mockups showing visual direction (WebP) | No |
 | `art/` (other subfolders, planned) | Source masters with magenta background, zone maps | No |
 | `web/static/polishedworld/` (planned) | Cleaned, validated PNG assets | Yes |
 
@@ -164,3 +166,17 @@ No state may be distinguished by colour alone. Shape, symbol or text always carr
 - [ ] Body layers align exactly and follow the right/left convention.
 - [ ] Reviewed at real size in the client.
 - [ ] Style guide, manifest and any deviations updated together with the files.
+
+## 9. Reference mockups
+
+`art/reference/` holds three concept images that show the agreed visual direction. They are **references, not production assets**: values shown in them are examples, and nothing is cut out of them for use in the client.
+
+| File | Shows |
+|---|---|
+| `website_05_terminal_preview.webp` | Website landing page with tagline, terminal preview and feature cards |
+| `webclient_03.webp` | Webclient layout: character panel with Legend hit locations, fatigue and combat resources, game text, world/location/people/items/exits panels |
+| `asset_concept_02.webp` | Asset pack v0.1 overview: icon families, palette swatches, banner and location image formats |
+
+Where a reference image disagrees with this guide (for example zone colours on the body silhouette in `asset_concept_02.webp`, or the palette swatches, which predate v0.2.1), this guide wins.
+
+The mockups were stored as WebP (quality 85) instead of the delivered PNGs to keep the repository small: Git keeps every binary in history permanently, and every clone, including the alpha server's, downloads it. The other concept images from the v0.2.1 design handoff are kept outside the repository.
