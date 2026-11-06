@@ -1,0 +1,31 @@
+GIMP Palette
+Name: PolishedWorld v0.2.1
+Columns: 6
+#
+ 14  21  18	Background
+ 23  35  31	Panel
+ 36  53  47	Panel light
+134  86  56	Border / Wood
+184 121  67	Copper
+216 166  87	Gold / Link
+242 204 131	Highlight
+232 220 196	Text
+157 155 140	Muted
+ 76 175  80	Health / OK
+ 40 108  57	Deep green
+240 161  43	Warning
+217  74  64	Serious
+194  85 138	Critical
+ 78 154 199	Info
+155 103 207	Magic
+ 75  48  38	Dark wood
+119 124 121	Stone
+176 173 160	Stone light
+ 99 134  75	Grass
+ 54 125 154	Water
+244 123  40	Fire
+231 185 138	Skin light
+168 110  77	Skin dark
+239 160 186	Blossom pink
+215 240 244	Snow / ice
+ 23  42  74	Night blue

@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 22 · 2026-11-06** — index `PolishedWorld_Art_Style_Guide.md` (pixel art palette v0.2.1, production rules and Legend UI rules for the website and webclient; the palette files themselves live in `art/palette/`, outside `docs/`). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (32/0).
 > **Rev 21 · 2026-11-05** — index `docs/board.md` (the public dev board: three columns, one card per epic, read by the website's `/board/` on every request; BACKLOG *Public dev board*). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. The board carries no Rev header: a card moves at epic start and close-out, which the roadmap's own Rev already records.
 > **Rev 20 · 2026-11-04** — the Lessons register row reads *1–237*: the launch-minimum close-out appended lessons 206–237 (Launch Minimum L5.2). The runbook's altitude, *operational*, first used at Rev 19, is confirmed: it is the only document here that is a set of procedures rather than plans or references, and no list of altitudes exists for it to contradict. No document added or removed; the directory-vs-list loop still reads 31/0.
 > **Rev 19 · 2026-11-04** — index `PolishedWorld_Alpha_Runbook.md` (the alpha runbook, Launch Minimum L4.1: accounts, moderation, the economy, scrolls, the log, backup, deploy, the wipe). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (31/0).
@@ -71,6 +72,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Source/sink ledger | structural (economy pillar-1 audit) | `docs/PolishedWorld_SourceSink_Ledger.md` |
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
+| Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Lessons register | reference (numbered working lessons, 1–237) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |

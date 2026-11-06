@@ -1,0 +1,295 @@
+{
+  "name": "PolishedWorld",
+  "version": "0.2.1",
+  "status": "locked",
+  "contrast_surfaces": {
+    "panel": "#17231F",
+    "background": "#0E1512"
+  },
+  "rules": {
+    "text_min_contrast": 4.5,
+    "status_min_contrast": 3.0
+  },
+  "colors": [
+    {
+      "key": "background",
+      "name": "Background",
+      "hex": "#0E1512",
+      "text": false,
+      "status": false,
+      "contrast_panel": 1.14,
+      "contrast_background": 1.0,
+      "note": "Page background"
+    },
+    {
+      "key": "panel",
+      "name": "Panel",
+      "hex": "#17231F",
+      "text": false,
+      "status": false,
+      "contrast_panel": 1.0,
+      "contrast_background": 1.14,
+      "note": "Panel surface"
+    },
+    {
+      "key": "panel_light",
+      "name": "Panel light",
+      "hex": "#24352F",
+      "text": false,
+      "status": false,
+      "contrast_panel": 1.25,
+      "contrast_background": 1.43,
+      "note": "Raised panel surface"
+    },
+    {
+      "key": "border_wood",
+      "name": "Border / Wood",
+      "hex": "#865638",
+      "text": false,
+      "status": false,
+      "contrast_panel": 2.62,
+      "contrast_background": 3.0,
+      "note": "Merged frame and wood colour"
+    },
+    {
+      "key": "copper",
+      "name": "Copper",
+      "hex": "#B87943",
+      "text": true,
+      "status": true,
+      "contrast_panel": 4.51,
+      "contrast_background": 5.16,
+      "note": "Metal, accent"
+    },
+    {
+      "key": "gold_link",
+      "name": "Gold / Link",
+      "hex": "#D8A657",
+      "text": true,
+      "status": true,
+      "contrast_panel": 7.34,
+      "contrast_background": 8.38,
+      "note": "Merged gold and link colour"
+    },
+    {
+      "key": "highlight",
+      "name": "Highlight",
+      "hex": "#F2CC83",
+      "text": true,
+      "status": true,
+      "contrast_panel": 10.6,
+      "contrast_background": 12.11,
+      "note": "Light accent"
+    },
+    {
+      "key": "text",
+      "name": "Text",
+      "hex": "#E8DCC4",
+      "text": true,
+      "status": true,
+      "contrast_panel": 11.93,
+      "contrast_background": 13.63,
+      "note": "Primary text"
+    },
+    {
+      "key": "muted",
+      "name": "Muted",
+      "hex": "#9D9B8C",
+      "text": true,
+      "status": true,
+      "contrast_panel": 5.78,
+      "contrast_background": 6.61,
+      "note": "Secondary text"
+    },
+    {
+      "key": "health",
+      "name": "Health / OK",
+      "hex": "#4CAF50",
+      "text": true,
+      "status": true,
+      "contrast_panel": 5.83,
+      "contrast_background": 6.66,
+      "note": "Intact / OK"
+    },
+    {
+      "key": "deep_green",
+      "name": "Deep green",
+      "hex": "#286C39",
+      "text": false,
+      "status": false,
+      "contrast_panel": 2.54,
+      "contrast_background": 2.9,
+      "note": "Forest shade"
+    },
+    {
+      "key": "warning",
+      "name": "Warning",
+      "hex": "#F0A12B",
+      "text": true,
+      "status": true,
+      "contrast_panel": 7.59,
+      "contrast_background": 8.67,
+      "note": "Warning, minor wound"
+    },
+    {
+      "key": "serious",
+      "name": "Serious",
+      "hex": "#D94A40",
+      "text": false,
+      "status": true,
+      "contrast_panel": 3.86,
+      "contrast_background": 4.41,
+      "note": "Serious wound; not for small text"
+    },
+    {
+      "key": "critical",
+      "name": "Critical",
+      "hex": "#C2558A",
+      "text": false,
+      "status": true,
+      "contrast_panel": 3.83,
+      "contrast_background": 4.37,
+      "note": "Major wound"
+    },
+    {
+      "key": "info",
+      "name": "Info",
+      "hex": "#4E9AC7",
+      "text": true,
+      "status": true,
+      "contrast_panel": 5.22,
+      "contrast_background": 5.97,
+      "note": "Information"
+    },
+    {
+      "key": "magic",
+      "name": "Magic",
+      "hex": "#9B67CF",
+      "text": false,
+      "status": true,
+      "contrast_panel": 4.04,
+      "contrast_background": 4.61,
+      "note": "Magic; not for small text"
+    },
+    {
+      "key": "dark_wood",
+      "name": "Dark wood",
+      "hex": "#4B3026",
+      "text": false,
+      "status": false,
+      "contrast_panel": 1.35,
+      "contrast_background": 1.54,
+      "note": "Wood shade"
+    },
+    {
+      "key": "stone",
+      "name": "Stone",
+      "hex": "#777C79",
+      "text": false,
+      "status": true,
+      "contrast_panel": 3.81,
+      "contrast_background": 4.36,
+      "note": "Stone, neutral graphic symbols"
+    },
+    {
+      "key": "stone_light",
+      "name": "Stone light",
+      "hex": "#B0ADA0",
+      "text": true,
+      "status": true,
+      "contrast_panel": 7.2,
+      "contrast_background": 8.22,
+      "note": "Stone highlight"
+    },
+    {
+      "key": "grass",
+      "name": "Grass",
+      "hex": "#63864B",
+      "text": false,
+      "status": true,
+      "contrast_panel": 3.89,
+      "contrast_background": 4.44,
+      "note": "Vegetation; not for small text"
+    },
+    {
+      "key": "water",
+      "name": "Water",
+      "hex": "#367D9A",
+      "text": false,
+      "status": true,
+      "contrast_panel": 3.51,
+      "contrast_background": 4.02,
+      "note": "Water; not for small text"
+    },
+    {
+      "key": "fire",
+      "name": "Fire",
+      "hex": "#F47B28",
+      "text": true,
+      "status": true,
+      "contrast_panel": 5.95,
+      "contrast_background": 6.8,
+      "note": "Fire"
+    },
+    {
+      "key": "skin_light",
+      "name": "Skin light",
+      "hex": "#E7B98A",
+      "text": true,
+      "status": true,
+      "contrast_panel": 9.03,
+      "contrast_background": 10.32,
+      "note": "Light skin tone"
+    },
+    {
+      "key": "skin_dark",
+      "name": "Skin dark",
+      "hex": "#A86E4D",
+      "text": false,
+      "status": true,
+      "contrast_panel": 3.86,
+      "contrast_background": 4.41,
+      "note": "Dark skin tone"
+    },
+    {
+      "key": "blossom_pink",
+      "name": "Blossom pink",
+      "hex": "#EFA0BA",
+      "text": true,
+      "status": true,
+      "contrast_panel": 8.03,
+      "contrast_background": 9.17,
+      "note": "Spring blossom"
+    },
+    {
+      "key": "snow_ice",
+      "name": "Snow / ice",
+      "hex": "#D7F0F4",
+      "text": true,
+      "status": true,
+      "contrast_panel": 13.62,
+      "contrast_background": 15.56,
+      "note": "Snow and ice"
+    },
+    {
+      "key": "night_blue",
+      "name": "Night blue",
+      "hex": "#172A4A",
+      "text": false,
+      "status": false,
+      "contrast_panel": 1.13,
+      "contrast_background": 1.29,
+      "note": "Night scenes; not for text or status"
+    }
+  ],
+  "chroma_key": "#FF00FF",
+  "zone_keys": {
+    "head": "#FF0000",
+    "chest": "#00FF00",
+    "abdomen": "#0000FF",
+    "right_arm": "#FFFF00",
+    "left_arm": "#00FFFF",
+    "right_leg": "#FF8000",
+    "left_leg": "#8000FF"
+  }
+}
