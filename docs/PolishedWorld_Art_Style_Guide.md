@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 3 · 2026-11-06** — the asset pipeline exists (`art/tools/assetpipe.py`, Tasks 2.1–2.2 on `feature/webclient-assets`): §1 and §2 lose "planned", §5 gains the outline rule and the zone masks, new §10 documents the tool. Open item: the outline's contrast against Panel.
 > **Rev 2 · 2026-11-06** — add the reference mockups in `art/reference/` (three WebP files, direction only) to the directory layout and a new §9.
 > **Rev 1 · 2026-11-06** — first version: palette v0.2.1 (locked), reserved tool colours, production rules, Legend UI rules, QA checklist.
 > **Canonical:** `docs/PolishedWorld_Art_Style_Guide.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -16,7 +17,7 @@
 Pipeline:
 
 1. An asset is delivered as one image per asset, at native resolution, on a pure magenta background.
-2. The asset is validated and cleaned by the pipeline script (planned): dimensions, palette match, magenta removed to transparency.
+2. The asset is validated and cleaned by `art/tools/assetpipe.py` (§10): name, native size, palette match, magenta removed to transparency.
 3. The cleaned file is committed under `web/static/polishedworld/` and used by the client.
 
 ## 2. Directory layout
@@ -25,8 +26,11 @@ Pipeline:
 |---|---|---|
 | `art/palette/` | Palette files (`palette.json`, `palette.hex`, `palette.gpl`) | No |
 | `art/reference/` | Concept mockups showing visual direction (WebP) | No |
-| `art/` (other subfolders, planned) | Source masters with magenta background, zone maps | No |
-| `web/static/polishedworld/` (planned) | Cleaned, validated PNG assets | Yes |
+| `art/body/` | Body masters: `body_base.png`, `body_zonemap.png` | No |
+| `art/tools/` | Asset pipeline, its tests and its `requirements.txt` (§10) | No |
+| `web/static/polishedworld/` | Pipeline output: cleaned PNG assets and zone masks, served at `/static/polishedworld/` | Yes |
+
+Source folders for other asset types under `art/` are created when their first master arrives.
 
 Source masters live outside `web/static/` because everything under `web/static/` is collected by Evennia and served publicly. The `polishedworld/` namespace keeps our files apart from Evennia's own static files.
 
@@ -136,6 +140,9 @@ Examples: `icon_inventory.png`, `status_thirst.png`, `weather_night_rain.png`, `
 - The seven zone layers are extracted from the zone map by script, never drawn or generated separately.
 - The zone map must be drawn by hand in a pixel editor. An AI-generated zone map gets anti-aliasing between zones and will fail validation.
 - The figure faces the viewer: the character's **right** side is on the **left** of the image.
+- **Outline:** the figure's outline (and dark details such as the eyes) is drawn in Background `#0E1512`. Those pixels belong to no zone mask, so tinting a zone in the client never recolours the outline.
+- **Zone masks:** `split-body` (§10) writes `body_<zone>.png` for the seven zones: white where the zone is, fully transparent elsewhere. Only the alpha channel matters; the client colours a zone by its wound level through CSS `mask-image`. Masks are never shown directly.
+- **Open item:** Background `#0E1512` has only 1.14:1 contrast against Panel, so the outline nearly disappears on a plain panel. To be settled when the client panel is built: either the silhouette sits on Panel light, or the outline moves to a lighter palette colour (which would change the masters and the rule above).
 
 ## 6. Mongoose Legend UI rules
 
@@ -180,3 +187,44 @@ No state may be distinguished by colour alone. Shape, symbol or text always carr
 Where a reference image disagrees with this guide (for example zone colours on the body silhouette in `asset_concept_02.webp`, or the palette swatches, which predate v0.2.1), this guide wins.
 
 The mockups were stored as WebP (quality 85) instead of the delivered PNGs to keep the repository small: Git keeps every binary in history permanently, and every clone, including the alpha server's, downloads it. The other concept images from the v0.2.1 design handoff are kept outside the repository.
+
+## 10. Asset pipeline
+
+`art/tools/assetpipe.py` enforces this guide on masters before anything reaches `web/static/`. It is offline tooling: the game server never imports it, and Pillow is listed in `art/tools/requirements.txt` only (`pip install -r art/tools/requirements.txt`). Palette and tool colours are read from `art/palette/palette.json`, never duplicated in the code.
+
+Run from the repository root:
+
+| Command | Does |
+|---|---|
+| `python art/tools/assetpipe.py validate FILE...` | Checks each master against §3–5. Writes nothing. |
+| `python art/tools/assetpipe.py clean FILE... --out DIR` | Validates, then writes an RGBA copy with `#FF00FF` made transparent. Zone maps are refused. |
+| `python art/tools/assetpipe.py split-body --out DIR` | Validates `art/body/body_base.png` and `art/body/body_zonemap.png` (override with `--base`/`--zonemap`), then writes the seven zone masks. |
+
+Exit codes: `0` all files passed, `1` at least one failed, `2` usage error (for example an unreadable palette).
+
+What `validate` rejects:
+
+- a name that is not lowercase `snake_case` ASCII `.png`, or has no known type prefix (§5);
+- a size other than the prefix's native size;
+- any pixel that is not fully opaque (masters carry magenta, not alpha);
+- any colour that is not an exact palette colour or `#FF00FF` (one channel off by one fails); in `body_zonemap.png`, any colour that is not a zone key or `#FF00FF`, and a missing zone;
+- an image that is only `#FF00FF`.
+
+`split-body` additionally requires both masters to cover exactly the same pixels and every zone to keep at least one pixel inside the outline. Every file is validated and every mask built before the first write, so a failure never leaves a partial set in the output folder.
+
+### Publishing the body silhouette
+
+After changing either body master, regenerate both outputs:
+
+```
+python art/tools/assetpipe.py clean art/body/body_base.png --out web/static/polishedworld/characters/body
+python art/tools/assetpipe.py split-body --out web/static/polishedworld/characters/body
+```
+
+### Tests
+
+```
+python -m unittest discover -s art/tools
+```
+
+`art/` is not a Python package, so `evennia test` never collects these tests and the game suite does not depend on Pillow. `TestPublishedUpToDate` regenerates the published body files and compares their pixels with the committed ones: a master committed without re-running the commands above fails the suite.
