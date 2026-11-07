@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 76 · 2026-11-07** — two entries **annotated**, docs only, with runbook Rev 6, after `fix/wear-interval` (PR #26, merged as `d19cfd4`, tagged `alpha-20261107`): ***Persistent alpha instance*** — L6.1 now checks out `alpha-20261107`; the two earlier tags ship garment wear at its 30 s dev value. ***`at_server_start` ticker re-adds wipe every other persistent ticker*** — the interval is part of a ticker's key, so a changed interval is a new subscription; today the wipe removes the old one at the next start (seen live 2026-11-07: `(30, 'garment_wear')` before a reload, `(10800, 'garment_wear')` alone after), and whichever fix lands here must retire stale intervals itself. No entry closed.
 > **Rev 75 · 2026-11-07** — one entry **added**, docs only, with webclient decomposition Rev 6 (W4.2 and W4.2b shipped). **Added** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — W4.2 pushes after a deletion from `ObjectParent.at_object_delete`, and the contrib-based `Container` and `ClothingWithBuffs` do not inherit `ObjectParent`, so the room or carrier they lay in is not told (OPEN; trigger W5.1 or W5.4, the first panel that would show it). No entry closed.
 > **Rev 74 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 52 and README Rev 30, from the textiles design chat (`docs/PolishedWorld_Textiles_Design.md` Rev 1): *Material / maker's-mark aliases beyond "superior"* — the design proposes the display layer for garments first (a *stitched by* line read from the shipped `crafted_by` stamp) and records that the entry's **Status** still reads SCHEDULED (Stage 3) although Stage 3 is closed; the status is left for the entry's next session to re-anchor; and *Disassemble yields parts and raw materials* — the design proposes **rags**, a new material cut from a garment worn past mending, as a narrow, lossy case of salvage that waits for this entry's decision. No status changes.
 > **Rev 73 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 51 and README Rev 29, from the farming & livestock design chat (`docs/PolishedWorld_Farming_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a global, monotone **growing index** on `WeatherScript` (season × weather, nothing in winter or snow) as the clock for crops, and names it a candidate for part (1)'s seasonal regeneration of wild plant nodes in place of a per-type season table. The entry's open choices, its Trigger and part (1)'s light-week exception are unchanged. No status changes.
@@ -2873,6 +2874,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Annotation (2026-11-05, dev board close-out):** the reports and the board
   are merged after `alpha-20261104`, so L6.1 checks out **`alpha-20261105`**
   (on `fbbe222`, the dev-board merge) instead; runbook §7, Rev 5.
+- **Annotation (2026-11-07, `fix/wear-interval`):** L6.1 checks out
+  **`alpha-20261107`** (on `d19cfd4`, PR #26) instead. Both earlier tags ship
+  `WEAR_TICK_INTERVAL = 30`, a dev value parked behind "TODO: 10800 before
+  merge" since 2026-07-02 — garments would wear 360 times too fast; runbook §7,
+  Rev 6, which also gives the deploy's ticker receipt.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
@@ -3017,6 +3023,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Receipt when fixed:** in-game only — subscribe a throwaway persistent
   ticker, `reload`, and show it still listed by `TICKER_HANDLER.all_display()`;
   plus a cold restart. Testing Reference §11h.
+- **Annotation (2026-11-07, `fix/wear-interval`, PR #26):** the interval is
+  part of a ticker's store key (`tickerhandler.py:362–397`), so changing
+  `WEAR_TICK_INTERVAL` from 30 to 10800 made a new subscription, not a
+  replacement. Today the wipe this entry describes removes the old one at the
+  next start — seen live on the work dev DB: `[(30, 'garment_wear'), (600,
+  'survival')]` before `evennia reload`, `[(600, 'survival'), (10800,
+  'garment_wear')]` after. **Whichever fix lands here must retire stale
+  intervals itself** (remove every subscription with this idstring whose
+  interval is not the current one), or the next interval change runs two
+  tickers. The start hook's comment was corrected in the same PR; the
+  "prose site" above is done.
 - **Origin:** `feature/sweeper` in-game protocol, 2026-10-19.
 - **Status:** OPEN (latent)
 

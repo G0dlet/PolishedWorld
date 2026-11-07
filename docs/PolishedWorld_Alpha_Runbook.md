@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 6 · 2026-11-07** — §7 names the tag L6.1 deploys: **`alpha-20261107`** on `d19cfd4` (PR #26, the `fix/wear-interval` merge). `alpha-20261105` and `alpha-20261104` both ship `WEAR_TICK_INTERVAL = 30`, a dev value left behind a "TODO: 10800 before merge" since 2026-07-02, which wears garments 360 times faster than they are calibrated for; neither is deployed. A test now pins both tick intervals and fails on any "before merge" marker in production code (`tests/test_server_startstop.py`).
 > **Rev 5 · 2026-11-05** — §7 names the tag L6.1 deploys: **`alpha-20261105`** on `fbbe222` (the dev-board merge), which carries the report commands and the board; `alpha-20261104` predates both and is not deployed. §7 also says how the dev board moves: `docs/board.md` is read on every request, so a card moved by a deploy shows without `evennia reload`.
 > **Rev 4 · 2026-11-05** — the report commands (BACKLOG *In-game bug, idea and player reports*, merged `588bc69`): §2 gains a row in *Who can do what* and a *Reports* section (what players type, the three `manage` menus as run from `warden`, how to read a report, the cached list); §7 notes that a change through the login hook reaches a connected player only at their next login; §8's close-out step 1 exports the reports before the wipe.
 > **Rev 3 · 2026-11-04** — §7 names the first tag: the launch minimum is merged (`df0dc4e`) and tagged **`alpha-20261104`**, which L6.1 checks out; *the tag exists only after the L5.1 merge* is no longer true. Nothing else changes (Launch Minimum L5.2).
@@ -384,7 +385,7 @@ python -c "import sqlite3,os; s=sqlite3.connect('server/evennia.db3'); d=sqlite3
 
 ## 7. Deploy
 
-**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261105`** (on `fbbe222`, the dev-board merge). `alpha-20261104` (on `df0dc4e`, the launch-minimum merge) predates the report commands and the dev board, and is not deployed. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
+**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261107`** (on `d19cfd4`, the `fix/wear-interval` merge, PR #26; tree `4fd0297`). *(Rev 6)* `alpha-20261105` (on `fbbe222`) and `alpha-20261104` (on `df0dc4e`) are not deployed: both tick garment wear every 30 s instead of every 10800 s. After the first start, `@py from evennia import TICKER_HANDLER; self.msg(str(sorted(k[3:5] for k in TICKER_HANDLER.all_display())))` prints `[(600, 'survival'), (10800, 'garment_wear')]` — the deploy's receipt that the right intervals run. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
 
 ```
 git fetch --prune
