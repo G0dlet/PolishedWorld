@@ -491,6 +491,9 @@ class Character(ObjectParent, ClothedCharacter):
                 "their final pose frozen in place.",
                 exclude=[self],
             )
+            # W4.2: the others' room lists move this character from the
+            # awake list to the statues (is_statue reads the sessions).
+            client_state.push_room_soon(self.location)
 
     def at_post_puppet(self, **kwargs):
         """
@@ -504,9 +507,11 @@ class Character(ObjectParent, ClothedCharacter):
         self.snapshot_skill_baseline()
         # W4.1: every webclient panel gets its state (WC5). OOB only, so
         # where it sits among the text below changes nothing on screen;
-        # push never raises. Sent in chargen too -- chargen's end is a
-        # push site in W4.2.
+        # push never raises. Sent in chargen too -- chargen's end pushes
+        # again with the final values (W4.2, chargen_menu).
         client_state.push(self, *client_state.DOMAINS)
+        # W4.2: the others in the room see the statue wake (WC8).
+        client_state.push_room_soon(self.location)
 
         if self.location:
             self.location.msg_contents(
@@ -657,6 +662,7 @@ class Character(ObjectParent, ClothedCharacter):
         
         self.traits.health.base = new_max
         self.traits.health.current = int(new_max * current_percent / 100)
+        client_state.push(self, "char")   # W4.2: max and current both moved
 
     def health_desc(self):
         """
@@ -1217,6 +1223,9 @@ class Character(ObjectParent, ClothedCharacter):
             # GaugeTrait has no min-callback, so we detect the threshold crossing
             # explicitly rather than relying on the trait to notify us.
             self.at_character_death(killer=source)
+        # W4.2: after the death check, so a fatal blow sends the refilled
+        # value (death also schedules all four).
+        client_state.push(self, "char")
 
     def _get_respawn_location(self):
         """
@@ -1367,6 +1376,14 @@ class Character(ObjectParent, ClothedCharacter):
             # stack with a fresh duration on re-death (buffs.add otherwise stacks).
             self.buffs.remove(DeathWeakness.key)
             self.buffs.add(DeathWeakness)
+            # W4.2: the relocation above runs with move_hooks=False, so no
+            # room hook pushed: the room where they fell (the body gone, the
+            # corpse there) and the respawn room are pushed here, and the
+            # character gets all four (health and gauges refilled, inventory
+            # emptied) -- on the next reactor turn, like every hook site.
+            client_state.push_soon(self, *client_state.DOMAINS)
+            client_state.push_room_soon(location)
+            client_state.push_room_soon(self.location)
         finally:
             # Always clear the guard, even on exception, so a later legitimate
             # death is never silently swallowed.
@@ -1514,6 +1531,7 @@ class Character(ObjectParent, ClothedCharacter):
         survival_ticker._check_survival_warnings(self)   # baseline (reload)
         fatigue.current -= encumbrance.OVERLOAD_MOVE_FATIGUE
         survival_ticker._check_survival_warnings(self)
+        client_state.push(self, "survival")   # W4.2; push never raises
 
     def at_pre_object_receive(self, arriving_object, source_location, **kwargs):
         """
@@ -1583,6 +1601,10 @@ class Character(ObjectParent, ClothedCharacter):
         before = encumbrance.carried_enc(self)
         after = encumbrance.enc_without(self, moved_obj, target_location)
         self._announce_enc_crossing(before, after)
+        # W4.2: every change of `carried`, not only a band crossing (WC1:
+        # `inventory` prints carried/limit). Soon: the object has not moved
+        # yet, and the snapshot is built once it has.
+        client_state.push_soon(self, "char")
 
     def at_object_receive(self, moved_obj, source_location, move_type="move", **kwargs):
         """
@@ -1606,6 +1628,9 @@ class Character(ObjectParent, ClothedCharacter):
         before = encumbrance.enc_without(self, moved_obj, source_location)
         after = encumbrance.carried_enc(self)
         self._announce_enc_crossing(before, after)
+        # W4.2: soon, like the leave hook -- and because `create_object`
+        # calls this before the new object's Attributes (its `enc`) are set.
+        client_state.push_soon(self, "char")
 
     def _announce_enc_crossing(self, before, after):
         """
@@ -1731,6 +1756,7 @@ def _rest_tick(char, marker):
         timed_actions.claim(char, marker)
         return
     fatigue.current += char.rest_recovery   # auto-clamps to max
+    client_state.push(char, "survival")   # W4.2
     if fatigue.current >= fatigue.max:
         timed_actions.claim(char, marker)
         char.msg("You feel fully rested.")

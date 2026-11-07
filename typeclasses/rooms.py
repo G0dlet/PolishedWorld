@@ -47,6 +47,7 @@ from evennia.contrib.grid.extended_room import ExtendedRoom
 
 from .objects import ObjectParent
 
+from world import client_state
 from world import gametime_utils
 from world import weather as weather_logic
 
@@ -384,9 +385,30 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         super().at_object_receive(
             moved_obj, source_location, move_type=move_type, **kwargs
         )
+        # W4.2: every viewer's room list changed, whatever arrived (WC8).
+        client_state.push_room_soon(self)
         if not moved_obj.has_account:
             return
         self.sweep_expired_corpses()
+
+    def at_object_leave(self, moved_obj, target_location, move_type="move", **kwargs):
+        """
+        Push the room to everyone left in it (W4.2, WC8).
+
+        `move_to` calls this before `moved_obj` has moved (objects.py:1290;
+        the location is set at :1305), so the push is scheduled for the next
+        reactor turn, when the room no longer holds it.
+
+        Args:
+            moved_obj (Object): what is leaving.
+            target_location (Object): where it is going.
+            move_type (str): passed through to the parent hook.
+            **kwargs: passed through to the parent hook.
+        """
+        super().at_object_leave(
+            moved_obj, target_location, move_type=move_type, **kwargs
+        )
+        client_state.push_room_soon(self)
 
     def sweep_expired_corpses(self):
         """

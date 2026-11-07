@@ -338,3 +338,505 @@ class TestAtPostPuppet(EvenniaTest):
         with mock.patch.object(client_state, "push") as push:
             self.char1.at_post_puppet()
         push.assert_called_once_with(self.char1, *client_state.DOMAINS)
+
+
+# ======================================================================
+# W4.2 -- the emit sites and their census (WC8)
+#
+# Locks (STOPP 0 of W4.2, Adam took every recommendation):
+#   1B  hook sites (leave, delete, death, puppet) send on the next reactor
+#       turn, coalesced per character/domain and per room in ndb
+#   2A  the mover gets its new room from the destination's fan-out
+#   3A  `char` on every change of `carried`, not only a band crossing
+#   4A  `world` on each survival tick and each weather change, indoors too
+#   5A  death, deletion, puppet/unpuppet and eat's `carried` are sites
+#   6   the census pins the sites and every gauge `.current` write;
+#       `push(` and `client_state.push(` are one name
+#   7   fan-out via three awake characters; "sends nothing" carries a receipt
+# ======================================================================
+
+import ast
+import pathlib
+from contextlib import contextmanager
+
+from commands.consumption_commands import CmdDrink, CmdEat
+from evennia.utils.test_resources import EvenniaCommandTest
+from tests.test_chargen_menu import _MenuFixture
+from typeclasses.characters import _rest_tick
+from world import survival_ticker
+
+PUSH_NAMES = {"push", "push_soon", "push_room", "push_room_soon",
+              "push_online", "push_after_removal"}
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PRODUCTION = ("commands", "server", "typeclasses", "web", "world")
+
+
+class _FakeReactor:
+    """
+    Stands in for the reactor: `client_state.delay` records what it is asked
+    to run, and `run()` runs it -- after the code under test has returned,
+    which is when the real reactor would (lock 1B). Runs until nothing is
+    left, since a scheduled send may schedule another.
+    """
+
+    def __init__(self):
+        self.queue = []
+
+    def delay(self, _seconds, callback, *args, **kwargs):
+        self.queue.append((callback, args, kwargs))
+
+    def run(self):
+        ran = 0
+        while self.queue:
+            callback, args, kwargs = self.queue.pop(0)
+            callback(*args, **kwargs)
+            ran += 1
+        return ran
+
+
+class ReactorMixin:
+    """
+    Installs the fake reactor BEFORE EvenniaTest builds its rooms and
+    characters: their creation already schedules room pushes, and a send
+    scheduled on the real reactor never runs in a test, so its pending mark
+    would swallow every later push of the same kind. The fixture's own
+    sends are run and then discarded at the end of setUp.
+    """
+
+    def setUp(self):
+        self.reactor = _FakeReactor()
+        patcher = mock.patch.object(client_state, "delay", side_effect=self.reactor.delay)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
+        with mock.patch.object(client_state, "push"):
+            self.reactor.run()
+
+
+@contextmanager
+def _awake(char, session):
+    """
+    Give `char` a session: the fan-out reads `sessions.all()`, and
+    `is_statue` reads `has_account`, which counts them.
+    """
+    with mock.patch.object(char.sessions, "all", return_value=[session]), \
+            mock.patch.object(char.sessions, "count", return_value=1):
+        yield
+
+
+class TestPushSoon(ReactorMixin, EvenniaTest):
+    """
+    Pressures lock 1B: a hook-site push is sent after the call returns, once
+    per domain however often it was asked for, and not at all for an object
+    deleted in between -- with a receipt that the scheduled call ran.
+    """
+
+    def test_sent_on_the_next_turn_not_inside_the_call(self):
+        with mock.patch.object(self.session, "data_out") as spy:
+            client_state.push_soon(self.char1, "char")
+            spy.assert_not_called()
+            self.assertEqual(self.reactor.run(), 1)
+        self.assertEqual([d for d, _ in _sent(spy)], ["char"])
+
+    def test_coalesced_until_sent_then_open_again(self):
+        with mock.patch.object(self.session, "data_out") as spy:
+            client_state.push_soon(self.char1, "char", "survival")
+            client_state.push_soon(self.char1, "char")
+            self.assertEqual(self.reactor.run(), 2)
+            client_state.push_soon(self.char1, "char")
+            self.assertEqual(self.reactor.run(), 1)
+        self.assertEqual([d for d, _ in _sent(spy)], ["char", "survival", "char"])
+
+    def test_room_fan_out_coalesced(self):
+        client_state.push_room_soon(self.room1)
+        client_state.push_room_soon(self.room1)
+        self.assertEqual(len(self.reactor.queue), 1)
+
+    def test_deleted_room_sends_nothing(self):
+        doomed = create_object("typeclasses.rooms.Room", key="Doomed")
+        with mock.patch.object(client_state, "push_room") as fan_out, \
+                mock.patch.object(client_state.logger, "log_trace") as trace:
+            client_state.push_room_soon(doomed)
+            doomed.delete()
+            self.assertEqual(self.reactor.run(), 1)   # receipt: the scheduled send ran
+        fan_out.assert_not_called()      # the _gone guard stopped it
+        trace.assert_not_called()        # not push's except
+
+    def test_failing_schedule_is_logged_and_reopens(self):
+        with mock.patch.object(client_state, "delay", side_effect=RuntimeError("no")), \
+                mock.patch.object(client_state.logger, "log_trace") as trace:
+            client_state.push_soon(self.char1, "char")
+        trace.assert_called_once()
+        self.assertNotIn("char", self.char1.ndb.client_state_pending)
+
+
+class TestRoomFanOut(ReactorMixin, EvenniaTest):
+    """
+    Pressures WC8's "one snapshot per viewer": three awake characters see a
+    fourth arrive, each through their own names; the one who leaves is gone
+    from what the others get, which proves the leave push is built after the
+    move (lock 1B); statues get nothing.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.char3 = create_object("typeclasses.characters.Character",
+                                   key="Char3", location=self.room1, home=self.room1)
+        self.char4 = create_object("typeclasses.characters.Character",
+                                   key="Char4", location=self.room2, home=self.room2)
+        self.s2 = mock.Mock(name="session of Char2")
+        self.s3 = mock.Mock(name="session of Char3")
+        self.s4 = mock.Mock(name="session of Char4")
+        with mock.patch.object(client_state, "push"):
+            self.reactor.run()   # the two creations' own room pushes
+
+    def _room_payloads(self, session_mock):
+        return [call.kwargs["room"][0][0] for call in session_mock.data_out.call_args_list
+                if "room" in call.kwargs]
+
+    def test_arrival_reaches_each_viewer_with_its_own_names(self):
+        with _awake(self.char2, self.s2), _awake(self.char3, self.s3), \
+                _awake(self.char4, self.s4), \
+                mock.patch.object(self.session, "data_out") as spy:
+            self.char4.move_to(self.room1, quiet=True)
+            self.reactor.run()
+            expected = {c: client_state.room_snapshot(self.room1, c)
+                        for c in (self.char1, self.char2, self.char3, self.char4)}
+        mine = [payload[0][0] for d, payload in _sent(spy) if d == "room"]
+        self.assertEqual(mine, [expected[self.char1]])
+        self.assertEqual(self._room_payloads(self.s2), [expected[self.char2]])
+        self.assertEqual(self._room_payloads(self.s3), [expected[self.char3]])
+        self.assertIn("Char4", expected[self.char1]["characters"])
+        self.assertNotIn("Char2", expected[self.char2]["characters"])  # own names
+        self.assertIn("Char2", expected[self.char3]["characters"])
+        # the mover gets its new room from the same fan-out (lock 2A)
+        self.assertEqual(self._room_payloads(self.s4)[-1:], [expected[self.char4]])
+
+    def test_leaver_is_gone_from_what_the_others_get(self):
+        with _awake(self.char2, self.s2), \
+                mock.patch.object(self.session, "data_out") as spy:
+            self.assertIn("Char2", client_state.room_snapshot(self.room1, self.char1)["characters"])
+            self.char2.move_to(self.room2, quiet=True)
+            self.assertGreater(self.reactor.run(), 0)
+        rooms = [payload[0][0] for d, payload in _sent(spy) if d == "room"]
+        self.assertEqual(len(rooms), 1)
+        self.assertNotIn("Char2", rooms[0]["characters"])
+
+    def test_statues_get_nothing(self):
+        with mock.patch.object(client_state, "push") as push:
+            self.char4.move_to(self.room1, quiet=True)
+            self.assertGreater(self.reactor.run(), 0)     # receipt: the fan-out ran
+        self.assertEqual([c.args for c in push.call_args_list], [(self.char1, "room")])
+
+    def test_push_room_never_raises(self):
+        with mock.patch.object(self.room1, "contents_get", side_effect=RuntimeError("x")), \
+                mock.patch.object(client_state.logger, "log_trace") as trace:
+            client_state.push_room(self.room1)
+        trace.assert_called_once()
+
+
+class TestHookSites(ReactorMixin, EvenniaTest):
+    """
+    Pressures each hook site: the right domain is scheduled from the right
+    hook, including the four the decomposition did not name (death's hookless
+    relocation, a deletion, puppet and unpuppet; locks 5A).
+    """
+
+    def test_room_receive_and_leave(self):
+        thing = create_object("typeclasses.objects.Object", key="pebble", location=self.room2)
+        with mock.patch.object(client_state, "push_room_soon") as soon:
+            thing.move_to(self.room1, quiet=True)
+        self.assertEqual([c.args for c in soon.call_args_list], [(self.room2,), (self.room1,)])
+
+    def test_character_leave_and_receive_push_char(self):
+        thing = create_object("typeclasses.objects.Object", key="pebble", location=self.room1)
+        with mock.patch.object(client_state, "push_soon") as soon:
+            thing.move_to(self.char1, quiet=True)
+            self.assertIn(mock.call(self.char1, "char"), soon.call_args_list)
+            soon.reset_mock()
+            thing.move_to(self.room1, quiet=True)
+            self.assertIn(mock.call(self.char1, "char"), soon.call_args_list)
+
+    def test_carried_drops_in_the_char_snapshot_after_a_drop(self):
+        thing = create_object("typeclasses.objects.Object", key="anvil", location=self.char1)
+        thing.db.enc = 3
+        with mock.patch.object(client_state, "push"):
+            self.reactor.run()   # the creation's own push, so only the drop's is left
+        with mock.patch.object(self.session, "data_out") as spy:
+            before = client_state.char_snapshot(self.char1)["encumbrance"]["carried"]
+            thing.move_to(self.room1, quiet=True)
+            self.reactor.run()
+        chars = [p[0][0] for d, p in _sent(spy) if d == "char"]
+        self.assertEqual(len(chars), 1)
+        self.assertEqual(chars[0]["encumbrance"]["carried"], before - 3)
+
+    def test_deletion_from_inventory_pushes_char(self):
+        thing = create_object("typeclasses.objects.Object", key="crumb", location=self.char1)
+        with mock.patch.object(client_state, "push_soon") as soon, \
+                mock.patch.object(client_state, "push_room_soon") as room_soon:
+            thing.delete()
+        soon.assert_called_once_with(self.char1, "char")
+        room_soon.assert_not_called()
+
+    def test_deletion_from_a_carried_sack_pushes_the_carrier(self):
+        sack = create_object("typeclasses.objects.Object", key="sack", location=self.char1)
+        thing = create_object("typeclasses.objects.Object", key="crumb", location=sack)
+        with mock.patch.object(client_state, "push_soon") as soon:
+            thing.delete()
+        soon.assert_called_once_with(self.char1, "char")
+
+    def test_deletion_from_a_room_pushes_the_room(self):
+        thing = create_object("typeclasses.objects.Object", key="crumb", location=self.room1)
+        with mock.patch.object(client_state, "push_soon") as soon, \
+                mock.patch.object(client_state, "push_room_soon") as room_soon:
+            self.assertTrue(thing.delete())   # never vetoes
+        room_soon.assert_called_once_with(self.room1)
+        soon.assert_not_called()
+
+    def test_puppet_and_unpuppet_push_the_room(self):
+        with mock.patch.object(client_state, "push_room_soon") as soon:
+            self.char1.at_post_puppet()
+            self.assertIn(mock.call(self.room1), soon.call_args_list)
+            soon.reset_mock()
+            with mock.patch.object(self.char1.sessions, "count", return_value=0):
+                self.char1.at_post_unpuppet()
+            soon.assert_called_once_with(self.room1)
+
+    def test_death_pushes_all_four_and_both_rooms(self):
+        self.char1.db.respawn_location = self.room2
+        with mock.patch.object(client_state, "push_soon") as soon, \
+                mock.patch.object(client_state, "push_room_soon") as room_soon, \
+                mock.patch.object(client_state, "push"):
+            self.char1.apply_health_damage(self.char1.traits.health.current)
+        self.assertEqual(self.char1.location, self.room2)
+        self.assertIn(mock.call(self.char1, *client_state.DOMAINS), soon.call_args_list)
+        rooms = {c.args[0] for c in room_soon.call_args_list}
+        self.assertTrue({self.room1, self.room2} <= rooms)
+
+
+class TestImmediateSites(EvenniaTest):
+    """Pressures the synchronous sites: tick, rest, overload step, health."""
+
+    def _pushed(self, push):
+        return [c.args for c in push.call_args_list]
+
+    def test_tick_pushes_survival_and_world_after_the_warnings(self):
+        order = []
+        with mock.patch.object(survival_ticker, "_check_survival_warnings",
+                               side_effect=lambda c: order.append("warn")), \
+                mock.patch.object(client_state, "push",
+                                  side_effect=lambda *a, **k: order.append(a)):
+            survival_ticker._deplete_character(self.char1)
+        self.assertEqual(order[-2:], ["warn", (self.char1, "survival", "world")])
+
+    def test_rest_tick_pushes_survival(self):
+        with mock.patch("typeclasses.characters.timed_actions.is_current", return_value=True), \
+                mock.patch("typeclasses.characters.timed_actions.claim"), \
+                mock.patch("typeclasses.characters.delay"), \
+                mock.patch.object(client_state, "push") as push:
+            _rest_tick(self.char1, object())
+        self.assertIn((self.char1, "survival"), self._pushed(push))
+
+    def test_overloaded_step_pushes_survival(self):
+        with mock.patch.object(type(self.char1), "encumbrance_state",
+                               new_callable=mock.PropertyMock,
+                               return_value=encumbrance.OVERLOADED), \
+                mock.patch.object(client_state, "push") as push:
+            self.char1.at_post_move(self.room2, move_type="traverse")
+        self.assertEqual(self._pushed(push), [(self.char1, "survival")])
+
+    def test_free_step_pushes_nothing(self):
+        with mock.patch.object(client_state, "push") as push, \
+                mock.patch.object(survival_ticker, "_check_survival_warnings") as warn:
+            self.char1.at_post_move(self.room2, move_type="traverse")
+        warn.assert_not_called()   # receipt: the FREE return stopped it
+        push.assert_not_called()
+
+    def test_health_max_and_damage_push_char(self):
+        with mock.patch.object(client_state, "push") as push:
+            self.char1.update_health_max()
+            self.char1.apply_health_damage(1)
+        self.assertEqual(self._pushed(push), [(self.char1, "char"), (self.char1, "char")])
+
+    def test_weather_change_reaches_indoors_even_without_a_message(self):
+        self.room1.db.is_indoor = True
+        with mock.patch.dict(weather.WEATHER_MESSAGES, {}, clear=True), \
+                mock.patch.object(client_state, "push") as push:
+            weather.broadcast_weather_change("foggy")
+        self.assertEqual(self._pushed(push), [(self.char1, "world")])
+
+    def test_push_online_once_per_puppet(self):
+        twin = mock.Mock(name="second session", puppet=self.char1)
+        with mock.patch.object(evennia.SESSION_HANDLER, "get_sessions",
+                               return_value=[self.session, twin]), \
+                mock.patch.object(client_state, "push") as push:
+            client_state.push_online("world")
+        self.assertEqual(self._pushed(push), [(self.char1, "world")])
+
+
+class TestCommandSites(EvenniaCommandTest):
+    """Pressures eat and drink: the gauge they move, and eat's `carried`."""
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_eat_pushes_survival_and_char(self):
+        create_object("typeclasses.consumables.Food", key="w42bread", location=self.char1)
+        with mock.patch.object(client_state, "push") as push:
+            self.call(CmdEat(), "w42bread", caller=self.char1)
+        self.assertIn(mock.call(self.char1, "survival", "char"), push.call_args_list)
+
+    def test_drink_pushes_survival(self):
+        create_object("typeclasses.consumables.Drink", key="w42skin", location=self.char1)
+        with mock.patch.object(client_state, "push") as push:
+            self.call(CmdDrink(), "w42skin", caller=self.char1)
+        self.assertIn(mock.call(self.char1, "survival"), push.call_args_list)
+
+
+class TestChargenEnd(_MenuFixture):
+    """Pressures the Rev 5 site: the final values follow the placeholders."""
+
+    def test_node_done_pushes_all_four_last(self):
+        self.walk_to_last_confirm()
+        with mock.patch.object(client_state, "push") as push:
+            self.send("yes")
+        self.assertTrue(self.char1.db.chargen_complete)   # receipt: node_done ran
+        self.assertEqual(push.call_args_list[-1:],
+                         [mock.call(self.char1, *client_state.DOMAINS)])
+
+
+def _production_trees():
+    """(relative path, AST) for every production module (WC8's census)."""
+    for top in PRODUCTION:
+        for path in sorted((ROOT / top).rglob("*.py")):
+            rel = path.relative_to(ROOT).as_posix()
+            if "/migrations/" in rel or rel == "world/client_state.py":
+                continue
+            yield rel, ast.parse(path.read_text(encoding="utf-8"))
+
+
+def _functions(tree):
+    """(qualified name, FunctionDef) for every function, methods as Class.method."""
+    def walk(node, prefix):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ClassDef):
+                yield from walk(child, f"{prefix}{child.name}.")
+            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                yield f"{prefix}{child.name}", child
+                yield from walk(child, f"{prefix}{child.name}.")
+            else:   # a def inside `if`/`try` is still found
+                yield from walk(child, prefix)
+    yield from walk(tree, "")
+
+
+def _push_calls(func):
+    """The push-family calls made directly in `func`: (name, Call)."""
+    for node in ast.walk(func):
+        if isinstance(node, ast.Call):
+            target = node.func
+            name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", None)
+            if name in PUSH_NAMES:
+                yield name, node
+
+
+def _domains(call):
+    """The domains a push call names: string constants; `*...DOMAINS` is all four."""
+    named = set()
+    for arg in call.args:
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+            named.add(arg.value)
+        elif isinstance(arg, ast.Starred) and ast.unparse(arg.value).endswith("DOMAINS"):
+            named.update(client_state.DOMAINS)
+    return named
+
+
+class TestPushCensus(EvenniaTest):
+    """
+    Pressures WC8: the push sites are exactly the ones W4.2 placed, and every
+    write to a panel gauge's `.current` sits in a function that pushes that
+    gauge's domain. A new writer, or a site removed, fails here first.
+    `push(` and `client_state.push(` are one name (lock 6).
+    """
+
+    SITES = {
+        ("commands/consumption_commands.py", "CmdEat.func", "push"): 1,
+        ("commands/consumption_commands.py", "CmdDrink.func", "push"): 1,
+        ("server/conf/inputfuncs.py", "pw_state", "push"): 1,
+        ("typeclasses/characters.py", "Character.at_post_unpuppet", "push_room_soon"): 1,
+        ("typeclasses/characters.py", "Character.at_post_puppet", "push"): 1,
+        ("typeclasses/characters.py", "Character.at_post_puppet", "push_room_soon"): 1,
+        ("typeclasses/characters.py", "Character.update_health_max", "push"): 1,
+        ("typeclasses/characters.py", "Character.apply_health_damage", "push"): 1,
+        ("typeclasses/characters.py", "Character.at_character_death", "push_soon"): 1,
+        ("typeclasses/characters.py", "Character.at_character_death", "push_room_soon"): 2,
+        ("typeclasses/characters.py", "Character.at_post_move", "push"): 1,
+        ("typeclasses/characters.py", "Character.at_object_leave", "push_soon"): 1,
+        ("typeclasses/characters.py", "Character.at_object_receive", "push_soon"): 1,
+        ("typeclasses/characters.py", "_rest_tick", "push"): 1,
+        ("typeclasses/objects.py", "ObjectParent.at_object_delete", "push_after_removal"): 1,
+        ("typeclasses/rooms.py", "Room.at_object_receive", "push_room_soon"): 1,
+        ("typeclasses/rooms.py", "Room.at_object_leave", "push_room_soon"): 1,
+        ("world/chargen_menu.py", "node_done", "push"): 1,
+        ("world/survival_ticker.py", "_deplete_character", "push"): 1,
+        ("world/weather.py", "broadcast_weather_change", "push_online"): 1,
+    }
+
+    # (file, function, written target) -> the domain whose panel shows it
+    GAUGE_WRITES = {
+        ("commands/consumption_commands.py", "CmdEat.func", "caller.traits.hunger.current"): "survival",
+        ("commands/consumption_commands.py", "CmdDrink.func", "caller.traits.thirst.current"): "survival",
+        ("typeclasses/characters.py", "Character.update_health_max", "self.traits.health.current"): "char",
+        ("typeclasses/characters.py", "Character.apply_health_damage", "health.current"): "char",
+        ("typeclasses/characters.py", "Character.at_character_death", "health.current"): "char",
+        ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
+        ("typeclasses/characters.py", "Character.at_post_move", "fatigue.current"): "survival",
+        ("typeclasses/characters.py", "_rest_tick", "fatigue.current"): "survival",
+        ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
+    }
+
+    # Skill writes: no panel yet (inventory/skills is W7's); chargen's is
+    # covered by node_done's push of all four.
+    NOT_PANEL = {
+        ("typeclasses/characters.py", "Character.improve_skill_on_use", "skill.current"),
+        ("world/chargen.py", "apply_allocation", "skill.current"),
+        ("world/professions.py", "grant_profession", "skill.current"),
+    }
+
+    def setUp(self):
+        super().setUp()
+        self.sites = {}
+        self.writes = set()
+        self.pushes = {}
+        for rel, tree in _production_trees():
+            for qual, func in _functions(tree):
+                calls = list(_push_calls(func))
+                nested = {id(n) for _q, inner in _functions(func) for n in ast.walk(inner)}
+                own = [c for c in calls if id(c[1]) not in nested]
+                for name, _call in own:
+                    key = (rel, qual, name)
+                    self.sites[key] = self.sites.get(key, 0) + 1
+                self.pushes[(rel, qual)] = [call for _n, call in own]
+                for node in ast.walk(func):
+                    if id(node) in nested:
+                        continue
+                    targets = []
+                    if isinstance(node, ast.Assign):
+                        targets = node.targets
+                    elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+                        targets = [node.target]
+                    for target in targets:
+                        if isinstance(target, ast.Attribute) and target.attr == "current":
+                            self.writes.add((rel, qual, ast.unparse(target)))
+
+    def test_push_sites_are_pinned(self):
+        self.assertEqual(self.sites, self.SITES)
+
+    def test_every_current_write_is_known(self):
+        self.assertEqual(self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL)
+
+    def test_every_gauge_write_pushes_its_domain(self):
+        for (rel, qual, target), domain in self.GAUGE_WRITES.items():
+            with self.subTest(site=f"{rel}::{qual} {target}"):
+                named = set()
+                for call in self.pushes.get((rel, qual), []):
+                    named |= _domains(call)
+                self.assertIn(domain, named)

@@ -5,14 +5,13 @@ Registered with Evennia's TICKER_HANDLER (see server/conf/at_server_startstop.py
 A single module-level callable iterates all currently puppeted characters and
 applies survival depletion. Module-level (not a closure/lambda) so the callback
 is picklable, which TICKER_HANDLER requires for persistent tickers.
-
-This task (1.2) only enumerates + logs; depletion lands in Task 2.1.
 """
 
 from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
+from world import client_state
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
@@ -66,6 +65,9 @@ def _deplete_character(char):
         trait.current -= rate
     _apply_survival_conditions(char)
     _check_survival_warnings(char)
+    # W4.2: after the warnings, so the text and the panel agree. `world`
+    # rides along: Evennia's clock only runs while the server does (WC9).
+    client_state.push(char, "survival", "world")
 
 
 def _apply_survival_conditions(char):

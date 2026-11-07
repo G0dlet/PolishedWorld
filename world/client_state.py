@@ -27,11 +27,24 @@ Every gauge is {"current": int, "max": int, "desc": str} or None when the
 trait is missing; every name is plain text (markup stripped), so the
 browser writes it with textContent.
 
-`push` runs inside hooks (at_post_puppet now, move and receive hooks in
-W4.2), where an exception can turn a completed action into a failure the
-player is told about (objects.py:1331, at_post_move). It therefore never
-raises: each domain is built and sent on its own, and a domain that fails
-is logged and skipped while the others still go out (lock 6B).
+`push` runs inside hooks, where an exception can turn a completed action
+into a failure the player is told about (objects.py:1331, at_post_move).
+It therefore never raises: each domain is built and sent on its own, and
+a domain that fails is logged and skipped while the others still go out
+(lock 6B).
+
+Where a push is made (W4.2, WC8). Commands, the survival tick, chargen's
+end and the weather change push at once, with `push`, after their last
+write. Hooks that run in the middle of a `move_to` or a `delete()` -- the
+leave hooks, `at_object_delete`, death's relocation, puppet and unpuppet --
+use `push_soon` and `push_room_soon` instead, which send on the next
+reactor turn (`delay(0, ...)`): `at_object_leave` runs before the object
+has moved (objects.py:1290; `location` is set at :1305), so a snapshot
+built there would still show it, while one built a moment later reads the
+settled world through the same readers `look` and `inventory` use (W4.2
+lock 1B). Pending sends are coalesced per character and domain, and per
+room, in `ndb`, so a burst of moves (`drop all`) costs one snapshot each.
+Every site is pinned by an AST census in tests/test_client_state.py.
 """
 
 import time
@@ -40,6 +53,7 @@ from django.conf import settings
 from evennia.contrib.base_systems import custom_gametime as _cgt
 from evennia.utils import logger
 from evennia.utils.ansi import strip_ansi, strip_mxp
+from evennia.utils.utils import delay, inherits_from
 
 from world import encumbrance, gametime_utils, weather
 
@@ -237,3 +251,133 @@ def push(obj, *domains, session=None):
             obj.msg(session=session, **{domain: ((_build(domain, obj),), {})})
         except Exception:
             logger.log_trace(f"client_state: could not push {domain!r} to {obj!r}")
+
+
+def push_room(room):
+    """
+    Push `room` to every character in it that has a session, each its own
+    snapshot (names depend on the looker, WC8). Statues have no session and
+    get nothing. Never raises: one viewer's failure is logged by `push`.
+    """
+    if room is None:
+        return
+    try:
+        viewers = [
+            obj for obj in room.contents_get(content_type="character")
+            if obj.sessions.all()
+        ]
+    except Exception:
+        logger.log_trace(f"client_state: could not list viewers in {room!r}")
+        return
+    for viewer in viewers:
+        push(viewer, "room")
+
+
+def push_online(*domains):
+    """
+    Push `domains` to every puppeted character, once each however many
+    sessions it has (the survival ticker's dedupe). Never raises.
+    """
+    from evennia import SESSION_HANDLER
+
+    seen = set()
+    try:
+        sessions = list(SESSION_HANDLER.get_sessions())
+    except Exception:
+        logger.log_trace("client_state: could not list sessions")
+        return
+    for sess in sessions:
+        char = getattr(sess, "puppet", None)
+        if not char or char.id in seen:
+            continue
+        seen.add(char.id)
+        push(char, *domains)
+
+
+# ----------------------------------------------------------------------
+# Sending on the next reactor turn (hook sites, W4.2 lock 1B)
+# ----------------------------------------------------------------------
+
+def _gone(obj):
+    """True when `obj` has been deleted since the send was scheduled."""
+    return obj is None or getattr(obj, "id", None) is None
+
+
+def _pending(obj):
+    """The set of keys `obj` has a send scheduled for (in ndb, never saved)."""
+    pending = obj.ndb.client_state_pending
+    if pending is None:
+        pending = set()
+        obj.ndb.client_state_pending = pending
+    return pending
+
+
+def _schedule(obj, key, callback, *args):
+    """Schedule `callback(*args)` once per `key` on `obj`. Never raises."""
+    try:
+        pending = _pending(obj)
+        if key in pending:
+            return
+        pending.add(key)
+        delay(0, callback, *args)
+    except Exception:
+        logger.log_trace(f"client_state: could not schedule {key!r} for {obj!r}")
+        try:
+            _pending(obj).discard(key)
+        except Exception:
+            pass
+
+
+def _send_soon(obj, domain):
+    """The scheduled half of `push_soon`."""
+    if _gone(obj):
+        return
+    _pending(obj).discard(domain)
+    push(obj, domain)
+
+
+def _send_room_soon(room):
+    """The scheduled half of `push_room_soon`."""
+    if _gone(room):
+        return
+    _pending(room).discard("room-fan-out")
+    push_room(room)
+
+
+def push_soon(obj, *domains):
+    """
+    `push(obj, *domains)` on the next reactor turn, each domain at most
+    once however often it is asked for before then. For hook sites only.
+    """
+    if _gone(obj):
+        return
+    for domain in domains:
+        _schedule(obj, domain, _send_soon, obj, domain)
+
+
+def push_room_soon(room):
+    """`push_room(room)` on the next reactor turn, coalesced per room."""
+    if _gone(room):
+        return
+    _schedule(room, "room-fan-out", _send_room_soon, room)
+
+
+def push_after_removal(location):
+    """
+    Something left `location` without a leave hook (it was deleted). The
+    first character up the location chain carried it, so its `char` panel
+    changes; if `location` is a room, its viewers' room lists change.
+    """
+    try:
+        holder = location
+        for _depth in range(10):   # nesting is shallow (WD5); the cap is a guard
+            if holder is None:
+                break
+            if inherits_from(holder, settings.BASE_CHARACTER_TYPECLASS):
+                push_soon(holder, "char")
+                break
+            holder = holder.location
+        if location is not None and inherits_from(location, settings.BASE_ROOM_TYPECLASS):
+            push_room_soon(location)
+    except Exception:
+        logger.log_trace(f"client_state: could not push after removal from {location!r}")

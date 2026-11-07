@@ -44,6 +44,7 @@ import re
 from evennia.utils import logger
 
 from world import chargen
+from world import client_state
 from world import professions
 
 # Every characteristic starts at Legend's human average, as at_object_creation
@@ -376,6 +377,8 @@ def node_done(caller, raw_string, **kwargs):
 
     caller.db.chargen_complete = True
     caller.snapshot_skill_baseline()
+    # W4.2: at_post_puppet pushed the placeholder values; these are final.
+    client_state.push(caller, *client_state.DOMAINS)
     return (
         f"Your character is made. You follow the {key}'s trade; the world "
         "is yours to make something of."
