@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 75 · 2026-11-07** — one entry **added**, docs only, with webclient decomposition Rev 6 (W4.2 and W4.2b shipped). **Added** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — W4.2 pushes after a deletion from `ObjectParent.at_object_delete`, and the contrib-based `Container` and `ClothingWithBuffs` do not inherit `ObjectParent`, so the room or carrier they lay in is not told (OPEN; trigger W5.1 or W5.4, the first panel that would show it). No entry closed.
 > **Rev 74 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 52 and README Rev 30, from the textiles design chat (`docs/PolishedWorld_Textiles_Design.md` Rev 1): *Material / maker's-mark aliases beyond "superior"* — the design proposes the display layer for garments first (a *stitched by* line read from the shipped `crafted_by` stamp) and records that the entry's **Status** still reads SCHEDULED (Stage 3) although Stage 3 is closed; the status is left for the entry's next session to re-anchor; and *Disassemble yields parts and raw materials* — the design proposes **rags**, a new material cut from a garment worn past mending, as a narrow, lossy case of salvage that waits for this entry's decision. No status changes.
 > **Rev 73 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 51 and README Rev 29, from the farming & livestock design chat (`docs/PolishedWorld_Farming_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a global, monotone **growing index** on `WeatherScript` (season × weather, nothing in winter or snow) as the clock for crops, and names it a candidate for part (1)'s seasonal regeneration of wild plant nodes in place of a per-type season table. The entry's open choices, its Trigger and part (1)'s light-week exception are unchanged. No status changes.
 > **Rev 72 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 50 and README Rev 28, from the temperature & exposure design chat (`docs/PolishedWorld_Temperature_Design.md` Rev 1): *Weather inertia, and Legend's four independent axes* — the exposure design reads today's four weather states as they are (rain and snow wet a character, a summer day is hot only under a clear sky) and so does **not** fire part (2)'s trigger; its wind chill (KP9) is the consumer that part waits for, so the struct can be designed against it. No code changes.
@@ -1915,6 +1916,32 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   ceiling, not the lines.
 - **Trigger:** Any barter work, or the alpha cohort's first trade report.
 - **Origin:** Weight W5.1 (decomposition Rev 10), filed at W6.1 (Q4).
+- **Status:** OPEN
+
+### No panel push when a container or garment is deleted where it lies
+- **What:** W4.2 (webclient decomposition Rev 6) pushes after every deletion
+  from `ObjectParent.at_object_delete`, which schedules the carrier's `char`
+  and the room's `room` snapshot (`client_state.push_after_removal`). Two
+  typeclasses are built on contrib classes and do not inherit `ObjectParent`:
+  `typeclasses/containers.py::Container` (on the containers contrib) and
+  `typeclasses/clothing.py::ClothingWithBuffs` (on the clothing contrib). When
+  one of them is deleted -- a garment that crumbles, a container destroyed --
+  the panel of whoever carried it, or of everyone in the room it lay in, keeps
+  showing it until the next push of that domain.
+- **Why deferred:** Rare beside the paths W4.2 covers, and nothing is wrong
+  in the text stream: `inventory` and `look` read live. A full snapshot
+  corrects it at the next move, tick or login (WC5).
+- **Smallest fix:** give each class the same three-line `at_object_delete`
+  (`push_after_removal(self.location)`, then `super()`). Adding `ObjectParent`
+  to the bases instead would also bring its `at_pre_put_in`, which refuses
+  every `put` (W4.2 Q3 of the weight decomposition) and must not shadow
+  `Container`'s own -- so the base order would become part of the fix.
+  Either way, extend `TestPushCensus` so a deletable typeclass without the
+  hook fails.
+- **Trigger:** W5.1 (the character panel shows `carried`) or W5.4 (the
+  location panel), whichever comes first -- or a player report of a stale
+  panel.
+- **Origin:** Webclient W4.2 STOPP 0 (lock 5A), decomposition Rev 6.
 - **Status:** OPEN
 
 ---
