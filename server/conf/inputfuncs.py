@@ -50,3 +50,33 @@ as argument.
 #
 #     """
 #     pass
+
+
+def pw_state(session, *args, **kwargs):
+    """
+    The webclient asks for every panel's state (WC6): sends all four
+    `world.client_state` snapshots to this session only.
+
+    This is the client's pull, for whenever it wants its state again.
+    Character.at_post_puppet already pushes all four on every puppet, a
+    page reload included: a reload is a new session, and
+    Account.puppet_object calls at_post_puppet on every path that ends in
+    a puppet (evennia/accounts/accounts.py:554). An `evennia reload` does
+    not: ServerSession.at_sync restores the puppet without the hook
+    (evennia/server/serversession.py:127), so an open page gets nothing
+    new until it asks.
+
+    Sends nothing when the session has no puppet (logged in but OOC).
+
+    The `pw_` prefix keeps this from colliding with a same-named function
+    in a later INPUT_FUNC_MODULES entry (settings_default.py:489-491). The
+    import is inside the function because every module-level callable
+    *defined* here becomes an input function the client can call
+    (utils.callables_from_module, utils.py:1492).
+    """
+    from world.client_state import DOMAINS, push
+
+    puppet = getattr(session, "puppet", None)
+    if puppet is None:
+        return
+    push(puppet, *DOMAINS, session=session)

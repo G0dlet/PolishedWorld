@@ -20,6 +20,7 @@ from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import encumbrance
+from world import client_state
 from world import survival_ticker
 from world import timed_actions
 from world import activity_log
@@ -501,6 +502,11 @@ class Character(ObjectParent, ClothedCharacter):
 
         # C.3: the `progress` baseline is taken at every puppet.
         self.snapshot_skill_baseline()
+        # W4.1: every webclient panel gets its state (WC5). OOB only, so
+        # where it sits among the text below changes nothing on screen;
+        # push never raises. Sent in chargen too -- chargen's end is a
+        # push site in W4.2.
+        client_state.push(self, *client_state.DOMAINS)
 
         if self.location:
             self.location.msg_contents(
