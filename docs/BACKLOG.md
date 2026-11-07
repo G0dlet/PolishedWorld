@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 72 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 50 and README Rev 28, from the temperature & exposure design chat (`docs/PolishedWorld_Temperature_Design.md` Rev 1): *Weather inertia, and Legend's four independent axes* — the exposure design reads today's four weather states as they are (rain and snow wet a character, a summer day is hot only under a clear sky) and so does **not** fire part (2)'s trigger; its wind chill (KP9) is the consumer that part waits for, so the struct can be designed against it. No code changes.
 > **Rev 71 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 49 and README Rev 27, from the cooking & preservation design chat (`docs/PolishedWorld_Cooking_Design.md` Rev 1): *Food spoilage* — the design proposes a shape for parts (1)–(4) (a global, monotone spoilage index on `WeatherScript` instead of the corpse's backwards-running product; a logged-out character's carried food that does not age; the fire as an object; drying as the first preservation recipe) and **corrects** part (4)'s claim about salt: salt is not one of the seven FAS 1 materials roadmap Rev 27 found without a sink (that is saltpeter), and salt has no source in the code. The entry's open choices, Trigger and status are unchanged.
 > **Rev 70 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 48 and README Rev 26, from the hunting design chat (`docs/PolishedWorld_Hunting_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a shape for its parts (2) and (3) (stock per authored range rather than per room, sign lines read with `hunting`, pressure as a separate fading value) and leaves the entry's open choices and its Trigger unchanged; and *A `hunter` profession* — the design's snare and animal call would be the hunting recipes its Trigger waits for. No status changes.
 > **Rev 69 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 45: *Metal tools + craft-station / forge*. Its Trigger (*a future crafting/metallurgy epic*) is answered by a decision, not yet by an epic: metallurgy enters through tools, and weapon and armour recipes follow Stage 5's design. The status stays OPEN with its next step named — decompose the epic — and *Superior-tool longevity / condition bonus*, BLOCKED on this entry, is unchanged.
@@ -1922,6 +1923,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (2) whenever a system first needs to *read* weather mechanically (Stage 5
   visibility, foraging yield, or the exposure gauge in `roadmap.md`), so the
   struct is designed against a real consumer rather than a guessed one.
+- **Annotation (2026-11-07, temperature & exposure design chat):**
+  `docs/PolishedWorld_Temperature_Design.md` reads the four states as they are —
+  `raining` and `snowing` wet a character (KP7), a summer day is hot only while
+  `clear` (KP5) — so it does not fire (2). Its wind chill (KP9) waits for the
+  wind STR this part would add: one band step per Legend wind band above
+  *Breeze* (core p. 232), outdoors only. That is the real consumer (2) asks to
+  be designed against.
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
 - **Status:** OPEN
 
