@@ -39,7 +39,7 @@ from world.recipe_mastery import (
     MASTERY_STEP_SIZE,
     MASTERY_TITLES,
 )
-from world import activity_log, timed_actions
+from world import activity_log, client_state, timed_actions
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
 # conservative dev value: the disassemble roll is already destructive (the item
@@ -369,6 +369,10 @@ def _complete_craft(caller, cmd, marker):
     except Exception:
         logger.log_trace(f"craft: completion of {cmd.recipe!r} raised.")
         caller.msg("Something went wrong as you finished your crafting.")
+    # W4.2b: the contrib places the products with `obj.location = caller`
+    # (crafting.py:1098), which runs no hook. Soon, so it joins the `char`
+    # push the consumed materials' deletion already scheduled: one frame.
+    client_state.push_soon(caller, "char")
 
 
 def _visible_recipes(caller):

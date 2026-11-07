@@ -36,6 +36,7 @@ from evennia.contrib.game_systems.barter.barter import (
 
 from evennia.utils import logger
 from world import activity_log
+from world import client_state
 
 from world import encumbrance
 from world.currency import format_copper, parse_amount
@@ -729,6 +730,10 @@ class PWTradeHandler(BaseTradeHandler):
                 a_copper=a_amount,
                 b_copper=b_amount,
             )
+            # W4.2b: the same assignment ran no hook, so no `char` push
+            # either; both parties' `carried` changed with the swap.
+            client_state.push(self.part_a, "char")
+            client_state.push(self.part_b, "char")
 
         self.part_a_currency = 0
         self.part_b_currency = 0

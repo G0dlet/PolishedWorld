@@ -353,6 +353,10 @@ class TestAtPostPuppet(EvenniaTest):
 #   6   the census pins the sites and every gauge `.current` write;
 #       `push(` and `client_state.push(` are one name
 #   7   fan-out via three awake characters; "sends nothing" carries a receipt
+#
+# W4.2b (Adam: A): three placements by `obj.location =` run no hook -- the
+# barter swap, the creature spawn, the crafted products -- so each pushes
+# after it; the census also pins every `.location =` in production code.
 # ======================================================================
 
 import ast
@@ -361,7 +365,9 @@ from contextlib import contextmanager
 
 from commands.consumption_commands import CmdDrink, CmdEat
 from evennia.utils.test_resources import EvenniaCommandTest
+from tests.test_barter_currency import TradeFixtureMixin
 from tests.test_chargen_menu import _MenuFixture
+from tests.test_currency import LedgerIsolationMixin
 from typeclasses.characters import _rest_tick
 from world import survival_ticker
 
@@ -778,6 +784,24 @@ class TestPushCensus(EvenniaTest):
         ("world/chargen_menu.py", "node_done", "push"): 1,
         ("world/survival_ticker.py", "_deplete_character", "push"): 1,
         ("world/weather.py", "broadcast_weather_change", "push_online"): 1,
+        # W4.2b: after placements by assignment (no hook runs)
+        ("commands/crafting_commands.py", "_complete_craft", "push_soon"): 1,
+        ("typeclasses/scripts.py", "CreatureSpawnScript._spawn_one", "push_room_soon"): 1,
+        ("world/barter.py", "PWTradeHandler._finish_and_clear", "push"): 2,
+    }
+
+    # Every `.location =` in production code: it runs no move hook, so the
+    # function must push itself (W4.2b).
+    LOCATION_WRITES = {
+        ("typeclasses/scripts.py", "CreatureSpawnScript._spawn_one", "spawned[0].location"): "room",
+    }
+
+    # Contrib code that places by assignment, and the project function that
+    # runs right after it and pushes: barter.py:369/371 (finish's swap),
+    # crafting.py:1098 (CmdCraft.func's products).
+    CONTRIB_PLACEMENTS = {
+        ("world/barter.py", "PWTradeHandler._finish_and_clear"): "char",
+        ("commands/crafting_commands.py", "_complete_craft"): "char",
     }
 
     # (file, function, written target) -> the domain whose panel shows it
@@ -805,6 +829,7 @@ class TestPushCensus(EvenniaTest):
         super().setUp()
         self.sites = {}
         self.writes = set()
+        self.locations = set()
         self.pushes = {}
         for rel, tree in _production_trees():
             for qual, func in _functions(tree):
@@ -826,12 +851,37 @@ class TestPushCensus(EvenniaTest):
                     for target in targets:
                         if isinstance(target, ast.Attribute) and target.attr == "current":
                             self.writes.add((rel, qual, ast.unparse(target)))
+                        if isinstance(target, ast.Attribute) and target.attr in (
+                                "location", "db_location"):
+                            self.locations.add((rel, qual, ast.unparse(target)))
 
     def test_push_sites_are_pinned(self):
         self.assertEqual(self.sites, self.SITES)
 
     def test_every_current_write_is_known(self):
         self.assertEqual(self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL)
+
+    def _named(self, rel, qual):
+        named = set()
+        for call in self.pushes.get((rel, qual), []):
+            named |= _domains(call)
+        if any(isinstance(c.func, (ast.Attribute, ast.Name))
+               and (getattr(c.func, "attr", None) or getattr(c.func, "id", None))
+               in ("push_room", "push_room_soon")
+               for c in self.pushes.get((rel, qual), [])):
+            named.add("room")
+        return named
+
+    def test_every_location_assignment_is_known_and_pushes(self):
+        self.assertEqual(self.locations, set(self.LOCATION_WRITES))
+        for (rel, qual, _target), domain in self.LOCATION_WRITES.items():
+            with self.subTest(site=f"{rel}::{qual}"):
+                self.assertIn(domain, self._named(rel, qual))
+
+    def test_contrib_placements_are_followed_by_a_push(self):
+        for (rel, qual), domain in self.CONTRIB_PLACEMENTS.items():
+            with self.subTest(site=f"{rel}::{qual}"):
+                self.assertIn(domain, self._named(rel, qual))
 
     def test_every_gauge_write_pushes_its_domain(self):
         for (rel, qual, target), domain in self.GAUGE_WRITES.items():
@@ -840,3 +890,87 @@ class TestPushCensus(EvenniaTest):
                 for call in self.pushes.get((rel, qual), []):
                     named |= _domains(call)
                 self.assertIn(domain, named)
+
+
+class TestAssignmentSites(ReactorMixin, EvenniaTest):
+    """
+    Pressures W4.2b: a placement by `obj.location =` runs no hook, so the
+    function that makes it pushes -- the spawn and the craft completion here,
+    the trade in TestTradePushes. Each "nothing" carries its receipt.
+    """
+
+    def test_spawn_pushes_the_room(self):
+        from typeclasses import scripts
+
+        rabbit = create_object("typeclasses.objects.Object", key="w42rabbit",
+                               location=None, home=self.room1)
+        with mock.patch.object(scripts, "spawn", return_value=[rabbit]), \
+                mock.patch.object(client_state, "push_room_soon") as soon:
+            scripts.CreatureSpawnScript._spawn_one("RABBIT", self.room1)
+        self.assertEqual(rabbit.location, self.room1)
+        soon.assert_called_once_with(self.room1)
+
+    def test_unknown_species_pushes_nothing(self):
+        from typeclasses import scripts
+
+        with mock.patch.object(scripts, "spawn", return_value=[]), \
+                mock.patch.object(scripts.logger, "log_err") as err, \
+                mock.patch.object(client_state, "push_room_soon") as soon:
+            scripts.CreatureSpawnScript._spawn_one("NOPE", self.room1)
+        err.assert_called_once()   # receipt: the unknown-prototype return ran
+        soon.assert_not_called()
+
+    def test_craft_completion_pushes_char(self):
+        from commands import crafting_commands as cc
+
+        cmd = cc.CmdCraftGated()
+        cmd.recipe = "w42"
+        with mock.patch.object(cc.timed_actions, "claim", return_value=True), \
+                mock.patch.object(cc.CmdCraft, "func") as contrib_func, \
+                mock.patch.object(client_state, "push_soon") as soon:
+            cc._complete_craft(self.char1, cmd, object())
+        contrib_func.assert_called_once()   # receipt: the contrib half ran
+        soon.assert_called_once_with(self.char1, "char")
+
+    def test_refused_craft_pushes_nothing(self):
+        from commands import crafting_commands as cc
+
+        cmd = cc.CmdCraftGated()
+        with mock.patch.object(cc.timed_actions, "claim", return_value=False) as claim, \
+                mock.patch.object(client_state, "push_soon") as soon:
+            cc._complete_craft(self.char1, cmd, object())
+        claim.assert_called_once()   # receipt: the claim refused it
+        soon.assert_not_called()
+
+
+class TestTradePushes(TradeFixtureMixin, LedgerIsolationMixin, EvenniaCommandTest):
+    """Pressures W4.2b's trade site: both parties' `char`, and only on a deal."""
+
+    def test_a_completed_trade_pushes_both_parties(self):
+        cup = self._item("w42cup")
+        self.handler.offer(self.char1, cup)
+        self.handler.offer(self.char2, currency=1)
+        with mock.patch.object(client_state, "push") as push:
+            self.assertTrue(self._complete())
+        self.assertEqual(cup.location, self.char2)
+        self.assertEqual([c.args for c in push.call_args_list],
+                         [(self.char1, "char"), (self.char2, "char")])
+
+    def test_an_unfinished_trade_pushes_nothing(self):
+        cup = self._item("w42cup")
+        self.handler.offer(self.char1, cup)
+        self.handler.part_a_accepted = True
+        with mock.patch.object(client_state, "push") as push:
+            self.assertFalse(self.handler.finish())   # receipt: finish refused
+        self.assertEqual(cup.location, self.char1)
+        push.assert_not_called()
+
+    def test_a_cancelled_trade_pushes_nothing(self):
+        # finish(force=True) ends the trade and returns True, past the early
+        # return, but nothing moved: the push belongs to the swap alone.
+        cup = self._item("w42cup")
+        self.handler.offer(self.char1, cup)
+        with mock.patch.object(client_state, "push") as push:
+            self.assertTrue(self.handler.finish(force=True))   # receipt: past `if not result`
+        self.assertEqual(cup.location, self.char1)
+        push.assert_not_called()

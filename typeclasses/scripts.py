@@ -17,6 +17,7 @@ from evennia.scripts.scripts import DefaultScript
 from evennia.utils import logger
 from evennia.prototypes.spawner import spawn
 from evennia.utils.search import search_tag
+from world import client_state
 from world import gametime_utils
 from world import weather as weather_logic
 
@@ -205,6 +206,10 @@ class CreatureSpawnScript(Script):
         # Direct location set = silent placement (no 'a rabbit arrives' spam every
         # interval). Bypassing move hooks is intentional for ambient spawning.
         spawned[0].location = room
+        # W4.2b: silent in the text, not in the panel -- the room's viewers
+        # still get the new list. Soon, so a top-up of several spawns into
+        # one room sends one snapshot per viewer.
+        client_state.push_room_soon(room)
 
 
 class EconomyLedgerScript(Script):
