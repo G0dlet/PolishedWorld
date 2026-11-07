@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 73 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 51 and README Rev 29, from the farming & livestock design chat (`docs/PolishedWorld_Farming_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a global, monotone **growing index** on `WeatherScript` (season × weather, nothing in winter or snow) as the clock for crops, and names it a candidate for part (1)'s seasonal regeneration of wild plant nodes in place of a per-type season table. The entry's open choices, its Trigger and part (1)'s light-week exception are unchanged. No status changes.
 > **Rev 72 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 50 and README Rev 28, from the temperature & exposure design chat (`docs/PolishedWorld_Temperature_Design.md` Rev 1): *Weather inertia, and Legend's four independent axes* — the exposure design reads today's four weather states as they are (rain and snow wet a character, a summer day is hot only under a clear sky) and so does **not** fire part (2)'s trigger; its wind chill (KP9) is the consumer that part waits for, so the struct can be designed against it. No code changes.
 > **Rev 71 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 49 and README Rev 27, from the cooking & preservation design chat (`docs/PolishedWorld_Cooking_Design.md` Rev 1): *Food spoilage* — the design proposes a shape for parts (1)–(4) (a global, monotone spoilage index on `WeatherScript` instead of the corpse's backwards-running product; a logged-out character's carried food that does not age; the fire as an object; drying as the first preservation recipe) and **corrects** part (4)'s claim about salt: salt is not one of the seven FAS 1 materials roadmap Rev 27 found without a sink (that is saltpeter), and salt has no source in the code. The entry's open choices, Trigger and status are unchanged.
 > **Rev 70 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 48 and README Rev 26, from the hunting design chat (`docs/PolishedWorld_Hunting_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a shape for its parts (2) and (3) (stock per authored range rather than per room, sign lines read with `hunting`, pressure as a separate fading value) and leaves the entry's open choices and its Trigger unchanged; and *A `hunter` profession* — the design's snare and animal call would be the hunting recipes its Trigger waits for. No status changes.
@@ -2132,6 +2133,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   for wild game. The Trigger, the early exception for part (1) and the rule
   that (2) is settled before a cohort are unchanged; the design's layer order
   puts stock and pressure in its slice 2 for that reason.
+- **Annotation (2026-11-07, farming & livestock design chat):**
+  `docs/PolishedWorld_Farming_Design.md` Rev 1 (GP2) proposes a third global
+  counter on `WeatherScript`, beside Cooking Design's spoilage and drying
+  indexes (Cooking CQ9): a **growing index** advanced every wake by *season
+  factor × weather factor* (spring and summer 1, autumn ½, winter 0; snowing
+  0), so that a crop stamps the index at sowing and reads its progress as a
+  difference. For part (1) it is an alternative to the per-`resource_type`
+  season table: a plant node's effective regeneration could advance by the
+  index rather than by game-seconds, which keeps the node's own shape (the
+  anchor advances; nothing is multiplied after the fact) and gives berries
+  nothing in winter with no table. Wood, flint and clay stay flat either way.
+  Not decided here; part (1)'s decomposition picks, and if it picks the index,
+  the index lands in the same change as Cooking CQ9.
 - **Status:** BLOCKED (economy milestone + two game-months of activity-log data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
