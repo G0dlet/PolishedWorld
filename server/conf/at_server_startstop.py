@@ -20,14 +20,19 @@ from evennia import TICKER_HANDLER
 from world.survival_ticker import deplete_all_survival_traits
 from world.garment_wear import wear_all_garments
 
-# Survival depletion ticker interval (seconds).
-# 10s during dev for fast feedback; set to 600 before merging to main.
-SURVIVAL_TICK_INTERVAL = 600   # TODO: 600 before merge
+# Survival depletion ticker interval (real seconds): 10 real minutes,
+# 40 game-minutes @ TIME_FACTOR 4. The webclient's `world` snapshot is re-sent
+# on each tick (webclient decomposition WC9). Pinned by
+# tests/test_server_startstop.py.
+SURVIVAL_TICK_INTERVAL = 600
 
-# Garment wear ticker interval (seconds). Prod target 10800 = 3 real-hours =
-# 12 game-hours @ TIME_FACTOR 4, giving a common-worn garment ~3.6 game-weeks.
-# 30s during dev so wear is observable in a session.
-WEAR_TICK_INTERVAL = 30   # TODO: 10800 before merge
+# Garment wear ticker interval (real seconds): 3 real hours = 12 game-hours
+# @ TIME_FACTOR 4, giving a common-worn garment ~3.6 game-weeks (the
+# calibration in world/garment_wear.py). To watch wear in a dev session, call
+# `wear_all_garments()` from @py instead of shortening this: a shortened value
+# shipped in every merge from 2026-07-02 until 2026-11-07. Pinned by
+# tests/test_server_startstop.py.
+WEAR_TICK_INTERVAL = 10800
 
 def at_server_init():
     """
@@ -42,8 +47,12 @@ def at_server_start():
     how it was shut down.
     """
     # Survival depletion ticker. Re-adding with the same
-    # interval+callback+idstring is idempotent (overwrites in place),
-    # so running this on every start is safe.
+    # interval+callback+idstring overwrites that one subscription in place.
+    # Two caveats (BACKLOG *at_server_start ticker re-adds wipe every other
+    # persistent ticker*): each add saves over the stored tickers before
+    # TICKER_HANDLER.restore() runs, so every other persistent ticker is lost
+    # at each start; and the interval is part of the key, so a changed
+    # interval is a new subscription -- today the old one goes with the rest.
     TICKER_HANDLER.add(
         interval=SURVIVAL_TICK_INTERVAL,
         callback=deplete_all_survival_traits,
