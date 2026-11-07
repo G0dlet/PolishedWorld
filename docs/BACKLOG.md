@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 70 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 48 and README Rev 26, from the hunting design chat (`docs/PolishedWorld_Hunting_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a shape for its parts (2) and (3) (stock per authored range rather than per room, sign lines read with `hunting`, pressure as a separate fading value) and leaves the entry's open choices and its Trigger unchanged; and *A `hunter` profession* — the design's snare and animal call would be the hunting recipes its Trigger waits for. No status changes.
 > **Rev 69 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 45: *Metal tools + craft-station / forge*. Its Trigger (*a future crafting/metallurgy epic*) is answered by a decision, not yet by an epic: metallurgy enters through tools, and weapon and armour recipes follow Stage 5's design. The status stays OPEN with its next step named — decompose the epic — and *Superior-tool longevity / condition bonus*, BLOCKED on this entry, is unchanged.
 > **Rev 68 · 2026-11-06** — the dev board's lock B is amended: *about 10–15 cards* becomes **about 10–20**, revisited when the Done column crowds the page. The board held fifteen cards, and the webclient's card (webclient decomposition OQ-W3) would have been the sixteenth, failing `tests/test_dev_board.py::test_card_count_is_lock_b`; every new epic adds a card, so the bound is a prompt to curate the Done column, not a limit on epics. Landed on `feature/board-cap` with the card, the test's bound and roadmap Rev 44. *Public dev board* stays DONE.
 > **Rev 67 · 2026-11-06** — the webclient decomposition (`docs/PolishedWorld_Webclient_Decomposition.md` Rev 1). **Added** (*Health & Injury*): ***Character panel: Legend combat state*** (BLOCKED on Stage 5 locational HP; the panel shows only what the server holds until then, WC12), carrying a rule check for the Stage 5 session — roadmap Rev 20 calls the *disabled* tier RAW, and *Legend* p. 145 makes a limb useless only on a lost opposed Resilience test; and ***Hero Points in a persistent world*** (BLOCKED on the Stage 5 design session; *Legend* pp. 87–88 earns them per story, which a persistent world does not have). No entry closed.
@@ -1131,6 +1132,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   or alpha close-out data shows nobody hunts.
 - **Origin:** Character creation decomposition OQ3, closed in CC2.1 (B7),
   2026-10-28.
+- **Annotation (2026-11-07, hunting design chat):** `docs/PolishedWorld_Hunting_Design.md`
+  Rev 1 (TP11) proposes the first hunting recipes — *Arms of Legend*'s animal
+  snare (placed with a `hunting` test that the animal's Perception must beat,
+  resolved lazily from the range's stock) and the animal call (+10 % on the
+  stalk) — from existing materials. Nothing is built; when either is, this
+  Trigger fires.
 - **Status:** BLOCKED (a hunting recipe, or alpha data)
 
 ### Characteristic improvement (Legend p.68ff)
@@ -2081,6 +2088,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   not. Read the trigger's *two game-months* from the economy milestone's log
   (roadmap [OPEN] *No milestone measures the economy*), with automated actors
   filtered out as LM10 does. Part (1)'s light-week exception is unchanged.
+- **Annotation (2026-11-07, hunting design chat):** `docs/PolishedWorld_Hunting_Design.md`
+  Rev 1 adopts parts (2) and (3) as its TP9 and TP2 and proposes three things
+  for this entry's decomposition, none decided: the stock record belongs to an
+  authored **range** (one room for a rabbit, several for a deer herd) rather
+  than to every flagged room; the sign line is read with `hunting` (this
+  entry's open choice between `hunting` and `perception`); and a second value,
+  **pressure** — disturbance from kills, escapes and failed stalks, decaying on
+  its own half-life — makes animals warier without being a second population
+  knob. It also proposes that wild quarry stops standing in rooms and is
+  spawned at the end of a successful stalk, which retires `CreatureSpawnScript`
+  for wild game. The Trigger, the early exception for part (1) and the rule
+  that (2) is settled before a cohort are unchanged; the design's layer order
+  puts stock and pressure in its slice 2 for that reason.
 - **Status:** BLOCKED (economy milestone + two game-months of activity-log data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
