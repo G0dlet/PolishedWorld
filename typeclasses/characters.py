@@ -1509,7 +1509,7 @@ class Character(ObjectParent, ClothedCharacter):
 
         The survival warning is checked on both sides of the drain. The check
         before sets the baseline in `ndb.survival_buckets` -- empty after a
-        reload until the next tick, up to 1800 s away -- and never warns,
+        reload until the next tick, up to 600 s away -- and never warns,
         since only the ticker lowers a gauge and it checks right after. The
         check after warns once if the step crossed into a worse bucket (Q2,
         tightened in session 6). No message of its own: the warning and the

@@ -31,6 +31,12 @@ Each class names the bug it pressures:
                            a panel button stops naming the panel it opens.
     TestLayoutScript       layout.js turns into a plugin; loaded after
                            default_out, it would never see an event.
+    TestStateScript        pw_state.js stops registering as a plugin, or its
+                           domain list drifts from world.client_state.DOMAINS:
+                           a domain the server adds and the client does not
+                           claim falls through to default_out's unescaped
+                           "Error or Unhandled event" line (W4.3). Its
+                           behaviour is tested in Node: tests/js/.
 """
 
 import hashlib
@@ -55,6 +61,9 @@ EXPECTED_SCRIPTS = [
     JQUERY,
     "webclient/js/evennia.js",
     "webclient/js/webclient_gui.js",
+    # Project plugins: after webclient_gui.js (which defines plugin_handler),
+    # before default_out, which claims every unknown command (W4.3).
+    "polishedworld/js/pw_state.js",
     "webclient/js/plugins/history.js",
     "webclient/js/plugins/default_in.js",
     "webclient/js/plugins/default_out.js",
@@ -73,6 +82,7 @@ PANEL_LABELS = {
     "pw-panel-right": "World and location",
 }
 LAYOUT_JS = "polishedworld/js/layout.js"
+STATE_JS = "polishedworld/js/pw_state.js"
 
 # Any src= or href= whose value starts with a scheme or is protocol-relative.
 # Run over the raw page, comments included.
@@ -247,3 +257,22 @@ class TestLayoutScript(EvenniaTest):
         path = finders.find(LAYOUT_JS)
         self.assertIsNotNone(path, LAYOUT_JS)
         self.assertNotIn("plugin_handler", Path(path).read_text(encoding="utf-8"))
+
+
+class TestStateScript(EvenniaTest):
+    def setUp(self):
+        super().setUp()
+        path = finders.find(STATE_JS)
+        self.assertIsNotNone(path, STATE_JS)
+        self.source = Path(path).read_text(encoding="utf-8")
+
+    def test_registers_as_plugin(self):
+        self.assertIn('plugin_handler.add("pw_state", pw_state)', self.source)
+
+    def test_domains_match_the_server(self):
+        from world.client_state import DOMAINS
+
+        found = re.findall(r"^\s*var DOMAINS = \[([^\]]*)\];", self.source, re.M)
+        self.assertEqual(len(found), 1, "one DOMAINS literal in %s" % STATE_JS)
+        names = re.findall(r'"([a-z_]+)"', found[0])
+        self.assertEqual(tuple(names), DOMAINS)

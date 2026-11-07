@@ -14,7 +14,9 @@ connecting, client), the wsactive/csessid/wsurl globals evennia.js reads,
 and the cuid tab id. Dropped: Bootstrap, GoldenLayout and its config,
 favico.js, popper, and every plugin except the five below. Added (W3.2):
 the project stylesheet, after Evennia's, and polishedworld/js/layout.js,
-which is not a plugin and loads last with defer.
+which is not a plugin and loads last with defer. Added (W4.3):
+polishedworld/js/pw_state.js, the first project plugin, which claims the
+four state domains before default_out can print them.
 
 Script order is load-bearing. webclient_gui.js does not sort plugins; it
 calls them in <script> order and stops at the first that claims an event.
@@ -83,6 +85,7 @@ carry over any change to the globals or the core script paths.
     {% block guilib_import %}
     <script src="{% static 'webclient/js/webclient_gui.js' %}"></script>
     <!-- Project plugins go here: after webclient_gui.js, before history.js. -->
+    <script src="{% static 'polishedworld/js/pw_state.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/history.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/default_in.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/default_out.js' %}"></script>
