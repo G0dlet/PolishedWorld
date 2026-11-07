@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 24 · 2026-11-07** — index `PolishedWorld_Fishing_Design.md` (fishing design notes from a design chat, before any decomposition: prior art, Legend alignment, the loop, the water, tackle, economy, open questions). Its altitude is *design (feature, pre-decomposition)*: the existing *design* rows are economy documents, and this is the first design document for a single feature. Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (35/0).
 > **Rev 23 · 2026-11-06** — index `PolishedWorld_Webclient_Decomposition.md` (PolishedWorld's own webclient: layout, OOB snapshots, panels, the text area). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (34/0). **Also corrects Rev 22's count in place:** it read *32/0*, but adding the art style guide made 33 — the number the previous Rev (21, board) reached plus one. The loop was right and the line quoting it was not: the catalogue loop at the start of the webclient session read 33/0 against Rev 22's tree.
 > **Rev 22 · 2026-11-06** — index `PolishedWorld_Art_Style_Guide.md` (pixel art palette v0.2.1, production rules and Legend UI rules for the website and webclient; the palette files themselves live in `art/palette/`, outside `docs/`). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (32/0 — wrong: the tree held 33 documents and the loop reads 33/0; corrected in place at Rev 23).
 > **Rev 21 · 2026-11-05** — index `docs/board.md` (the public dev board: three columns, one card per epic, read by the website's `/board/` on every request; BACKLOG *Public dev board*). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires. The board carries no Rev header: a card moves at epic start and close-out, which the roadmap's own Rev already records.
@@ -99,6 +100,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | **Economic philosophy** | design (economy — **read first**) | `docs/PolishedWorld_Economic_Philosophy.md` |
 | GameGold design | design (crypto spec) | `docs/GameGold_Design.md` |
 | GameGold economy | design (economy) | `docs/PolishedWorld_GameGold_Economy.md` |
+| Fishing design notes (prior art, loop, water, tackle — before decomposition) | design (feature, pre-decomposition) | `docs/PolishedWorld_Fishing_Design.md` |
 | Agent scope & schemas | governance | `AGENTS.md` |
 | Core instructions | governance (project meta) | `docs/PolishedWorld_Core_Instructions.md` |
 
