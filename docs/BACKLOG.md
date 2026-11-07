@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 74 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 52 and README Rev 30, from the textiles design chat (`docs/PolishedWorld_Textiles_Design.md` Rev 1): *Material / maker's-mark aliases beyond "superior"* — the design proposes the display layer for garments first (a *stitched by* line read from the shipped `crafted_by` stamp) and records that the entry's **Status** still reads SCHEDULED (Stage 3) although Stage 3 is closed; the status is left for the entry's next session to re-anchor; and *Disassemble yields parts and raw materials* — the design proposes **rags**, a new material cut from a garment worn past mending, as a narrow, lossy case of salvage that waits for this entry's decision. No status changes.
 > **Rev 73 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 51 and README Rev 29, from the farming & livestock design chat (`docs/PolishedWorld_Farming_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a global, monotone **growing index** on `WeatherScript` (season × weather, nothing in winter or snow) as the clock for crops, and names it a candidate for part (1)'s seasonal regeneration of wild plant nodes in place of a per-type season table. The entry's open choices, its Trigger and part (1)'s light-week exception are unchanged. No status changes.
 > **Rev 72 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 50 and README Rev 28, from the temperature & exposure design chat (`docs/PolishedWorld_Temperature_Design.md` Rev 1): *Weather inertia, and Legend's four independent axes* — the exposure design reads today's four weather states as they are (rain and snow wet a character, a summer day is hot only under a clear sky) and so does **not** fire part (2)'s trigger; its wind chill (KP9) is the consumer that part waits for, so the struct can be designed against it. No code changes.
 > **Rev 71 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 49 and README Rev 27, from the cooking & preservation design chat (`docs/PolishedWorld_Cooking_Design.md` Rev 1): *Food spoilage* — the design proposes a shape for parts (1)–(4) (a global, monotone spoilage index on `WeatherScript` instead of the corpse's backwards-running product; a logged-out character's carried food that does not age; the fire as an object; drying as the first preservation recipe) and **corrects** part (4)'s claim about salt: salt is not one of the seven FAS 1 materials roadmap Rev 27 found without a sink (that is saltpeter), and salt has no source in the code. The entry's open choices, Trigger and status are unchanged.
@@ -299,6 +300,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   stamp from E.1 (the recipe) — this entry is the display/alias layer on top.
 - **Trigger:** Stage 3 (Recipe Knowledge & Discovery).
 - **Origin:** Crafting Progression decomp §13; also feeds the disambiguation fix.
+- **Annotation (2026-11-07, textiles design chat):**
+  `docs/PolishedWorld_Textiles_Design.md` Rev 1 (WP10) proposes the display
+  layer, garments first: a line in the look text, *stitched by <maker>* (*woven
+  by* for cloth and felt, *dyed by* for a dyer's colour), read from
+  `obj.db.crafted_by`, which every craft already stamps
+  (`world/crafting_base.py:405`), beside `db.recipe` (`:412`). Its WQ7 asks
+  whether a maker may leave a piece unmarked, and whether the mark should follow
+  a later rename, since `crafted_by` holds the maker's key at crafting time. The
+  **Status** below reads SCHEDULED (Stage 3); Stage 3 closed without this layer
+  (roadmap, *Stage 3 — Recipe knowledge & discovery*), so the status is stale —
+  left as it is for the entry's next session to re-anchor, not changed by a
+  design note.
 - **Status:** SCHEDULED (Stage 3)
 
 ### Waterskin `durability` → `condition` migration
@@ -593,6 +606,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `_mastery_modifier` applies in reverse ("knowing how it is made makes it
   easier to take apart") is decided with the return fractions, not before.
 - **Origin:** Adam, E.2 decomposition session (2026-10-31).
+- **Annotation (2026-11-07, textiles design chat):**
+  `docs/PolishedWorld_Textiles_Design.md` Rev 1 (WP12) proposes **rags**: a
+  garment worn past mending cut with a knife into fewer rags than the cloth it
+  took, a bad cut spoiling them, and rags a new material — a bandage for
+  two-stage healing, a torch's wick for *light & darkness*, pulp once the
+  writing chain is ratified. It keeps this entry's two fixed constraints, and
+  because rags are not cloth it does not weaken cloth's sink, the concern this
+  entry names. It is a narrow case of salvage and waits for this entry's
+  decision; the Trigger is unchanged.
 - **Status:** OPEN
 
 ### Scribe teaches Craft with no difficulty datum
