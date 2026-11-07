@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 69 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 45: *Metal tools + craft-station / forge*. Its Trigger (*a future crafting/metallurgy epic*) is answered by a decision, not yet by an epic: metallurgy enters through tools, and weapon and armour recipes follow Stage 5's design. The status stays OPEN with its next step named — decompose the epic — and *Superior-tool longevity / condition bonus*, BLOCKED on this entry, is unchanged.
 > **Rev 68 · 2026-11-06** — the dev board's lock B is amended: *about 10–15 cards* becomes **about 10–20**, revisited when the Done column crowds the page. The board held fifteen cards, and the webclient's card (webclient decomposition OQ-W3) would have been the sixteenth, failing `tests/test_dev_board.py::test_card_count_is_lock_b`; every new epic adds a card, so the bound is a prompt to curate the Done column, not a limit on epics. Landed on `feature/board-cap` with the card, the test's bound and roadmap Rev 44. *Public dev board* stays DONE.
 > **Rev 67 · 2026-11-06** — the webclient decomposition (`docs/PolishedWorld_Webclient_Decomposition.md` Rev 1). **Added** (*Health & Injury*): ***Character panel: Legend combat state*** (BLOCKED on Stage 5 locational HP; the panel shows only what the server holds until then, WC12), carrying a rule check for the Stage 5 session — roadmap Rev 20 calls the *disabled* tier RAW, and *Legend* p. 145 makes a limb useless only on a lost opposed Resilience test; and ***Hero Points in a persistent world*** (BLOCKED on the Stage 5 design session; *Legend* pp. 87–88 earns them per story, which a persistent world does not have). No entry closed.
 > **Rev 66 · 2026-11-05** — the dev board close-out (merged to `main` as `fbbe222`, PR #23, tree `3cc3400`; suite 1159 with exactly the two known treasury failures). **Closed:** *Public dev board* OPEN → DONE, with its five build locks: no Rev header on `docs/board.md`; fifteen cards; `help alpha` ends with the path `/board/`; a menu link by extending Evennia's `_menu.html`; branch `feature/dev-board`. **Status changed:** *In-game gazette* BLOCKED → OPEN for part 1, its last blocker gone; part 2 still waits on part 1. **Annotated:** *Persistent alpha instance* — L6.1 deploys the new tag `alpha-20261105` (on `fbbe222`), not `alpha-20261104`. No code changes.
@@ -189,7 +190,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   materials that don't exist yet.
 - **Trigger:** A future crafting/metallurgy epic.
 - **Origin:** Crafting Progression decomp §13.
-- **Status:** OPEN
+- **Annotation (2026-11-07, roadmap Rev 45):** decided — the metallurgy epic this
+  Trigger waits for opens with **tools** (this entry's metal knife and needle, the
+  axe's metal tier, a hammer); weapon and armour recipes come after Stage 5's design
+  session locks the item schema. Two findings for the decomposition. A station needs
+  no new search path: `CmdCraftGated` finds tools in the room as well as the
+  inventory (`commands/crafting_commands.py:324`; the contrib's `crafting.py:994`
+  names a furnace or anvil in the location as a tool). What is new is a tool several
+  players share — whose wear, whose repair, one user at a time. DECISION #7–#9 stay
+  open, and smithing stays outside the alpha (roadmap Rev 25 (B)).
+- **Status:** OPEN — next: decompose the metallurgy epic (tools first)
 
 ### Superior-tool longevity / condition bonus
 - **What:** Let a *superior* crafted tool (quality > 100) start with better
