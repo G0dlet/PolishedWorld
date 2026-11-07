@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 71 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 49 and README Rev 27, from the cooking & preservation design chat (`docs/PolishedWorld_Cooking_Design.md` Rev 1): *Food spoilage* — the design proposes a shape for parts (1)–(4) (a global, monotone spoilage index on `WeatherScript` instead of the corpse's backwards-running product; a logged-out character's carried food that does not age; the fire as an object; drying as the first preservation recipe) and **corrects** part (4)'s claim about salt: salt is not one of the seven FAS 1 materials roadmap Rev 27 found without a sink (that is saltpeter), and salt has no source in the code. The entry's open choices, Trigger and status are unchanged.
 > **Rev 70 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 48 and README Rev 26, from the hunting design chat (`docs/PolishedWorld_Hunting_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes a shape for its parts (2) and (3) (stock per authored range rather than per room, sign lines read with `hunting`, pressure as a separate fading value) and leaves the entry's open choices and its Trigger unchanged; and *A `hunter` profession* — the design's snare and animal call would be the hunting recipes its Trigger waits for. No status changes.
 > **Rev 69 · 2026-11-07** — one entry **annotated**, docs only, with roadmap Rev 45: *Metal tools + craft-station / forge*. Its Trigger (*a future crafting/metallurgy epic*) is answered by a decision, not yet by an epic: metallurgy enters through tools, and weapon and armour recipes follow Stage 5's design. The status stays OPEN with its next step named — decompose the epic — and *Superior-tool longevity / condition bonus*, BLOCKED on this entry, is unchanged.
 > **Rev 68 · 2026-11-06** — the dev board's lock B is amended: *about 10–15 cards* becomes **about 10–20**, revisited when the Done column crowds the page. The board held fifteen cards, and the webclient's card (webclient decomposition OQ-W3) would have been the sixteenth, failing `tests/test_dev_board.py::test_card_count_is_lock_b`; every new epic adds a card, so the bound is a prompt to curate the Done column, not a limit on epics. Landed on `feature/board-cap` with the card, the test's bound and roadmap Rev 44. *Public dev board* stays DONE.
@@ -1698,6 +1699,28 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   as Rev 52).
 - **Status:** OPEN for (1)–(3); (4) BLOCKED on the *food professions*
   exclusives decision, except the first recipe, which ships with (1)–(3).
+- **Annotation (2026-11-07, cooking & preservation design chat):**
+  `docs/PolishedWorld_Cooking_Design.md` Rev 1 adopts parts (1)–(4) as its
+  §9–§10 and proposes, none decided: (1) the clock reads a **global spoilage
+  index** — `WeatherScript` (every 1800 s) adds season × weather for each
+  interval to one monotone counter, and an item advances its anchor only when
+  it moves or its holder logs in or out — so neither food nor, if the
+  decomposition moves it too, the corpse can run backwards (*⚠️ Decay time can
+  run backwards*); (2) food carried by a **logged-out character (a statue)
+  does not age**, the rule taken from Armageddon's 2016 spoilage, where gifts
+  rotted between players whose log-in times did not overlap; (3) shelf lives
+  of about one game day raw, three cooked, one to two game months dried or
+  smoked and a season salted, as the design's leaning; (4) the **first
+  preservation recipe is drying** on a rack of sticks and twine, which reads
+  weather and needs no salt. Cooking itself is `craft` in a new `cooking`
+  discipline at a **fire object** that burns wood. **Correction to (4):** salt
+  is not one of the seven FAS 1 materials roadmap Rev 27 found without a sink —
+  those are iron, copper and tin ore, sand, ochre, sulfur and *saltpeter* — and
+  salt has no source in the code (no prototype, no registry entry; the AoL
+  decomposition lists it as a new material). Salt needs a source before it can
+  have a consumer; the design leaves that choice open (CQ5). The Trigger, the
+  rule that (1)–(3) ship with one recipe from (4), and the status are
+  unchanged.
 
 ---
 
