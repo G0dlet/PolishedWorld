@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 81 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 56 and README Rev 35, from the rendering, tallow, ash & lye design chat (`docs/PolishedWorld_Rendering_Design.md` Rev 1): *Light & darkness* — the design proposes tallow's source, fat cut from larger animals and rendered at a fire in a pot, shipping together with the candle so that no link ships without a consumer (ZP1–ZP5); and *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes lye, made from ash and water in a vessel, as a third and optional input that raises the tan and is never required (ZP10, ZP11). No status changes.
 > **Rev 80 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 55 and README Rev 34, from the forest & fuel design chat (`docs/PolishedWorld_Forest_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes that wood is not flat: the shipped tree and new coppice stands regrow on Farming's growing index, nothing in winter, with the anchor advancing by whole intervals as part (1) requires, while deadfall, flint and clay stay flat (its YP5 and departure U1); and *Metal tools + craft-station / forge* — the design proposes that charcoal is made in an earth-covered clamp and needs no kiln, which would leave registry open decision 7 to pottery, and leans to shipping the clamp with this epic's first slice (YP8, YP9). No status changes.
 > **Rev 79 · 2026-11-08** — two entries **annotated**, docs only, with README Rev 33, from the light & darkness design chat (`docs/PolishedWorld_Light_Design.md` Rev 1): *Light & darkness* — the design proposes the entry's shape with its open choices leaned (four levels on Legend's darkness rows, a light that lights the room for everyone up to its own level, fuel as time on Cooking's fire model, a rough torch of stick and fibre shipped before anything is dark, exits always shown) and corrects two lines of its wording (ExtendedRoom overrides `get_display_desc`, not `return_appearance`, at Evennia 6.1.0; `forage` has no roll for `light_modifier()` to modify); and *Season-dependent day length* — the design leans on it landing with or before the darkness slice (LQ2), and notes the Room's copy of the periods. No status changes. The roadmap has no entry for light and is unchanged.
 > **Rev 78 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 54 and README Rev 32, from the foraging & herbalism design chat (`docs/PolishedWorld_Foraging_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes herb nodes as part (1)'s first new readers, on whichever clock part (1) picks, with one rule beyond it: a stand picked to nothing regrows nothing until the next growing season (RP2); *Two-stage healing — field stabilisation vs. repair* — the design proposes First Aid on today's single health pool (Legend's injured-location row, 1D3) and natural healing by Legend's table, both shaped to move onto Stage 5's locations, and leaves this entry's stabilise and repair untouched; and *Food spoilage* — the design proposes the disease that CQ4's queasy buff was a hook for, the flux (RP11). No status changes.
@@ -764,6 +765,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   this entry's water input is one of five named — and that decomposition marks
   the registry's decision resolved (`world/material_registry.py:503–504`).
   Nothing decided.
+- **Annotation (2026-11-08, rendering, tallow, ash & lye design chat):**
+  `docs/PolishedWorld_Rendering_Design.md` Rev 1 proposes lye as a third,
+  optional input beside bark and water: ash from a burnt-out fire and fresh
+  water in a vessel, the vessel's draughts becoming the kind *lye* on Water
+  Design VP3's field (ZP8–ZP10). A hide soaked in lye takes the tan better —
+  a roll term on the leather craft, never a requirement, so today's two-hide
+  recipe still makes leather (ZP11, ZG6). The term's size is set with bark
+  and water in this entry's decomposition (ZQ12). Nothing decided.
 - **Status:** OPEN
 
 ### `SkillXPHandler.add()` does not raise on an unknown skill key
@@ -2133,6 +2142,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (a three-hour tick against a fifteen-minute torch). Perception's first
   call-site is not claimed: the modifier joins whichever call-site comes first
   (Cooking CQ13, Foraging RQ14). Why deferred and the Trigger are unchanged.
+- **Annotation (2026-11-08, rendering, tallow, ash & lye design chat):**
+  `docs/PolishedWorld_Rendering_Design.md` Rev 1 proposes the source this
+  entry's tallow lacks: a `fat` part on larger animals — the deer first, from
+  Hunting Design's slice 3, never the rabbit, whose template yields meat, hide
+  and bone — at SIZ // 6, more in autumn and none in spring (ZP1, ZP2); and
+  `render`, a timed act at a lit fire with a pot from the kiln and no test,
+  turning fat that spoils like raw meat into tallow that keeps (ZP3, ZP4).
+  It proposes that fat, rendering and the candle ship together, so that no
+  link ships without a consumer (ZP5, its §16), and leans to four one-hour
+  candles a cake of tallow (ZP15). Nothing decided.
 - **Status:** OPEN
 
 ---
