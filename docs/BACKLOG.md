@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 78 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 54 and README Rev 32, from the foraging & herbalism design chat (`docs/PolishedWorld_Foraging_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes herb nodes as part (1)'s first new readers, on whichever clock part (1) picks, with one rule beyond it: a stand picked to nothing regrows nothing until the next growing season (RP2); *Two-stage healing — field stabilisation vs. repair* — the design proposes First Aid on today's single health pool (Legend's injured-location row, 1D3) and natural healing by Legend's table, both shaped to move onto Stage 5's locations, and leaves this entry's stabilise and repair untouched; and *Food spoilage* — the design proposes the disease that CQ4's queasy buff was a hook for, the flux (RP11). No status changes.
 > **Rev 77 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 53 and README Rev 31, from the water design chat (`docs/PolishedWorld_Water_Design.md` Rev 1): *Waterskin `durability` → `condition` migration* — the design proposes a ladder of new vessels and leans to this migration as its first task (VQ6); *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes the shape of DECISION #6, this entry's trigger: water as draughts, free at a source in the room, otherwise drawn from carried vessels that are kept (VP2), shipped with its first reader; and *Weather inertia, and Legend's four independent axes* — the rain catch reads Cooking's wet index and fires neither part, and droughts (VQ5) are a consumer of part (1). No status changes.
 > **Rev 76 · 2026-11-07** — two entries **annotated**, docs only, with runbook Rev 6, after `fix/wear-interval` (PR #26, merged as `d19cfd4`, tagged `alpha-20261107`): ***Persistent alpha instance*** — L6.1 now checks out `alpha-20261107`; the two earlier tags ship garment wear at its 30 s dev value. ***`at_server_start` ticker re-adds wipe every other persistent ticker*** — the interval is part of a ticker's key, so a changed interval is a new subscription; today the wipe removes the old one at the next start (seen live 2026-11-07: `(30, 'garment_wear')` before a reload, `(10800, 'garment_wear')` alone after), and whichever fix lands here must retire stale intervals itself. No entry closed.
 > **Rev 75 · 2026-11-07** — one entry **added**, docs only, with webclient decomposition Rev 6 (W4.2 and W4.2b shipped). **Added** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — W4.2 pushes after a deletion from `ObjectParent.at_object_delete`, and the contrib-based `Container` and `ClothingWithBuffs` do not inherit `ObjectParent`, so the room or carrier they lay in is not told (OPEN; trigger W5.1 or W5.4, the first panel that would show it). No entry closed.
@@ -1589,6 +1590,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** 2026-09-09 organ-damage-model evaluation; the surviving half of the
   proposal rejected in `docs/roadmap.md` Rev 21 (`[RESOLVED]` organ-level damage
   model). Original idea from another Evennia developer's RimWorld-derived system.
+- **Annotation (2026-11-08, foraging & herbalism design chat):**
+  `docs/PolishedWorld_Foraging_Design.md` Rev 1 proposes healing on today's single
+  health pool, ahead of this entry and without touching it: a custom `first_aid`
+  skill (Legend core pp. 50–51) that restores 1D3, once until health is full
+  again, with a first aid kit or at −20 % with rags or cloth (RP9), and natural
+  healing by Legend's table on the survival tick (RP8). Both are shaped to move
+  onto Stage 5's locations. **Correction to this entry's wording:** "restores
+  **no** location Hit Points" is Legend's Major Injury row; on an injured
+  location First Aid heals 1D3 (p. 50), which is the row the design proposes.
+  Stabilising, surgery, the healer's kit and the Healing skill stay here, and
+  the Trigger is unchanged.
 - **Status:** BLOCKED (Stage 5 wound tiers)
 
 ### Character panel: Legend combat state
@@ -1742,6 +1754,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   The clock and stages alone are a light week once `world/decay.py` exists.
 - **Origin:** Session 2026-10-30 (living-world review, follow-up; same review
   as Rev 52).
+- **Annotation (2026-11-08, foraging & herbalism design chat):**
+  `docs/PolishedWorld_Foraging_Design.md` Rev 1 proposes the disease this entry's
+  "disease hook" and Cooking Design CQ4's queasy buff were waiting for: **the
+  flux**, Ingested, Nausea, resisted daily by CON × 2, its clock on the survival
+  tick (RP11). Off food eaten by force is one of its three sources, at a
+  placeholder Potency. It also proposes fresh herbs as perishables on this
+  entry's clock and dried herbs that keep (RP6). Nothing here changes.
 - **Status:** OPEN for (1)–(3); (4) BLOCKED on the *food professions*
   exclusives decision, except the first recipe, which ships with (1)–(3).
 - **Annotation (2026-11-07, cooking & preservation design chat):**
@@ -2222,6 +2241,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   nothing in winter with no table. Wood, flint and clay stay flat either way.
   Not decided here; part (1)'s decomposition picks, and if it picks the index,
   the index lands in the same change as Cooking CQ9.
+- **Annotation (2026-11-08, foraging & herbalism design chat):**
+  `docs/PolishedWorld_Foraging_Design.md` Rev 1 proposes herb nodes — new
+  `ResourceNode`s that roll a custom `herbalism` skill — as part (1)'s first new
+  readers, regenerating only in their season on whichever clock part (1) picks
+  (the growing index or the per-type table), with the anchor advancing by whole
+  intervals. One rule beyond part (1): a stand picked to nothing regrows nothing
+  until the next growing season begins (RP2, after Achaea, whose plants suffer
+  from being picked bare). The shipped berry bush is not a herb node; whether it
+  follows part (1) stays this entry's question. A skilled reader seeing that a
+  stand was picked lately is part (3)'s signs, for plants. The open choices, the
+  Trigger and part (1)'s light-week exception are unchanged.
 - **Status:** BLOCKED (economy milestone + two game-months of activity-log data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
