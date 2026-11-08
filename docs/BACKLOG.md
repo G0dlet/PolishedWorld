@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 79 · 2026-11-08** — two entries **annotated**, docs only, with README Rev 33, from the light & darkness design chat (`docs/PolishedWorld_Light_Design.md` Rev 1): *Light & darkness* — the design proposes the entry's shape with its open choices leaned (four levels on Legend's darkness rows, a light that lights the room for everyone up to its own level, fuel as time on Cooking's fire model, a rough torch of stick and fibre shipped before anything is dark, exits always shown) and corrects two lines of its wording (ExtendedRoom overrides `get_display_desc`, not `return_appearance`, at Evennia 6.1.0; `forage` has no roll for `light_modifier()` to modify); and *Season-dependent day length* — the design leans on it landing with or before the darkness slice (LQ2), and notes the Room's copy of the periods. No status changes. The roadmap has no entry for light and is unchanged.
 > **Rev 78 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 54 and README Rev 32, from the foraging & herbalism design chat (`docs/PolishedWorld_Foraging_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes herb nodes as part (1)'s first new readers, on whichever clock part (1) picks, with one rule beyond it: a stand picked to nothing regrows nothing until the next growing season (RP2); *Two-stage healing — field stabilisation vs. repair* — the design proposes First Aid on today's single health pool (Legend's injured-location row, 1D3) and natural healing by Legend's table, both shaped to move onto Stage 5's locations, and leaves this entry's stabilise and repair untouched; and *Food spoilage* — the design proposes the disease that CQ4's queasy buff was a hook for, the flux (RP11). No status changes.
 > **Rev 77 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 53 and README Rev 31, from the water design chat (`docs/PolishedWorld_Water_Design.md` Rev 1): *Waterskin `durability` → `condition` migration* — the design proposes a ladder of new vessels and leans to this migration as its first task (VQ6); *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes the shape of DECISION #6, this entry's trigger: water as draughts, free at a source in the room, otherwise drawn from carried vessels that are kept (VP2), shipped with its first reader; and *Weather inertia, and Legend's four independent axes* — the rain catch reads Cooking's wet index and fires neither part, and droughts (VQ5) are a consumer of part (1). No status changes.
 > **Rev 76 · 2026-11-07** — two entries **annotated**, docs only, with runbook Rev 6, after `fix/wear-interval` (PR #26, merged as `d19cfd4`, tagged `alpha-20261107`): ***Persistent alpha instance*** — L6.1 now checks out `alpha-20261107`; the two earlier tags ship garment wear at its 30 s dev value. ***`at_server_start` ticker re-adds wipe every other persistent ticker*** — the interval is part of a ticker's key, so a changed interval is a new subscription; today the wipe removes the old one at the next start (seen live 2026-11-07: `(30, 'garment_wear')` before a reload, `(10800, 'garment_wear')` alone after), and whichever fix lands here must retire stale intervals itself. No entry closed.
@@ -2048,6 +2049,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Any light week; pairs naturally with weather inertia above (same
   file neighbourhood, same session).
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
+- **Annotation (2026-11-08, light & darkness design chat):**
+  `docs/PolishedWorld_Light_Design.md` Rev 1 leans on this entry landing with or
+  before its darkness slice (LQ2). One note for the decomposition: detection has
+  one reader, as this entry says, but the period names and boundaries are also
+  kept as a copy on the Room for ExtendedRoom's `@desc` (`times_of_day`,
+  `typeclasses/rooms.py`), so a season-dependent boundary decides what that copy
+  holds. The Trigger is unchanged.
 - **Status:** OPEN
 
 ---
@@ -2097,6 +2105,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   inertia* part (2) already names "Stage 5 visibility" as a weather consumer).
 - **Origin:** Session 2026-10-30 (living-world review, follow-up; same review
   as Rev 52).
+- **Annotation (2026-11-08, light & darkness design chat):**
+  `docs/PolishedWorld_Light_Design.md` Rev 1 proposes this entry's shape with
+  its open choices leaned, not decided: four levels on Legend's darkness rows —
+  bright, dim −20, dark −40, pitch black −60 (core pp. 135, 141) — with a clear
+  night only dim (LP1, LP2); a light lights the room for everyone up to its own
+  level, the brightest wins and sources do not add (LP3); fuel as time,
+  `burns_until` and `fuel_left` on Cooking CP1's model, neither `condition`
+  nor `charges`, because a torch burns whether used or not (LP4); a rough torch
+  of stick and fibre as the first light, so a first slice ships light before a
+  second makes anything dark (LP5, its §16); exits always shown (LQ4).
+  **Two corrections to this entry's wording:** at Evennia 6.1.0 ExtendedRoom
+  overrides `get_display_desc`, not `return_appearance`, which `DefaultObject`
+  composes from the `get_display_*` hooks — so the desc hook joins the two named
+  here as the seam, and the conclusion holds; and `forage` has no roll, so its
+  first reader of `light_modifier()` is Foraging's herb nodes, while the shipped
+  nodes stay free in any light. Fuel by garment wear's sampled tick is overtaken
+  (a three-hour tick against a fifteen-minute torch). Perception's first
+  call-site is not claimed: the modifier joins whichever call-site comes first
+  (Cooking CQ13, Foraging RQ14). Why deferred and the Trigger are unchanged.
 - **Status:** OPEN
 
 ---
