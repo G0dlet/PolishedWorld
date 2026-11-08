@@ -398,3 +398,13 @@ class TestSurvivalBars(_ThemeTest):
             "thirst": ["var(--pw-water)"],
             "fatigue": ["var(--pw-highlight)"],
         })
+
+
+class TestWorldPanelHidden(_ThemeTest):
+    """
+    The world panel (W5.3): its rows start hidden and the weather row hides
+    indoors, so the hidden rule must win in that panel as in the others.
+    """
+
+    def test_hidden_wins_in_the_world_panel(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-world [hidden]", ("display",)), ["none"])

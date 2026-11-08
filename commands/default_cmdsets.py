@@ -19,6 +19,7 @@ from evennia.contrib.grid import extended_room
 from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
 from commands import character_commands
 from commands.admin_commands import CmdWeather
+from commands.world_commands import CmdTime
 from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
@@ -72,6 +73,9 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
 
         # Extended Room commands for seasonal/time-based room descriptions
         self.add(extended_room.ExtendedRoomCmdSet)
+        # The project's `time` (W5.3) replaces the contrib's: added after
+        # ExtendedRoomCmdSet, so the later command with the same key wins.
+        self.add(CmdTime())
 
         self.add(CmdWeather())
 

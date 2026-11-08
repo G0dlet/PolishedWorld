@@ -156,8 +156,9 @@ body {
    reader's font size and scale by a fraction (WC10). */
 #pw-char [hidden] { display: none; }
 
-/* The panel headings: the character's name, and Survival (W5.2). */
-.pw-char-name, .pw-survival-title {
+/* The panel headings: the character's name, Survival (W5.2) and World
+   (W5.3). */
+.pw-char-name, .pw-survival-title, .pw-world-title {
   margin: 0 0 .5rem;
   font-size: 1rem;
   color: var(--pw-highlight);
@@ -203,6 +204,15 @@ body {
 #pw-survival-hunger-bar { background: var(--pw-copper); }
 #pw-survival-thirst-bar { background: var(--pw-water); }
 #pw-survival-fatigue-bar { background: var(--pw-highlight); }
+
+/* World panel (W5.3). Its rows start hidden until the first world frame,
+   and the weather row hides indoors. The label in the muted colour, as a
+   gauge's description is, so the value reads first. */
+#pw-world [hidden] { display: none; }
+
+.pw-world-row { margin: .25rem 0; }
+
+.pw-world-label { color: var(--pw-muted); }
 
 /* The text area. <main> is the scroll container: Evennia's default_out
    scrolls #messagewindow's grandparent, so #messagewindow itself must not. */

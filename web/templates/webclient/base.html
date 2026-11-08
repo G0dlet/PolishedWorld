@@ -18,10 +18,13 @@ which is not a plugin and loads after the plugins with defer. Added (W4.3):
 polishedworld/js/pw_state.js, the first project plugin, which claims the
 four state domains before default_out can print them. Added (W5.1):
 polishedworld/js/pw_char.js, the character panel's renderer, which is not a
-plugin either (it registers with pw_state.on) and loads last with defer.
+plugin either (it registers with pw_state.on) and loads with defer.
 Added (W5.2): polishedworld/js/pw_gauge.js, the bar rule both panel
 renderers read, deferred just before pw_char.js, and
 polishedworld/js/pw_survival.js, the survival panel's renderer, after it.
+Added (W5.3): polishedworld/js/pw_world.js, the world panel's renderer and
+its clock, after pw_survival.js; a renderer as well, and it registers before
+any frame can arrive, since Evennia.init runs at jQuery's ready.
 Deferred scripts run in document order, so pw_gauge is defined before
 either renderer runs.
 
@@ -106,6 +109,8 @@ carry over any change to the globals or the core script paths.
     <script defer src="{% static 'polishedworld/js/pw_char.js' %}"></script>
     <!-- Not a plugin: the survival panel's renderer, on pw_state.on (W5.2). -->
     <script defer src="{% static 'polishedworld/js/pw_survival.js' %}"></script>
+    <!-- Not a plugin: the world panel's renderer and clock, on pw_state.on (W5.3). -->
+    <script defer src="{% static 'polishedworld/js/pw_world.js' %}"></script>
 
     {% block scripts %}
     {% endblock %}

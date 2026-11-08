@@ -78,6 +78,8 @@ EXPECTED_SCRIPTS = [
     "polishedworld/js/pw_char.js",
     # The survival panel's renderer, the same kind as pw_char.js (W5.2).
     "polishedworld/js/pw_survival.js",
+    # The world panel's renderer, the same kind again (W5.3).
+    "polishedworld/js/pw_world.js",
 ]
 
 EXPECTED_STYLESHEETS = [
@@ -94,6 +96,7 @@ STATE_JS = "polishedworld/js/pw_state.js"
 CHAR_JS = "polishedworld/js/pw_char.js"
 GAUGE_JS = "polishedworld/js/pw_gauge.js"
 SURVIVAL_JS = "polishedworld/js/pw_survival.js"
+WORLD_JS = "polishedworld/js/pw_world.js"
 FIGURE = "polishedworld/characters/body/body_base.png"
 # The ids pw_char.js writes to. A literal list, not one read from the script,
 # so an empty list in the script cannot make these tests pass (W-z);
@@ -125,6 +128,22 @@ SURVIVAL_IDS = (
     "pw-survival-fatigue-desc",
     "pw-survival-fatigue-bar",
 )
+# The ids pw_world.js writes to (W5.3). Literal for the same reason;
+# tests/js/test_pw_world.js holds the same list.
+WORLD_IDS = (
+    "pw-world",
+    "pw-world-date",
+    "pw-world-date-value",
+    "pw-world-time",
+    "pw-world-time-value",
+    "pw-world-season",
+    "pw-world-season-value",
+    "pw-world-weather",
+    "pw-world-weather-value",
+)
+# The panel's rows and their labels, which are the `time` command's
+# (commands/world_commands.py time_lines), in its order (WC1).
+WORLD_ROWS = (("date", "Date"), ("time", "Time"), ("season", "Season"), ("weather", "Weather"))
 # Every markup sink a renderer must not write (Rev 5 (d)).
 MARKUP_SINKS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write")
 
@@ -519,3 +538,73 @@ class TestSurvivalPanel(_PageTest):
             track_tag, track = self.page.tags[i - 1]
             self.assertEqual((track_tag, track.get("class")), ("span", "pw-bar"), key)
             self.assertEqual(track.get("aria-hidden"), "true", key)
+
+
+class TestWorldScript(EvenniaTest):
+    """
+    pw_world.js is a renderer like pw_survival.js (W5.3): registered with
+    pw_state.on for world and for room (the weather row follows the room's
+    indoor flag, lock 4A), never with plugin_handler, and it writes text only.
+    Its behaviour, the clock included, is tested in Node: tests/js/.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(WORLD_JS)
+
+    def test_not_a_plugin(self):
+        self.assertNotIn("plugin_handler", self.source)
+
+    def test_registers_for_world_and_room(self):
+        # The calls, not the bare names: the header comment names them (W-af).
+        self.assertIn('pw_state.on("world", function', self.source)
+        self.assertIn('pw_state.on("room", function', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in MARKUP_SINKS:
+            self.assertNotIn(sink, self.source, sink)
+
+
+class TestWorldPanel(_PageTest):
+    """
+    The world panel's markup (W5.3, WC1, WC14): its own section, first in
+    the right panel, named by its heading, holding every id the renderer
+    writes, one row per line of the `time` command with the command's label.
+    TestCharPanel's live-region test already covers the right panel.
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_every_id_the_renderer_writes(self):
+        for element_id in WORLD_IDS:
+            self._index(element_id)
+
+    def test_first_in_the_right_panel(self):
+        for element_id in WORLD_IDS:
+            self.assertIn("pw-panel-right", self.page.within[self._index(element_id)], element_id)
+        self.assertEqual(self._index("pw-world"), self._index("pw-panel-right") + 1)
+
+    def test_section_named_by_its_heading(self):
+        tag, attrs = self.page.tags[self._index("pw-world")]
+        self.assertEqual(tag, "section")
+        heading = attrs.get("aria-labelledby")
+        self.assertEqual(heading, "pw-world-title")
+        self.assertEqual(self.page.tags[self._index(heading)][0], "h2")
+
+    def test_rows_in_the_commands_order(self):
+        rows = [self._index("pw-world-" + key) for key, _label in WORLD_ROWS]
+        self.assertEqual(rows, sorted(rows))
+
+    def test_rows_carry_the_commands_labels(self):
+        for key, label in WORLD_ROWS:
+            pattern = (r'<p id="pw-world-%s"[^>]*>\s*<span class="pw-world-label">%s</span>'
+                       % (key, label))
+            self.assertRegex(self.html, pattern, key)
+
+    def test_rows_start_hidden(self):
+        for key, _label in WORLD_ROWS:
+            self.assertIn("hidden", self.page.tags[self._index("pw-world-" + key)][1], key)
