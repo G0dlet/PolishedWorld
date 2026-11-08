@@ -22,6 +22,7 @@ import json
 from unittest import mock
 
 import evennia
+from django.test import SimpleTestCase
 from evennia import create_object
 from evennia.contrib.base_systems import custom_gametime as cgt
 from evennia.server import sessionhandler
@@ -591,6 +592,17 @@ class TestHookSites(ReactorMixin, EvenniaTest):
             thing.delete()
         soon.assert_called_once_with(self.char1, "char")
 
+    def test_deletion_of_a_worn_garment_pushes_the_wearer(self):
+        # W5.1b: ClothingWithBuffs did not inherit ObjectParent, so a garment
+        # deleted while carried (disassemble, @destroy) left the panel's ENC.
+        garment = create_object(
+            "typeclasses.clothing.ClothingWithBuffs", key="shirt", location=self.char1
+        )
+        garment.wear(self.char1, True, quiet=True)
+        with mock.patch.object(client_state, "push_soon") as soon:
+            self.assertTrue(garment.delete())
+        soon.assert_called_once_with(self.char1, "char")
+
     def test_deletion_from_a_room_pushes_the_room(self):
         thing = create_object("typeclasses.objects.Object", key="crumb", location=self.room1)
         with mock.patch.object(client_state, "push_soon") as soon, \
@@ -974,3 +986,61 @@ class TestTradePushes(TradeFixtureMixin, LedgerIsolationMixin, EvenniaCommandTes
             self.assertTrue(self.handler.finish(force=True))   # receipt: past `if not result`
         self.assertEqual(cup.location, self.char1)
         push.assert_not_called()
+
+
+class TestObjectParentCensus(SimpleTestCase):
+    """
+    Pressures W5.1b: every typeclass under typeclasses/ inherits ObjectParent,
+    so its at_object_delete pushes (W4.2) and its at_pre_put_in refuses a put
+    into a non-container. A class built on a contrib base that does not reach
+    settings.BASE_OBJECT_TYPECLASS (the clothing contrib's ContribClothing is
+    a DefaultObject) misses both, silently; a new one fails here first.
+    """
+
+    # Read at runtime, not from the source: a contrib can inherit
+    # BASE_OBJECT_TYPECLASS (the containers contrib does), so the bases a
+    # class statement names are not its MRO.
+    # A literal list the walk must find, so an empty walk cannot pass (W-z).
+    KNOWN = {
+        "typeclasses.characters.Character",
+        "typeclasses.clothing.ClothingWithBuffs",
+        "typeclasses.containers.Container",
+        "typeclasses.objects.Object",
+    }
+
+    def _typeclasses(self):
+        import importlib
+        import inspect
+        import pkgutil
+
+        import typeclasses
+        from evennia.objects.objects import DefaultObject
+
+        found = {}
+        for info in pkgutil.walk_packages(typeclasses.__path__, "typeclasses."):
+            module = importlib.import_module(info.name)
+            for name, cls in inspect.getmembers(module, inspect.isclass):
+                if cls.__module__ == module.__name__ and issubclass(cls, DefaultObject):
+                    found["%s.%s" % (module.__name__, name)] = cls
+        return found
+
+    def test_the_walk_finds_the_known_typeclasses(self):
+        self.assertLessEqual(self.KNOWN, set(self._typeclasses()))
+
+    def test_every_typeclass_inherits_object_parent(self):
+        from typeclasses.objects import ObjectParent
+
+        missing = sorted(
+            path for path, cls in self._typeclasses().items() if not issubclass(cls, ObjectParent)
+        )
+        self.assertEqual(missing, [])
+
+    def test_a_garment_refuses_a_put(self):
+        # What B brings beside the push: the put refusal every other
+        # non-container has (W4.2 Q3). Only a superuser passed get_from.
+        from typeclasses.clothing import ClothingWithBuffs
+
+        putter = mock.Mock()
+        putter.ndb = mock.Mock()
+        self.assertFalse(ClothingWithBuffs.at_pre_put_in(mock.Mock(), putter, mock.Mock()))
+        putter.msg.assert_called_once_with("You can't put things in that.")
