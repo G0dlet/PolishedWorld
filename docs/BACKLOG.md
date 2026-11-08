@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 87 · 2026-11-08** — one entry **closed**, one **annotated**, docs only, with webclient decomposition Rev 8 (W5.1 and W5.1b shipped). **Closed** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — DONE by W5.1b (`539a825` on `feature/webclient`), and corrected: `Container` always inherited `ObjectParent`, through the containers contrib's base; only `ClothingWithBuffs` lacked it and now names it first; wear never deletes a garment, so the player's path was `disassemble`. **Annotated** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W5.1's protocol, after `evennia reload`, also showed an uncaught `DOMException` from `evennia.js:282` (a send on a closed socket) through `webclient_gui.js:313`; W6's first step reproduces both.
 > **Rev 86 · 2026-11-08** — one entry **added**, docs only, with webclient decomposition Rev 7 (W4.3 shipped, `5f40de7` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W4.3's browser protocol pressed Enter after `Evennia.connection.close()` and the console showed an uncaught `TypeError` from jQuery, raised in `default_in.js:56`'s keydown handler; no project file is in the stack (OPEN; trigger W6, the text-area component, whose first step reproduces it without the project plugin). No entry closed.
 > **Rev 85 · 2026-11-08** — paths **repointed** in fifteen entries, docs only, with roadmap Rev 60 and README Rev 39: the one-system design notes moved from `docs/` to `docs/system_designs/`, so every annotation path to a note outside a Rev line now names the new folder. No wording beyond the path and no status changes; Rev lines keep the paths they were written with.
 > **Rev 84 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 59 and README Rev 38, from the storage, granary & pests design chat (`docs/PolishedWorld_Storage_Design.md` Rev 1): *Food spoilage* — the design answers the entry's open choice of room flag or container property with *both*, as factors that multiply with the holder's (room × container × holder, the statue's 0 included), every change of factor an event that advances the anchor first, in the shared module the entry asks for (DP1–DP3); and *⚠️ Decay time can run backwards when the weather turns* — a cellar that sets `is_cold_storage` when it is built and clears it when it decays is a second way for the corpse's clock to rescale its whole history (DQ7). No status changes.
@@ -2071,7 +2072,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   location panel), whichever comes first -- or a player report of a stale
   panel.
 - **Origin:** Webclient W4.2 STOPP 0 (lock 5A), decomposition Rev 6.
-- **Status:** OPEN
+- **Resolution (Rev 87):** W5.1b read the bases at runtime and found the
+  entry half right. `Container` was never affected: the containers contrib
+  builds `ContribContainer` on `settings.BASE_OBJECT_TYPECLASS`
+  (`containers.py:41, 44`), which is `typeclasses.objects.Object`, so
+  `ObjectParent.at_object_delete` already ran. `ClothingWithBuffs` was: the
+  clothing contrib's `ContribClothing` is a plain `DefaultObject`
+  (`clothing.py:249`). Nor does a garment crumble -- wear stops at condition
+  0 and deletes nothing; the deletion a player makes is `disassemble`
+  (`CmdDisassemble`, `target.delete()`), beside staff `@destroy`. The fix put
+  `ObjectParent` first in `ClothingWithBuffs`'s bases (which also refuses a
+  `put` into a garment), and `TestObjectParentCensus` holds every typeclass
+  under `typeclasses/` to it.
+- **Status:** DONE (`539a825` on `feature/webclient`; webclient decomposition Rev 8)
 
 ---
 
@@ -2800,10 +2813,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the project vendors jQuery 3.7.1 where Evennia's page pinned 3.2.1 (decomp
   OQ-W4), and a modal `confirm()` inside a keydown handler can let focus
   events run while jQuery is still dispatching. Nothing visible breaks.
-- **Trigger:** W6 (the text-area component), first step: reproduce it on
+- **Also seen (Rev 87):** W5.1's browser protocol, after `evennia reload`
+  dropped the connection, showed the same `TypeError` and beside it an
+  uncaught `DOMException: An attempt was made to use an object that is not,
+  or is no longer, usable` from `evennia.js:282` (`msg`, a send on a socket
+  that is closed) through `evennia.js:137` and `webclient_gui.js:313`. Same
+  scene: a key pressed while the client was disconnected.
+- **Trigger:** W6 (the text-area component), first step: reproduce both on
   `main`'s stock page and on `feature/webclient` with `pw_state.js` removed;
-  if it is upstream, report it there and close this entry; if it follows
-  jQuery 3.7.1, decide there.
+  if they are upstream, report them there and close this entry; if they
+  follow jQuery 3.7.1, decide there.
 - **Origin:** Webclient W4.3 browser protocol, step 4 (2026-11-08).
 - **Status:** OPEN
 
