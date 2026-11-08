@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 83 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 58 and README Rev 37, from the rest, sleep & camp design chat (`docs/PolishedWorld_Rest_Design.md` Rev 1): *Fatigue-exhaustion consequence* — the design proposes direction B's shape with its open questions answered as leanings: Legend's six levels on twenty-point bands of the shipped gauge with −10…−50 % in `physical_modifier()`, an awake clock in place of the tick's drain with an Athletics test each game hour past 10+CON hours, and a collapse at Debilitated that lasts one level, refuses movement, eating and drinking, and always ends by logging out (NP1–NP3, NP14); and *`DeathWeakness` debuff → `fatigue_rate`* — the re-point, together with a respawn that wakes the body Wearied, which changes the death message's promise and is left for roadmap altitude (NP15, NQ14). No status changes.
 > **Rev 82 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 57 and README Rev 36, from the pottery, kilns & stations design chat (`docs/PolishedWorld_Pottery_Design.md` Rev 1): *Metal tools + craft-station / forge* — the design proposes one duck-typed station contract for registry open decisions 7–9, in two kinds — work stations found as tools on craft's room search, firing stations that hold a load and a `done_at` stamp — with heat named by Legend's fire rows, and leans the kiln to pottery alone, a bloomery apart from a glass furnace, and forge and anvil as fixtures in a room (PP7–PP9); and *Light & darkness* — the pot that tallow is rendered in is fired in a pit and needs no kiln (PP3). No status changes.
 > **Rev 81 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 56 and README Rev 35, from the rendering, tallow, ash & lye design chat (`docs/PolishedWorld_Rendering_Design.md` Rev 1): *Light & darkness* — the design proposes tallow's source, fat cut from larger animals and rendered at a fire in a pot, shipping together with the candle so that no link ships without a consumer (ZP1–ZP5); and *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes lye, made from ash and water in a vessel, as a third and optional input that raises the tan and is never required (ZP10, ZP11). No status changes.
 > **Rev 80 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 55 and README Rev 34, from the forest & fuel design chat (`docs/PolishedWorld_Forest_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes that wood is not flat: the shipped tree and new coppice stands regrow on Farming's growing index, nothing in winter, with the anchor advancing by whole intervals as part (1) requires, while deadfall, flint and clay stay flat (its YP5 and departure U1); and *Metal tools + craft-station / forge* — the design proposes that charcoal is made in an earth-covered clamp and needs no kiln, which would leave registry open decision 7 to pottery, and leans to shipping the clamp with this epic's first slice (YP8, YP9). No status changes.
@@ -1596,6 +1597,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   fatigue-rate debuff would be toothless.
 - **Trigger:** Fatigue-exhaustion consequence (below).
 - **Origin:** Hunting / H7 decomposition backlog.
+- **Annotation (2026-11-08, rest, sleep & camp design chat):**
+  `docs/PolishedWorld_Rest_Design.md` Rev 1 (NP15, departure O6) proposes the
+  re-point as written — the two mods move to `fatigue_rate`, which now scales
+  the awake clock rather than a drain — and adds a respawn that sets the
+  fatigue gauge to Wearied, so a body back from death is slow until it sleeps.
+  The death message promises that the weakness passes on its own
+  (`world/death_contract.py:132`, death-consequence policy (v)); a level that
+  sleep mends changes that promise, so the design leaves it to roadmap
+  altitude (NQ14). The re-point alone needs no such ratification.
 - **Status:** BLOCKED (fatigue-exhaustion consequence)
 
 ---
@@ -1735,6 +1745,22 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   entry's to change. The constant's calibration is the weight decomposition's
   OQ1, at alpha close-out.
 - **Origin:** Survival mechanics (core loop).
+- **Annotation (2026-11-08, rest, sleep & camp design chat):**
+  `docs/PolishedWorld_Rest_Design.md` Rev 1 proposes this entry's direction B
+  in full and answers its open questions as leanings, nothing decided. The
+  gauge reads in Legend's six levels on twenty-point bands (Debilitated at 0,
+  Fresh above 80), each level's penalty added in `physical_modifier()` (NP1,
+  NP2). The tick stops draining the gauge and advances an awake clock by the
+  same `fatigue_rate`, so the shipped `ColdStress`/`HeatStress` mods keep
+  their meaning; past 10+CON game hours each further hour rolls Athletics,
+  and a failure costs one level (NP3). The forced rest: at Debilitated a
+  Difficult Athletics test each tick, a failure putting the character to sleep
+  until it is out of that level — thirty real minutes on bedding, an hour on
+  the bare ground; no eating or drinking meanwhile; movement refused; logging
+  out always ends it, because the design makes logout sleep (NP14, NP19). The
+  thresholds are the bands, and only the bottom test is harder. The rest of
+  the design — `sleep`, the place's ceiling, the bedroll — is the next slice,
+  not this entry.
 - **Status:** OPEN
 
 ---
