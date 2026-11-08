@@ -19,6 +19,11 @@ polishedworld/js/pw_state.js, the first project plugin, which claims the
 four state domains before default_out can print them. Added (W5.1):
 polishedworld/js/pw_char.js, the character panel's renderer, which is not a
 plugin either (it registers with pw_state.on) and loads last with defer.
+Added (W5.2): polishedworld/js/pw_gauge.js, the bar rule both panel
+renderers read, deferred just before pw_char.js, and
+polishedworld/js/pw_survival.js, the survival panel's renderer, after it.
+Deferred scripts run in document order, so pw_gauge is defined before
+either renderer runs.
 
 Script order is load-bearing. webclient_gui.js does not sort plugins; it
 calls them in <script> order and stops at the first that claims an event.
@@ -95,8 +100,12 @@ carry over any change to the globals or the core script paths.
 
     <!-- Not a plugin: opens the side panels below the layout breakpoint (W3.2). -->
     <script defer src="{% static 'polishedworld/js/layout.js' %}"></script>
+    <!-- Not a plugin: the bar rule the panel renderers below read (W5.2). -->
+    <script defer src="{% static 'polishedworld/js/pw_gauge.js' %}"></script>
     <!-- Not a plugin: the character panel's renderer, on pw_state.on (W5.1). -->
     <script defer src="{% static 'polishedworld/js/pw_char.js' %}"></script>
+    <!-- Not a plugin: the survival panel's renderer, on pw_state.on (W5.2). -->
+    <script defer src="{% static 'polishedworld/js/pw_survival.js' %}"></script>
 
     {% block scripts %}
     {% endblock %}

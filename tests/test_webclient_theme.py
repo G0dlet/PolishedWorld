@@ -375,3 +375,26 @@ class TestCharacterFigure(_ThemeTest):
 
     def test_hidden_wins_in_the_character_panel(self):
         self.assertEqual(_decl_values(self.rules, "#pw-char [hidden]", ("display",)), ["none"])
+
+
+class TestSurvivalBars(_ThemeTest):
+    """
+    The survival panel (W5.2): the hidden rule keeps a row hideable as the
+    character panel's does, and each bar has its own palette colour (lock
+    3C). The colour only reinforces: the gauge's label and description say
+    which gauge it is and how it stands (WC14).
+    """
+
+    def test_hidden_wins_in_the_survival_panel(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-survival [hidden]", ("display",)), ["none"])
+
+    def test_each_bar_has_its_colour(self):
+        got = {
+            key: _decl_values(self.rules, "#pw-survival-%s-bar" % key, ("background",))
+            for key in ("hunger", "thirst", "fatigue")
+        }
+        self.assertEqual(got, {
+            "hunger": ["var(--pw-copper)"],
+            "thirst": ["var(--pw-water)"],
+            "fatigue": ["var(--pw-highlight)"],
+        })

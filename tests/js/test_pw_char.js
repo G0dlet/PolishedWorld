@@ -26,7 +26,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const FILE = path.join(__dirname, "..", "..", "web", "static", "polishedworld", "js", "pw_char.js");
+const JS = path.join(__dirname, "..", "..", "web", "static", "polishedworld", "js");
+const FILE = path.join(JS, "pw_char.js");
+const GAUGE_FILE = path.join(JS, "pw_gauge.js");
 const { charView } = require(FILE);
 
 // The ids the renderer writes. A literal list (W-z); the same list is in
@@ -135,16 +137,17 @@ function fakeElement(id) {
     return el;
 }
 
-// Runs the browser build in a sandbox with a fake pw_state and document,
-// as test_pw_state.js does for its registration. Returns the captured
-// registrations and the elements.
+// Runs the browser builds of pw_gauge.js and then pw_char.js in one
+// sandbox, in the page's script order (W5.2 lock 2B), with a fake pw_state
+// and document, as test_pw_state.js does for its registration. Returns the
+// captured registrations and the elements.
 function load(ids) {
     const elements = {};
     for (const id of ids) {
         elements[id] = fakeElement(id);
     }
     const registrations = [];
-    const sandbox = {
+    const sandbox = vm.createContext({
         pw_state: {
             on(domain, fn) {
                 registrations.push([domain, fn]);
@@ -160,8 +163,10 @@ function load(ids) {
             },
         },
         console: console,
-    };
-    vm.runInNewContext(fs.readFileSync(FILE, "utf8"), sandbox, { filename: FILE });
+    });
+    for (const file of [GAUGE_FILE, FILE]) {
+        vm.runInContext(fs.readFileSync(file, "utf8"), sandbox, { filename: file });
+    }
     return { registrations, elements };
 }
 

@@ -20,7 +20,10 @@ The panels hold static markup that their renderers fill in as text (W5.1,
 lock 1A); nothing in a panel is a live region (WC14). The character panel's
 ids are the ones pw_char.js writes (tests CHAR_IDS). The figure is
 body_base.png (32x64) at four times its size (WC10); its alt is replaced
-with the name and state when the first snapshot arrives.
+with the name and state when the first snapshot arrives. The survival
+panel follows it in the same drawer (W5.2); its ids are the ones
+pw_survival.js writes (tests SURVIVAL_IDS), and its rows keep `status`'s
+order: hunger, thirst, fatigue.
 {% endcomment %}
 
 {% block client %}
@@ -47,6 +50,27 @@ with the name and state when the first snapshot arrives.
       <span class="pw-bar" aria-hidden="true"><span id="pw-char-health-bar" class="pw-bar-fill"></span></span>
     </p>
     <p id="pw-char-enc" class="pw-enc"></p>
+  </section>
+  <section id="pw-survival" aria-labelledby="pw-survival-title">
+    <h2 id="pw-survival-title" class="pw-survival-title">Survival</h2>
+    <p id="pw-survival-hunger" class="pw-gauge" hidden>
+      <span class="pw-gauge-label">Hunger</span>
+      <span id="pw-survival-hunger-numbers" class="pw-gauge-numbers"></span>
+      <span id="pw-survival-hunger-desc" class="pw-gauge-desc"></span>
+      <span class="pw-bar" aria-hidden="true"><span id="pw-survival-hunger-bar" class="pw-bar-fill"></span></span>
+    </p>
+    <p id="pw-survival-thirst" class="pw-gauge" hidden>
+      <span class="pw-gauge-label">Thirst</span>
+      <span id="pw-survival-thirst-numbers" class="pw-gauge-numbers"></span>
+      <span id="pw-survival-thirst-desc" class="pw-gauge-desc"></span>
+      <span class="pw-bar" aria-hidden="true"><span id="pw-survival-thirst-bar" class="pw-bar-fill"></span></span>
+    </p>
+    <p id="pw-survival-fatigue" class="pw-gauge" hidden>
+      <span class="pw-gauge-label">Fatigue</span>
+      <span id="pw-survival-fatigue-numbers" class="pw-gauge-numbers"></span>
+      <span id="pw-survival-fatigue-desc" class="pw-gauge-desc"></span>
+      <span class="pw-bar" aria-hidden="true"><span id="pw-survival-fatigue-bar" class="pw-bar-fill"></span></span>
+    </p>
   </section>
 </aside>
 

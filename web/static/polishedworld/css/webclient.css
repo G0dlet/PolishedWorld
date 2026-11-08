@@ -156,7 +156,8 @@ body {
    reader's font size and scale by a fraction (WC10). */
 #pw-char [hidden] { display: none; }
 
-.pw-char-name {
+/* The panel headings: the character's name, and Survival (W5.2). */
+.pw-char-name, .pw-survival-title {
   margin: 0 0 .5rem;
   font-size: 1rem;
   color: var(--pw-highlight);
@@ -168,12 +169,22 @@ body {
   image-rendering: pixelated;
 }
 
-.pw-gauge, .pw-enc { margin: .5rem 0; }
+.pw-enc { margin: .5rem 0; }
+
+/* Survival panel (W5.2). Its rows hide as the character panel's do. */
+#pw-survival [hidden] { display: none; }
+
+#pw-survival { margin-top: 1rem; }
+
+/* Gauges (W5.1, shared since W5.2). The bar is hidden from screen readers;
+   the words beside it carry the state (WC14), so one colour serves every
+   level of a gauge. Health keeps the default fill; each survival gauge has
+   its own palette colour, which tells the bars apart at a glance but never
+   alone: each row's label names its gauge. */
+.pw-gauge { margin: .5rem 0; }
 
 .pw-gauge-desc { color: var(--pw-muted); }
 
-/* The bar is hidden from screen readers; the words beside it carry the
-   state (WC14), so one colour serves every level. */
 .pw-bar {
   display: block;
   height: .5rem;
@@ -188,6 +199,10 @@ body {
   height: 100%;
   background: var(--pw-health);
 }
+
+#pw-survival-hunger-bar { background: var(--pw-copper); }
+#pw-survival-thirst-bar { background: var(--pw-water); }
+#pw-survival-fatigue-bar { background: var(--pw-highlight); }
 
 /* The text area. <main> is the scroll container: Evennia's default_out
    scrolls #messagewindow's grandparent, so #messagewindow itself must not. */

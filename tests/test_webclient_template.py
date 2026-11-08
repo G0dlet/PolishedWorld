@@ -70,9 +70,14 @@ EXPECTED_SCRIPTS = [
     # Not a plugin (TestLayoutScript): opens and closes the panels below the
     # breakpoint, so its place after default_out costs nothing (W3.2).
     "polishedworld/js/layout.js",
+    # Not a plugin (TestGaugeScript): the one bar rule, a global the panel
+    # renderers read when they run, so it comes before them (W5.2, lock 2B).
+    "polishedworld/js/pw_gauge.js",
     # Not a plugin either (TestCharScript): a renderer that registers with
     # pw_state.on, so it only has to come after pw_state.js (W5.1).
     "polishedworld/js/pw_char.js",
+    # The survival panel's renderer, the same kind as pw_char.js (W5.2).
+    "polishedworld/js/pw_survival.js",
 ]
 
 EXPECTED_STYLESHEETS = [
@@ -87,6 +92,8 @@ PANEL_LABELS = {
 LAYOUT_JS = "polishedworld/js/layout.js"
 STATE_JS = "polishedworld/js/pw_state.js"
 CHAR_JS = "polishedworld/js/pw_char.js"
+GAUGE_JS = "polishedworld/js/pw_gauge.js"
+SURVIVAL_JS = "polishedworld/js/pw_survival.js"
 FIGURE = "polishedworld/characters/body/body_base.png"
 # The ids pw_char.js writes to. A literal list, not one read from the script,
 # so an empty list in the script cannot make these tests pass (W-z);
@@ -101,6 +108,25 @@ CHAR_IDS = (
     "pw-char-health-bar",
     "pw-char-enc",
 )
+# The ids pw_survival.js writes to (W5.2). Literal for the same reason;
+# tests/js/test_pw_survival.js holds the same list.
+SURVIVAL_IDS = (
+    "pw-survival",
+    "pw-survival-hunger",
+    "pw-survival-hunger-numbers",
+    "pw-survival-hunger-desc",
+    "pw-survival-hunger-bar",
+    "pw-survival-thirst",
+    "pw-survival-thirst-numbers",
+    "pw-survival-thirst-desc",
+    "pw-survival-thirst-bar",
+    "pw-survival-fatigue",
+    "pw-survival-fatigue-numbers",
+    "pw-survival-fatigue-desc",
+    "pw-survival-fatigue-bar",
+)
+# Every markup sink a renderer must not write (Rev 5 (d)).
+MARKUP_SINKS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write")
 
 # Any src= or href= whose value starts with a scheme or is protocol-relative.
 # Run over the raw page, comments included.
@@ -315,7 +341,8 @@ class TestCharScript(EvenniaTest):
         self.assertNotIn("plugin_handler", self.source)
 
     def test_registers_for_char(self):
-        self.assertIn('pw_state.on("char"', self.source)
+        # The call, not the bare name: the header comment names it too (W-g).
+        self.assertIn('pw_state.on("char", function', self.source)
 
     def test_never_writes_markup(self):
         for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
@@ -380,3 +407,115 @@ class TestCharPanel(_PageTest):
                 continue
             self.assertNotIn("aria-live", attrs, (tag, attrs))
             self.assertNotIn(attrs.get("role"), ("log", "status", "alert", "timer", "marquee"), (tag, attrs))
+
+
+def _read_static(name):
+    path = finders.find(name)
+    if path is None:
+        raise AssertionError("not found: %s" % name)
+    return Path(path).read_text(encoding="utf-8")
+
+
+class TestGaugeScript(EvenniaTest):
+    """
+    pw_gauge.js holds the one bar rule (W5.2, lock 2B): a library the panel
+    renderers read, never a plugin and never a renderer itself. Two copies
+    of barWidth would be two knobs for one job, so the rule is defined in
+    this file and nowhere else among the project's scripts.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(GAUGE_JS)
+
+    def test_not_a_plugin_nor_a_renderer(self):
+        self.assertNotIn("plugin_handler", self.source)
+        self.assertNotIn("pw_state", self.source)
+
+    def test_bar_rule_defined_once(self):
+        js_dir = Path(finders.find(GAUGE_JS)).parent
+        owners = sorted(
+            p.name for p in js_dir.glob("*.js")
+            if "function barWidth" in p.read_text(encoding="utf-8")
+        )
+        self.assertEqual(owners, ["pw_gauge.js"])
+
+    def test_renderers_read_it(self):
+        for name in (CHAR_JS, SURVIVAL_JS):
+            self.assertIn("pw_gauge", _read_static(name), name)
+
+
+class TestSurvivalScript(EvenniaTest):
+    """
+    pw_survival.js is a renderer like pw_char.js (W5.2): registered with
+    pw_state.on, never with plugin_handler; it writes text only, and its
+    gauge list is the server's, in the server's order.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(SURVIVAL_JS)
+
+    def test_not_a_plugin(self):
+        self.assertNotIn("plugin_handler", self.source)
+
+    def test_registers_for_survival(self):
+        # The call, not the bare name: the header comment names it too (W-g).
+        self.assertIn('pw_state.on("survival", function', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in MARKUP_SINKS:
+            self.assertNotIn(sink, self.source, sink)
+
+    def test_gauges_match_the_server(self):
+        from world.client_state import SURVIVAL_GAUGES
+
+        found = re.findall(r"^\s*var GAUGES = \[([^\]]*)\];", self.source, re.M)
+        self.assertEqual(len(found), 1, "one GAUGES literal in %s" % SURVIVAL_JS)
+        names = re.findall(r'"([a-z_]+)"', found[0])
+        self.assertEqual(tuple(names), SURVIVAL_GAUGES)
+
+
+class TestSurvivalPanel(_PageTest):
+    """
+    The survival panel's markup (W5.2, WC12, WC14): its own section in the
+    left panel, after the character panel, named by its heading, holding
+    every id the renderer writes; each bar is hidden from screen readers
+    because the words beside it say the same. TestCharPanel's live-region
+    test already covers everything in the left panel.
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_every_id_the_renderer_writes(self):
+        for element_id in SURVIVAL_IDS:
+            self._index(element_id)
+
+    def test_inside_the_left_panel_after_the_character(self):
+        for element_id in SURVIVAL_IDS:
+            i = self._index(element_id)
+            self.assertIn("pw-panel-left", self.page.within[i], element_id)
+            self.assertNotIn("pw-char", self.page.within[i], element_id)
+        self.assertGreater(self._index("pw-survival"), self._index("pw-char"))
+
+    def test_section_named_by_its_heading(self):
+        tag, attrs = self.page.tags[self._index("pw-survival")]
+        self.assertEqual(tag, "section")
+        heading = attrs.get("aria-labelledby")
+        self.assertEqual(heading, "pw-survival-title")
+        self.assertEqual(self.page.tags[self._index(heading)][0], "h2")
+
+    def test_rows_in_status_order(self):
+        rows = [self._index("pw-survival-" + key) for key in ("hunger", "thirst", "fatigue")]
+        self.assertEqual(rows, sorted(rows))
+
+    def test_bars_are_hidden_from_screen_readers(self):
+        for key in ("hunger", "thirst", "fatigue"):
+            i = self._index("pw-survival-%s-bar" % key)
+            track_tag, track = self.page.tags[i - 1]
+            self.assertEqual((track_tag, track.get("class")), ("span", "pw-bar"), key)
+            self.assertEqual(track.get("aria-hidden"), "true", key)

@@ -21,7 +21,8 @@
  *       writer below it only copies those words into the page.
  *   3C  The bar is a span hidden from screen readers. The text beside it
  *       says everything it shows (WC14), and one colour means no second
- *       copy of the description thresholds lives here.
+ *       copy of the description thresholds lives here. Its width comes from
+ *       pw_gauge.js, the rule every panel shares (W5.2, lock 2B).
  *   4   Numbers and description as `status` prints them, without the
  *       percentage (the snapshot has none; computing it here would copy
  *       trait.percent()'s formatting). No health trait: the row is hidden.
@@ -34,14 +35,11 @@
 
     var FREE = "free";
 
-    function barWidth(current, max) {
-        // Floor, so the bar reads full only when health is (199/200 is 99%).
-        if (!(max > 0)) {
-            return "0%";
-        }
-        var fraction = Math.min(Math.max(current / max, 0), 1);
-        return Math.floor(fraction * 100) + "%";
-    }
+    // The page loads pw_gauge.js first and leaves it as a global; Node
+    // requires it (W5.2, lock 2B).
+    var gauge = (typeof module !== "undefined" && module.exports)
+        ? require("./pw_gauge.js")
+        : pw_gauge;
 
     function charView(snapshot) {
         var name = String(snapshot.name);
@@ -58,7 +56,7 @@
             view.health = {
                 numbers: health.current + "/" + health.max,
                 desc: String(health.desc),
-                bar: barWidth(Number(health.current), Number(health.max)),
+                bar: gauge.barWidth(Number(health.current), Number(health.max)),
             };
             view.alt = name + ", " + health.desc;
         }
