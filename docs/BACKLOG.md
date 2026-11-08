@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 84 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 59 and README Rev 38, from the storage, granary & pests design chat (`docs/PolishedWorld_Storage_Design.md` Rev 1): *Food spoilage* — the design answers the entry's open choice of room flag or container property with *both*, as factors that multiply with the holder's (room × container × holder, the statue's 0 included), every change of factor an event that advances the anchor first, in the shared module the entry asks for (DP1–DP3); and *⚠️ Decay time can run backwards when the weather turns* — a cellar that sets `is_cold_storage` when it is built and clears it when it decays is a second way for the corpse's clock to rescale its whole history (DQ7). No status changes.
 > **Rev 83 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 58 and README Rev 37, from the rest, sleep & camp design chat (`docs/PolishedWorld_Rest_Design.md` Rev 1): *Fatigue-exhaustion consequence* — the design proposes direction B's shape with its open questions answered as leanings: Legend's six levels on twenty-point bands of the shipped gauge with −10…−50 % in `physical_modifier()`, an awake clock in place of the tick's drain with an Athletics test each game hour past 10+CON hours, and a collapse at Debilitated that lasts one level, refuses movement, eating and drinking, and always ends by logging out (NP1–NP3, NP14); and *`DeathWeakness` debuff → `fatigue_rate`* — the re-point, together with a respawn that wakes the body Wearied, which changes the death message's promise and is left for roadmap altitude (NP15, NQ14). No status changes.
 > **Rev 82 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 57 and README Rev 36, from the pottery, kilns & stations design chat (`docs/PolishedWorld_Pottery_Design.md` Rev 1): *Metal tools + craft-station / forge* — the design proposes one duck-typed station contract for registry open decisions 7–9, in two kinds — work stations found as tools on craft's room search, firing stations that hold a load and a `done_at` stamp — with heat named by Legend's fire rows, and leans the kiln to pottery alone, a bloomery apart from a glass furnace, and forge and anvil as fixtures in a room (PP7–PP9); and *Light & darkness* — the pot that tallow is rendered in is fired in a pit and needs no kiln (PP3). No status changes.
 > **Rev 81 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 56 and README Rev 35, from the rendering, tallow, ash & lye design chat (`docs/PolishedWorld_Rendering_Design.md` Rev 1): *Light & darkness* — the design proposes tallow's source, fat cut from larger animals and rendered at a fire in a pot, shipping together with the candle so that no link ships without a consumer (ZP1–ZP5); and *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes lye, made from ash and water in a vessel, as a third and optional input that raises the tan and is never required (ZP10, ZP11). No status changes.
@@ -1565,6 +1566,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   True. This fits the entry, but `death_time` and the modifier were not printed
   at either moment, so it is a sighting, not a receipt. The session that takes
   this entry starts by printing both for a corpse across one weather change.
+- **Annotation (2026-11-08, storage, granary & pests design chat):**
+  `docs/PolishedWorld_Storage_Design.md` Rev 1 proposes the first writers of
+  `is_cold_storage` — staff on an authored cellar, then a house's larder or
+  cellar part (DP4). A flag that is set when a larder is finished and cleared
+  when it decays rescales a corpse's whole history the moment it changes, as a
+  change of weather does here: a second trigger for this entry. The design
+  leaves open whether the corpse moves onto Cooking Design's spoilage index
+  before any non-staff writer of the flag ships (DQ7, Cooking Design CQ9).
+  Nothing here changes the status.
 - **Status:** OPEN (latent)
 
 ### `at_character_death()` restore block vs persistent wound tiers
@@ -1826,6 +1836,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   tick (RP11). Off food eaten by force is one of its three sources, at a
   placeholder Potency. It also proposes fresh herbs as perishables on this
   entry's clock and dried herbs that keep (RP6). Nothing here changes.
+- **Annotation (2026-11-08, storage, granary & pests design chat):**
+  `docs/PolishedWorld_Storage_Design.md` Rev 1 proposes an answer to this
+  entry's open choice "whether cold storage stays a room flag or becomes a
+  container property": **both**, as factors that multiply — the room's (open 1,
+  cellar 0.25), the container's (sack or bin 1, storage jar 0.5, jar sealed
+  with tallow 0.25) and the holder's (a statue 0, Cooking Design CP9) — in the
+  shared `world/decay.py` this entry asks for (DP1–DP3). Moves, log-ins,
+  sealing and unsealing, and a change of the room's flag are each an event that
+  advances an item's anchor at the old factor before the new one applies, so
+  the clock stays monotone (DP2). It also proposes that the statue's stopped
+  clock be accepted as a larder bounded by one body's load (DP16, DQ2). Nothing
+  here changes the Trigger, the rule that (1)–(3) ship with one recipe from
+  (4), or the status.
 - **Status:** OPEN for (1)–(3); (4) BLOCKED on the *food professions*
   exclusives decision, except the first recipe, which ships with (1)–(3).
 - **Annotation (2026-11-07, cooking & preservation design chat):**
