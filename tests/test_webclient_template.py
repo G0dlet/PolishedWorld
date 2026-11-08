@@ -70,6 +70,9 @@ EXPECTED_SCRIPTS = [
     # Not a plugin (TestLayoutScript): opens and closes the panels below the
     # breakpoint, so its place after default_out costs nothing (W3.2).
     "polishedworld/js/layout.js",
+    # Not a plugin either (TestCharScript): a renderer that registers with
+    # pw_state.on, so it only has to come after pw_state.js (W5.1).
+    "polishedworld/js/pw_char.js",
 ]
 
 EXPECTED_STYLESHEETS = [
@@ -83,6 +86,21 @@ PANEL_LABELS = {
 }
 LAYOUT_JS = "polishedworld/js/layout.js"
 STATE_JS = "polishedworld/js/pw_state.js"
+CHAR_JS = "polishedworld/js/pw_char.js"
+FIGURE = "polishedworld/characters/body/body_base.png"
+# The ids pw_char.js writes to. A literal list, not one read from the script,
+# so an empty list in the script cannot make these tests pass (W-z);
+# tests/js/test_pw_char.js holds the same list for the script's side.
+CHAR_IDS = (
+    "pw-char",
+    "pw-char-name",
+    "pw-char-figure",
+    "pw-char-health",
+    "pw-char-health-numbers",
+    "pw-char-health-desc",
+    "pw-char-health-bar",
+    "pw-char-enc",
+)
 
 # Any src= or href= whose value starts with a scheme or is protocol-relative.
 # Run over the raw page, comments included.
@@ -90,7 +108,7 @@ EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["']?\s*(?:[a-z][a-z0-9+.-]*:|//)""
 
 
 class _Collector(HTMLParser):
-    """Collects every tag's attributes and the ancestor chain of every id."""
+    """Collects every tag's attributes, the ids around it, and the ancestor chain of every id."""
 
     VOID = {"meta", "link", "br", "img", "input", "hr"}
 
@@ -98,11 +116,13 @@ class _Collector(HTMLParser):
         super().__init__()
         self.stack = []
         self.tags = []  # (tag, attrs dict)
+        self.within = []  # per tag in self.tags: the ids of its ancestors
         self.ancestors = {}  # id -> list of ancestor tags, nearest first
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         self.tags.append((tag, attrs))
+        self.within.append([a["id"] for _, a in self.stack if a.get("id")])
         if "id" in attrs:
             self.ancestors[attrs["id"]] = [t for t, _ in reversed(self.stack)]
         if tag not in self.VOID:
@@ -276,3 +296,87 @@ class TestStateScript(EvenniaTest):
         self.assertEqual(len(found), 1, "one DOMAINS literal in %s" % STATE_JS)
         names = re.findall(r'"([a-z_]+)"', found[0])
         self.assertEqual(tuple(names), DOMAINS)
+
+
+class TestCharScript(EvenniaTest):
+    """
+    pw_char.js is a renderer, not a plugin: registering with plugin_handler
+    would put it in the onUnknownCmd chain beside pw_state. It writes the
+    snapshot as text only (Rev 5 (d)): a character name can hold markup.
+    """
+
+    def setUp(self):
+        super().setUp()
+        path = finders.find(CHAR_JS)
+        self.assertIsNotNone(path, CHAR_JS)
+        self.source = Path(path).read_text(encoding="utf-8")
+
+    def test_not_a_plugin(self):
+        self.assertNotIn("plugin_handler", self.source)
+
+    def test_registers_for_char(self):
+        self.assertIn('pw_state.on("char"', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
+            self.assertNotIn(sink, self.source, sink)
+
+
+class TestCharPanel(_PageTest):
+    """
+    The character panel's markup (W5.1, WC10, WC12, WC14): it sits in the
+    left panel, holds every id the renderer writes, shows the figure at a
+    whole factor with words in its alt, and nothing in a panel is a live
+    region, so a gauge change never interrupts the text being read.
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_every_id_the_renderer_writes(self):
+        for element_id in CHAR_IDS:
+            self._index(element_id)
+
+    def test_inside_the_left_panel(self):
+        for element_id in CHAR_IDS:
+            i = self._index(element_id)
+            self.assertIn("pw-panel-left", self.page.within[i], element_id)
+
+    def test_section_named_by_its_heading(self):
+        tag, attrs = self.page.tags[self._index("pw-char")]
+        self.assertEqual(tag, "section")
+        self.assertEqual(attrs.get("aria-labelledby"), "pw-char-name")
+
+    def test_figure_has_words(self):
+        tag, attrs = self.page.tags[self._index("pw-char-figure")]
+        self.assertEqual(tag, "img")
+        self.assertTrue((attrs.get("alt") or "").strip(), attrs)
+        self.assertEqual(_static_path(attrs.get("src")), FIGURE)
+
+    def test_figure_at_four_times_native(self):
+        with open(finders.find(FIGURE), "rb") as png:
+            header = png.read(24)
+        self.assertEqual(header[12:16], b"IHDR")
+        width = int.from_bytes(header[16:20], "big")
+        height = int.from_bytes(header[20:24], "big")
+        _tag, attrs = self.page.tags[self._index("pw-char-figure")]
+        self.assertEqual((int(attrs["width"]), int(attrs["height"])), (4 * width, 4 * height))
+
+    def test_bar_is_hidden_from_screen_readers(self):
+        # The fill sits in its track; the track hides both, since the text
+        # beside it already says everything the bar shows (WC14).
+        i = self._index("pw-char-health-bar")
+        track_tag, track = self.page.tags[i - 1]
+        self.assertEqual((track_tag, track.get("class")), ("span", "pw-bar"))
+        self.assertEqual(track.get("aria-hidden"), "true", track)
+
+    def test_no_live_region_in_the_panels(self):
+        for i, (tag, attrs) in enumerate(self.page.tags):
+            inside = {"pw-panel-left", "pw-panel-right"} & set(self.page.within[i] + [attrs.get("id")])
+            if not inside:
+                continue
+            self.assertNotIn("aria-live", attrs, (tag, attrs))
+            self.assertNotIn(attrs.get("role"), ("log", "status", "alert", "timer", "marquee"), (tag, attrs))

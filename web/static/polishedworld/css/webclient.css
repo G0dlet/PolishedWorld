@@ -151,6 +151,44 @@ body {
 #pw-panel-left.pw-open { left: 0; }
 #pw-panel-right.pw-open { right: 0; }
 
+/* Character panel (W5.1). The figure is 32x64 at four times its size, set
+   in px by the template's width and height: a rem size would follow the
+   reader's font size and scale by a fraction (WC10). */
+#pw-char [hidden] { display: none; }
+
+.pw-char-name {
+  margin: 0 0 .5rem;
+  font-size: 1rem;
+  color: var(--pw-highlight);
+}
+
+.pw-figure {
+  display: block;
+  margin: .5rem auto;
+  image-rendering: pixelated;
+}
+
+.pw-gauge, .pw-enc { margin: .5rem 0; }
+
+.pw-gauge-desc { color: var(--pw-muted); }
+
+/* The bar is hidden from screen readers; the words beside it carry the
+   state (WC14), so one colour serves every level. */
+.pw-bar {
+  display: block;
+  height: .5rem;
+  margin-top: .25rem;
+  background: var(--pw-background);
+  border: 1px solid var(--pw-border_wood);
+}
+
+.pw-bar-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--pw-health);
+}
+
 /* The text area. <main> is the scroll container: Evennia's default_out
    scrolls #messagewindow's grandparent, so #messagewindow itself must not. */
 #main {

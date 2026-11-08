@@ -358,3 +358,20 @@ class TestNoExternalCss(_ThemeTest):
                     re.search(r"url\(\s*['\"]?\s*(?:[a-z][a-z0-9+.-]*:|//)", value, re.I),
                     "%s { %s: %s }" % (rule.selectors, prop, value),
                 )
+
+
+class TestCharacterFigure(_ThemeTest):
+    """
+    The silhouette is scaled by a whole factor in the template (×4, WC10);
+    without `pixelated` the browser smooths the enlarged pixels into blur.
+    The hidden rule keeps the health row hideable whatever display a later
+    rule gives it: an author `display` beats the browser's own [hidden].
+    """
+
+    def test_figure_renders_pixelated(self):
+        self.assertEqual(
+            _decl_values(self.rules, ".pw-figure", ("image-rendering",)), ["pixelated"]
+        )
+
+    def test_hidden_wins_in_the_character_panel(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-char [hidden]", ("display",)), ["none"])

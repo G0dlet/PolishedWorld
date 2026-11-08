@@ -1,4 +1,5 @@
 {% extends "webclient/base.html" %}
+{% load static %}
 {% comment %}
 PolishedWorld webclient skeleton (W3.1, laid out in W3.2).
 
@@ -14,6 +15,12 @@ and the text last, so its links (W6.1) do not stand between the player and
 the panels. The stylesheet's grid areas place each part where mockup v3
 shows it. The panels take tabindex="-1" so layout.js can move focus into an
 opened drawer; that keeps them out of the Tab sequence.
+
+The panels hold static markup that their renderers fill in as text (W5.1,
+lock 1A); nothing in a panel is a live region (WC14). The character panel's
+ids are the ones pw_char.js writes (tests CHAR_IDS). The figure is
+body_base.png (32x64) at four times its size (WC10); its alt is replaced
+with the name and state when the first snapshot arrives.
 {% endcomment %}
 
 {% block client %}
@@ -29,7 +36,19 @@ opened drawer; that keeps them out of the Tab sequence.
   <button class="pw-panel-button" type="button" aria-controls="pw-panel-right" aria-expanded="false">World</button>
 </header>
 
-<aside id="pw-panel-left" aria-label="Character and survival" tabindex="-1"></aside>
+<aside id="pw-panel-left" aria-label="Character and survival" tabindex="-1">
+  <section id="pw-char" aria-labelledby="pw-char-name">
+    <h2 id="pw-char-name" class="pw-char-name">Character</h2>
+    <img id="pw-char-figure" class="pw-figure" src="{% static 'polishedworld/characters/body/body_base.png' %}" width="128" height="256" alt="Character">
+    <p id="pw-char-health" class="pw-gauge" hidden>
+      <span class="pw-gauge-label">Health</span>
+      <span id="pw-char-health-numbers" class="pw-gauge-numbers"></span>
+      <span id="pw-char-health-desc" class="pw-gauge-desc"></span>
+      <span class="pw-bar" aria-hidden="true"><span id="pw-char-health-bar" class="pw-bar-fill"></span></span>
+    </p>
+    <p id="pw-char-enc" class="pw-enc"></p>
+  </section>
+</aside>
 
 <aside id="pw-panel-right" aria-label="World and location" tabindex="-1"></aside>
 
