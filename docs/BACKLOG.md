@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 82 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 57 and README Rev 36, from the pottery, kilns & stations design chat (`docs/PolishedWorld_Pottery_Design.md` Rev 1): *Metal tools + craft-station / forge* — the design proposes one duck-typed station contract for registry open decisions 7–9, in two kinds — work stations found as tools on craft's room search, firing stations that hold a load and a `done_at` stamp — with heat named by Legend's fire rows, and leans the kiln to pottery alone, a bloomery apart from a glass furnace, and forge and anvil as fixtures in a room (PP7–PP9); and *Light & darkness* — the pot that tallow is rendered in is fired in a pit and needs no kiln (PP3). No status changes.
 > **Rev 81 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 56 and README Rev 35, from the rendering, tallow, ash & lye design chat (`docs/PolishedWorld_Rendering_Design.md` Rev 1): *Light & darkness* — the design proposes tallow's source, fat cut from larger animals and rendered at a fire in a pot, shipping together with the candle so that no link ships without a consumer (ZP1–ZP5); and *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes lye, made from ash and water in a vessel, as a third and optional input that raises the tan and is never required (ZP10, ZP11). No status changes.
 > **Rev 80 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 55 and README Rev 34, from the forest & fuel design chat (`docs/PolishedWorld_Forest_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes that wood is not flat: the shipped tree and new coppice stands regrow on Farming's growing index, nothing in winter, with the anchor advancing by whole intervals as part (1) requires, while deadfall, flint and clay stay flat (its YP5 and departure U1); and *Metal tools + craft-station / forge* — the design proposes that charcoal is made in an earth-covered clamp and needs no kiln, which would leave registry open decision 7 to pottery, and leans to shipping the clamp with this epic's first slice (YP8, YP9). No status changes.
 > **Rev 79 · 2026-11-08** — two entries **annotated**, docs only, with README Rev 33, from the light & darkness design chat (`docs/PolishedWorld_Light_Design.md` Rev 1): *Light & darkness* — the design proposes the entry's shape with its open choices leaned (four levels on Legend's darkness rows, a light that lights the room for everyone up to its own level, fuel as time on Cooking's fire model, a rough torch of stick and fibre shipped before anything is dark, exits always shown) and corrects two lines of its wording (ExtendedRoom overrides `get_display_desc`, not `return_appearance`, at Evennia 6.1.0; `forage` has no roll for `light_modifier()` to modify); and *Season-dependent day length* — the design leans on it landing with or before the darkness slice (LQ2), and notes the Room's copy of the periods. No status changes. The roadmap has no entry for light and is unchanged.
@@ -219,6 +220,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `blocked_on` would read *a clamp*. It leans to shipping the clamp with this
   epic's first slice, charcoal's largest consumer (YP9, YQ14); three lengths of
   wood to one lump is tuning. Decisions #7–#9 stay this epic's decomposition's.
+- **Annotation (2026-11-08, pottery, kilns & stations design chat):**
+  `docs/PolishedWorld_Pottery_Design.md` Rev 1 proposes one duck-typed station
+  contract for this epic's decomposition, leaned and not decided (PP7–PP9, PQ6).
+  Every station is a fixture — `get:false()`, built by a player, on the
+  `condition` axis, mended with its own materials — of one of two kinds. A
+  **work station** (loom, pottery wheel, anvil) is found as a tool on craft's
+  existing room search and worn by the shipped tool-wear sink, so it needs
+  little new: one user at a time, and `repair` reaching a fixture, since it
+  searches only what the caller carries (`commands/repair_commands.py:95`). A
+  **firing station** (pit, clamp, kiln, furnace) holds a load and a `done_at`
+  stamp with `load`, `fire` and `open`, so the firing is the station's state,
+  not the user's `ndb.timed_action`. Heat is a field named by Legend's fire rows
+  (p. 83): a fire small, a kiln large, a furnace an inferno. Leanings on the
+  three decisions: **7** — the kiln is pottery's (and later lime's), charcoal
+  having left it for the clamp; **8** — a bloomery apart from a glass furnace;
+  **9** — forge and anvil as fixtures in a room, the hammer carried. The first
+  pottery needs no kiln at all: a pit firing makes it (PP3), and the kiln is
+  built of the pit's bricks (PP5). Decisions #7–#9 stay this epic's
+  decomposition's.
 - **Status:** OPEN — next: decompose the metallurgy epic (tools first)
 
 ### Superior-tool longevity / condition bonus
@@ -2152,6 +2172,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   It proposes that fat, rendering and the candle ship together, so that no
   link ships without a consumer (ZP5, its §16), and leans to four one-hour
   candles a cake of tallow (ZP15). Nothing decided.
+- **Annotation (2026-11-08, pottery, kilns & stations design chat):**
+  `docs/PolishedWorld_Pottery_Design.md` Rev 1 proposes that the pot this
+  entry's tallow is rendered in needs no kiln: clay shaped by hand, dried, and
+  fired a night in a pit under a heap of wood gives a fireproof pot (PP1–PP4,
+  PP10). The candle's chain therefore waits on the deer, the fire and the pit
+  firing, not on a station. Nothing decided.
 - **Status:** OPEN
 
 ---
