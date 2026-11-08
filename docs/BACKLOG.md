@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 86 · 2026-11-08** — one entry **added**, docs only, with webclient decomposition Rev 7 (W4.3 shipped, `5f40de7` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W4.3's browser protocol pressed Enter after `Evennia.connection.close()` and the console showed an uncaught `TypeError` from jQuery, raised in `default_in.js:56`'s keydown handler; no project file is in the stack (OPEN; trigger W6, the text-area component, whose first step reproduces it without the project plugin). No entry closed.
 > **Rev 85 · 2026-11-08** — paths **repointed** in fifteen entries, docs only, with roadmap Rev 60 and README Rev 39: the one-system design notes moved from `docs/` to `docs/system_designs/`, so every annotation path to a note outside a Rev line now names the new folder. No wording beyond the path and no status changes; Rev lines keep the paths they were written with.
 > **Rev 84 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 59 and README Rev 38, from the storage, granary & pests design chat (`docs/PolishedWorld_Storage_Design.md` Rev 1): *Food spoilage* — the design answers the entry's open choice of room flag or container property with *both*, as factors that multiply with the holder's (room × container × holder, the statue's 0 included), every change of factor an event that advances the anchor first, in the shared module the entry asks for (DP1–DP3); and *⚠️ Decay time can run backwards when the weather turns* — a cellar that sets `is_cold_storage` when it is built and clears it when it decays is a second way for the corpse's clock to rescale its whole history (DQ7). No status changes.
 > **Rev 83 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 58 and README Rev 37, from the rest, sleep & camp design chat (`docs/PolishedWorld_Rest_Design.md` Rev 1): *Fatigue-exhaustion consequence* — the design proposes direction B's shape with its open questions answered as leanings: Legend's six levels on twenty-point bands of the shipped gauge with −10…−50 % in `physical_modifier()`, an awake clock in place of the tick's drain with an Athletics test each game hour past 10+CON hours, and a collapse at Debilitated that lasts one level, refuses movement, eating and drinking, and always ends by logging out (NP1–NP3, NP14); and *`DeathWeakness` debuff → `fatigue_rate`* — the re-point, together with a respawn that wakes the body Wearied, which changes the death message's promise and is left for roadmap altitude (NP15, NQ14). No status changes.
@@ -2785,6 +2786,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   reader is not yet a player.
 - **Trigger:** Before the first opening beyond an invited cohort.
 - **Origin:** Adam, gap review 2026-11-04.
+- **Status:** OPEN
+
+### Webclient: `TypeError` on Enter while disconnected
+- **What:** In W4.3's browser protocol (webclient decomposition Rev 7), Enter
+  pressed in the input field after `Evennia.connection.close()` raised an
+  uncaught `TypeError: n.slice is not a function` in jQuery 3.7.1, from
+  `default_in.js:56` (the keydown handler, after `onSend` had asked
+  `confirm("Not currently connected. Reconnect?")`) through
+  `webclient_gui.js:66` and `:307`. The stack holds only Evennia's files and
+  jQuery. The reconnect itself went on and showed the login screen.
+- **Why deferred:** It is not yet known whether the error is upstream or ours:
+  the project vendors jQuery 3.7.1 where Evennia's page pinned 3.2.1 (decomp
+  OQ-W4), and a modal `confirm()` inside a keydown handler can let focus
+  events run while jQuery is still dispatching. Nothing visible breaks.
+- **Trigger:** W6 (the text-area component), first step: reproduce it on
+  `main`'s stock page and on `feature/webclient` with `pw_state.js` removed;
+  if it is upstream, report it there and close this entry; if it follows
+  jQuery 3.7.1, decide there.
+- **Origin:** Webclient W4.3 browser protocol, step 4 (2026-11-08).
 - **Status:** OPEN
 
 ## Tooling & Process
