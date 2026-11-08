@@ -1,7 +1,8 @@
 # PolishedWorld — Fishing Design Notes
 
+> **Rev 2 · 2026-11-08** — moved, docs only, with roadmap Rev 60, BACKLOG Rev 85 and README Rev 39: from `docs/` to `docs/system_designs/`, together with the fourteen other one-system design notes and the series handoff, `docs/system_designs/HANDOFF.md`. The *Canonical* line and every path to a design note outside a Rev line now name the new folder; no content changed. Rev lines keep the paths they were written with, since changelog lines are left exactly as written.
 > **Rev 1 · 2026-11-07** — first version, docs only, with roadmap Rev 46 and README Rev 24. Written from a design chat: Adam asked how fishing could be made as immersive as possible and which MUDs to learn from, and asked for the result to be kept for the day fishing is taken up. **Nothing here is locked.** Every numbered item is a proposal (FP…) or an open question (FQ…); the fishing decomposition locks or rejects each one, as every decomposition before it has. Prior art was read on 2026-11-07; code seams were read against `main` at `f0c2708` (Evennia 6.1.0).
-> **Canonical:** `docs/PolishedWorld_Fishing_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+> **Canonical:** `docs/system_designs/PolishedWorld_Fishing_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
 **Altitude:** design (one feature, before its decomposition).
 **Home:** roadmap, *Parallel / opportunistic backlog*, *Food professions — farming · fishing · livestock*. This document is the fishing third of that entry, written early; the entry's rule that exclusive products are decided **once across all three professions** still binds, and §10 does not decide it.

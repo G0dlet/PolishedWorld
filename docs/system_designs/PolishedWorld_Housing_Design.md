@@ -1,7 +1,8 @@
 # PolishedWorld — Housing & Building Design Notes
 
+> **Rev 2 · 2026-11-08** — moved, docs only, with roadmap Rev 60, BACKLOG Rev 85 and README Rev 39: from `docs/` to `docs/system_designs/`, together with the fourteen other one-system design notes and the series handoff, `docs/system_designs/HANDOFF.md`. The *Canonical* line and every path to a design note outside a Rev line now name the new folder; no content changed. Rev lines keep the paths they were written with, since changelog lines are left exactly as written.
 > **Rev 1 · 2026-11-07** — first version, docs only, with roadmap Rev 47 and README Rev 25. Written from a design chat, the second in a series of one-system design notes that follows `docs/PolishedWorld_Fishing_Design.md`: Adam wants players to build their own houses and perhaps open shops in them (roadmap Rev 42), and asked for the most immersive version of that to be kept for the day housing is taken up. **Nothing here is locked.** Every numbered item is a proposal (BP…) or an open question (BQ…); the housing decomposition locks or rejects each one. Prior art was read on 2026-11-07; code seams were read against `main` at `9f3c32f` (Evennia 6.1.0).
-> **Canonical:** `docs/PolishedWorld_Housing_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+> **Canonical:** `docs/system_designs/PolishedWorld_Housing_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
 **Altitude:** design (one feature, before its decomposition).
 **Home:** roadmap, *Parallel / opportunistic backlog*, *Persistent storage / housing / settlements*, and its 2026-11-05 note (Rev 42). The shop half has its own home in `docs/BACKLOG.md` (*Currency*, *Player shops and market stalls*); §10 is written against that entry and does not replace it.

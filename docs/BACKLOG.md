@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 85 · 2026-11-08** — paths **repointed** in fifteen entries, docs only, with roadmap Rev 60 and README Rev 39: the one-system design notes moved from `docs/` to `docs/system_designs/`, so every annotation path to a note outside a Rev line now names the new folder. No wording beyond the path and no status changes; Rev lines keep the paths they were written with.
 > **Rev 84 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 59 and README Rev 38, from the storage, granary & pests design chat (`docs/PolishedWorld_Storage_Design.md` Rev 1): *Food spoilage* — the design answers the entry's open choice of room flag or container property with *both*, as factors that multiply with the holder's (room × container × holder, the statue's 0 included), every change of factor an event that advances the anchor first, in the shared module the entry asks for (DP1–DP3); and *⚠️ Decay time can run backwards when the weather turns* — a cellar that sets `is_cold_storage` when it is built and clears it when it decays is a second way for the corpse's clock to rescale its whole history (DQ7). No status changes.
 > **Rev 83 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 58 and README Rev 37, from the rest, sleep & camp design chat (`docs/PolishedWorld_Rest_Design.md` Rev 1): *Fatigue-exhaustion consequence* — the design proposes direction B's shape with its open questions answered as leanings: Legend's six levels on twenty-point bands of the shipped gauge with −10…−50 % in `physical_modifier()`, an awake clock in place of the tick's drain with an Athletics test each game hour past 10+CON hours, and a collapse at Debilitated that lasts one level, refuses movement, eating and drinking, and always ends by logging out (NP1–NP3, NP14); and *`DeathWeakness` debuff → `fatigue_rate`* — the re-point, together with a respawn that wakes the body Wearied, which changes the death message's promise and is left for roadmap altitude (NP15, NQ14). No status changes.
 > **Rev 82 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 57 and README Rev 36, from the pottery, kilns & stations design chat (`docs/PolishedWorld_Pottery_Design.md` Rev 1): *Metal tools + craft-station / forge* — the design proposes one duck-typed station contract for registry open decisions 7–9, in two kinds — work stations found as tools on craft's room search, firing stations that hold a load and a `done_at` stamp — with heat named by Legend's fire rows, and leans the kiln to pottery alone, a bloomery apart from a glass furnace, and forge and anvil as fixtures in a room (PP7–PP9); and *Light & darkness* — the pot that tallow is rendered in is fired in a pit and needs no kiln (PP3). No status changes.
@@ -215,7 +216,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   players share — whose wear, whose repair, one user at a time. DECISION #7–#9 stay
   open, and smithing stays outside the alpha (roadmap Rev 25 (B)).
 - **Annotation (2026-11-08, forest & fuel design chat):**
-  `docs/PolishedWorld_Forest_Design.md` Rev 1 proposes that charcoal is made in
+  `docs/system_designs/PolishedWorld_Forest_Design.md` Rev 1 proposes that charcoal is made in
   a **clamp** — wood stacked under earth, lit, left a game day and opened with a
   `craft` roll — and needs no kiln (YP8, after Vintage Story's charcoal pit), so
   registry open decision 7 would concern pottery (and lime) only and charcoal's
@@ -223,7 +224,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   epic's first slice, charcoal's largest consumer (YP9, YQ14); three lengths of
   wood to one lump is tuning. Decisions #7–#9 stay this epic's decomposition's.
 - **Annotation (2026-11-08, pottery, kilns & stations design chat):**
-  `docs/PolishedWorld_Pottery_Design.md` Rev 1 proposes one duck-typed station
+  `docs/system_designs/PolishedWorld_Pottery_Design.md` Rev 1 proposes one duck-typed station
   contract for this epic's decomposition, leaned and not decided (PP7–PP9, PQ6).
   Every station is a fixture — `get:false()`, built by a player, on the
   `condition` axis, mended with its own materials — of one of two kinds. A
@@ -338,7 +339,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Stage 3 (Recipe Knowledge & Discovery).
 - **Origin:** Crafting Progression decomp §13; also feeds the disambiguation fix.
 - **Annotation (2026-11-07, textiles design chat):**
-  `docs/PolishedWorld_Textiles_Design.md` Rev 1 (WP10) proposes the display
+  `docs/system_designs/PolishedWorld_Textiles_Design.md` Rev 1 (WP10) proposes the display
   layer, garments first: a line in the look text, *stitched by <maker>* (*woven
   by* for cloth and felt, *dyed by* for a dyer's colour), read from
   `obj.db.crafted_by`, which every craft already stamps
@@ -359,7 +360,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** None hard; do when touching waterskin next.
 - **Origin:** Crafting Progression decomp §3 (name-fork note) + §13.
 - **Annotation (2026-11-08, water design chat):**
-  `docs/PolishedWorld_Water_Design.md` Rev 1 proposes a ladder of vessels (VP4)
+  `docs/system_designs/PolishedWorld_Water_Design.md` Rev 1 proposes a ladder of vessels (VP4)
   — a leather waterskin, a leather bucket, later a clay jug and a cooper's
   barrel — and its VQ6 leans to doing this migration as the ladder's first task,
   because every new vessel would otherwise copy the waterskin's refill-count
@@ -652,7 +653,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   easier to take apart") is decided with the return fractions, not before.
 - **Origin:** Adam, E.2 decomposition session (2026-10-31).
 - **Annotation (2026-11-07, textiles design chat):**
-  `docs/PolishedWorld_Textiles_Design.md` Rev 1 (WP12) proposes **rags**: a
+  `docs/system_designs/PolishedWorld_Textiles_Design.md` Rev 1 (WP12) proposes **rags**: a
   garment worn past mending cut with a knife into fewer rags than the cloth it
   took, a bad cut spoiling them, and rags a new material — a bandage for
   two-stage healing, a torch's wick for *light & darkness*, pulp once the
@@ -778,7 +779,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   balance pass, whichever comes first.
 - **Origin:** FAS 1 costing session (2026-10-17) — the System Backlog §4 sketch.
 - **Annotation (2026-11-08, water design chat):**
-  `docs/PolishedWorld_Water_Design.md` Rev 1 (VP2) proposes the shape of
+  `docs/system_designs/PolishedWorld_Water_Design.md` Rev 1 (VP2) proposes the shape of
   DECISION #6 that this entry names as its trigger: water is never an item but
   draughts; a recipe declares how many it needs and of what kind; at a water
   source in the room the need is met and nothing is drawn; elsewhere the
@@ -788,7 +789,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   the registry's decision resolved (`world/material_registry.py:503–504`).
   Nothing decided.
 - **Annotation (2026-11-08, rendering, tallow, ash & lye design chat):**
-  `docs/PolishedWorld_Rendering_Design.md` Rev 1 proposes lye as a third,
+  `docs/system_designs/PolishedWorld_Rendering_Design.md` Rev 1 proposes lye as a third,
   optional input beside bark and water: ash from a burnt-out fire and fresh
   water in a vessel, the vessel's draughts becoming the kind *lye* on Water
   Design VP3's field (ZP8–ZP10). A hide soaked in lye takes the tan better —
@@ -1220,7 +1221,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   or alpha close-out data shows nobody hunts.
 - **Origin:** Character creation decomposition OQ3, closed in CC2.1 (B7),
   2026-10-28.
-- **Annotation (2026-11-07, hunting design chat):** `docs/PolishedWorld_Hunting_Design.md`
+- **Annotation (2026-11-07, hunting design chat):** `docs/system_designs/PolishedWorld_Hunting_Design.md`
   Rev 1 (TP11) proposes the first hunting recipes — *Arms of Legend*'s animal
   snare (placed with a `hunting` test that the animal's Perception must beat,
   resolved lazily from the range's stock) and the animal call (+10 % on the
@@ -1567,7 +1568,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   at either moment, so it is a sighting, not a receipt. The session that takes
   this entry starts by printing both for a corpse across one weather change.
 - **Annotation (2026-11-08, storage, granary & pests design chat):**
-  `docs/PolishedWorld_Storage_Design.md` Rev 1 proposes the first writers of
+  `docs/system_designs/PolishedWorld_Storage_Design.md` Rev 1 proposes the first writers of
   `is_cold_storage` — staff on an authored cellar, then a house's larder or
   cellar part (DP4). A flag that is set when a larder is finished and cleared
   when it decays rescales a corpse's whole history the moment it changes, as a
@@ -1608,7 +1609,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Fatigue-exhaustion consequence (below).
 - **Origin:** Hunting / H7 decomposition backlog.
 - **Annotation (2026-11-08, rest, sleep & camp design chat):**
-  `docs/PolishedWorld_Rest_Design.md` Rev 1 (NP15, departure O6) proposes the
+  `docs/system_designs/PolishedWorld_Rest_Design.md` Rev 1 (NP15, departure O6) proposes the
   re-point as written — the two mods move to `fatigue_rate`, which now scales
   the awake clock rather than a drain — and adds a respawn that sets the
   fatigue gauge to Wearied, so a body back from death is slow until it sleeps.
@@ -1650,7 +1651,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   proposal rejected in `docs/roadmap.md` Rev 21 (`[RESOLVED]` organ-level damage
   model). Original idea from another Evennia developer's RimWorld-derived system.
 - **Annotation (2026-11-08, foraging & herbalism design chat):**
-  `docs/PolishedWorld_Foraging_Design.md` Rev 1 proposes healing on today's single
+  `docs/system_designs/PolishedWorld_Foraging_Design.md` Rev 1 proposes healing on today's single
   health pool, ahead of this entry and without touching it: a custom `first_aid`
   skill (Legend core pp. 50–51) that restores 1D3, once until health is full
   again, with a first aid kit or at −20 % with rags or cloth (RP9), and natural
@@ -1756,7 +1757,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   OQ1, at alpha close-out.
 - **Origin:** Survival mechanics (core loop).
 - **Annotation (2026-11-08, rest, sleep & camp design chat):**
-  `docs/PolishedWorld_Rest_Design.md` Rev 1 proposes this entry's direction B
+  `docs/system_designs/PolishedWorld_Rest_Design.md` Rev 1 proposes this entry's direction B
   in full and answers its open questions as leanings, nothing decided. The
   gauge reads in Legend's six levels on twenty-point bands (Debilitated at 0,
   Fresh above 80), each level's penalty added in `physical_modifier()` (NP1,
@@ -1830,14 +1831,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Session 2026-10-30 (living-world review, follow-up; same review
   as Rev 52).
 - **Annotation (2026-11-08, foraging & herbalism design chat):**
-  `docs/PolishedWorld_Foraging_Design.md` Rev 1 proposes the disease this entry's
+  `docs/system_designs/PolishedWorld_Foraging_Design.md` Rev 1 proposes the disease this entry's
   "disease hook" and Cooking Design CQ4's queasy buff were waiting for: **the
   flux**, Ingested, Nausea, resisted daily by CON × 2, its clock on the survival
   tick (RP11). Off food eaten by force is one of its three sources, at a
   placeholder Potency. It also proposes fresh herbs as perishables on this
   entry's clock and dried herbs that keep (RP6). Nothing here changes.
 - **Annotation (2026-11-08, storage, granary & pests design chat):**
-  `docs/PolishedWorld_Storage_Design.md` Rev 1 proposes an answer to this
+  `docs/system_designs/PolishedWorld_Storage_Design.md` Rev 1 proposes an answer to this
   entry's open choice "whether cold storage stays a room flag or becomes a
   container property": **both**, as factors that multiply — the room's (open 1,
   cellar 0.25), the container's (sack or bin 1, storage jar 0.5, jar sealed
@@ -1852,7 +1853,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Status:** OPEN for (1)–(3); (4) BLOCKED on the *food professions*
   exclusives decision, except the first recipe, which ships with (1)–(3).
 - **Annotation (2026-11-07, cooking & preservation design chat):**
-  `docs/PolishedWorld_Cooking_Design.md` Rev 1 adopts parts (1)–(4) as its
+  `docs/system_designs/PolishedWorld_Cooking_Design.md` Rev 1 adopts parts (1)–(4) as its
   §9–§10 and proposes, none decided: (1) the clock reads a **global spoilage
   index** — `WeatherScript` (every 1800 s) adds season × weather for each
   interval to one monotone counter, and an item advances its anchor only when
@@ -2101,14 +2102,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   visibility, foraging yield, or the exposure gauge in `roadmap.md`), so the
   struct is designed against a real consumer rather than a guessed one.
 - **Annotation (2026-11-07, temperature & exposure design chat):**
-  `docs/PolishedWorld_Temperature_Design.md` reads the four states as they are —
+  `docs/system_designs/PolishedWorld_Temperature_Design.md` reads the four states as they are —
   `raining` and `snowing` wet a character (KP7), a summer day is hot only while
   `clear` (KP5) — so it does not fire (2). Its wind chill (KP9) waits for the
   wind STR this part would add: one band step per Legend wind band above
   *Breeze* (core p. 232), outdoors only. That is the real consumer (2) asks to
   be designed against.
 - **Annotation (2026-11-08, water design chat):**
-  `docs/PolishedWorld_Water_Design.md` Rev 1 reads today's four states as they
+  `docs/system_designs/PolishedWorld_Water_Design.md` Rev 1 reads today's four states as they
   are: its rain catch (VP7) fills from Cooking Design's proposed wet index
   (CP11, CQ9), so it does not fire either part. Its VQ5 — whether rain catches,
   shallow wells and small springs answer a dry spell — is a consumer of part
@@ -2137,7 +2138,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   file neighbourhood, same session).
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
 - **Annotation (2026-11-08, light & darkness design chat):**
-  `docs/PolishedWorld_Light_Design.md` Rev 1 leans on this entry landing with or
+  `docs/system_designs/PolishedWorld_Light_Design.md` Rev 1 leans on this entry landing with or
   before its darkness slice (LQ2). One note for the decomposition: detection has
   one reader, as this entry says, but the period names and boundaries are also
   kept as a copy on the Room for ExtendedRoom's `@desc` (`times_of_day`,
@@ -2193,7 +2194,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Session 2026-10-30 (living-world review, follow-up; same review
   as Rev 52).
 - **Annotation (2026-11-08, light & darkness design chat):**
-  `docs/PolishedWorld_Light_Design.md` Rev 1 proposes this entry's shape with
+  `docs/system_designs/PolishedWorld_Light_Design.md` Rev 1 proposes this entry's shape with
   its open choices leaned, not decided: four levels on Legend's darkness rows —
   bright, dim −20, dark −40, pitch black −60 (core pp. 135, 141) — with a clear
   night only dim (LP1, LP2); a light lights the room for everyone up to its own
@@ -2212,7 +2213,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   call-site is not claimed: the modifier joins whichever call-site comes first
   (Cooking CQ13, Foraging RQ14). Why deferred and the Trigger are unchanged.
 - **Annotation (2026-11-08, rendering, tallow, ash & lye design chat):**
-  `docs/PolishedWorld_Rendering_Design.md` Rev 1 proposes the source this
+  `docs/system_designs/PolishedWorld_Rendering_Design.md` Rev 1 proposes the source this
   entry's tallow lacks: a `fat` part on larger animals — the deer first, from
   Hunting Design's slice 3, never the rabbit, whose template yields meat, hide
   and bone — at SIZ // 6, more in autumn and none in spring (ZP1, ZP2); and
@@ -2222,7 +2223,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   link ships without a consumer (ZP5, its §16), and leans to four one-hour
   candles a cake of tallow (ZP15). Nothing decided.
 - **Annotation (2026-11-08, pottery, kilns & stations design chat):**
-  `docs/PolishedWorld_Pottery_Design.md` Rev 1 proposes that the pot this
+  `docs/system_designs/PolishedWorld_Pottery_Design.md` Rev 1 proposes that the pot this
   entry's tallow is rendered in needs no kiln: clay shaped by hand, dried, and
   fired a night in a pit under a heap of wood gives a fireproof pot (PP1–PP4,
   PP10). The candle's chain therefore waits on the deer, the fire and the pit
@@ -2345,7 +2346,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   not. Read the trigger's *two game-months* from the economy milestone's log
   (roadmap [OPEN] *No milestone measures the economy*), with automated actors
   filtered out as LM10 does. Part (1)'s light-week exception is unchanged.
-- **Annotation (2026-11-07, hunting design chat):** `docs/PolishedWorld_Hunting_Design.md`
+- **Annotation (2026-11-07, hunting design chat):** `docs/system_designs/PolishedWorld_Hunting_Design.md`
   Rev 1 adopts parts (2) and (3) as its TP9 and TP2 and proposes three things
   for this entry's decomposition, none decided: the stock record belongs to an
   authored **range** (one room for a rabbit, several for a deer herd) rather
@@ -2359,7 +2360,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   that (2) is settled before a cohort are unchanged; the design's layer order
   puts stock and pressure in its slice 2 for that reason.
 - **Annotation (2026-11-07, farming & livestock design chat):**
-  `docs/PolishedWorld_Farming_Design.md` Rev 1 (GP2) proposes a third global
+  `docs/system_designs/PolishedWorld_Farming_Design.md` Rev 1 (GP2) proposes a third global
   counter on `WeatherScript`, beside Cooking Design's spoilage and drying
   indexes (Cooking CQ9): a **growing index** advanced every wake by *season
   factor × weather factor* (spring and summer 1, autumn ½, winter 0; snowing
@@ -2372,7 +2373,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Not decided here; part (1)'s decomposition picks, and if it picks the index,
   the index lands in the same change as Cooking CQ9.
 - **Annotation (2026-11-08, foraging & herbalism design chat):**
-  `docs/PolishedWorld_Foraging_Design.md` Rev 1 proposes herb nodes — new
+  `docs/system_designs/PolishedWorld_Foraging_Design.md` Rev 1 proposes herb nodes — new
   `ResourceNode`s that roll a custom `herbalism` skill — as part (1)'s first new
   readers, regenerating only in their season on whichever clock part (1) picks
   (the growing index or the per-type table), with the anchor advancing by whole
@@ -2383,7 +2384,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   stand was picked lately is part (3)'s signs, for plants. The open choices, the
   Trigger and part (1)'s light-week exception are unchanged.
 - **Annotation (2026-11-08, forest & fuel design chat):**
-  `docs/PolishedWorld_Forest_Design.md` Rev 1 proposes that wood is **not**
+  `docs/system_designs/PolishedWorld_Forest_Design.md` Rev 1 proposes that wood is **not**
   flat, against this entry's leaning: the shipped tree and new coppice stands
   advance their regeneration by Farming Design's growing index (full in spring
   and summer, half in autumn, nothing in winter), with the anchor advancing by
