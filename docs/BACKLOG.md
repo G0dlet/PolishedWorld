@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 80 · 2026-11-08** — two entries **annotated**, docs only, with roadmap Rev 55 and README Rev 34, from the forest & fuel design chat (`docs/PolishedWorld_Forest_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes that wood is not flat: the shipped tree and new coppice stands regrow on Farming's growing index, nothing in winter, with the anchor advancing by whole intervals as part (1) requires, while deadfall, flint and clay stay flat (its YP5 and departure U1); and *Metal tools + craft-station / forge* — the design proposes that charcoal is made in an earth-covered clamp and needs no kiln, which would leave registry open decision 7 to pottery, and leans to shipping the clamp with this epic's first slice (YP8, YP9). No status changes.
 > **Rev 79 · 2026-11-08** — two entries **annotated**, docs only, with README Rev 33, from the light & darkness design chat (`docs/PolishedWorld_Light_Design.md` Rev 1): *Light & darkness* — the design proposes the entry's shape with its open choices leaned (four levels on Legend's darkness rows, a light that lights the room for everyone up to its own level, fuel as time on Cooking's fire model, a rough torch of stick and fibre shipped before anything is dark, exits always shown) and corrects two lines of its wording (ExtendedRoom overrides `get_display_desc`, not `return_appearance`, at Evennia 6.1.0; `forage` has no roll for `light_modifier()` to modify); and *Season-dependent day length* — the design leans on it landing with or before the darkness slice (LQ2), and notes the Room's copy of the periods. No status changes. The roadmap has no entry for light and is unchanged.
 > **Rev 78 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 54 and README Rev 32, from the foraging & herbalism design chat (`docs/PolishedWorld_Foraging_Design.md` Rev 1): *Seasonal supply & population memory* — the design proposes herb nodes as part (1)'s first new readers, on whichever clock part (1) picks, with one rule beyond it: a stand picked to nothing regrows nothing until the next growing season (RP2); *Two-stage healing — field stabilisation vs. repair* — the design proposes First Aid on today's single health pool (Legend's injured-location row, 1D3) and natural healing by Legend's table, both shaped to move onto Stage 5's locations, and leaves this entry's stabilise and repair untouched; and *Food spoilage* — the design proposes the disease that CQ4's queasy buff was a hook for, the flux (RP11). No status changes.
 > **Rev 77 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 53 and README Rev 31, from the water design chat (`docs/PolishedWorld_Water_Design.md` Rev 1): *Waterskin `durability` → `condition` migration* — the design proposes a ladder of new vessels and leans to this migration as its first task (VQ6); *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes the shape of DECISION #6, this entry's trigger: water as draughts, free at a source in the room, otherwise drawn from carried vessels that are kept (VP2), shipped with its first reader; and *Weather inertia, and Legend's four independent axes* — the rain catch reads Cooking's wet index and fires neither part, and droughts (VQ5) are a consumer of part (1). No status changes.
@@ -209,6 +210,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   names a furnace or anvil in the location as a tool). What is new is a tool several
   players share — whose wear, whose repair, one user at a time. DECISION #7–#9 stay
   open, and smithing stays outside the alpha (roadmap Rev 25 (B)).
+- **Annotation (2026-11-08, forest & fuel design chat):**
+  `docs/PolishedWorld_Forest_Design.md` Rev 1 proposes that charcoal is made in
+  a **clamp** — wood stacked under earth, lit, left a game day and opened with a
+  `craft` roll — and needs no kiln (YP8, after Vintage Story's charcoal pit), so
+  registry open decision 7 would concern pottery (and lime) only and charcoal's
+  `blocked_on` would read *a clamp*. It leans to shipping the clamp with this
+  epic's first slice, charcoal's largest consumer (YP9, YQ14); three lengths of
+  wood to one lump is tuning. Decisions #7–#9 stay this epic's decomposition's.
 - **Status:** OPEN — next: decompose the metallurgy epic (tools first)
 
 ### Superior-tool longevity / condition bonus
@@ -2279,6 +2288,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   follows part (1) stays this entry's question. A skilled reader seeing that a
   stand was picked lately is part (3)'s signs, for plants. The open choices, the
   Trigger and part (1)'s light-week exception are unchanged.
+- **Annotation (2026-11-08, forest & fuel design chat):**
+  `docs/PolishedWorld_Forest_Design.md` Rev 1 proposes that wood is **not**
+  flat, against this entry's leaning: the shipped tree and new coppice stands
+  advance their regeneration by Farming Design's growing index (full in spring
+  and summer, half in autumn, nothing in winter), with the anchor advancing by
+  whole intervals as part (1) requires (YP5; its departure U1). Deadfall, flint
+  and clay stay flat, so a fire of sticks is always to be had. The reason is the
+  design's Achaea lesson: wood is the bulk input of every large sink, so it must
+  regrow continuously and never arrive as a seasonal burst; winter then runs on
+  wood cut and stacked ahead. The calibration it sets — one tree keeps one fire
+  alive while it grows — is the design's YP13. The open choices, the Trigger and
+  part (1)'s light-week exception are unchanged.
 - **Status:** BLOCKED (economy milestone + two game-months of activity-log data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
