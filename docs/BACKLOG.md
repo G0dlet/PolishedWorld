@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 77 · 2026-11-08** — three entries **annotated**, docs only, with roadmap Rev 53 and README Rev 31, from the water design chat (`docs/PolishedWorld_Water_Design.md` Rev 1): *Waterskin `durability` → `condition` migration* — the design proposes a ladder of new vessels and leans to this migration as its first task (VQ6); *Tanning upgrade — bark and water as `LeatherRecipe` inputs* — the design proposes the shape of DECISION #6, this entry's trigger: water as draughts, free at a source in the room, otherwise drawn from carried vessels that are kept (VP2), shipped with its first reader; and *Weather inertia, and Legend's four independent axes* — the rain catch reads Cooking's wet index and fires neither part, and droughts (VQ5) are a consumer of part (1). No status changes.
 > **Rev 76 · 2026-11-07** — two entries **annotated**, docs only, with runbook Rev 6, after `fix/wear-interval` (PR #26, merged as `d19cfd4`, tagged `alpha-20261107`): ***Persistent alpha instance*** — L6.1 now checks out `alpha-20261107`; the two earlier tags ship garment wear at its 30 s dev value. ***`at_server_start` ticker re-adds wipe every other persistent ticker*** — the interval is part of a ticker's key, so a changed interval is a new subscription; today the wipe removes the old one at the next start (seen live 2026-11-07: `(30, 'garment_wear')` before a reload, `(10800, 'garment_wear')` alone after), and whichever fix lands here must retire stale intervals itself. No entry closed.
 > **Rev 75 · 2026-11-07** — one entry **added**, docs only, with webclient decomposition Rev 6 (W4.2 and W4.2b shipped). **Added** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — W4.2 pushes after a deletion from `ObjectParent.at_object_delete`, and the contrib-based `Container` and `ClothingWithBuffs` do not inherit `ObjectParent`, so the room or carrier they lay in is not told (OPEN; trigger W5.1 or W5.4, the first panel that would show it). No entry closed.
 > **Rev 74 · 2026-11-07** — two entries **annotated**, docs only, with roadmap Rev 52 and README Rev 30, from the textiles design chat (`docs/PolishedWorld_Textiles_Design.md` Rev 1): *Material / maker's-mark aliases beyond "superior"* — the design proposes the display layer for garments first (a *stitched by* line read from the shipped `crafted_by` stamp) and records that the entry's **Status** still reads SCHEDULED (Stage 3) although Stage 3 is closed; the status is left for the entry's next session to re-anchor; and *Disassemble yields parts and raw materials* — the design proposes **rags**, a new material cut from a garment worn past mending, as a narrow, lossy case of salvage that waits for this entry's decision. No status changes.
@@ -323,6 +324,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   known divergent; migrating it is a self-contained refactor.
 - **Trigger:** None hard; do when touching waterskin next.
 - **Origin:** Crafting Progression decomp §3 (name-fork note) + §13.
+- **Annotation (2026-11-08, water design chat):**
+  `docs/PolishedWorld_Water_Design.md` Rev 1 proposes a ladder of vessels (VP4)
+  — a leather waterskin, a leather bucket, later a clay jug and a cooper's
+  barrel — and its VQ6 leans to doing this migration as the ladder's first task,
+  because every new vessel would otherwise copy the waterskin's refill-count
+  `durability` (`typeclasses/consumables.py:44–57`). The behaviour to keep is
+  the split on the dip after the last refill
+  (`commands/foraging_commands.py:227–235`). Nothing decided; no status change.
 - **Status:** OPEN
 
 ### Hunt-independent needle primitive
@@ -734,6 +743,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** DECISION #6 being taken for any recipe, or the alpha close-out
   balance pass, whichever comes first.
 - **Origin:** FAS 1 costing session (2026-10-17) — the System Backlog §4 sketch.
+- **Annotation (2026-11-08, water design chat):**
+  `docs/PolishedWorld_Water_Design.md` Rev 1 (VP2) proposes the shape of
+  DECISION #6 that this entry names as its trigger: water is never an item but
+  draughts; a recipe declares how many it needs and of what kind; at a water
+  source in the room the need is met and nothing is drawn; elsewhere the
+  draughts are drawn from vessels the crafter carries, in `post_craft` with the
+  consumables, and the vessel is kept. The rule ships with its first reader —
+  this entry's water input is one of five named — and that decomposition marks
+  the registry's decision resolved (`world/material_registry.py:503–504`).
+  Nothing decided.
 - **Status:** OPEN
 
 ### `SkillXPHandler.add()` does not raise on an unknown skill key
@@ -1981,6 +2000,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   wind STR this part would add: one band step per Legend wind band above
   *Breeze* (core p. 232), outdoors only. That is the real consumer (2) asks to
   be designed against.
+- **Annotation (2026-11-08, water design chat):**
+  `docs/PolishedWorld_Water_Design.md` Rev 1 reads today's four states as they
+  are: its rain catch (VP7) fills from Cooking Design's proposed wet index
+  (CP11, CQ9), so it does not fire either part. Its VQ5 — whether rain catches,
+  shallow wells and small springs answer a dry spell — is a consumer of part
+  (1), once rain follows cloud and a dry spell is something the weather can
+  have.
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
 - **Status:** OPEN
 
