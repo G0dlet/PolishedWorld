@@ -1,5 +1,6 @@
 # GameGold - PolishedWorld Cryptocurrency Design
 
+> **Rev 6 · 2026-11-09** — **the founder mines on equal terms**, with roadmap Rev 64. Adam's aim is as fair a launch as possible while keeping the coins he mines, on the same terms as everyone else. *Fair Launch* gains five rules that make those terms checkable: no coins at genesis (verified in source: the genesis coinbase is unspendable), one announced start time for everyone with nobody mining before it, the same software and the same way in, a published mining address, and an open statement in the [ANN]. The launch order changes with the second rule: the [ANN] goes out a few days *before* genesis, not the same day, and *Timeline* follows.
 > **Rev 5 · 2026-11-09** — **the chain launch is decided**, from a decision brief locked the same day (decisions A–E), with roadmap Rev 63, BACKLOG Rev 91 and `PolishedWorld_GameGold_Economy.md` Rev 7. **(A)** the PoW phase runs about one year (`nLastPOWBlock` ≈ 525,600), not 100 blocks. **(B)** Scrypt, blackcoin-more's existing PoW path, with the founder mining throughout on two Moonlander 2 and a Goldshell Mini Doge III (~0.7 GH/s). **(C)** The founder keeps what he mines privately, and may give away or earmark part if his holdings grow large. **(D)** Three bridge rules: closed during PoW, a per-account daily limit, a per-period cap on gold minted through deposits. **(E)** The chain launches on its own in winter 2026–27; Stage 8 integration stays gated on the economy milestone. The verify-in-source box now records `nLastPOWBlock` as read in `28.x`.
 > **Rev 4 · 2026-11-09** — the *Legal Note* is trimmed to a pointer: the legal and tax questions now live in `docs/BACKLOG.md` (*GameGold*: *Legal review before mainnet (MiCA, AML, tax)*, BACKLOG Rev 90), one item, one home. The *hard peg* wording in *The 1:1 Exchange Rate* is deliberately left as is; that entry's question (3) decides it.
 > **Rev 3 · 2026-09-09** — platform choice **re-verified and confirmed**: fork from blackcoin-more's `28.x` branch (v28.4.0, Bitcoin Core 28.4 base, released 2026-07-06), not the older `v26.2.0` tag this document specified since Rev 1. Adds an **Upstream tracking** subsection with an explicit exit trigger, so "is this codebase still maintained" is a question with a written answer rather than one re-litigated every time it is asked. Cold staking (PIVX-style P2CS) is **decided and deferred** — the reasoning is recorded here, the work is filed in `docs/BACKLOG.md` (*GameGold*).
@@ -320,6 +321,16 @@ None of these are guaranteed or expected. This is a hobby project first.
 - No premine: genesis carries no allocation, and every coin is a block reward
 - The PoW phase is open to anyone; the [ANN] says that the founder mines too, and with which hardware
 - **Founder coins (decided 2026-11-09):** the founder keeps what he mines privately. If his holdings grow large, he intends to give away or earmark part of them, for example to the temple faucet, bug bounties or playtesting rewards. This is an intention, not a rule; the founder still never sells GameGold officially (*Core Philosophy*)
+
+### The Founder Mines on Equal Terms (decided 2026-11-09)
+
+The founder keeps what he mines, so the launch has to show that he got it the same way anyone could have. Five rules, each one checkable from outside:
+
+1. **No coins at genesis.** No allocation, no developer fee, no early grant. The genesis coinbase cannot be spent: blackcoin-more `28.x` skips connecting the genesis block's transactions in `ConnectBlock` (`src/validation.cpp`, read 2026-11-09).
+2. **One start time for everyone.** The [ANN] is posted a few days before genesis with the source, the binaries and an exact start time, and nobody mines before that time, the founder included. Per-block retargeting makes the first blocks cheap, so whoever mines first takes them; a shared start is what makes them equally cheap for all.
+3. **The same software and the same way in.** The founder mines with the published release. If he runs a pool, it is open to everyone on the same terms. No private checkpoints, no sporks, nothing that favours the founder's node.
+4. **A published mining address.** The founder's coins stay his (C1), but anyone can see that they arrived as ordinary block rewards, at the same pace as everyone else's.
+5. **Said openly in the [ANN].** That the founder mines, with which hardware, why (to make a takeover expensive and keep the chain alive if nobody else mines), and that he keeps what he mines.
 
 ### Ongoing Distribution
 
@@ -850,7 +861,7 @@ To be communicated clearly to all participants:
 
 | Phase | Status |
 |-------|--------|
-| Chain launch | Decided for winter 2026–27: regtest → private testnet → legal review → genesis with the [ANN] (roadmap decision log) |
+| Chain launch | Decided for winter 2026–27: regtest → private testnet → legal review → the [ANN] with source, binaries and a fixed start time a few days ahead → mining opens for everyone at that time (roadmap decision log) |
 | Initial distribution | PoW phase of about one year, open to all; then staking and the temple faucet |
 | Manual exchange | Stage 8, after the economy milestone (*Bridge Rules*) |
 | Game integration | Stage 8, after the economy milestone |
