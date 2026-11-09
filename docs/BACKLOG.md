@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 89 · 2026-11-09** — one entry **added**, one **annotated**, docs only, with roadmap Rev 62, README Rev 40 and `docs/PolishedWorld_Evennia_Reference.md` Rev 30, from the comfort, morale & the good evening design chat (`docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1). **Added** (*World & Rooms*): **⚠️ Room echoes cannot start**, OPEN and latent — at Evennia 6.1.0 ExtendedRoom hands `repeat()` a method name that does not exist, so any room given a rate and messages raises `AttributeError` when it starts; the project's `db.room_message_rate` is not what the contrib reads; and the room docstring's `@py` recipe would hit both. **Annotated:** *Builder QoL for dynamic rooms* — its `roommsg` command would wrap the setup that does not run, so it waits on the new entry, and its authoring convention (3) gains the design's two writing rules: indoor descriptions carry the weather outside through `$state()`, and havens are written warm. No status changes.
 > **Rev 88 · 2026-11-09** — two entries **annotated**, docs only, with roadmap Rev 61 (new **Stage 4.6 — Survival loop**, decision log *Order after the webclient*): ***Fatigue-exhaustion consequence*** is scheduled as the stage's third slice, and ***Waterskin `durability` → `condition` migration*** as part of its first (Water slice 1, VQ6). Open questions stay the stage's decomposition's; no status changes.
 > **Rev 87 · 2026-11-08** — one entry **closed**, one **annotated**, docs only, with webclient decomposition Rev 8 (W5.1 and W5.1b shipped). **Closed** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — DONE by W5.1b (`539a825` on `feature/webclient`), and corrected: `Container` always inherited `ObjectParent`, through the containers contrib's base; only `ClothingWithBuffs` lacked it and now names it first; wear never deletes a garment, so the player's path was `disassemble`. **Annotated** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W5.1's protocol, after `evennia reload`, also showed an uncaught `DOMException` from `evennia.js:282` (a send on a closed socket) through `webclient_gui.js:313`; W6's first step reproduces both.
 > **Rev 86 · 2026-11-08** — one entry **added**, docs only, with webclient decomposition Rev 7 (W4.3 shipped, `5f40de7` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W4.3's browser protocol pressed Enter after `Evennia.connection.close()` and the console showed an uncaught `TypeError` from jQuery, raised in `default_in.js:56`'s keydown handler; no project file is in the stack (OPEN; trigger W6, the text-area component, whose first step reproduces it without the project plugin). No entry closed.
@@ -2501,6 +2502,54 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Before the next deliberate building pass. (1) and (2) are
   standard 30–90-minute tasks; (3) is documentation.
 - **Origin:** Session 2026-08-13 (builder-ergonomics discussion; no code).
+- **Annotation (2026-11-09, comfort, morale & the good evening design chat):**
+  (2)'s `roommsg` would wrap a setup that does not run at Evennia 6.1.0 — see
+  **⚠️ Room echoes cannot start** below; take that entry first, or with (2).
+  `docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1 adds two rules
+  for (3)'s convention: an indoor room carries the weather outside through
+  `$state(raining, …)` fragments, which work today because `room_states`
+  injects the global weather into every room, indoors included (EP16); and a
+  haven is written warm — a clear light source, natural materials, mundane
+  objects at human scale, signs of plenty, never opulence — the Old Temple
+  first (EP19).
+- **Status:** OPEN
+
+---
+
+### ⚠️ Room echoes cannot start
+- **What:** ExtendedRoom's random room messages — the text game's ambient
+  sound — cannot start at the pinned Evennia 6.1.0. `_start_broadcast_repeat_task`
+  passes `self.repeat_broadcast_msg_to_room` to `repeat()`
+  (`evennia/contrib/grid/extended_room/extended_room.py:198–202`), but the
+  method is defined as `repeat_broadcast_message_to_room` (`:216`), so any room
+  with a non-zero `room_message_rate` and a non-empty `room_messages` raises
+  `AttributeError` from `at_init()` or `start_repeat_broadcast_messages()`.
+  Two project-side faults sit on top: `Room.at_object_creation` writes
+  `db.room_message_rate` (`typeclasses/rooms.py:355–356`), but the contrib reads
+  the class attribute `room_message_rate` (`:186`), so the Attribute is never
+  read; and the room docstring's three-line `@py` recipe
+  (`typeclasses/rooms.py:109–111`) sets the rate as a Python attribute on the
+  cached instance, which a reload loses, before calling the start that raises.
+  `docs/PolishedWorld_Evennia_Reference.md` §2.5 said the feature works and
+  survives a reload; corrected in its Rev 30. Verified by reading the 6.1.0
+  wheel and Evennia's `main` (still misnamed, 2026-11-09; no upstream issue
+  found), not by running it.
+- **Impact today:** latent. No room on `main` or in the seed data sets
+  messages, so nothing raises; the only use is the docstring recipe.
+- **Options (undecided):** (A) on the project `Room`, define
+  `repeat_broadcast_msg_to_room` as a call to the upstream method, and make
+  `room_message_rate` a property that reads `db.room_message_rate`, so the rate
+  is per room and survives a reload; a test that a room with a rate and
+  messages starts without error and echoes once, and the docstring recipe
+  rewritten to match. (B) also send the one-line rename upstream, and remove
+  (A)'s alias once a pinned Evennia carries it. The design leans to the
+  callback returning at once when no puppeted character is in the room
+  (Comfort EQ11).
+- **Trigger:** Before any room is given echoes — the Old Temple rewrite in
+  `docs/system_designs/PolishedWorld_Comfort_Design.md` §16 step 2 — or with
+  *Builder QoL for dynamic rooms* (2), whichever comes first.
+- **Origin:** Comfort, morale & the good evening design chat (2026-11-09),
+  checking the first answer's claim that ExtendedRoom has ambient messages.
 - **Status:** OPEN
 
 ---

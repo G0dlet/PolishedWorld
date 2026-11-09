@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 3 · 2026-11-09** — a sixteenth note, docs only, with roadmap Rev 62, BACKLOG Rev 89, README Rev 40 and Evennia Reference Rev 30: `docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1, written off the queue at Adam's request — the tone *hard roads, warm hearths* (now a line under the roadmap's North star), the queue's *comfort, morale & the good evening* taken in, and a defect found on the way (room echoes cannot start at 6.1.0). The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 2 · 2026-11-09** — the next system is chosen, docs only, with roadmap Rev 61 and BACKLOG Rev 88: the newcomer's economy*, after Stage 4.6 (Survival loop) ships, with Adam's question whether PolishedWorld wants a newbie school. The previous leaning, lodging & safe logout, moves behind it.
 > **Rev 1 · 2026-11-08** — first version in the repo, docs only, with roadmap Rev 60, BACKLOG Rev 85 and README Rev 39: the series handoff joins the fifteen one-system design notes in `docs/system_designs/`, so the latest prompt lives beside the documents it continues. It is the prompt the next design chat starts from; each session that writes a design note updates this file in the same patch.
 > **Canonical:** `docs/system_designs/HANDOFF.md` @ G0dlet/PolishedWorld — git wins. If a pasted or project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -9,7 +10,8 @@ solo dev Adam). Discuss in Swedish; repo text in English. DESIGN ONLY: no code,
 nothing locked. One docs patch for `main` per session.
 
 ## Where we are (verify — live source wins)
-- The series is paused after fifteen documents (2026-11-08). To resume, paste this
+- The series paused after fifteen documents (2026-11-08); a sixteenth, Comfort,
+  was written off the queue at Adam's request (2026-11-09). To resume, paste this
   file as the first message of a new design chat.
 - Fifteen documents: Fishing, Housing, Hunting, Cooking, Temperature, Farming,
   Textiles, Water, Foraging, Light, Forest, Rendering, Pottery, Rest, Storage, in
@@ -23,19 +25,26 @@ nothing locked. One docs patch for `main` per session.
   notes and the series handoff to docs/system_designs/`). Confirm with a fresh
   clone that Adam pushed the move — `docs/system_designs/` exists and the old flat
   files are gone; the tree is the receipt, the SHA differs after `git am`.
-- Catalogue loop 50/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Sixteenth: Comfort (comfort, haven & the good evening — cross-cutting, the tone
+  every note is written in) as `docs/system_designs/PolishedWorld_Comfort_Design.md`
+  Rev 1, with roadmap Rev 62 (North star tone line; new parallel-backlog entry
+  *Comfort, haven & the good evening*; Stage 5 *Haven* note), BACKLOG Rev 89
+  (new *⚠️ Room echoes cannot start*; annotation on *Builder QoL for dynamic
+  rooms*), README Rev 40, Evennia Reference Rev 30 (§2.5 corrected) and this file
+  Rev 3. Confirm with a fresh clone that Adam pushed it; the tree is the receipt.
+- Catalogue loop 51/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
-  VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG
-  (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7, NP-L1–L8,
-  DP-L1–L5…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7 temperature, N1–N3
-  water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest; Rendering, Pottery and
-  Storage have none). OQ is taken. HP avoided; AP/SP/XP/MP are Legend/engine words;
-  L1–L7 are launch-minimum tasks; webclient tasks are W1.1-style. Free single
-  letters for departure rows: K V X (K reads as Temperature, V as Water). Checked
-  free before Storage: JP/JQ/JG, EP/EQ/EG, UP/UQ/UG, QP/QQ/QG (0 hits) — regrep
-  before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
+  VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
+  EP/EQ/EG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  NP-L1–L8, DP-L1–L5, EP-L1–L4…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
+  temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
+  X1–X2 comfort; Rendering, Pottery and Storage have none). OQ is taken. HP
+  avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
+  webclient tasks are W1.1-style. Free single letters for departure rows: K V (K
+  reads as Temperature, V as Water) — regrep a new one. Checked free before
+  Storage: JP/JQ/JG, UP/UQ/UG, QP/QQ/QG (0 hits) — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
   typeclasses/ server/.
 
 ## This session: Adam picks from the queue
@@ -50,7 +59,9 @@ money or gear, pillar 1; a separate zone keeps newcomers from the few players
 there are; its script rots with every system change), but the starter settlement
 as the school: a short path of real rooms with the free nodes, one verb learned by
 doing it for real, hints that fire once (BACKLOG *First-steps hints*). Read the
-prior art on mud schools and tutorial areas before weighing that leaning.
+prior art on mud schools and tutorial areas before weighing that leaning. Read
+Comfort Design first: the temple is the first haven and its threshold the first a
+newcomer crosses (EP9, EP14), and EP2's three questions apply to a first hour too.
 
 After it, the previous leaning: lodging & safe logout — best beside Stage 5's
 design session, since the statue's safety becomes a combat question. Rest NQ18 leans
@@ -62,20 +73,23 @@ as Storage's bin of planks, DP15; furniture and beds; the pottery wheel).
 
 Queue:
 - travel/roads/boats (+ mounts, pack animals, caravans; swimming/drowning, Water §20)
-- markets & taverns (+ dice and tavern games*; beds rented, Rest NP13/NQ13)
+- markets & taverns (+ dice and tavern games*; beds rented, Rest NP13/NQ13; a
+  common room as a haven, Comfort EP9/EQ14; bar keep and busker as trades, EP-L3)
 - mining & prospecting (ore, quarries, the underground — pitch-black rooms, Light
   LP2's pin; rock salt, Water VQ7)
 - maps & navigation (getting lost, Lore (Regional))
 - animal taming (+ the cat, read by Storage DP12 — where cats come from, feeding,
-  no free breeding, Storage DQ13)
+  no free breeding, Storage DQ13; a cat asleep by the hearth, Comfort EP22)
 - temples & faith (+ burial and graves*, beside the shipped death contract; AoL
   great font :268; the temple's candles as real objects, Light LQ13 — tallow from
-  Rendering ZP5; the temple's straw pallets, Rest NP12)
+  Rendering ZP5; the temple's straw pallets, Rest NP12; the temple as the first
+  haven, Comfort EP9)
 - guilds
 - law/crime/bounties (player justice, no NPC guards; Foraging §2.1; charcoal taken
   from another's clamp, Forest YQ3; ash or fat taken from another's fire, Rendering
   ZQ15; wares taken from another's pit or kiln, Pottery PQ11; a sleeper or statue
-  robbed, Rest NQ5; taking from another's bin or jar, Storage DQ4)
+  robbed, Rest NQ5; taking from another's bin or jar, Storage DQ4; a haven guards
+  bodies, never goods set down, Comfort EP10)
 
 From the suggestion files:
 - brewing, fermentation & beekeeping (Craft (Brewer), core p. 57; ale, mead,
@@ -90,7 +104,7 @@ From the suggestion files:
 - settlements & commons (land ownership: Farming GQ4, Housing BQ2; common wells,
   Water VQ3; herb stands as commons, Foraging RG1; woodland rights and planting
   new stands, Forest YQ11/YQ12; a shared kiln as a commons or a service, Pottery §13;
-  a public cellar, Storage DQ14)
+  a public cellar, Storage DQ14; who sets the haven flag, Comfort EQ12)
 - calendar, festivals & culture (market days, harvest feast, Perform; Cooking CP15;
   autumn's rendering kettles, Rendering §15; firing night, Pottery §15; autumn
   stores, Storage §15)
@@ -157,7 +171,7 @@ Claude's additions*:
   for Housing; a stone granary against vermin, Storage DP13; quarrying shared with
   mining)
 - music & instruments* (Perform; bone flutes, gut strings, drums, clay whistles;
-  playing for coin)
+  playing for coin — the busker, Comfort EP-L3; a song as a good state, EP5)
 - natural hazards* (wildfire — Achaea's fire wears plants, Foraging §2.1, Cooking
   CP3's fire fears rain, Forest §19 left wildfire here; a pit's embers, Pottery
   §2.2; floods, storms, blizzards; BACKLOG *Weather inertia*)
@@ -473,10 +487,6 @@ Claude's additions*:
   faucet; AoL true relic `:410`; what a ruin may hold without NPC loot breaking
   pillar 1 — old stone and timber to salvage, lore, maps; ties salvage, temples
   and masonry)
-- comfort, morale & the good evening* (Valheim's comfort, Rest §2; Cooking
-  CP15's well fed; music, a warm dry room, a bath; whether one cross-cutting
-  "content" term gathers them or each stays its own — decide before three
-  systems invent three buffs)
 - surveying, boundaries & land measure* (whose field ends where: Housing BQ2,
   Farming GQ4; boundary stones, a surveyor's service, measured plots posted on
   a notice board; ties maps & navigation, fences, settlements & commons, law)
@@ -496,8 +506,9 @@ Claude's additions*:
   jars from Storage DP6; keeping vegetables through winter; Vintage Story's
   pickling; overlaps brewing and Cooking's preservation — decide which doc
   owns it)
-- [Adam has not named additions since Storage; ask again "more systems for the
-  queue?" at the end of the next session]
+- [Adam has not named additions since Storage (Comfort came from his own
+  question, not the queue); ask again "more systems for the queue?" at the end
+  of the next session]
 
 Last:
 - magic (economy half only until Stage 5; Rain p. 186, dowsing AoL :216; magical
@@ -508,7 +519,31 @@ Last:
 
 After the doc, ask whether there are more systems to add to the queue.
 
-Tie-ins already written. Storage (DP…): lesson slot = Achaea's 2018 leases and
+Tie-ins already written. Comfort (EP…): lesson slot = The Sims Online inside the
+Project Horseshoe 2017 coziness report (cozy houses on zero-sum resources → gang
+rackets; coziness must be in the systems); report: safety, abundance, softness;
+contrast helps only from outside the window; the cozy sandwich (Dark Souls
+bonfire); responsibility/notifications/opulence negate it; Diku PEACEFUL/SAFE and
+heal-rate rooms. Rule EG1 hard roads, warm hearths (tone line under the roadmap's
+North star, EP1 — a lens, not a fifth pillar); EG3 comfort lengthens, never
+strengthens. EP2 three questions per decomposition (danger, refuge, threshold);
+EP3 upkeep shows, never calls. EP4 `comfort()` = six yes/no sources: warm (no
+Cold/HeatStress), dry (indoors or not raining/snowing; KP7 later), fed (hunger and
+thirst above lowest desc, or CP15), bedded (Rest NP10), company (another puppeted
+char), safe (haven) → uneasy/settled/comfortable/content; EP5 a good state's
+duration × (1 + comfort/6) as it begins, nothing stronger; EP6 one term for every
+system, Rest's ceiling stays Rest's; EP7 a word in `status`. EP9 `is_haven` room
+flag, staff-set, Old Temple first; EP10 guards bodies (no attack, no taking from a
+person, sleeper, statue), never goods set down (BG5/DG4 hold); EP11/X1 a corpse in
+a haven is its owner's until it crumbles; EP12 no havens in the wild, a camp is
+comfort only; EP13 Stage 5 decides. EP14 a line on coming in from rain/snow
+(`at_post_move`); EP15/X2 indoor characters hear a muted weather line (shipped
+broadcast skips them); EP16 `$state(raining, …)` works indoors today. EP17 echo
+defect (BACKLOG); EP18 echoes quiet and of the place; EP19 havens written warm.
+EP20 `give` is the gift; EP21 nothing moves anyone on; EP22 the sweeper as the
+relaxed guardian. EQ6 (found while writing): comfort does not join Stage 4.6
+(no new content). No exclusive.
+Storage (DP…): lesson slot = Achaea's 2018 leases and
 warehousing (rift too small → commodities on ships and in stockrooms, losses on
 link-drop, item DB slowed the game; warehouses leased by cities, decay outside
 rift/warehouse, stasis bags stopped working); rules DG1 storage slows the clock,
@@ -667,7 +702,7 @@ storage own no raw material.
 9. End by presenting the updated `docs/system_designs/HANDOFF.md` from the patch;
    it is the next chat's prompt.
 
-## Gotchas (all fifteen sessions)
+## Gotchas (all sixteen sessions)
 - Paths: the design notes live in `docs/system_designs/`. Rev lines are changelog
   and are never edited, so older Rev lines in the roadmap, BACKLOG, README and the
   notes themselves still name the old flat paths (`docs/PolishedWorld_*_Design.md`)
@@ -790,6 +825,18 @@ storage own no raw material.
 - Water (shipped): `ResourceNode.is_water_source`; one spring; `drink` takes only
   a `Drink` (`typeclasses/consumables.py:28–48`, charges); `WaterskinRecipe`
   `world/recipes.py:126`; `LeatherRecipe` `:174`.
+- Room echoes cannot start at 6.1.0: ExtendedRoom passes
+  `repeat_broadcast_msg_to_room` (`extended_room.py:198–202`) but defines
+  `repeat_broadcast_message_to_room` (`:216`); the rate is a class attribute
+  (`:186`), so the project's `db.room_message_rate` (`typeclasses/rooms.py:355–356`)
+  is never read (BACKLOG *⚠️ Room echoes cannot start*). Weather changes are told
+  only to characters outdoors (`world/weather.py:84–86`), but `room_states` injects
+  the global weather into every room, indoors too (`typeclasses/rooms.py:242–250`).
+  `give` and `pose` are Evennia's defaults (`general.py:545`, `:724` at 6.1.0). The
+  player corpse's owner-first grace is 72 game hours anywhere
+  (`typeclasses/corpse.py:279`, lock `:293`). Sweeper `typeclasses/npcs.py:68`.
+  Legend p. 63: no Survival tests in a city or town; Cost of Living and Standard of
+  Living pp. 84–85; Bar Keep and Bard/Busker odd jobs p. 85.
 - Seeded rooms: six — Old Temple (indoor, `world/seed_data.py:81–92`), Temple
   Clearing, Meadow, Brook, Edge of the Woods, Stony Ridge.
 - Statues: `typeclasses/characters.py:472` (`at_post_unpuppet`); the ticker skips
