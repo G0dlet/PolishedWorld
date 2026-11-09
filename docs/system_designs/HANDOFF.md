@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 5 · 2026-11-09** — a seventeenth note, docs only, with roadmap Rev 66, BACKLOG Rev 93 and README Rev 42: `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1, written off the queue at Adam's request like Comfort — a player-made creature grown from an egg, commanded to do simple tasks and passed on in its jar. *Where we are*, the prefixes (J), three queue entries (alchemy & poisons\*, fowling & wild birds\*, magic), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 4 · 2026-11-09** — seventeen systems **added** to the queue, docs only, with README Rev 41: Adam approved two lists from the chat after the Comfort note (nine, then eight more), and said he especially likes systems that make the world feel immersive and alive. They are Claude's suggestions, marked *, ahead of the bracket line. No document, prefix or tie-in changed.
 > **Rev 3 · 2026-11-09** — a sixteenth note, docs only, with roadmap Rev 62, BACKLOG Rev 89, README Rev 40 and Evennia Reference Rev 30: `docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1, written off the queue at Adam's request — the tone *hard roads, warm hearths* (now a line under the roadmap's North star), the queue's *comfort, morale & the good evening* taken in, and a defect found on the way (room echoes cannot start at 6.1.0). The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 2 · 2026-11-09** — the next system is chosen, docs only, with roadmap Rev 61 and BACKLOG Rev 88: the newcomer's economy*, after Stage 4.6 (Survival loop) ships, with Adam's question whether PolishedWorld wants a newbie school. The previous leaning, lodging & safe logout, moves behind it.
@@ -12,7 +13,8 @@ nothing locked. One docs patch for `main` per session.
 
 ## Where we are (verify — live source wins)
 - The series paused after fifteen documents (2026-11-08); a sixteenth, Comfort,
-  was written off the queue at Adam's request (2026-11-09). To resume, paste this
+  and a seventeenth, Homunculi, were written off the queue at Adam's request
+  (2026-11-09). To resume, paste this
   file as the first message of a new design chat.
 - Fifteen documents: Fishing, Housing, Hunting, Cooking, Temperature, Farming,
   Textiles, Water, Foraging, Light, Forest, Rendering, Pottery, Rest, Storage, in
@@ -33,19 +35,27 @@ nothing locked. One docs patch for `main` per session.
   (new *⚠️ Room echoes cannot start*; annotation on *Builder QoL for dynamic
   rooms*), README Rev 40, Evennia Reference Rev 30 (§2.5 corrected) and this file
   Rev 3. Confirm with a fresh clone that Adam pushed it; the tree is the receipt.
-- Catalogue loop 51/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Seventeenth: Homunculi (the made servant — Adam's idea from the viral egg
+  experiments: a creature players make, command to do simple tasks and trade) as
+  `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1, with roadmap
+  Rev 66 (new parallel-backlog entry *Homunculi — the made servant*; a dated note
+  under Stage 7's dependencies: only POW exists, no Magic Points), BACKLOG Rev 93
+  (annotation on *Automated test players*), README Rev 42 and this file Rev 5.
+  Adam's leaning — simpler chores and some gathering — is JQ2, not locked.
+  Confirm with a fresh clone that Adam pushed it; the tree is the receipt.
+- Catalogue loop 52/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
   VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
-  EP/EQ/EG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
-  NP-L1–L8, DP-L1–L5, EP-L1–L4…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
+  EP/EQ/EG, JP/JQ/JG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
   temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
-  X1–X2 comfort; Rendering, Pottery and Storage have none). OQ is taken. HP
+  X1–X2 comfort; Rendering, Pottery, Storage and Homunculi have none). OQ is taken. HP
   avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
   webclient tasks are W1.1-style. Free single letters for departure rows: K V (K
   reads as Temperature, V as Water) — regrep a new one. Checked free before
-  Storage: JP/JQ/JG, UP/UQ/UG, QP/QQ/QG (0 hits) — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
+  Storage: UP/UQ/UG, QP/QQ/QG (0 hits) — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
   typeclasses/ server/.
 
 ## This session: Adam picks from the queue
@@ -129,7 +139,8 @@ Claude's additions*:
   `:460` — a full night's rest, Rest §15; everyday tonic `:224`; foxglove is
   Foraging RP4's look-alike, Legend p. 82; sulfur/saltpeter's only sink is blocked
   black powder; water additive; the athanor, a clay furnace, AoL :3667; vessels of
-  glass and earthenware; AoL preservative fluid `:388`)
+  glass and earthenware; AoL preservative fluid `:388`; the alchemist's homunculus
+  and the folk recipe's discipline and source, Homunculus JP4/JQ13)
 - hygiene & bathing* (soap from tallow and lye is designed and held back for a
   consumer, Rendering ZP12/ZQ13 — this system is a candidate; washing reads Water VP2)
 - barbers, tattoos & appearance* (Textiles WG4's rule applied to characters)
@@ -298,7 +309,8 @@ Claude's additions*:
 - fowling & wild birds* (the feather orphan `world/material_registry.py:231` has no
   source; AoL fowl `:2843`; nets, snares and slings for birds, Hunting TP11's snare
   holds SIZ 3 or less; wild eggs from nests in spring; feathers for fletching and
-  for bedding — a feather bed or pillow, Rest NP10/NP13; ties bowyery & fletching)
+  for bedding — a feather bed or pillow, Rest NP10/NP13; ties bowyery & fletching;
+  wild eggs for the homunculus's jar, Homunculus JQ12)
 - knapping & stone tools* (flint EXISTS with only two sinks,
   `world/material_registry.py:135–140`; `StoneKnifeRecipe` `world/recipes.py:499`
   and the stone axe `world/prototypes.py:363–382` are the shipped bootstrap;
@@ -581,11 +593,35 @@ Last:
   healing is instant, Legend p. 86 — Foraging §19; magical light must still burn
   something, Light LG1/LQ15; magical heat too, Forest YG6; Magic Points regained in
   six hours of sleep, Legend p. 154 — Rest's offline credit could carry it; no
-  stasis by magic either, Storage DG1)
+  stasis by magic either, Storage DG1; only POW exists in code, no Magic Points —
+  the homunculus's bond is priced in POW, Homunculus JP-L1/JQ14)
 
 After the doc, ask whether there are more systems to add to the queue.
 
-Tie-ins already written. Comfort (EP…): lesson slot = The Sims Online inside the
+Tie-ins already written. Homunculi (JP…): lesson slot = Ultima Online's shards
+(unattended skill macroing allowed, unattended gathering forbidden — its goods reach
+everyone's market); Achaea has a rule but no story (alchemist's homunculus from own
+flesh, powers learned one at a time); RuneScape familiars (one at a time, a span,
+beast of burden); Paracelsus/Goethe (sealed vessel, warmth, forty days; the seed not
+taken, for the tone). Rules JG1 acts only while its maker is in the world; JG2 never
+touches coin; JG4 its maker's hands, slower and smaller, never more. JP-L1 bond =
+one reserved POW point (Blood Magic pp. 67–69), returns a game week after; JP-L2
+shock = Incapable −20 % one game day, after a hard end only (JP16); JP-L3 seven 1D6
+Characteristics, carry STR+SIZ; JP-L4 maker's skill −20, never improves (MoL II
+pp. 9–10). JP1 folk recipe: egg + mandrake (new herb on RP1, named per RP3) + jar
+(DP6) + tallow seal (DP7), gated, maker's blood = fatigue bite + dbref; JP2 forty
+game days (10 real) while warm — fire or dung (GP12) — cold a game day = spoiled;
+JP3 bond at hatching, maker present; JP5 one per maker; JP6 `Creature` subclass,
+needs its own stats; JP7 rests in its jar (`uncork`/`cork`), the jar is the item;
+JP8 fed by hand one portion a game week, six game months of life; JP9 one standing
+order from its maker in the room — follow, stay, hold, tend fire, fill, gather;
+JP10 gather: one node in its room, shared core, 2× forage cooldown, maker −20 where
+a node rolls, own carry; JP11 timed-action chain, no Script; JP12 cores extracted,
+no homunculus copy; JP13 sleeps at maker's logout; JP14 not company (EP4); JP15
+dissolves, no corpse; JP17 maker's death keeps the bond; JP18–JP20 jar trades, bond
+does not, `bind` with own blood; JP21 `gather` with homunculus as actor + `maker`
+pair; JP22 master constant; JP23 no exclusive. No departures.
+Comfort (EP…): lesson slot = The Sims Online inside the
 Project Horseshoe 2017 coziness report (cozy houses on zero-sum resources → gang
 rackets; coziness must be in the systems); report: safety, abundance, softness;
 contrast helps only from outside the window; the cozy sandwich (Dark Souls
@@ -768,7 +804,19 @@ storage own no raw material.
 9. End by presenting the updated `docs/system_designs/HANDOFF.md` from the patch;
    it is the next chat's prompt.
 
-## Gotchas (all sixteen sessions)
+## Gotchas (all seventeen sessions)
+- Blood Magic (`/mnt/project/blood_magic_ebook.pdf`) is encoded, not a readable
+  PDF — pdftotext, pypdf and pdfplumber all fail; read it through
+  `project_knowledge_search`, where page numbers appear as bare lines before the
+  page's text (enchanting pp. 67–70, homunculi p. 76). Monsters of Legend II is
+  text: alchemical duplicate pp. 9–10, root guardian p. 123.
+- No Magic Points trait in code — POW is a static trait (`typeclasses/characters.py:264`);
+  the roadmap's Stage 7 said otherwise until Rev 66.
+- Cooldowns are a Character handler (`typeclasses/characters.py:155`); the forage
+  core is inside `CmdForage.func` (`commands/foraging_commands.py:77`); `Creature`
+  has only `siz` (`typeclasses/creatures.py:48`) and `get:false()` (`:59`) — a
+  non-character actor has none of the character's seams. Evennia 6.1.0 has no
+  follower, pet or familiar contrib (EvAdventure's NPC/mob classes are the nearest).
 - Paths: the design notes live in `docs/system_designs/`. Rev lines are changelog
   and are never edited, so older Rev lines in the roadmap, BACKLOG, README and the
   notes themselves still name the old flat paths (`docs/PolishedWorld_*_Design.md`)

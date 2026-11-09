@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 93 · 2026-11-09** — one entry **annotated**, docs only, with roadmap Rev 66, README Rev 42 and `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1: ***Automated test players — a scripted load run and a few LLM agents*** gains a note that a homunculus — the player-made creature the new design note proposes — is not an automated player. Its activity-log lines are kept; they carry the homunculus as `actor` and its maker as a `[dbref, key]` pair in a `maker` field, so the runbook's offline filter drops them only when the maker is a listed bot.
+
 > **Rev 92 · 2026-11-09** — four entries **added**, docs only, from a review of Evennia's contribs against the pinned `v6.1.0` tag (the ten the project already imports excluded; *Player mail* already filed). **Added** (*UX & Item Identity*): ***An NPC guide driven by a language model — `rpg/llm`***, BLOCKED on the newcomer's economy design note — fun but not needed now (Adam's call); the contrib is the starting point, a Google-AI-generated Vultr guide reviewed the same day is not, and `tutorials/talking_npc` is named as the guide that cannot invent a recipe; ***Strangers by description — `rpg/rpsystem`***, OPEN — Adam finds it fitting for an immersive, cozy, living world; decided before Stage 5's design session because every system that shows or targets a character by name adds a site, combat most of all. **Added** (*Tooling & Process*): ***Components contrib — not adopted, with a revisit trigger***, BLOCKED on that trigger; ***Read EvAdventure's twitch combat before Stage 5's design***, SCHEDULED for that session.
 
 > **Rev 91 · 2026-11-09** — one entry **annotated**, docs only, with roadmap Rev 63 and `docs/GameGold_Design.md` Rev 5: ***Legal review before mainnet (MiCA, AML, tax)*** follows the chain-launch decision. Question 4 now names the one-year PoW phase in which the founder mines and keeps his coins, instead of 100 bootstrap blocks, and asks whether a later private disposal of founder coins changes the exemption; question 6 adds the founder's mining income; question 7 names the PoW year; *Not in scope* points at the locked design; the Trigger records that the launch is decided and that the review is step 3 of the winter order. Status unchanged: BLOCKED until a genesis date exists.
@@ -3732,6 +3734,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   test account listed); `help alpha` says automated players exist (L4.2b).
   The harness itself, (a) and (b), is still this entry's and still waits on the
   instance.
+- **Annotation (2026-11-09, Homunculus Design):** a homunculus is not an
+  automated player: it is a creature in the world, acting only while its maker
+  is online (Homunculus JG1), not software driving an account. Its gathering
+  is logged as `gather` with the homunculus as `actor` and a `maker` field
+  holding its maker's `[dbref, key]` pair (JP21) — the shape the runbook's §9
+  filter already matches, so its lines are kept unless the maker is a listed
+  bot. Nothing here changes; no homunculus exists in code.
 - **Status:** BLOCKED (alpha instance open)
 
 ### In-world gazette — a paper per game-month, read in game and posted outside
