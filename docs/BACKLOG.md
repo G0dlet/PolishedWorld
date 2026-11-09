@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 90 · 2026-11-09** — one entry **added**, docs only, with `docs/GameGold_Design.md` Rev 4. **Added** (*GameGold*): ***Legal review before mainnet (MiCA, AML, tax)***, BLOCKED until a mainnet date exists. It turns "check the law" into seven fixed questions for one consultation: whether the 1:1 bridge is custody, what the planned AB changes, whether GameGold is an asset-referenced token (the design calls the rate a *hard peg*), whether the white-paper exemption holds, AML, tax, and sustainability disclosure. Its trigger is whichever comes first of a genesis date, an [ANN] post, forming the AB or decomposing the bridge, because Adam is weighing a chain launch before the roadmap's GameGold trigger would fire. The design doc's *Legal Note* is trimmed to a pointer here. The roadmap is untouched: its **[OPEN] GameGold trigger** still owns when the chain launches; this entry owns only what must be settled before it does. No status changes elsewhere.
+
 > **Rev 89 · 2026-11-09** — one entry **added**, one **annotated**, docs only, with roadmap Rev 62, README Rev 40 and `docs/PolishedWorld_Evennia_Reference.md` Rev 30, from the comfort, morale & the good evening design chat (`docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1). **Added** (*World & Rooms*): **⚠️ Room echoes cannot start**, OPEN and latent — at Evennia 6.1.0 ExtendedRoom hands `repeat()` a method name that does not exist, so any room given a rate and messages raises `AttributeError` when it starts; the project's `db.room_message_rate` is not what the contrib reads; and the room docstring's `@py` recipe would hit both. **Annotated:** *Builder QoL for dynamic rooms* — its `roommsg` command would wrap the setup that does not run, so it waits on the new entry, and its authoring convention (3) gains the design's two writing rules: indoor descriptions carry the weather outside through `$state()`, and havens are written warm. No status changes.
 > **Rev 88 · 2026-11-09** — two entries **annotated**, docs only, with roadmap Rev 61 (new **Stage 4.6 — Survival loop**, decision log *Order after the webclient*): ***Fatigue-exhaustion consequence*** is scheduled as the stage's third slice, and ***Waterskin `durability` → `condition` migration*** as part of its first (Water slice 1, VQ6). Open questions stay the stage's decomposition's; no status changes.
 > **Rev 87 · 2026-11-08** — one entry **closed**, one **annotated**, docs only, with webclient decomposition Rev 8 (W5.1 and W5.1b shipped). **Closed** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — DONE by W5.1b (`539a825` on `feature/webclient`), and corrected: `Container` always inherited `ObjectParent`, through the containers contrib's base; only `ClothingWithBuffs` lacked it and now names it first; wear never deletes a garment, so the player's path was `disassemble`. **Annotated** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W5.1's protocol, after `evennia reload`, also showed an uncaught `DOMException` from `evennia.js:282` (a send on a closed socket) through `webclient_gui.js:313`; W6's first step reproduces both.
@@ -4087,3 +4089,66 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Working memory / GameGold design context — not written in any doc
   (roadmap Stage 8 names GameGold but not the explorer); this is its only home.
 - **Status:** BLOCKED (GameGold not yet deployed)
+
+---
+
+### Legal review before mainnet (MiCA, AML, tax)
+- **What:** One consultation with a lawyer who knows MiCA, plus a tax check
+  against Skatteverket's rules or with an advisor, **before any GameGold mainnet
+  genesis**. It answers a fixed list of questions rather than an open "is this
+  legal?":
+  1. **Is the 1:1 bridge custody?** For the exchange to work, the maintainer (or
+     the AB) holds the GameGold a player deposits and returns it on withdrawal.
+     MiCA lists custody and administration of crypto-assets on behalf of clients
+     as a crypto-asset service (Art. 3(1)(17)). Exchange for *funds* likely does
+     not apply, since in-game gold is not funds, but custody is a separate
+     service. Does a bridge run as a hobby by a private person count as "on a
+     professional basis" (Art. 3(1)(15))?
+  2. **What does the AB change?** `PolishedWorld_GameGold_Economy.md` (*Legal
+     Considerations*) puts AB formation before launch, for liability. The CASP
+     definition names a legal person or other undertaking, so the AB may move
+     the answer to (1). The review decides whether the AB comes before genesis,
+     before the bridge, or not at all.
+  3. **Is GameGold an asset-referenced token?** The ART definition covers
+     "another value or right", not only official currencies, so being tied to
+     in-game gold rather than fiat is not by itself a way out. Working
+     assumption: not an ART, because the market price floats and the token does
+     not purport to keep a stable value. But `GameGold_Design.md` (*The 1:1
+     Exchange Rate*) calls the rate a **hard peg**; the review settles the
+     wording for the docs, the ANN thread and `help` texts.
+  4. **Does the white-paper exemption hold?** Art. 4(3)(b) exempts crypto-assets
+     created automatically as a reward for maintaining the ledger or validating
+     transactions. It holds only while no other, non-exempt offer of the same
+     token exists, so "Adam never sells GameGold" is load-bearing. Confirm that
+     the 100 PoW bootstrap blocks and the temple donation do not change it.
+  5. **AML.** Follows from (1): if the bridge is a crypto-asset service,
+     anti-money-laundering obligations follow it. Standing constraint either
+     way: any future real-money purchase of in-game gold must never be
+     withdrawable to the chain.
+  6. **Tax.** The maintainer's own staking rewards, the donation to the temple
+     wallet, and what a deposit or withdrawal means for a player.
+  7. **Sustainability disclosure.** As far as known it attaches to white papers
+     and crypto-asset service providers, and the chain is PoS after block 100;
+     confirm it does not reach the protocol maintainer.
+- **Not in scope:** chain design. Emission before there are players and who can
+  take the 100 bootstrap blocks are design reasons that sit under the roadmap's
+  **[OPEN] GameGold trigger**, not legal ones.
+- **Why deferred:** There is no mainnet date, and the review must read the law
+  as it stands when it is done, not as it stood when this entry was written. The
+  article references above are Claude's reading of MiCA from secondary sources
+  on 2026-11-09, not legal advice; the review verifies them. An AI summary Adam
+  obtained the same day (Google, file `mica_speltoken_analys.md`, not in the
+  repo) concluded that no obligations apply. Reviewed in the chat that filed
+  this entry: right about the white-paper exemption and about bot and withdrawal
+  limits; too certain about ART, AML and sustainability; silent on custody and
+  tax; and it described a different chain (players mining PoW, trading on
+  Uniswap). Use it as a question list, not an answer.
+- **Trigger:** Whichever comes first: a mainnet genesis date is proposed; a
+  bitcointalk [ANN] or [PRE-ANN] is about to be posted; the AB is about to be
+  formed; or the bridge (`exchange`) is decomposed. The roadmap's **[OPEN]
+  GameGold trigger** is the usual path, but Adam weighing a chain launch in
+  December 2026 to February 2027 shows it may not be the only one.
+- **Origin:** Chat 2026-11-09 (Adam weighing a winter launch and a bitcointalk
+  [ANN] thread; nothing decided). One item, one home: the *Legal Note* in
+  `GameGold_Design.md` is trimmed to a pointer here (Rev 4).
+- **Status:** BLOCKED (no mainnet date)

@@ -1,5 +1,6 @@
 # GameGold - PolishedWorld Cryptocurrency Design
 
+> **Rev 4 · 2026-11-09** — the *Legal Note* is trimmed to a pointer: the legal and tax questions now live in `docs/BACKLOG.md` (*GameGold*: *Legal review before mainnet (MiCA, AML, tax)*, BACKLOG Rev 90), one item, one home. The *hard peg* wording in *The 1:1 Exchange Rate* is deliberately left as is; that entry's question (3) decides it.
 > **Rev 3 · 2026-09-09** — platform choice **re-verified and confirmed**: fork from blackcoin-more's `28.x` branch (v28.4.0, Bitcoin Core 28.4 base, released 2026-07-06), not the older `v26.2.0` tag this document specified since Rev 1. Adds an **Upstream tracking** subsection with an explicit exit trigger, so "is this codebase still maintained" is a question with a written answer rather than one re-litigated every time it is asked. Cold staking (PIVX-style P2CS) is **decided and deferred** — the reasoning is recorded here, the work is filed in `docs/BACKLOG.md` (*GameGold*).
 > **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc.
 > **Rev 1 · 2026-07-02** — first versioned copy; platform migrated Komodo Smartchain → blackcoin-more fork (Bitcoin Core 26.x, PoSV3).
@@ -730,7 +731,7 @@ The manual exchange step (crypto â†’ in-game gold) cannot be fully trustles
 
 ### Legal Note
 
-The tax and legal implications of this structure (donation to own project, staking rewards, in-game distribution) should be clarified with Swedish tax authorities (Skatteverket) or a tax advisor before implementation. This is a hobby project with low amounts, but proper compliance is important.
+→ see `docs/BACKLOG.md` (*GameGold*: *Legal review before mainnet (MiCA, AML, tax)*) — the questions, scope and trigger live there.
 
 ## Exchange Mechanism
 
