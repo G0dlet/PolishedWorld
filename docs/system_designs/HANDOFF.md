@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 2 · 2026-11-09** — the next system is chosen, docs only, with roadmap Rev 61 and BACKLOG Rev 88: the newcomer's economy*, after Stage 4.6 (Survival loop) ships, with Adam's question whether PolishedWorld wants a newbie school. The previous leaning, lodging & safe logout, moves behind it.
 > **Rev 1 · 2026-11-08** — first version in the repo, docs only, with roadmap Rev 60, BACKLOG Rev 85 and README Rev 39: the series handoff joins the fifteen one-system design notes in `docs/system_designs/`, so the latest prompt lives beside the documents it continues. It is the prompt the next design chat starts from; each session that writes a design note updates this file in the same patch.
 > **Canonical:** `docs/system_designs/HANDOFF.md` @ G0dlet/PolishedWorld — git wins. If a pasted or project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -38,7 +39,21 @@ nothing locked. One docs patch for `main` per session.
   typeclasses/ server/.
 
 ## This session: Adam picks from the queue
-Storage is done, and the docs have moved to `docs/system_designs/`. Claude's leaning for next: lodging & safe logout — Rest NQ18 leans
+Storage is done, and the docs have moved to `docs/system_designs/`. **Next, decided
+2026-11-09 (roadmap Rev 61, decision log *Order after the webclient*): the
+newcomer's economy\*** — written after roadmap Stage 4.6 (Survival loop) ships, so
+its first steps can read drinking at the spring and natural healing as live code.
+Adam's question goes with it: should PolishedWorld have a newbie school, as many
+MUDs have had? Claude's leaning from that chat, nothing decided: keep the school's
+function, not its classic form — no separate zone and no handouts (chargen gives no
+money or gear, pillar 1; a separate zone keeps newcomers from the few players
+there are; its script rots with every system change), but the starter settlement
+as the school: a short path of real rooms with the free nodes, one verb learned by
+doing it for real, hints that fire once (BACKLOG *First-steps hints*). Read the
+prior art on mud schools and tutorial areas before weighing that leaning.
+
+After it, the previous leaning: lodging & safe logout — best beside Stage 5's
+design session, since the statue's safety becomes a combat question. Rest NQ18 leans
 that it owns inns, beds for rent and the statue's safety (Rest NP13/NP19); Storage
 DP16/DQ2 adds the statue as a stasis larder (Cooking CP9), bounded by one body's load
 — decide there whether it merges into markets & taverns. Runner-up: carpentry &

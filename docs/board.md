@@ -11,6 +11,7 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## Planned
 
+- Healing over time, real tiredness and drinking at the spring
 - Combat
 - A wider world to explore
 - Magic

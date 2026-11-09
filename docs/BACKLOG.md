@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 88 · 2026-11-09** — two entries **annotated**, docs only, with roadmap Rev 61 (new **Stage 4.6 — Survival loop**, decision log *Order after the webclient*): ***Fatigue-exhaustion consequence*** is scheduled as the stage's third slice, and ***Waterskin `durability` → `condition` migration*** as part of its first (Water slice 1, VQ6). Open questions stay the stage's decomposition's; no status changes.
 > **Rev 87 · 2026-11-08** — one entry **closed**, one **annotated**, docs only, with webclient decomposition Rev 8 (W5.1 and W5.1b shipped). **Closed** (*Containers*): ***No panel push when a container or garment is deleted where it lies*** — DONE by W5.1b (`539a825` on `feature/webclient`), and corrected: `Container` always inherited `ObjectParent`, through the containers contrib's base; only `ClothingWithBuffs` lacked it and now names it first; wear never deletes a garment, so the player's path was `disassemble`. **Annotated** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W5.1's protocol, after `evennia reload`, also showed an uncaught `DOMException` from `evennia.js:282` (a send on a closed socket) through `webclient_gui.js:313`; W6's first step reproduces both.
 > **Rev 86 · 2026-11-08** — one entry **added**, docs only, with webclient decomposition Rev 7 (W4.3 shipped, `5f40de7` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: `TypeError` on Enter while disconnected*** — W4.3's browser protocol pressed Enter after `Evennia.connection.close()` and the console showed an uncaught `TypeError` from jQuery, raised in `default_in.js:56`'s keydown handler; no project file is in the stack (OPEN; trigger W6, the text-area component, whose first step reproduces it without the project plugin). No entry closed.
 > **Rev 85 · 2026-11-08** — paths **repointed** in fifteen entries, docs only, with roadmap Rev 60 and README Rev 39: the one-system design notes moved from `docs/` to `docs/system_designs/`, so every annotation path to a note outside a Rev line now names the new folder. No wording beyond the path and no status changes; Rev lines keep the paths they were written with.
@@ -369,6 +370,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `durability` (`typeclasses/consumables.py:44–57`). The behaviour to keep is
   the split on the dip after the last refill
   (`commands/foraging_commands.py:227–235`). Nothing decided; no status change.
+- **Annotation (2026-11-09, roadmap Rev 61):** scheduled. The trigger (*when
+  touching waterskin next*) fires with roadmap **Stage 4.6 — Survival loop**,
+  whose first slice is Water slice 1 and carries this migration (VQ6). Done
+  there, after the webclient merges.
 - **Status:** OPEN
 
 ### Hunt-independent needle primitive
@@ -1774,6 +1779,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   thresholds are the bands, and only the bottom test is harder. The rest of
   the design — `sleep`, the place's ceiling, the bedroll — is the next slice,
   not this entry.
+- **Annotation (2026-11-09, roadmap Rev 61):** scheduled. This entry is the
+  third slice of roadmap **Stage 4.6 — Survival loop**, after Water slice 1 and
+  natural healing, decomposed together after the webclient merges. The design
+  note's leanings above are that decomposition's inputs, not locks; the open
+  questions in the 2026-10-18 annotation are closed there.
 - **Status:** OPEN
 
 ---
