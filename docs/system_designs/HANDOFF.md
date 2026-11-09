@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 6 · 2026-11-09** — seven systems **added** to the queue, docs only, with README Rev 43: after the homunculus note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, marked *, ahead of the bracket line: sauna, bathhouse & hot springs; sledges, skis & winter travel; tales & storytelling; lending, borrowing & the tool library; flowers & seasonal greenery; carrier birds & messenger animals; constructs, golems & scarecrows. No document, prefix or tie-in changed.
 > **Rev 5 · 2026-11-09** — a seventeenth note, docs only, with roadmap Rev 66, BACKLOG Rev 93 and README Rev 42: `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1, written off the queue at Adam's request like Comfort — a player-made creature grown from an egg, commanded to do simple tasks and passed on in its jar. *Where we are*, the prefixes (J), three queue entries (alchemy & poisons\*, fowling & wild birds\*, magic), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 4 · 2026-11-09** — seventeen systems **added** to the queue, docs only, with README Rev 41: Adam approved two lists from the chat after the Comfort note (nine, then eight more), and said he especially likes systems that make the world feel immersive and alive. They are Claude's suggestions, marked *, ahead of the bracket line. No document, prefix or tie-in changed.
 > **Rev 3 · 2026-11-09** — a sixteenth note, docs only, with roadmap Rev 62, BACKLOG Rev 89, README Rev 40 and Evennia Reference Rev 30: `docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1, written off the queue at Adam's request — the tone *hard roads, warm hearths* (now a line under the roadmap's North star), the queue's *comfort, morale & the good evening* taken in, and a defect found on the way (room echoes cannot start at 6.1.0). The next note is unchanged: the newcomer's economy, after Stage 4.6.
@@ -584,9 +585,53 @@ Claude's additions*:
   read and argue over; culture on top of weather lore* and moon, stars & tides*;
   no mechanical benefit unless something reads it — the rule oaths, weddings &
   ceremonies* records)
+- sauna, bathhouse & hot springs* (heat as a place rather than a fire: stones heated by a
+  fire, water thrown on them, a sweat and a cold plunge after; a strong warmth term
+  read beside the fire's, Temperature KP8, Legend Fire and Heat p. 83; fuel per
+  heating on Forest YP1's table; water from a well or a vessel, Water VP6; a Housing
+  part, BP7; company and warmth both count, Comfort EP4 — a social room; overlaps
+  hygiene & bathing* — decide which doc owns washing; no AoL entry)
+- sledges, skis & winter travel* (winter as a season that changes how goods move: AoL
+  skis `:458`, snowshoes `:466`, sleds `:2194–2198`; snow cover from seasonal ground*
+  slows the foot and speeds the runner; a sledge hauls more ENC than a back on snow
+  only, the winter twin of carts, wheelbarrows & hauling*; Rest NP5's overload
+  fatigue per room; dogs to pull it, hounds & working dogs*; ties ice & cold* and
+  Forest §15's winter felling — logs dragged out on snow)
+- tales & storytelling* (stories players tell by the fire and retell: a tale composed
+  by its teller, kept in memory or written down, told for company or coin; Legend has
+  no storytelling skill — Sing p. 54, Art p. 56 and Influence are the nearest, verify;
+  a told tale as a good state's company, Comfort EP4/EP5; ties music & instruments*,
+  books, libraries & lore keeping*, news, rumours & the crier* — a rumour is a tale
+  that travels; player-written text needs the moderation BACKLOG *Per-account
+  cooldown on reports* and `ingame_reports` already give)
+- lending, borrowing & the tool library* (an axe lent to a neighbour for a day and
+  given back worn: who pays the wear, `apply_wear` `typeclasses/durable.py:43`; a
+  lent thing remembers its owner — `obj.db.crafted_by` `world/crafting_base.py:405`
+  is the maker, not the owner; `give` both ways, `general.py:545`, with nothing to
+  enforce the return but trust and law; a shared tool shelf as a commons; ties
+  keepsakes & provenance*, contracts, seals & reputation, banking, credit & debt*
+  (coin credit stays there), apprenticeship, law/crime/bounties)
+- flowers & seasonal greenery* (small, living, perishable things given and set out:
+  wildflowers by season from phenology*, a stand read *in flower*, Foraging §15;
+  cut flowers wilt on Cooking CP8's clock, dried ones keep on CP11's rack, pressed
+  ones in a journal, journals & personal notes*; a sprig at a grave, temples & faith;
+  a midwinter wreath, calendar, festivals & culture; a gift, Comfort EP20; never a
+  status ladder — Comfort §19's decoration ladder stays not proposed)
+- carrier birds & messenger animals* (a homing pigeon flies to its roost and nowhere
+  else, carrying a small scroll, AoL `:2875`; the falconer's kit `:678`, hawk
+  `:2851`; a dovecote as a Housing part; one-way and small, never a teleport for
+  goods; ties letters, couriers & notice boards, fowling & wild birds*, animal
+  taming)
+- constructs, golems & scarecrows* (the homunculus's larger kin: MoL II root
+  guardian p. 123 — given orders to guard a place or patrol — and the golems it is
+  compared with there; a scarecrow that only stands is crop pests*'; anything that
+  moves inherits Homunculus JG1–JG4 — acts only while its maker is in the world,
+  never touches coin, one per maker, never more than hands; decide whether any is
+  needed beyond the homunculus — possibly never, recorded so it is asked once)
 - [Adam approved the seventeen above on 2026-11-09 and likes systems that make the
-  world feel immersive and alive; ask again "more systems for the queue?" at the
-  end of the next session]
+  world feel immersive and alive; the seven before this line were added after the
+  homunculus note the same day, at his request (Rev 6); ask again "more systems for
+  the queue?" at the end of the next session]
 
 Last:
 - magic (economy half only until Stage 5; Rain p. 186, dowsing AoL :216; magical
