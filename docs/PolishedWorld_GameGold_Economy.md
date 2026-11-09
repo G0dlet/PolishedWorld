@@ -1,5 +1,7 @@
 # PolishedWorld - GameGold & Economy Design
 
+> **Rev 7 · 2026-11-09** — the chain launch is decided (roadmap Rev 63, `GameGold_Design.md` Rev 5): the *Blockchain Specifications* table reads a one-year scrypt PoW phase instead of the 100-block bootstrap, and *Phase 2 — GameGold Launch* is marked superseded. The chain launches long before the game; the exchange still waits for Stage 8.
+
 > **Rev 6 · 2026-08-03** — **The `CurrencyHandler` sketch is gone, replaced by the shipped design.** This was the last piece of the debt Rev 4 and Rev 5 each paid part of, and the pattern is worth naming because it caught this document three times: Rev 3 fixed the prose and left the sketches; Rev 4 fixed the sketches' mint rule and left the sketch standing as though it were the design; Rev 5 marked the faucet sketch superseded and left the wider `CurrencyHandler` sketch — a per-denomination dict — carrying a banner instead of a correction. A banner is a promise to fix, not a fix. What replaces it is a description of `world/currency.py` as shipped: one `int` in Copper (**S4-2**), no `wallet` Attribute on the typeclass (**D6**), the module functions and the six handler members with their real signatures, and **D7**'s deliberate asymmetry — `transfer_to()` returns `False` for poverty and *raises* for everything else, so every raising path needs a command-layer guard. Three things are stated as load-bearing rather than incidental: **S4-R1**'s atomic section and what a `yield` inside it would cost the whole economy; **S4-4**, that the ledger holds mint and burn only, and that what proves nothing was created is the *invariant* `Σ(wallets) + Treasury == Σ(mint) − Σ(burn)` rather than a transaction history; and **S4-1**, that `@economy mint` is the single production mint caller and the temple faucet transfers rather than mints. Closes the Component F debt for this document.
 
 > **Rev 5 · 2026-08-02** — **The Temple-Faucet sketch is marked superseded now that the faucet is shipped** (Stage 4 Component D.1, `commands/work_commands.py`). Rev 4 corrected the sketch's *mint rule*; this Rev addresses what Rev 4 left standing — a sketch that a reader could still mistake for the design. Three divergences are named explicitly: the sketch lists **three** chores while the prose table above it lists **five** (the table is canonical, and the discrepancy was found while reading this document as D's task-table source — the same class of half-finished close-out that Rev 4 was itself fixing); there is **no `TempleFaucet` class**, the faucet being a command with a module-level table and payout function; and the chore **takes time**, with the entire `transfer_to` sequence inside the delayed callback because S4-R1 forbids splitting a check from its commit. The sketch is kept for its comments, with a banner saying to read it for *why* and never for *what*. The wider `CurrencyHandler` sketch remains the superseded per-denomination-dict design and its full rewrite is still **Component F's** work.
@@ -26,10 +28,10 @@
 | Property | Value |
 |----------|-------|
 | Platform | blackcoin-more fork (Bitcoin Core 26.x, PoSV3) |
-| Consensus | 100% Proof of Stake (after 100 PoW-block bootstrap) |
+| Consensus | 100% Proof of Stake after a one-year scrypt PoW phase |
 | Block Time | 1 minute |
 | Block Reward | 1 coin per block |
-| Launch | Fair launch, no premine |
+| Launch | Fair launch, no premine; chain launch winter 2026–27 |
 
 ### Currency System
 
@@ -375,6 +377,9 @@ the only two.
 - Prove player-driven economy works
 
 ### Phase 2 - GameGold Launch (1-2 months before game)
+
+> *Superseded (2026-11-09, roadmap Rev 63):* the chain launches on its own in winter 2026–27, long before the game. The steps below still happen in this order, but the exchange waits for Stage 8 — see `GameGold_Design.md` *Bridge Rules*.
+
 - Launch blockchain independently
 - Community mining/staking
 - Establish initial distribution

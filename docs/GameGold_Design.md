@@ -1,5 +1,6 @@
 # GameGold - PolishedWorld Cryptocurrency Design
 
+> **Rev 5 · 2026-11-09** — **the chain launch is decided**, from a decision brief locked the same day (decisions A–E), with roadmap Rev 63, BACKLOG Rev 91 and `PolishedWorld_GameGold_Economy.md` Rev 7. **(A)** the PoW phase runs about one year (`nLastPOWBlock` ≈ 525,600), not 100 blocks. **(B)** Scrypt, blackcoin-more's existing PoW path, with the founder mining throughout on two Moonlander 2 and a Goldshell Mini Doge III (~0.7 GH/s). **(C)** The founder keeps what he mines privately, and may give away or earmark part if his holdings grow large. **(D)** Three bridge rules: closed during PoW, a per-account daily limit, a per-period cap on gold minted through deposits. **(E)** The chain launches on its own in winter 2026–27; Stage 8 integration stays gated on the economy milestone. The verify-in-source box now records `nLastPOWBlock` as read in `28.x`.
 > **Rev 4 · 2026-11-09** — the *Legal Note* is trimmed to a pointer: the legal and tax questions now live in `docs/BACKLOG.md` (*GameGold*: *Legal review before mainnet (MiCA, AML, tax)*, BACKLOG Rev 90), one item, one home. The *hard peg* wording in *The 1:1 Exchange Rate* is deliberately left as is; that entry's question (3) decides it.
 > **Rev 3 · 2026-09-09** — platform choice **re-verified and confirmed**: fork from blackcoin-more's `28.x` branch (v28.4.0, Bitcoin Core 28.4 base, released 2026-07-06), not the older `v26.2.0` tag this document specified since Rev 1. Adds an **Upstream tracking** subsection with an explicit exit trigger, so "is this codebase still maintained" is a question with a written answer rather than one re-litigated every time it is asked. Cold staking (PIVX-style P2CS) is **decided and deferred** — the reasoning is recorded here, the work is filed in `docs/BACKLOG.md` (*GameGold*).
 > **Rev 2 · 2026-07-11** — added reading-order pointer to the Economic Philosophy doc.
@@ -25,17 +26,21 @@ GameGold is an experimental cryptocurrency designed to bridge the in-game econom
 | Parameter | Value |
 |-----------|-------|
 | Platform | blackcoin-more fork, `28.x` branch — v28.4.0 (Bitcoin Core 28.4 base, PoSV3) |
-| Consensus | 100% Proof of Stake (PoSV3) after 100 PoW bootstrap blocks |
+| Consensus | Scrypt PoW for about one year (`nLastPOWBlock` ≈ 525,600), then 100% Proof of Stake (PoSV3) |
 | Block time | 1 minute |
 | Block reward | 1 GameGold |
 | Daily supply | ~1,440 GameGold |
 | Annual supply | ~525,600 GameGold |
+| Launch | Winter 2026–27, announced in a bitcointalk [ANN] thread at genesis |
 
-### Bootstrap Phase
+### PoW Phase (about one year)
 
-- **Blocks 1-100**: Proof of Work only
-- **Purpose**: Create initial coins required for PoS to function
-- **After block 100**: 100% Proof of Stake
+- **Blocks 1 to ~525,600**: Proof of Work (scrypt), open to anyone, announced in the [ANN] thread
+- **After the last PoW block**: 100% Proof of Stake
+- **Purpose**: create the coins PoS needs, keep the chain alive if nobody else mines, and make capturing the PoW rewards cost a year of outmining the founder rather than an hour of rented hashrate (100 blocks at one minute each last under two hours)
+- **Founder mining**: two FutureBit Moonlander 2 (~6–10 MH/s together) and a Goldshell Mini Doge III (~650–700 MH/s, 400 W). The protection is exactly this hashrate: outmining the founder for the year means sustaining roughly 0.7 GH/s
+- **Known limits**: a profit-switching multipool can still take a large share for the weeks it mines, and a year of PoW is a year in which a 51% reorg is possible. That is why the bridge stays closed during PoW (*Bridge Rules*, below)
+- **Untested**: a stratum path from the node to the Mini Doge and to bfgminer on the Moonlanders; regtest comes first
 
 ### Why a Blackcoin fork (blackcoin-more)?
 
@@ -69,11 +74,12 @@ That last clause is the load-bearing one, and it is why cold staking is deferred
 rather than built at genesis (below): **every consensus patch we carry makes the
 rebase, and therefore the exit, more expensive.**
 
-> ⚠️ **Verify in source before writing chainparams.** The specific parameter
-> names in this document (bootstrap block height, stake modifier interval,
-> reward schedule) were written from the design side, not read out of
-> `chainparams.cpp` on the `28.x` branch. Read them there before the first
-> testnet genesis, not after.
+> ⚠️ **Verify in source before writing chainparams.** `consensus.nLastPOWBlock`
+> was read on the `28.x` branch on 2026-11-09: 10,000 on Blackcoin mainnet, and
+> `getblocktemplate` refuses with *No more PoW blocks* above it. The other
+> parameter names in this document (stake modifier interval, reward schedule)
+> were written from the design side, not read out of `chainparams.cpp`. Read
+> them there before the first testnet genesis, not after.
 
 ### Cold staking (PIVX-style P2CS) — decided, deferred
 
@@ -311,9 +317,9 @@ None of these are guaranteed or expected. This is a hobby project first.
 
 ### Fair Launch
 
-- No premine (beyond the ~100 coins from PoW bootstrap)
-- Everyone starts from zero
-- Initial coins go to whoever participates in bootstrap mining
+- No premine: genesis carries no allocation, and every coin is a block reward
+- The PoW phase is open to anyone; the [ANN] says that the founder mines too, and with which hardware
+- **Founder coins (decided 2026-11-09):** the founder keeps what he mines privately. If his holdings grow large, he intends to give away or earmark part of them, for example to the temple faucet, bug bounties or playtesting rewards. This is an intention, not a rule; the founder still never sells GameGold officially (*Core Philosophy*)
 
 ### Ongoing Distribution
 
@@ -753,12 +759,15 @@ When volume justifies it:
 - In-game exchange interface
 - Automated verification and transfer
 
-### Exchange Limits (To Be Determined)
+### Bridge Rules (decided 2026-11-09)
 
-Considerations for preventing micro-optimization abuse:
-- Minimum/maximum exchange amounts
-- Daily exchange limits
-- Possible exchange fee that recirculates into game world (treasure chests, events)
+Three rules hold whatever the volume; Stage 8's decomposition sets the numbers.
+
+1. **Closed during PoW.** The bridge opens only after PoS has started and the economy milestone (roadmap) is met. Launching the chain early does not open the exchange early.
+2. **Per-account limit per day**, in both directions, against bot farms draining gold out to sell.
+3. **Cap on gold minted through deposits per period**, sized to the measured economy, against one large holder (the founder included) flooding the game with gold.
+
+The 10 Gold minimum exchange stays. Still open for Stage 8: a maximum per exchange, and a possible exchange fee that recirculates into the game world (treasure chests, events).
 
 ### Peer-to-Peer Exchange
 
@@ -841,10 +850,10 @@ To be communicated clearly to all participants:
 
 | Phase | Status |
 |-------|--------|
-| Blockchain setup | Tested, ready to deploy |
-| Initial distribution | Planned (fair launch + faucet) |
-| Manual exchange | Will implement when needed |
-| Game integration | After core gameplay is solid |
+| Chain launch | Decided for winter 2026–27: regtest → private testnet → legal review → genesis with the [ANN] (roadmap decision log) |
+| Initial distribution | PoW phase of about one year, open to all; then staking and the temple faucet |
+| Manual exchange | Stage 8, after the economy milestone (*Bridge Rules*) |
+| Game integration | Stage 8, after the economy milestone |
 | Automated exchange | When volume justifies it |
 
 ## Summary

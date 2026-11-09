@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 91 · 2026-11-09** — one entry **annotated**, docs only, with roadmap Rev 63 and `docs/GameGold_Design.md` Rev 5: ***Legal review before mainnet (MiCA, AML, tax)*** follows the chain-launch decision. Question 4 now names the one-year PoW phase in which the founder mines and keeps his coins, instead of 100 bootstrap blocks, and asks whether a later private disposal of founder coins changes the exemption; question 6 adds the founder's mining income; question 7 names the PoW year; *Not in scope* points at the locked design; the Trigger records that the launch is decided and that the review is step 3 of the winter order. Status unchanged: BLOCKED until a genesis date exists.
+
 > **Rev 90 · 2026-11-09** — one entry **added**, docs only, with `docs/GameGold_Design.md` Rev 4. **Added** (*GameGold*): ***Legal review before mainnet (MiCA, AML, tax)***, BLOCKED until a mainnet date exists. It turns "check the law" into seven fixed questions for one consultation: whether the 1:1 bridge is custody, what the planned AB changes, whether GameGold is an asset-referenced token (the design calls the rate a *hard peg*), whether the white-paper exemption holds, AML, tax, and sustainability disclosure. Its trigger is whichever comes first of a genesis date, an [ANN] post, forming the AB or decomposing the bridge, because Adam is weighing a chain launch before the roadmap's GameGold trigger would fire. The design doc's *Legal Note* is trimmed to a pointer here. The roadmap is untouched: its **[OPEN] GameGold trigger** still owns when the chain launches; this entry owns only what must be settled before it does. No status changes elsewhere.
 
 > **Rev 89 · 2026-11-09** — one entry **added**, one **annotated**, docs only, with roadmap Rev 62, README Rev 40 and `docs/PolishedWorld_Evennia_Reference.md` Rev 30, from the comfort, morale & the good evening design chat (`docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1). **Added** (*World & Rooms*): **⚠️ Room echoes cannot start**, OPEN and latent — at Evennia 6.1.0 ExtendedRoom hands `repeat()` a method name that does not exist, so any room given a rate and messages raises `AttributeError` when it starts; the project's `db.room_message_rate` is not what the contrib reads; and the room docstring's `@py` recipe would hit both. **Annotated:** *Builder QoL for dynamic rooms* — its `roommsg` command would wrap the setup that does not run, so it waits on the new entry, and its authoring convention (3) gains the design's two writing rules: indoor descriptions carry the weather outside through `$state()`, and havens are written warm. No status changes.
@@ -4119,20 +4121,25 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   4. **Does the white-paper exemption hold?** Art. 4(3)(b) exempts crypto-assets
      created automatically as a reward for maintaining the ledger or validating
      transactions. It holds only while no other, non-exempt offer of the same
-     token exists, so "Adam never sells GameGold" is load-bearing. Confirm that
-     the 100 PoW bootstrap blocks and the temple donation do not change it.
+     token exists, so "Adam never sells GameGold officially" is load-bearing.
+     Confirm that the one-year PoW phase, in which the founder mines and keeps
+     his coins privately (`GameGold_Design.md` Rev 5), and the temple donation
+     do not change it, and whether a later private disposal of founder coins
+     would.
   5. **AML.** Follows from (1): if the bridge is a crypto-asset service,
      anti-money-laundering obligations follow it. Standing constraint either
      way: any future real-money purchase of in-game gold must never be
      withdrawable to the chain.
-  6. **Tax.** The maintainer's own staking rewards, the donation to the temple
-     wallet, and what a deposit or withdrawal means for a player.
+  6. **Tax.** The maintainer's own mining and staking rewards, the donation to
+     the temple wallet, and what a deposit or withdrawal means for a player.
   7. **Sustainability disclosure.** As far as known it attaches to white papers
-     and crypto-asset service providers, and the chain is PoS after block 100;
-     confirm it does not reach the protocol maintainer.
-- **Not in scope:** chain design. Emission before there are players and who can
-  take the 100 bootstrap blocks are design reasons that sit under the roadmap's
-  **[OPEN] GameGold trigger**, not legal ones.
+     and crypto-asset service providers, not to the protocol maintainer. The
+     chain now runs about a year of scrypt PoW before PoS (`GameGold_Design.md`
+     Rev 5), so confirm that the PoW year's energy use does not reach the
+     maintainer either.
+- **Not in scope:** chain design. The PoW window, the algorithm and who mines
+  are locked in `GameGold_Design.md` Rev 5 (roadmap Rev 63); they are design
+  decisions, not legal ones.
 - **Why deferred:** There is no mainnet date, and the review must read the law
   as it stands when it is done, not as it stood when this entry was written. The
   article references above are Claude's reading of MiCA from secondary sources
@@ -4145,9 +4152,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Uniswap). Use it as a question list, not an answer.
 - **Trigger:** Whichever comes first: a mainnet genesis date is proposed; a
   bitcointalk [ANN] or [PRE-ANN] is about to be posted; the AB is about to be
-  formed; or the bridge (`exchange`) is decomposed. The roadmap's **[OPEN]
-  GameGold trigger** is the usual path, but Adam weighing a chain launch in
-  December 2026 to February 2027 shows it may not be the only one.
+  formed; or the bridge (`exchange`) is decomposed. The chain launch was decided
+  2026-11-09 (roadmap Rev 63, **[RESOLVED] GameGold chain launches on its own;
+  the bridge waits**): the winter order puts this review third, after regtest
+  and the private testnet, and before genesis.
 - **Origin:** Chat 2026-11-09 (Adam weighing a winter launch and a bitcointalk
   [ANN] thread; nothing decided). One item, one home: the *Legal Note* in
   `GameGold_Design.md` is trimmed to a pointer here (Rev 4).
