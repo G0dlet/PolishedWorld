@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 4 · 2026-11-09** — seventeen systems **added** to the queue, docs only, with README Rev 41: Adam approved two lists from the chat after the Comfort note (nine, then eight more), and said he especially likes systems that make the world feel immersive and alive. They are Claude's suggestions, marked *, ahead of the bracket line. No document, prefix or tie-in changed.
 > **Rev 3 · 2026-11-09** — a sixteenth note, docs only, with roadmap Rev 62, BACKLOG Rev 89, README Rev 40 and Evennia Reference Rev 30: `docs/system_designs/PolishedWorld_Comfort_Design.md` Rev 1, written off the queue at Adam's request — the tone *hard roads, warm hearths* (now a line under the roadmap's North star), the queue's *comfort, morale & the good evening* taken in, and a defect found on the way (room echoes cannot start at 6.1.0). The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 2 · 2026-11-09** — the next system is chosen, docs only, with roadmap Rev 61 and BACKLOG Rev 88: the newcomer's economy*, after Stage 4.6 (Survival loop) ships, with Adam's question whether PolishedWorld wants a newbie school. The previous leaning, lodging & safe logout, moves behind it.
 > **Rev 1 · 2026-11-08** — first version in the repo, docs only, with roadmap Rev 60, BACKLOG Rev 85 and README Rev 39: the series handoff joins the fifteen one-system design notes in `docs/system_designs/`, so the latest prompt lives beside the documents it continues. It is the prompt the next design chat starts from; each session that writes a design note updates this file in the same patch.
@@ -506,9 +507,74 @@ Claude's additions*:
   jars from Storage DP6; keeping vegetables through winter; Vintage Story's
   pickling; overlaps brewing and Cooking's preservation — decide which doc
   owns it)
-- [Adam has not named additions since Storage (Comfort came from his own
-  question, not the queue); ask again "more systems for the queue?" at the end
-  of the next session]
+- postures, sitting & socials* (sit, stand and lie — by the fire, on a bench, in
+  a bed; furniture's first use, Housing BP15, carpentry; `pose` is Evennia's default,
+  `general.py:724` at 6.1.0; a small set of warm socials; Comfort EP20–EP21; Rest
+  NP6/NP7's sleep as a posture)
+- hospitality & guest-right* (host and guest, bread and salt, an invitation
+  through a house's door, Housing §9; breaking guest-right is law/crime/bounties';
+  gifts and whether they are logged, Comfort EP20/EQ10; havens, EP9)
+- rescue, carrying & tending the fallen* (carrying a collapsed character, Rest
+  NP14, later a wounded one, Stage 5, to shelter; characters cannot be picked up —
+  `get:false()` in DefaultCharacter's lock setup at 6.1.0 — so a carry is its own
+  verb with a body's weight, `world/encumbrance.py:180`; First Aid, Foraging RP9;
+  tend-and-befriend, Comfort §2.1)
+- cooperative work & helping hands* (two players on one craft or one building
+  stage, Housing BG2; Legend's Assistance p. 44 and augmenting one skill with
+  another p. 42; one timed action per character, `world/timed_actions.py:89` —
+  decide whether a helper holds their own slot)
+- keepsakes & provenance* (things that remember who made, gave or inherited them:
+  `obj.db.crafted_by` is stamped today, `world/crafting_base.py:405`; BACKLOG
+  *Material / maker's-mark aliases beyond "superior"*; gifts, Comfort EP20; absence,
+  upkeep & inheritance; cozy items loaded with meaning, Comfort §2.1)
+- weather lore & reading the sky* (forecasting from Lore or Survival — verify the
+  Legend skill and page; makes the road's danger readable, Comfort EG1; needs
+  weather with a memory — `roll_weather` ignores `current`, `world/weather.py` — so
+  BACKLOG *Weather inertia* first; wind*, moon, stars & tides*)
+- seasonal ground: mud, snow cover & ice* (ground by season and weather: fatigue on
+  the road beside the overload step, Rest NP5; ground in the Track test, Hunting
+  TP3, Legend p. 64; frozen water, Water and ice & cold*; ties travel/roads/boats)
+- ambient wildlife & birdsong* (animals with no economic role as ambience by
+  season and period — the dawn chorus, geese passing over — the first real content
+  for room echoes, Comfort EP17/EP18, after BACKLOG *⚠️ Room echoes cannot start*;
+  ties fowling & wild birds*, predators, biomes & regional resources*)
+- journals & personal notes* (a player's own notebook on `typeclasses/books.py`
+  and `scribe`, `commands/crafting_commands.py:968`; recipes noted, private memory;
+  ties books, libraries & lore keeping* and paper, ink and literacy)
+- phenology: the year's natural signs* (the 13-month calendar's signs — blossom,
+  leaf fall, first frost, migrating birds, spawning fish, the rut — read by rooms in
+  words; seasons `world/gametime_utils.py:56–61`; BACKLOG *Biome fragment library*;
+  ties fishing, hunting's rhythm, Hunting TP8, ambient wildlife*)
+- sunrise, sunset & the turning of the day* (one line when the day period changes,
+  as the weather change is told, `world/weather.py:60`; seven periods,
+  `world/gametime_utils.py:46–54`; dawn and dusk as moments, Light LP2; indoors
+  muted, Comfort EP15's rule)
+- life at a distance: work heard, windows lit* (the passive half of reaching past
+  the room — an axe or a hammer heard next door, a lit house seen at night; Cooking
+  CP2's smoke, Housing §13's chimney, Light LP3; signals, bells & beacons* is the
+  deliberate half; scent & smell*)
+- visible condition: what others see of you* (looking at a character shows soaked,
+  shivering, exhausted, warm and fed — Temperature KP1's worded state, Rest's
+  levels, Comfort EP4; `get_display_name` `typeclasses/characters.py:518`; cold as a
+  social signal that invites hospitality*)
+- trails & desire paths* (paths worn where many feet go, and old camps' ash —
+  Rendering ZP8; footprints themselves are Hunting TP4's passage log, which already
+  records characters by appearance, so this is the slow, cumulative half; ties
+  seasonal ground*, maps & navigation)
+- marks, cairns & messages left in the wild* (a blaze on a tree, a cairn at a
+  fork, a scratched warning — players leaving signs for each other; the wilderness
+  keeps no persistent objects, Evennia Reference §14.6, so decide whether a mark
+  is data; ties maps, signals, caches & hidden stores*)
+- player-named places & landmarks* (players name a spring, a pass or a clearing and
+  the name lives on in descriptions and maps; ties maps & navigation, surveying*,
+  heraldry*, Stage 6's XYZGrid for where names can attach)
+- omens, folklore & superstition* (a red sky, a ring round the moon, signs people
+  read and argue over; culture on top of weather lore* and moon, stars & tides*;
+  no mechanical benefit unless something reads it — the rule oaths, weddings &
+  ceremonies* records)
+- [Adam approved the seventeen above on 2026-11-09 and likes systems that make the
+  world feel immersive and alive; ask again "more systems for the queue?" at the
+  end of the next session]
 
 Last:
 - magic (economy half only until Stage 5; Rain p. 186, dowsing AoL :216; magical
