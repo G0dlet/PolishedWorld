@@ -1,7 +1,9 @@
 """
 commands/world_commands.py
 ==========================
-The player `time` command (webclient decomposition W5.3, WC1).
+The player `time` command (webclient decomposition W5.3, WC1), and the
+project's `look` (W5.4, WC4), which replaces the extended_room contrib's in
+the same way and is described at CmdRoomLook below.
 
 Every datum the webclient's world panel shows is also reachable in text:
 `time` prints the date, the time of day with its period, the season and,
@@ -18,8 +20,9 @@ only when nothing matched the typed name as written (evennia/commands/cmdparser.
 """
 
 from evennia import Command
+from evennia.contrib.grid.extended_room.extended_room import CmdExtendedRoomLook
 
-from world import gametime_utils, weather
+from world import gametime_utils, room_text, weather
 
 
 def time_lines(location):
@@ -68,3 +71,37 @@ class CmdTime(Command):
     def func(self):
         lines = time_lines(self.caller.location)
         self.caller.msg("\n".join(f"{label}: {value}" for label, value in lines))
+
+
+
+class CmdRoomLook(CmdExtendedRoomLook):
+    """
+    look
+
+    Usage:
+      look
+      look <obj>
+      look <room detail>
+      look *<account>
+
+    Observes your location, details at your location or objects in your vicinity.
+    """
+
+    # The help text above is the contrib's, word for word (W5.4).
+    #
+    # A bare `look` (and `l`, `ls`) sends the room as two messages through
+    # world.room_text.room_look -- the description, then the exits,
+    # characters and things as `room_contents` (WC4) -- to the session that
+    # typed it, as the contrib's self.msg does. Every other form runs the
+    # contrib's func unchanged (lock 3A): `look <obj>`, details, and also
+    # `look here`, which stays one message with the lists in it.
+
+    def func(self):
+        if self.args:
+            super().func()
+            return
+        caller = self.caller
+        if not caller.location:
+            caller.msg("You have no location to look at!")
+            return
+        room_text.room_look(caller, caller.location, session=self.session)

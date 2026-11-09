@@ -43,11 +43,13 @@ Description Priority (from most to least specific):
 """
 
 from evennia.objects.objects import DefaultRoom
+from evennia.utils.utils import iter_to_str
 from evennia.contrib.grid.extended_room import ExtendedRoom
 
 from .objects import ObjectParent
 
 from world import client_state
+from world import room_text
 from world import gametime_utils
 from world import weather as weather_logic
 
@@ -299,42 +301,58 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
 
         return name
 
-    def get_display_characters(self, looker, **kwargs):    # ← NY
+    def get_display_exits(self, looker, **kwargs):
         """
-        Override: exclude statue-state characters from the Characters list.
-        They are rendered under 'You see:' via get_display_things instead.
+        Evennia's exits line, or "" when `room_lists=False` is passed (W5.4).
+
+        `world.room_text.room_look` passes that kwarg through `at_look` so
+        the description travels without the lists, which follow as their own
+        `room_contents` message (WC4). The line itself stays Evennia's
+        (DefaultObject.get_display_exits, with its `exit_order` sort); the
+        exits it names are the ones `room_text.room_lists` returns, the same
+        `filter_visible` call, held to it by tests/test_client_state.py
+        TestRoomSnapshot.
         """
-        characters = [
-            obj for obj in self.contents_get(content_type="character")
-            if obj != looker
-            and obj.access(looker, "view")
-            and not getattr(obj, "is_statue", False)
-        ]
+        if kwargs.get(room_text.LISTS_KWARG) is False:
+            return ""
+        return super().get_display_exits(looker, **kwargs)
+
+    def get_display_characters(self, looker, **kwargs):
+        """
+        The Characters line: awake characters only (W5.4 lock 4C).
+
+        Statues of logged-out characters are listed under 'You see:' by
+        get_display_things instead (WC14). Which characters count is decided
+        once, in `world.room_text.room_lists`, which the webclient's room
+        snapshot reads as well. "" when `room_lists=False` is passed (W5.4).
+        """
+        if kwargs.get(room_text.LISTS_KWARG) is False:
+            return ""
+        characters = room_text.room_lists(self, looker, **kwargs)["characters"]
         if not characters:
             return ""
         names = ", ".join(c.get_display_name(looker, **kwargs) for c in characters)
         return f"\n|wCharacters:|n {names}"
 
-    def get_display_things(self, looker, **kwargs):        # ← NY
+    def get_display_things(self, looker, **kwargs):
         """
-        Override: append statue-state characters to the 'You see:' line
-        so they appear as objects rather than characters.
+        The 'You see:' line: things, then statues (W5.4 lock 4C).
+
+        Things are grouped and numbered as Evennia's own hook does ("an Obj,
+        and two stones"); statues of logged-out characters follow after a
+        plain comma, as objects rather than characters. Both lists come from
+        `world.room_text.room_lists`, which the webclient's room snapshot
+        reads as well. "" when `room_lists=False` is passed (W5.4).
         """
-        base = super().get_display_things(looker, **kwargs)
-        
-        statues = [
-            obj for obj in self.contents_get(content_type="character")
-            if obj != looker
-            and obj.access(looker, "view")
-            and getattr(obj, "is_statue", False)
-        ]
-        if not statues:
+        if kwargs.get(room_text.LISTS_KWARG) is False:
+            return ""
+        lists = room_text.room_lists(self, looker, **kwargs)
+        base = ""
+        if lists["things"]:
+            base = "|wYou see:|n " + iter_to_str(lists["things"], endsep=", and")
+        if not lists["statues"]:
             return base
-        
-        statue_names = ", ".join(
-            s.get_display_name(looker, **kwargs) for s in statues
-        )
-        
+        statue_names = ", ".join(s.get_display_name(looker, **kwargs) for s in lists["statues"])
         if base:
             return f"{base}, {statue_names}"
         return f"\n|wYou see:|n {statue_names}"

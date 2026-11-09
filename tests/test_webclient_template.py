@@ -64,6 +64,9 @@ EXPECTED_SCRIPTS = [
     # Project plugins: after webclient_gui.js (which defines plugin_handler),
     # before default_out, which claims every unknown command (W4.3).
     "polishedworld/js/pw_state.js",
+    # The text router (W5.4, WC4): claims the room_contents lines the room
+    # panel already shows, so it too must come before default_out.
+    "polishedworld/js/pw_text.js",
     "webclient/js/plugins/history.js",
     "webclient/js/plugins/default_in.js",
     "webclient/js/plugins/default_out.js",
@@ -80,6 +83,8 @@ EXPECTED_SCRIPTS = [
     "polishedworld/js/pw_survival.js",
     # The world panel's renderer, the same kind again (W5.3).
     "polishedworld/js/pw_world.js",
+    # The location panel's renderer, the second on room (W5.4).
+    "polishedworld/js/pw_room.js",
 ]
 
 EXPECTED_STYLESHEETS = [
@@ -97,6 +102,8 @@ CHAR_JS = "polishedworld/js/pw_char.js"
 GAUGE_JS = "polishedworld/js/pw_gauge.js"
 SURVIVAL_JS = "polishedworld/js/pw_survival.js"
 WORLD_JS = "polishedworld/js/pw_world.js"
+TEXT_JS = "polishedworld/js/pw_text.js"
+ROOM_JS = "polishedworld/js/pw_room.js"
 FIGURE = "polishedworld/characters/body/body_base.png"
 # The ids pw_char.js writes to. A literal list, not one read from the script,
 # so an empty list in the script cannot make these tests pass (W-z);
@@ -144,6 +151,21 @@ WORLD_IDS = (
 # The panel's rows and their labels, which are the `time` command's
 # (commands/world_commands.py time_lines), in its order (WC1).
 WORLD_ROWS = (("date", "Date"), ("time", "Time"), ("season", "Season"), ("weather", "Weather"))
+# The ids pw_room.js writes to (W5.4). Literal for the same reason;
+# tests/js/test_pw_room.js holds the same list.
+ROOM_IDS = (
+    "pw-room",
+    "pw-room-name",
+    "pw-room-exits",
+    "pw-room-exits-list",
+    "pw-room-characters",
+    "pw-room-characters-list",
+    "pw-room-things",
+    "pw-room-things-list",
+)
+# The panel's list rows and their labels, which are look's
+# (evennia get_display_exits, typeclasses/rooms.py), in look's order (WC1).
+ROOM_ROWS = (("exits", "Exits"), ("characters", "Characters"), ("things", "You see"))
 # Every markup sink a renderer must not write (Rev 5 (d)).
 MARKUP_SINKS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write")
 
@@ -608,3 +630,96 @@ class TestWorldPanel(_PageTest):
     def test_rows_start_hidden(self):
         for key, _label in WORLD_ROWS:
             self.assertIn("hidden", self.page.tags[self._index("pw-world-" + key)][1], key)
+
+
+class TestTextScript(EvenniaTest):
+    """
+    pw_text.js is a plugin (W5.4, WC4, lock 5C): it decides whether a
+    room_contents line reaches default_out, so it is registered with
+    plugin_handler (its place before default_out is pinned by
+    TestScriptOrder) and writes nothing to the page itself.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(TEXT_JS)
+
+    def test_registers_as_plugin(self):
+        self.assertIn('plugin_handler.add("pw_text", pw_text)', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in MARKUP_SINKS:
+            self.assertNotIn(sink, self.source, sink)
+
+
+class TestRoomScript(EvenniaTest):
+    """
+    pw_room.js is a renderer like pw_world.js (W5.4): registered with
+    pw_state.on for room -- the second renderer there, after pw_world.js --
+    never with plugin_handler, and it writes text only. Its behaviour is
+    tested in Node: tests/js/test_pw_room.js.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(ROOM_JS)
+
+    def test_not_a_plugin(self):
+        self.assertNotIn("plugin_handler", self.source)
+
+    def test_registers_for_room(self):
+        # The call, not the bare name (W-af).
+        self.assertIn('pw_state.on("room", function', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in MARKUP_SINKS:
+            self.assertNotIn(sink, self.source, sink)
+
+
+class TestRoomPanel(_PageTest):
+    """
+    The location panel's markup (W5.4, WC1, WC14): its own section after the
+    world panel in the right panel, named by its heading, holding every id
+    the renderer writes, one row per list of look with look's label, in
+    look's order.
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_every_id_the_renderer_writes(self):
+        for element_id in ROOM_IDS:
+            self._index(element_id)
+
+    def test_after_the_world_panel_in_the_right_panel(self):
+        for element_id in ROOM_IDS:
+            self.assertIn("pw-panel-right", self.page.within[self._index(element_id)], element_id)
+            self.assertNotIn("pw-world", self.page.within[self._index(element_id)], element_id)
+        last_world = max(self._index(element_id) for element_id in WORLD_IDS)
+        self.assertGreater(self._index("pw-room"), last_world)
+
+    def test_section_named_by_its_heading(self):
+        tag, attrs = self.page.tags[self._index("pw-room")]
+        self.assertEqual(tag, "section")
+        heading = attrs.get("aria-labelledby")
+        self.assertEqual(heading, "pw-room-title")
+        self.assertEqual(self.page.tags[self._index(heading)][0], "h2")
+        self.assertRegex(self.html, r'<h2 id="pw-room-title"[^>]*>Location</h2>')
+
+    def test_rows_in_looks_order(self):
+        rows = [self._index("pw-room-" + key) for key, _label in ROOM_ROWS]
+        self.assertEqual(rows, sorted(rows))
+        self.assertLess(self._index("pw-room-name"), rows[0])
+
+    def test_rows_carry_looks_labels(self):
+        for key, label in ROOM_ROWS:
+            pattern = (r'<div id="pw-room-%s"[^>]*>\s*<span class="pw-room-label">%s</span>\s*'
+                       r'<ul id="pw-room-%s-list"' % (key, label, key))
+            self.assertRegex(self.html, pattern, key)
+
+    def test_rows_start_hidden(self):
+        for element_id in ("pw-room-name",) + tuple("pw-room-" + key for key, _l in ROOM_ROWS):
+            self.assertIn("hidden", self.page.tags[self._index(element_id)][1], element_id)

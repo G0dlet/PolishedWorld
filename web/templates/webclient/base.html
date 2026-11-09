@@ -25,8 +25,11 @@ polishedworld/js/pw_survival.js, the survival panel's renderer, after it.
 Added (W5.3): polishedworld/js/pw_world.js, the world panel's renderer and
 its clock, after pw_survival.js; a renderer as well, and it registers before
 any frame can arrive, since Evennia.init runs at jQuery's ready.
-Deferred scripts run in document order, so pw_gauge is defined before
-either renderer runs.
+Added (W5.4): polishedworld/js/pw_text.js, a plugin after pw_state.js that
+decides whether a room_contents text line reaches default_out (WC4), and
+polishedworld/js/pw_room.js, the location panel's renderer, after
+pw_world.js. Deferred scripts run in document order, so pw_gauge is defined
+before either gauge renderer runs.
 
 Script order is load-bearing. webclient_gui.js does not sort plugins; it
 calls them in <script> order and stops at the first that claims an event.
@@ -96,6 +99,7 @@ carry over any change to the globals or the core script paths.
     <script src="{% static 'webclient/js/webclient_gui.js' %}"></script>
     <!-- Project plugins go here: after webclient_gui.js, before history.js. -->
     <script src="{% static 'polishedworld/js/pw_state.js' %}"></script>
+    <script src="{% static 'polishedworld/js/pw_text.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/history.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/default_in.js' %}"></script>
     <script src="{% static 'webclient/js/plugins/default_out.js' %}"></script>
@@ -111,6 +115,8 @@ carry over any change to the globals or the core script paths.
     <script defer src="{% static 'polishedworld/js/pw_survival.js' %}"></script>
     <!-- Not a plugin: the world panel's renderer and clock, on pw_state.on (W5.3). -->
     <script defer src="{% static 'polishedworld/js/pw_world.js' %}"></script>
+    <!-- Not a plugin: the location panel's renderer, on pw_state.on (W5.4). -->
+    <script defer src="{% static 'polishedworld/js/pw_room.js' %}"></script>
 
     {% block scripts %}
     {% endblock %}

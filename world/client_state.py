@@ -55,7 +55,7 @@ from evennia.utils import logger
 from evennia.utils.ansi import strip_ansi, strip_mxp
 from evennia.utils.utils import delay, inherits_from
 
-from world import encumbrance, gametime_utils, weather
+from world import encumbrance, gametime_utils, room_text, weather
 
 DOMAINS = ("char", "survival", "world", "room")
 
@@ -172,53 +172,30 @@ def world_snapshot():
     }
 
 
-def _thing_names(room, viewer):
-    """
-    The 'You see:' entries in look's order: other objects grouped by name
-    and numbered (a copy of DefaultObject.get_display_things' loop,
-    evennia/objects/objects.py), then statues of logged-out characters
-    (typeclasses/rooms.py get_display_things). Lock 4C: the extraction into
-    one helper both use waits for W5.4, which rewrites these methods.
-    """
-    things = room.filter_visible(room.contents_get(content_type="object"), viewer)
-    grouped = {}
-    for thing in things:
-        grouped.setdefault(thing.get_display_name(viewer), []).append(thing)
-    names = []
-    for thingname, thinglist in sorted(grouped.items()):
-        count = len(thinglist)
-        singular, plural = thinglist[0].get_numbered_name(count, viewer, key=thingname)
-        names.append(singular if count == 1 else plural)
-    for obj in room.contents_get(content_type="character"):
-        if obj != viewer and obj.access(viewer, "view") and getattr(obj, "is_statue", False):
-            names.append(obj.get_display_name(viewer))
-    return [_plain(name) for name in names]
-
-
 def room_snapshot(room, viewer):
     """
     The viewer's location as `look` lists it for that viewer (WC8): names
     depend on the looker, so this is built once per viewer.
 
-    exits are [{"name", "key"}] -- the key is what a click sends (W5.4);
-    characters are awake characters other than the viewer; things are
-    `_thing_names`. No room gives the empty shape, so the browser clears.
+    exits are [{"name", "key"}] -- the key is what a click sends (W5.4,
+    web/static/polishedworld/js/pw_room.js); characters are awake characters
+    other than the viewer; things are look's 'You see:' entries, grouped
+    things first, then statues of logged-out characters. The lists come
+    from `world.room_text.room_lists`, the one helper the Room's display
+    hooks read too (W5.4 lock 4C). No room gives the empty shape, so the
+    browser clears.
     """
     if room is None:
         return {"name": None, "indoor": False, "exits": [], "characters": [], "things": []}
-    exits = room.filter_visible(room.contents_get(content_type="exit"), viewer)
-    characters = [
-        obj for obj in room.contents_get(content_type="character")
-        if obj != viewer
-        and obj.access(viewer, "view")
-        and not getattr(obj, "is_statue", False)
-    ]
+    lists = room_text.room_lists(room, viewer)
+    things = lists["things"] + [s.get_display_name(viewer) for s in lists["statues"]]
     return {
         "name": _plain(room.get_display_name(viewer)),
         "indoor": bool(room.db.is_indoor),
-        "exits": [{"name": _plain(ex.get_display_name(viewer)), "key": ex.key} for ex in exits],
-        "characters": [_plain(c.get_display_name(viewer)) for c in characters],
-        "things": _thing_names(room, viewer),
+        "exits": [{"name": _plain(ex.get_display_name(viewer)), "key": ex.key}
+                  for ex in lists["exits"]],
+        "characters": [_plain(c.get_display_name(viewer)) for c in lists["characters"]],
+        "things": [_plain(name) for name in things],
     }
 
 

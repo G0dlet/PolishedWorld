@@ -21,6 +21,7 @@ from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import encumbrance
 from world import client_state
+from world import room_text
 from world import survival_ticker
 from world import timed_actions
 from world import activity_log
@@ -35,6 +36,7 @@ from world.recipe_mastery import RecipeMasteryHandler
 from world.chargen import derive_health_max, start_or_resume_chargen
 
 from django.conf import settings
+from django.utils.translation import gettext as _
 from evennia.utils import search
 
 
@@ -500,8 +502,26 @@ class Character(ObjectParent, ClothedCharacter):
         Broadcast awakening when a player re-takes control; then, for a
         character born through an account and not yet made, the creation
         menu (CC3.2) -- started, or resumed where it was left.
+
+        The first three steps are DefaultCharacter.at_post_puppet's
+        (objects.py:3280-3289), copied with its look replaced by
+        `world.room_text.room_look` (webclient W5.4, WC4). super() is not
+        called: DefaultCharacter's version would send the one-message look,
+        and it never calls its own parent, so nothing else is skipped
+        (tests/test_room_look.py TestHookMro). Without a location the look
+        and the arrival line are left out instead of raising.
         """
-        super().at_post_puppet(**kwargs)  # här är super() OK - sätter inte location
+        self.msg(_("\nYou become |c{name}|n.\n").format(name=self.key))
+        if self.location is not None:
+            room_text.room_look(self, self.location)
+
+            def message(obj, from_obj):
+                obj.msg(
+                    _("{name} has entered the game.").format(name=self.get_display_name(obj)),
+                    from_obj=from_obj,
+                )
+
+            self.location.for_contents(message, exclude=[self], from_obj=self)
 
         # C.3: the `progress` baseline is taken at every puppet.
         self.snapshot_skill_baseline()
@@ -1494,6 +1514,14 @@ class Character(ObjectParent, ClothedCharacter):
         """
         Look around, then charge a step taken while overloaded (W3.2).
 
+        The look is `world.room_text.room_look` (webclient W5.4, WC4): the
+        room's description and its lists as two messages. This hook does not
+        call super(): above Character only DefaultCharacter and
+        DefaultObject define it (tests/test_room_look.py TestHookMro), and
+        DefaultCharacter's is nothing but the one-message look
+        (objects.py:3230-3236), DefaultObject's is `pass`. Its view check is
+        kept; a missing location sends nothing instead of raising.
+
         Legend halves an overloaded character's Movement (core p.86); here
         every room entered through an exit costs `OVERLOAD_MOVE_FATIGUE`
         fatigue while the band is OVERLOADED or CEILING (WD3, Q4). The cost is
@@ -1520,7 +1548,8 @@ class Character(ObjectParent, ClothedCharacter):
         the move has happened (`objects.py:1331`), and the exit would tell a
         character who did move "You cannot go there."
         """
-        super().at_post_move(source_location, move_type=move_type, **kwargs)
+        if self.location is not None and self.location.access(self, "view"):
+            room_text.room_look(self, self.location)
         if move_type != "traverse":
             return
         if self.encumbrance_state == encumbrance.FREE:

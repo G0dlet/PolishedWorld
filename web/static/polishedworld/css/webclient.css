@@ -156,9 +156,9 @@ body {
    reader's font size and scale by a fraction (WC10). */
 #pw-char [hidden] { display: none; }
 
-/* The panel headings: the character's name, Survival (W5.2) and World
-   (W5.3). */
-.pw-char-name, .pw-survival-title, .pw-world-title {
+/* The panel headings: the character's name, Survival (W5.2), World
+   (W5.3) and Location (W5.4). */
+.pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title {
   margin: 0 0 .5rem;
   font-size: 1rem;
   color: var(--pw-highlight);
@@ -213,6 +213,34 @@ body {
 .pw-world-row { margin: .25rem 0; }
 
 .pw-world-label { color: var(--pw-muted); }
+
+/* Location panel (W5.4). Its rows start hidden until the first room frame,
+   and a row hides while its list is empty. Labels as in the world panel.
+   The exits are links (WC14), in the palette's link colour and underlined,
+   so a link is told apart by more than its colour. The selector names
+   the element: Evennia's a:link and a:visited (color: inherit) are as
+   specific as a class alone and would win against .pw-room-exit; here
+   they tie and the later stylesheet wins. */
+#pw-room [hidden] { display: none; }
+
+#pw-room { margin-top: 1rem; }
+
+.pw-room-name { margin: .25rem 0; font-weight: bold; }
+
+.pw-room-row { margin: .5rem 0; }
+
+.pw-room-label { color: var(--pw-muted); }
+
+.pw-room-list {
+  margin: .25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+a.pw-room-exit {
+  color: var(--pw-gold_link);
+  text-decoration: underline;
+}
 
 /* The text area. <main> is the scroll container: Evennia's default_out
    scrolls #messagewindow's grandparent, so #messagewindow itself must not. */

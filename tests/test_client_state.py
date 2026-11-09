@@ -11,6 +11,7 @@ Locks (decomp Rev 5, STOPP 0 of W4.1):
   2B  gauges are {"current": int, "max": int, "desc": str}, status's readers
   3A  every name is plain text (markup stripped)
   4C  room lists replicate look's filters; an equivalence test holds them
+      (W5.4: both now read world.room_text.room_lists; the tests stay)
   5A  world is global; weather always; room carries `indoor`
   6B  push is per domain: a failing builder is logged and skipped
   7A  at_post_puppet always pushes all four
@@ -184,8 +185,9 @@ class TestWorldSnapshot(EvenniaTest):
 
 class TestRoomSnapshot(EvenniaTest):
     """
-    Pressures lock 4C: the snapshot replicates look's filters, so each list
-    is checked against the look text for the same viewer -- the statue under
+    Pressures lock 4C: the snapshot and look read one helper since W5.4
+    (world.room_text.room_lists), and each list is still checked against
+    the look text for the same viewer -- the statue under
     things (WC8/WC14), the viewer left out, grouping, and the view lock.
     """
 

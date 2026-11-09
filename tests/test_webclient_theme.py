@@ -408,3 +408,13 @@ class TestWorldPanelHidden(_ThemeTest):
 
     def test_hidden_wins_in_the_world_panel(self):
         self.assertEqual(_decl_values(self.rules, "#pw-world [hidden]", ("display",)), ["none"])
+
+
+class TestRoomPanelHidden(_ThemeTest):
+    """
+    The location panel (W5.4): its rows start hidden and a row hides when
+    its list is empty, so the hidden rule must win there as in the others.
+    """
+
+    def test_hidden_wins_in_the_room_panel(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-room [hidden]", ("display",)), ["none"])
