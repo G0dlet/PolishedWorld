@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 92 · 2026-11-09** — four entries **added**, docs only, from a review of Evennia's contribs against the pinned `v6.1.0` tag (the ten the project already imports excluded; *Player mail* already filed). **Added** (*UX & Item Identity*): ***An NPC guide driven by a language model — `rpg/llm`***, BLOCKED on the newcomer's economy design note — fun but not needed now (Adam's call); the contrib is the starting point, a Google-AI-generated Vultr guide reviewed the same day is not, and `tutorials/talking_npc` is named as the guide that cannot invent a recipe; ***Strangers by description — `rpg/rpsystem`***, OPEN — Adam finds it fitting for an immersive, cozy, living world; decided before Stage 5's design session because every system that shows or targets a character by name adds a site, combat most of all. **Added** (*Tooling & Process*): ***Components contrib — not adopted, with a revisit trigger***, BLOCKED on that trigger; ***Read EvAdventure's twitch combat before Stage 5's design***, SCHEDULED for that session.
+
 > **Rev 91 · 2026-11-09** — one entry **annotated**, docs only, with roadmap Rev 63 and `docs/GameGold_Design.md` Rev 5: ***Legal review before mainnet (MiCA, AML, tax)*** follows the chain-launch decision. Question 4 now names the one-year PoW phase in which the founder mines and keeps his coins, instead of 100 bootstrap blocks, and asks whether a later private disposal of founder coins changes the exemption; question 6 adds the founder's mining income; question 7 names the PoW year; *Not in scope* points at the locked design; the Trigger records that the launch is decided and that the review is step 3 of the winter order. Status unchanged: BLOCKED until a genesis date exists.
 
 > **Rev 90 · 2026-11-09** — one entry **added**, docs only, with `docs/GameGold_Design.md` Rev 4. **Added** (*GameGold*): ***Legal review before mainnet (MiCA, AML, tax)***, BLOCKED until a mainnet date exists. It turns "check the law" into seven fixed questions for one consultation: whether the 1:1 bridge is custody, what the planned AB changes, whether GameGold is an asset-referenced token (the design calls the rate a *hard peg*), whether the white-paper exemption holds, AML, tax, and sustainability disclosure. Its trigger is whichever comes first of a genesis date, an [ANN] post, forming the AB or decomposing the bridge, because Adam is weighing a chain launch before the roadmap's GameGold trigger would fire. The design doc's *Legal Note* is trimmed to a pointer here. The roadmap is untouched: its **[OPEN] GameGold trigger** still owns when the chain launches; this entry owns only what must be settled before it does. No status changes elsewhere.
@@ -2851,6 +2853,87 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Adam, gap review 2026-11-04.
 - **Status:** BLOCKED (alpha reports)
 
+### An NPC guide driven by a language model — `rpg/llm`
+- **What:** An NPC players can talk to in free text, answered by a language
+  model. Start from Evennia's contrib, verified at `v6.1.0`: `LLMNPC` and a
+  `talk` command (`CmdLLMTalk`), calls made asynchronously through Twisted's
+  HTTP `Agent` so a slow model never blocks the server, a "thinking…" echo
+  after `thinking_timeout`, a chat memory per player (`max_chat_memory_size`,
+  25 by default) and a prompt prefix that fills in `{name}`, `{desc}`,
+  `{location}` and `{character}` — the room context is already there. Two
+  gaps: the client reads `json.loads(response)["results"][0]["text"]`
+  (`llm_client.py:173`), text-generation-webui's legacy format, so Ollama or
+  any OpenAI-style `chat/completions` endpoint needs a client subclass,
+  returned from the NPC's `llm_client` property (`llm_npc.py:59–62`; the
+  README itself says `chat/completions` does not work out of the box); and
+  the contrib has no rate limit.
+- **The guide that cannot lie:** `tutorials/talking_npc` — a menu-driven NPC
+  with fixed answers. For a newbie school it is the cheaper first guide: it
+  cannot invent a recipe.
+- **Constraints:** (1) inference never runs on the VPS, which it would share
+  with Evennia (as in *Automated test players*, whose agents need the same
+  kind of endpoint — one model setup can serve both); (2) the model states
+  no mechanics it is not given — begin as flavour (lore, gossip), not rules:
+  a guide that invents a recipe breaks LM10's "first craft unaided", and a
+  right one blurs it; (3) a per-character cooldown (`game_systems/cooldowns`)
+  and a cap on calls in flight; (4) player text sent to a hosted model is
+  said in `help alpha` or the player contract; (5) any key lives in
+  `secret_settings.py`, never in the repo.
+- **Open:** flavour NPC or rules guide; hosted endpoint or Adam's own
+  hardware; whether `talking_npc` comes first.
+- **Why deferred:** Fun but not needed now (Adam's call); what a guide is for
+  depends on whether a newbie school exists.
+- **Trigger:** The newcomer's economy design note (roadmap *Nuläge*, after
+  Stage 4.6), which decides whether there is a guide and what kind.
+- **Origin:** Adam, design chat 2026-11-09, while setting up the alpha server.
+  A Google-AI-generated "Vultr Evennia AI guide" was reviewed and set aside:
+  its `async` method is called without `await` from `msg()` (so it never
+  runs, and `httpx.AsyncClient` needs asyncio, not Twisted), it indexes
+  `choices` as a dict, its `msg()` hook answers every echo in the room (two
+  guides would talk forever), `at_char_entered` is not an Evennia hook, the
+  key is hard-coded, and its endpoint and pricing differ from Vultr's own
+  docs (`api.vultrinference.com/v1/chat/completions`, own inference key).
+- **Status:** BLOCKED (newcomer's economy design note)
+
+### Strangers by description — `rpg/rpsystem`
+- **What:** Evennia's roleplay contrib, verified at `v6.1.0`: a character is
+  seen by a short description (*sdesc*) until the viewer gives them a name
+  (`recog`); `say` and `emote` are replaced (an emote names others by sdesc,
+  `/tall`), plus `sdesc`, `pose` and `mask`; and `rplanguage` obscures speech
+  per language by a level from 0.0 to 1.0 (`obfuscate_language`). It fits
+  *hard roads, warm hearths*: the stranger at the fire is "a weathered woman
+  in a wool cloak" until she says her name. Legend's Language skills could set
+  the level (the rulebook has Language (Native); the skill set has no
+  language skill today).
+- **Cost, read against the repo:** five display overrides meet: the project's
+  `Character.get_display_name` and `get_display_things`
+  (`typeclasses/characters.py:518, 540`) and `Room.get_display_name`,
+  `get_display_characters`, `get_display_things` (`typeclasses/rooms.py:276,
+  301, 317`) against `ContribRPObject.get_display_name`,
+  `get_display_characters`, `get_display_things` (`rpsystem.py:1381, 1422,
+  1437`) and `ContribRPCharacter.get_display_name` (`:1509`); the clothing
+  contrib's `get_display_things` (`clothing.py:385`) is a sixth. And
+  `ContribRPObject` replaces `get_search_result` (`:1326`), which
+  `DefaultObject.search` calls (`objects.py:870`), so every `caller.search` a
+  command makes — `give`, `trade`, later combat targets — matches by sdesc and
+  recog.
+- **Why decide early:** every system that shows or targets a character by
+  name adds a site, so the cost grows with each stage — Stage 5's targeting
+  most of all. The alpha instance is wiped at close-out, so the cost is code,
+  not player data.
+- **Open:** all of it or a part (sdesc and recog without languages or masks);
+  how a newcomer learns names, which is what the alpha measures; whether
+  `who` shows names; whether an automated test player is recognisable
+  (*Automated test players*' open question).
+- **Why deferred:** A design decision; the alpha order and the order after
+  the webclient stand.
+- **Trigger:** A one-system design note before Stage 5's design session — at
+  the latest that session itself, since combat targeting is the largest new
+  name surface.
+- **Origin:** Adam, contrib review 2026-11-09 — he finds it fitting for an
+  immersive, cozy, living world.
+- **Status:** OPEN
+
 ### A screen-reader pass
 - **What:** Play the core loop with Evennia's `SCREENREADER` option on (a
   per-session option, validated in `evennia/commands/default/account.py:668` at
@@ -3685,6 +3768,40 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   holds — with one to three humans an issue has little to report — so it is
   actionable, not urgent, and comes after L6.3.
 - **Status:** OPEN — part 1; part 2 BLOCKED on part 1
+
+### Components contrib — not adopted, with a revisit trigger
+- **What:** `base_systems/components`, verified at `v6.1.0`:
+  `ComponentHolderMixin` on a typeclass, `Component` classes whose
+  `DBField`/`NDBField`/`TagField` live as Attributes keyed
+  `component_name::field_name`, a tag per component (category `components`),
+  and signals per host object (`signals.py:52`).
+- **Decision:** not adopted. The project already composes without it: a small
+  typeclass tree, the `DurableObject` mixin, and pure modules in `world/`
+  (`thermal`, `encumbrance`, `garment_wear`) that read Attributes lazily.
+  Adopting it would give the same data a second storage form (two knobs for
+  one job) and migrate existing objects; its signals live on one host, so they
+  do not couple systems across objects (the living-world track); and a mutable
+  `DBField` default is shared between instances unless `autocreate=True`
+  (README, *Known Issues*).
+- **Why deferred:** Nothing hurts today.
+- **Trigger:** An item typeclass needs five or more independent features that
+  combine freely (spoils, wears, warms, burns as fuel, weighs), or two feature
+  mixins conflict in the MRO — whichever first.
+- **Origin:** Adam, contrib review 2026-11-09.
+- **Status:** BLOCKED (trigger above)
+
+### Read EvAdventure's twitch combat before Stage 5's design
+- **What:** `tutorials/evadventure/combat_twitch.py` at `v6.1.0` — real-time,
+  DIKU-style combat — with `combat_base.py` and `combat_turnbased.py`: the
+  same adaptation the roadmap names for Stage 5 (real time with cooldowns).
+  Read it for how actions are queued and repeated, how cooldowns are held,
+  where combat state lives (db or ndb) and how it is cleaned up — against the
+  project's single `ndb.timed_action` slot (`world/timed_actions.py`).
+- **Why deferred:** Stage 5 has not started.
+- **Trigger:** Stage 5's design and source-verification session, as its first
+  reading.
+- **Origin:** Adam, contrib review 2026-11-09.
+- **Status:** SCHEDULED (Stage 5 design session)
 
 ---
 
