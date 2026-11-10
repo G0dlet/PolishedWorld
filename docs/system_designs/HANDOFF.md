@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 11 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 48: after the atlas note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, most grown from the atlas note's open edges — the land itself as a source of systems — marked *, ahead of the bracket line: caves, overhangs & natural shelter; mountains, passes & the high ground; bogs, fens & peat; shore, strand & beachcombing; wildlife ranges & seasonal movement; expeditions & the opening frontier; haunted places & sacred sites. No document, prefix or tie-in changed.
 > **Rev 10 · 2026-11-10** — a nineteenth note, docs only, with roadmap Rev 69, BACKLOG Rev 96 and README Rev 47: `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1, written off the queue at Adam's request like Comfort and Homunculi — whether Azgaar's Fantasy Map Generator could make PolishedWorld's world; the answer is a frozen atlas the game looks things up in, not a room generator. The generator was read at 1.157.0 from a shallow clone. Adam answered the proposal with a bare "kör", so its questions are QQ1–QQ4 with the chat's leanings; QQ5–QQ14 were found while writing. *Where we are*, the prefixes (Q; no departure rows), two queue entries (biomes & regional resources\*, maps & navigation), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 9 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 46: after the names note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the names note's open edges. They are marked *, ahead of the bracket line: voices & manner of speech; eavesdropping, whispers & private talk; channels, tells & the out-of-character line; crowds & busy rooms; sightlines & seeing into the next room; renown, epithets & being known; households, kin & family names. No document, prefix or tie-in changed.
 > **Rev 8 · 2026-11-10** — an eighteenth note, docs only, with roadmap Rev 68, BACKLOG Rev 95 and README Rev 45: `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1, the queue's *names, recognition & introductions\**, written next as decided in Rev 7, with Evennia's `rpg/rpsystem` read at `v6.1.0` as the tool. Adam answered the proposal with a bare "kör", so its questions are UQ1–UQ5 with the chat's leanings. *Where we are*, *This session* (the next note is the newcomer's economy, after Stage 4.6), the prefixes (U; departure rows K), the queue (the names entry leaves; pointers on four others), the tie-ins and the gotchas are updated.
@@ -699,10 +700,50 @@ Claude's additions*:
   shared access to a house, Haven & Hearth's kin list as permissions, Names §2.4;
   Legend Family Reputation p. 27; ties Housing, aging & generations*, absence,
   upkeep & inheritance*, oaths, weddings & ceremonies*)
+- caves, overhangs & natural shelter* (shelter the land gives instead of a builder:
+  an overhang or a cave mouth as a rung on Housing BP8's shelter ladder, found, not
+  made; pitch dark past the mouth, Light LP2's pin; even cold through the year,
+  Temperature; a den a bear may already hold, MoL p. 104 and predators; a cave as
+  a wilderness coordinate's feature from the atlas cell, Atlas QP7/QP13; ties
+  mining & prospecting, ruins, relics & found treasure*)
+- mountains, passes & the high ground* (the atlas's top height band, Atlas QQ13:
+  colder with height, Atlas QP16; snow that lies longer, seasonal ground*; passes
+  that close in winter as natural frontier edges, Atlas QP22; how much slower a
+  climb is against Legend's walking day, p. 68 (Atlas QP-L2); the summit view,
+  Atlas §15; ties climbing, swimming & falls*, sledges, skis & winter travel*)
+- bogs, fens & peat* (the generator's Wetland biome, Atlas §2.2; the bog without a
+  path as a frontier edge, Atlas QP22; peat cut with a spade and dried as fuel,
+  Forest YP1's later row and digging & earthworks*; bog iron, the iron ore
+  source `world/material_registry.py:180`, for smelting & the bloomery*; reeds for
+  thatch and baskets, basketry & wickerwork*; mist and marsh lights, omens,
+  folklore & superstition*; insects, swarms & smoke*)
+- shore, strand & beachcombing* (the atlas's coast and haven cells, Atlas QP14:
+  what the tide line leaves — driftwood, kelp, shells, now and then something
+  from a wreck; shellfish gathered at low water, moon, stars & tides*; brine and
+  sea salt, Water; the shore half of Fishing; wreckage as salvage & taking
+  apart*; the sea wind, wind*)
+- wildlife ranges & seasonal movement* (where animals live by atlas cell and
+  biome rather than by node, Atlas QP13; herds that move between cells with the
+  seasons — the rut and the spawning runs of phenology*; a region hunted out
+  shows it, BACKLOG *Seasonal supply & population memory*; predators follow
+  the prey; Hunting's respawn bound to a place; ties hounds & working dogs*)
+- expeditions & the opening frontier* (what happens when staff open new cells,
+  Atlas QP23: the first to cross, a scouting party, a claim rush or a fair start —
+  settlements & commons, surveying, boundaries & land measure*; player-named
+  places & landmarks*; supplies hauled out, carts, wheelbarrows & hauling*; a
+  returning party's map, maps & navigation; the gazette's headline, BACKLOG
+  *In-world gazette*)
+- haunted places & sacred sites* (high fantasy in the land itself: Spirit Magic's
+  haunt p. 26 — a spirit bound to a place drains the POW of plants and animals
+  around it, so the ground withers and beasts shun it; a holy spring or grove as
+  temples & faith's outdoor half; ruins, relics & found treasure* given a reason to
+  be feared, Atlas QP19; omens, folklore & superstition*; a haunt is felt, not
+  fought, until Stage 5; magic last)
 - [Adam approved the seventeen above on 2026-11-09 and likes systems that make the
   world feel immersive and alive; seven were added after the homunculus note the
-  same day, at his request (Rev 6), and the seven before this line after the names
-  note on 2026-11-10 (Rev 9); ask again "more systems for the queue?" at the end of
+  same day, at his request (Rev 6), seven after the names note on 2026-11-10
+  (Rev 9), and the seven before this line after the atlas note the same day
+  (Rev 11), the land itself as a source of systems; ask again "more systems for the queue?" at the end of
   the next session]
 
 Last:
