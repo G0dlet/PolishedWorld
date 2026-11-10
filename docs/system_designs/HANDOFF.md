@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 10 · 2026-11-10** — a nineteenth note, docs only, with roadmap Rev 69, BACKLOG Rev 96 and README Rev 47: `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1, written off the queue at Adam's request like Comfort and Homunculi — whether Azgaar's Fantasy Map Generator could make PolishedWorld's world; the answer is a frozen atlas the game looks things up in, not a room generator. The generator was read at 1.157.0 from a shallow clone. Adam answered the proposal with a bare "kör", so its questions are QQ1–QQ4 with the chat's leanings; QQ5–QQ14 were found while writing. *Where we are*, the prefixes (Q; no departure rows), two queue entries (biomes & regional resources\*, maps & navigation), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 9 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 46: after the names note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the names note's open edges. They are marked *, ahead of the bracket line: voices & manner of speech; eavesdropping, whispers & private talk; channels, tells & the out-of-character line; crowds & busy rooms; sightlines & seeing into the next room; renown, epithets & being known; households, kin & family names. No document, prefix or tie-in changed.
 > **Rev 8 · 2026-11-10** — an eighteenth note, docs only, with roadmap Rev 68, BACKLOG Rev 95 and README Rev 45: `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1, the queue's *names, recognition & introductions\**, written next as decided in Rev 7, with Evennia's `rpg/rpsystem` read at `v6.1.0` as the tool. Adam answered the proposal with a bare "kör", so its questions are UQ1–UQ5 with the chat's leanings. *Where we are*, *This session* (the next note is the newcomer's economy, after Stage 4.6), the prefixes (U; departure rows K), the queue (the names entry leaves; pointers on four others), the tie-ins and the gotchas are updated.
 > **Rev 7 · 2026-11-10** — the next note **changed**, docs only, with roadmap Rev 67, BACKLOG Rev 94 and README Rev 44: Adam decided `rpg/rpsystem`'s timing (BACKLOG *Strangers by description*, now SCHEDULED). Its design note is the queue's *names, recognition & introductions\**, written next — before the newcomer's economy, any time before Stage 4.6 ships — and its queue entry names the contrib. The newcomer's note stays after Stage 4.6 and reads the names note. No document, prefix or tie-in changed.
@@ -19,7 +20,8 @@ nothing locked. One docs patch for `main` per session.
 - The series paused after fifteen documents (2026-11-08); a sixteenth, Comfort,
   and a seventeenth, Homunculi, were written off the queue at Adam's request
   (2026-11-09); an eighteenth, Names, was written next by decision
-  (2026-11-10). To resume, paste this
+  (2026-11-10); a nineteenth, Atlas, off the queue at Adam's request the same
+  day. To resume, paste this
   file as the first message of a new design chat.
 - Fifteen documents: Fishing, Housing, Hunting, Cooking, Temperature, Farming,
   Textiles, Water, Foraging, Light, Forest, Rendering, Pottery, Rest, Storage, in
@@ -55,19 +57,29 @@ nothing locked. One docs patch for `main` per session.
   Rev 95 (annotations on *Strangers by description* and *A screen-reader
   pass*), README Rev 45 and this file Rev 8. Code read at `main` `4422b65`.
   Confirm with a fresh clone that Adam pushed it; the tree is the receipt.
-- Catalogue loop 53/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Nineteenth: Atlas (the world atlas — Azgaar's Fantasy Map Generator as the
+  source, frozen; one generator cell to a wilderness region; realms as lore; the
+  frontier as a window) as `docs/system_designs/PolishedWorld_Atlas_Design.md`
+  Rev 1, with roadmap Rev 69 (Stage 6's *Atlas* line; a note on *[DEFERRED]
+  Procedural world generation*), BACKLOG Rev 96 (new *World atlas — Azgaar's
+  Fantasy Map Generator as the source* in World & Rooms, OPEN; annotations on
+  *Biome fragment library* and *⛔ Regional weather*), README Rev 47 and this
+  file Rev 10. Code read at `main` `f157bc0`; the generator at 1.157.0
+  (`4b34afc`). Confirm with a fresh clone that Adam pushed it; the tree is the
+  receipt.
+- Catalogue loop 54/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
   VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
-  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
-  NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7, UP-L1–L3…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
+  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7, UP-L1–L3, QP-L1–L4…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
   temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
-  X1–X2 comfort, K1–K9 names; Rendering, Pottery, Storage and Homunculi have none). OQ is taken. HP
+  X1–X2 comfort, K1–K9 names; Rendering, Pottery, Storage, Homunculi and Atlas have none). OQ is taken. HP
   avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
   webclient tasks are W1.1-style. Free single letters for departure rows: V (reads
   as Water) — K went to Names; regrep a new one. Checked free before Names:
-  QP/QQ/QG (0 hits); IP is taken by the runbook's IP-ban — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
+  QP/QQ/QG (0 hits; Q went to Atlas); IP is taken by the runbook's IP-ban — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
   typeclasses/ server/.
 
 ## This session: Adam picks from the queue
@@ -106,7 +118,10 @@ Queue:
   common room as a haven, Comfort EP9/EQ14; bar keep and busker as trades, EP-L3)
 - mining & prospecting (ore, quarries, the underground — pitch-black rooms, Light
   LP2's pin; rock salt, Water VQ7)
-- maps & navigation (getting lost, Lore (Regional))
+- maps & navigation (getting lost, Lore (Regional); the home region as atlas
+  cells or a biome family, Atlas QP-L1/QQ8; cartographer AoL `:2988` and navigator
+  `:3074` as trades, maps drawn from the atlas but never handed out whole, Atlas
+  QP-L4; a drawn frontier map on the website, Atlas QQ7)
 - animal taming (+ the cat, read by Storage DP12 — where cats come from, feeding,
   no free breeding, Storage DQ13; a cat asleep by the hearth, Comfort EP22)
 - temples & faith (+ burial and graves*, beside the shipped death contract; AoL
@@ -358,7 +373,9 @@ Claude's additions*:
 - biomes & regional resources* (the one "what is here" helper that Water VP8,
   Fishing FQ5, Foraging RP13 and Forest §14 all name as terrain; what grows, swims
   and lies where — clay banks and limestone too — so regions trade; ties travel,
-  markets and maps; regional weather is blocked on the biome layer; Stage 6's)
+  markets and maps; regional weather is blocked on the biome layer; Stage 6's;
+  in the wilderness the helper starts from the atlas cell — biome, height band,
+  river, coast, Atlas QP13–QP15 — and leans to stay its own note, Atlas QQ1)
 - lodging & safe logout* (a logged-out character stays as a statue,
   `typeclasses/characters.py:472`, wherever it logs out — in the open, in a house,
   in an inn; Rest NP19 makes the logout sleep and NP13 gives a bed one sleeper,
@@ -698,7 +715,27 @@ Last:
 
 After the doc, ask whether there are more systems to add to the queue.
 
-Tie-ins already written. Names (UP…): lesson slot = Armageddon's *Remember Me*
+Tie-ins already written. Atlas (QP…): lesson slot = Daggerfall (no MUD lesson
+found) — coarse 1000 × 500 maps of height, climate and politics drive all
+detail, terrain inside a pixel is generated, the climate key picks textures and
+plants: author coarse, generate fine (QG1). Azgaar's generator at 1.157.0
+(export kinds `export-json.ts:13–17`; packed cells `:129–156`; grid `temp`/`prec`
+`:222–223`; its `goods`/`markets`/`deals` `:68–71`, struck; thirteen biomes
+`biomes-generator.ts:25–138`); the Foundry importer (realms as linked lore);
+mapwright (Python port, 1,500-cell cap — not now). QG2 geography never economy;
+QG3 frozen, versioned, reviewed re-import; QG4 our vocabulary wins; QG5 a
+read-only lookup by coordinate (Evennia Ref §14.5). QP1 `.map` source +
+slim extraction; QP3 provenance and a struck-field test; QP4 coordinates
+canonical, cell ids derived; QP5 one cell = a region; QP7 detail a function of
+place; QP12 biomes onto *Biome fragment library*'s keys; QP13 the "what is
+here" helper starts from the cell; QP14 river/lake/coast water; QP16
+temperature as an offset from the Old Temple's cell; QP17 precipitation
+weights *⛔ Regional weather*; QP19 a world that has drawn back, burgs as
+ruins; QP22–QP23 the frontier as open cells widened by staff at Stage 6's
+milestones; QP25 loaded once with a bucket index. Legend: Lore (Regional)
+p. 52 (QP-L1), travel table p. 68 as the scale's yardstick (QP-L2), AoL
+settlement table `:842–850` for ruins only (QP-L3).
+Names (UP…): lesson slot = Armageddon's *Remember Me*
 thread (2013) — a screen-reader player shut out by long short descriptions and
 client-side triggers; veterans wanted strangeness, the thread converged on
 limits (masks defeat it, same room only, keyed to the person): strangeness is
@@ -927,7 +964,7 @@ storage own no raw material.
 9. End by presenting the updated `docs/system_designs/HANDOFF.md` from the patch;
    it is the next chat's prompt.
 
-## Gotchas (all eighteen sessions)
+## Gotchas (all nineteen sessions)
 - Blood Magic (`/mnt/project/blood_magic_ebook.pdf`) is encoded, not a readable
   PDF — pdftotext, pypdf and pdfplumber all fail; read it through
   `project_knowledge_search`, where page numbers appear as bare lines before the
@@ -1116,7 +1153,8 @@ storage own no raw material.
   tent (4 person) p. 118, tent (8 person) p. 119, hand saw and scythe p. 118,
   torch p. 119, mounts p. 120, close-combat darkness p. 135, surprise (asleep,
   groggy −20) p. 138, ranged visibility p. 141, Magic Points regained sleeping
-  p. 154, Bless Crops p. 179, Rain p. 186, Weather pp. 231–233. No rule for
+  p. 154, Bless Crops p. 179, Rain p. 186, Weather pp. 231–233, Strategic Time
+  Travel Table (30 km a walking day of ten hours) p. 68. No rule for
   spoilage, storage or vermin in the core. Monsters of Legend (book 1): insect
   swarm, brown bear p. 104, boar p. 106, cattle p. 107, deer p. 109; no ordinary
   rats or house cats in either book. AoL: bedroll `:146`, candles `:172–182`, clay
@@ -1136,4 +1174,9 @@ storage own no raw material.
   `:430`, water additive `:504`, water pack `:508`, water trap `:510`, waterskin
   `:512`, animal training `:2811`, cat `:2831`, goat `:2845`, pig `:2873`, sheep
   `:2885`, dyer `:3018`, livestock farmer `:3026`, furrier `:3034`, seamstress
-  `:3106`, tailor `:3116`, Craft (Sewing) `:1056`.
+  `:3106`, tailor `:3116`, Craft (Sewing) `:1056`, settlement types and price
+  factors `:842–850`, cartographer `:2988`, navigator `:3074`.
+- Azgaar's generator is TypeScript now (`src/`, not `modules/`); a raw GitHub
+  fetch of the old `modules/io/export-json.js` path returns nothing. `git clone --depth 1` from github.com works in
+  the sandbox. The legacy `pack.cells` field names (`h`, `r`, `fl`, `g`) are
+  unchanged in the JSON export.

@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 96 · 2026-11-10** — one entry **added** and two **annotated**, docs only, with roadmap Rev 69, README Rev 47, the series handoff `docs/system_designs/HANDOFF.md` Rev 10 and `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1: ***World atlas — Azgaar's Fantasy Map Generator as the source*** joins World & Rooms. Adam asked what Claude thought of making PolishedWorld's world with Azgaar's Fantasy Map Generator; the chat recommended it as a frozen atlas the game looks things up in — biomes, rivers, coast, climate, old roads and ruins — not as a room generator, and Adam asked for this entry and the design note. ***Biome fragment library for dynamic room descriptions*** gains a note that its keys are the vocabulary the atlas maps the generator's thirteen biomes onto, and ***⛔ Regional weather (per-area rather than global)*** a note that the atlas is a region concept it can hang on. Status unchanged on both; the new entry is OPEN, its trigger roadmap Stage 6's design session.
 > **Rev 95 · 2026-11-10** — two entries **annotated**, docs only, with roadmap Rev 68, README Rev 45, the series handoff `docs/system_designs/HANDOFF.md` Rev 8 and `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1: ***Strangers by description — `rpg/rpsystem`*** gains the design note and what it found — the slice is larger than the five display overrides, since `who`, the statue, the player corpse, the teach offer and sixteen room messages give names away today, and the contrib's search breaks `name-N` for players in `get`, `hunt` and `craft` alike — and the note's leanings on the entry's open questions. ***A screen-reader pass*** gains the note's lesson: Armageddon's *Remember Me* thread, in which a screen-reader player showed that long descriptions and client-side name triggers shut readers out; a short description and a server-side recog are the remedy, and the pass reads them once they ship. Status unchanged on both.
 > **Rev 94 · 2026-11-10** — one entry **scheduled**, docs only, with roadmap Rev 67, README Rev 44 and the series handoff `docs/system_designs/HANDOFF.md` Rev 7: ***Strangers by description — `rpg/rpsystem`*** moves from OPEN to SCHEDULED. Adam decided its timing: the design note is the series queue's *names, recognition & introductions*, written before the newcomer's economy note; the code is the first slice after Stage 5's design session and before combat code; not beside the webclient and not in the alpha. The entry gains a leaning on scope (sdesc, recog and pose first — Claude's recommendation, taken by Adam as a leaning, not a lock) and three open questions: what a statue shows, which multimatch form the game uses, and the `recog` push to the webclient.
 
@@ -2288,6 +2289,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** **After** the biome layer exists (*biome fragment library*) **and**
   Stage 6's coordinate model is decided — both, not either.
 - **Origin:** Session 2026-09-04 (weather/season expansion discussion).
+- **Atlas (2026-11-10, Rev 96):** the world atlas proposed in
+  `docs/system_designs/PolishedWorld_Atlas_Design.md` is a region concept this
+  entry can hang on: each wilderness coordinate reads a generator cell with a
+  yearly temperature and a precipitation, so a region's precipitation can weight
+  the roll and its temperature decide rain against snow (QP17), and a cell's
+  temperature can shift how the season reads there (QP16, QQ14). The atlas gives
+  the inputs; the split is this entry's. Blocked as before.
 - **Status:** BLOCKED (biome layer + Stage 6 world architecture)
 
 ---
@@ -2591,7 +2599,50 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   aspirational.
 - **Origin:** Session 2026-08-13 (builder-ergonomics discussion; explicitly
   flagged as must-not-lose).
+- **Atlas (2026-11-10, Rev 96):** BACKLOG *World atlas — Azgaar's Fantasy Map
+  Generator as the source* proposes that the generator's thirteen biomes map,
+  many to one, onto this library's keys, with a test that every generator biome
+  in the extraction has a key (`docs/system_designs/PolishedWorld_Atlas_Design.md`
+  QP12); whether height overrides biome is its QQ13. The library's vocabulary
+  wins; the atlas only supplies which key a wilderness coordinate reads.
 - **Status:** OPEN (requires its own design session)
+
+---
+
+### World atlas — Azgaar's Fantasy Map Generator as the source
+- **What:** The world's macro geography is drawn once in Azgaar's Fantasy Map
+  Generator (`azgaar.github.io/Fantasy-Map-Generator`, MIT), chosen by hand and
+  frozen: the generator's `.map` file as the editable source, and a slim JSON
+  extraction from its Full export as the only thing the game reads, with the
+  generator's version, seed and a source hash recorded. One generator cell is a
+  wilderness *region* of many rooms, never a room; each coordinate reads its
+  cell for biome (mapped onto *Biome fragment library*'s keys), height band,
+  river and coast, temperature and precipitation. Kept: geography, rivers,
+  biomes, climate, routes as old roads, markers and burgs as named ruins, name
+  bases for places. Struck at import: the generator's goods, markets and deals,
+  armies, populations and provinces (pillar 1). The realms become lore — a world
+  that has drawn back — and the frontier is a window of open cells that staff
+  widen at Stage 6's population milestones. Design in
+  `docs/system_designs/PolishedWorld_Atlas_Design.md` (QP1–QP25, QQ1–QQ14).
+- **Why deferred:** Stage 6 owns the rooms the atlas would be read by, and its
+  scale (rooms per cell, QQ2) cannot be chosen before that stage's design
+  session; the biome keys belong to *Biome fragment library*, which is not yet
+  designed. Choosing a map costs nothing and can start any time (the note's §16
+  step 0); code before Stage 6 would be a speculative build.
+- **Verified:** the generator's export read at version 1.157.0 (commit
+  `4b34afc`, 2026-11-09) from a shallow clone: export kinds
+  (`src/services/io/export-json.ts:13–17`), packed-cell fields incl. `biome`,
+  `h`, `r`, `fl`, `haven` (`:129–156`), grid `temp` and `prec` (`:222–223`),
+  `goods`, `markets`, `deals` (`:68–71`), thirteen default biomes
+  (`src/model/physical/biomes-generator.ts:25–138`). Its wiki warns that old
+  `.map` files need the matching old version and that JSON exports cannot be
+  loaded back.
+- **Trigger:** Roadmap Stage 6's design session — run the spike (read a Full
+  export in Python, measure, check cell containment, QQ5) and decide the scale
+  there. The biome mapping table waits for *Biome fragment library*'s keys.
+- **Origin:** World atlas design chat (2026-11-10), from Adam's question about
+  using Azgaar's generator for PolishedWorld's world.
+- **Status:** OPEN
 
 ---
 
