@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 9 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 46: after the names note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the names note's open edges. They are marked *, ahead of the bracket line: voices & manner of speech; eavesdropping, whispers & private talk; channels, tells & the out-of-character line; crowds & busy rooms; sightlines & seeing into the next room; renown, epithets & being known; households, kin & family names. No document, prefix or tie-in changed.
 > **Rev 8 · 2026-11-10** — an eighteenth note, docs only, with roadmap Rev 68, BACKLOG Rev 95 and README Rev 45: `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1, the queue's *names, recognition & introductions\**, written next as decided in Rev 7, with Evennia's `rpg/rpsystem` read at `v6.1.0` as the tool. Adam answered the proposal with a bare "kör", so its questions are UQ1–UQ5 with the chat's leanings. *Where we are*, *This session* (the next note is the newcomer's economy, after Stage 4.6), the prefixes (U; departure rows K), the queue (the names entry leaves; pointers on four others), the tie-ins and the gotchas are updated.
 > **Rev 7 · 2026-11-10** — the next note **changed**, docs only, with roadmap Rev 67, BACKLOG Rev 94 and README Rev 44: Adam decided `rpg/rpsystem`'s timing (BACKLOG *Strangers by description*, now SCHEDULED). Its design note is the queue's *names, recognition & introductions\**, written next — before the newcomer's economy, any time before Stage 4.6 ships — and its queue entry names the contrib. The newcomer's note stays after Stage 4.6 and reads the names note. No document, prefix or tie-in changed.
 > **Rev 6 · 2026-11-09** — seven systems **added** to the queue, docs only, with README Rev 43: after the homunculus note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, marked *, ahead of the bracket line: sauna, bathhouse & hot springs; sledges, skis & winter travel; tales & storytelling; lending, borrowing & the tool library; flowers & seasonal greenery; carrier birds & messenger animals; constructs, golems & scarecrows. No document, prefix or tie-in changed.
@@ -647,10 +648,45 @@ Claude's additions*:
   moves inherits Homunculus JG1–JG4 — acts only while its maker is in the world,
   never touches coin, one per maker, never more than hands; decide whether any is
   needed beyond the homunculus — possibly never, recorded so it is asked once)
+- voices & manner of speech* (knowing someone by their voice through a hood —
+  the Armageddon *Remember Me* thread's suggestion, Names §2.1, softening Names
+  UP9 without breaking the mask; a manner of speech as a short description for
+  sound; accents, Legend Language pp. 60–61 and Disguise p. 58, which imitates
+  accents too; ties languages & tongues*, barbers, tattoos & appearance*)
+- eavesdropping, whispers & private talk* (who hears what: a whisper half-heard,
+  the contrib's `obfuscate_whisper`, `rplanguage.py:592` at 6.1.0; talking low in
+  a full tavern; walls and doors between rooms; whether anything is ever truly
+  private; ties law/crime/bounties, markets & taverns, hospitality & guest-right*,
+  stealth, locks & theft*)
+- channels, tells & the out-of-character line* (what replaces `who` and `page`
+  once names are earned, Names K1/UQ8: how players arrange to meet without knowing
+  each other's names, where OOC ends, what a Discord is for, whether any tell
+  reaches across the world in character — carrier birds* and letters are the
+  in-world answers; the most operational of these seven)
+- crowds & busy rooms* (how a room of twelve reads: the listing that folds into
+  *several travellers*, emotes that drown each other, a screen reader's view,
+  Names UG2, BACKLOG *A screen-reader pass*; server cost of a crowd, per-receiver
+  names, Names §14; ties calendar, festivals & culture, markets & taverns, sport
+  & contests*)
+- sightlines & seeing into the next room* (figures at a distance, a description
+  without a recog — friend or raider coming down the road, after Armageddon and
+  Sindome's *see shortdescs at distance*; darkness and weather limit it, Light;
+  ties maps & navigation, predators, signals, bells & beacons*, life at a
+  distance*)
+- renown, epithets & being known* (names the world gives — *the ferryman*, *the
+  one who killed the bear* — earned by deeds and carried by people, never granted
+  by the game, Names UG1/UG3; how many recognise you; ties contracts, seals &
+  reputation, tales & storytelling*, news, rumours & the crier*, heraldry, banners
+  & signs*, BACKLOG *In-world gazette* — players anonymous unless they opt in)
+- households, kin & family names* (the household as a social unit: a family name,
+  shared access to a house, Haven & Hearth's kin list as permissions, Names §2.4;
+  Legend Family Reputation p. 27; ties Housing, aging & generations*, absence,
+  upkeep & inheritance*, oaths, weddings & ceremonies*)
 - [Adam approved the seventeen above on 2026-11-09 and likes systems that make the
-  world feel immersive and alive; the seven before this line were added after the
-  homunculus note the same day, at his request (Rev 6); ask again "more systems for
-  the queue?" at the end of the next session]
+  world feel immersive and alive; seven were added after the homunculus note the
+  same day, at his request (Rev 6), and the seven before this line after the names
+  note on 2026-11-10 (Rev 9); ask again "more systems for the queue?" at the end of
+  the next session]
 
 Last:
 - magic (economy half only until Stage 5; Rain p. 186, dowsing AoL :216; magical
