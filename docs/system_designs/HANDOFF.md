@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 13 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 50: after the projectile note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the projectile note's open edges, the hunt and the bow as a source of systems. They are marked *, ahead of the bracket line: falconry & hawking; nets & netting; hides, blinds & tree stands; traps, pits & deadfalls; practice yards & training dummies; shields & bucklers; game seasons & hunting rights. No document, prefix or tie-in changed.
 > **Rev 12 · 2026-11-10** — a twentieth note, docs only, with roadmap Rev 70, BACKLOG Rev 97 and README Rev 49: `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1, written off the queue at Adam's request — how PolishedWorld should handle projectiles. It takes the mechanic half of the queue's *bowyery & fletching\**, which keeps the crafts. The chat drafted the design first, outside the method, and Adam asked whether this file had been followed; it had not — prior art and STOPP 1 were skipped. The prior art read afterwards changed four proposals, and the draft's claims about wind and light were wrong (neither exists in code). The method gains a gotcha for it. New prefix stem RW (RWP/RWQ/RWG), because no single letter is left; departure rows Y.
 > **Rev 11 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 48: after the atlas note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, most grown from the atlas note's open edges — the land itself as a source of systems — marked *, ahead of the bracket line: caves, overhangs & natural shelter; mountains, passes & the high ground; bogs, fens & peat; shore, strand & beachcombing; wildlife ranges & seasonal movement; expeditions & the opening frontier; haunted places & sacred sites. No document, prefix or tie-in changed.
 > **Rev 10 · 2026-11-10** — a nineteenth note, docs only, with roadmap Rev 69, BACKLOG Rev 96 and README Rev 47: `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1, written off the queue at Adam's request like Comfort and Homunculi — whether Azgaar's Fantasy Map Generator could make PolishedWorld's world; the answer is a frozen atlas the game looks things up in, not a room generator. The generator was read at 1.157.0 from a shallow clone. Adam answered the proposal with a bare "kör", so its questions are QQ1–QQ4 with the chat's leanings; QQ5–QQ14 were found while writing. *Where we are*, the prefixes (Q; no departure rows), two queue entries (biomes & regional resources\*, maps & navigation), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
@@ -756,11 +757,39 @@ Claude's additions*:
   temples & faith's outdoor half; ruins, relics & found treasure* given a reason to
   be feared, Atlas QP19; omens, folklore & superstition*; a haunt is felt, not
   fought, until Stage 5; magic last)
+- falconry & hawking* (a living partner instead of a weapon: AoL falconer's kit
+  `:678`, hawk/falcon `:2851`; Monsters of Legend hawk p. 113; a slow, patient
+  trade; animal taming, hounds & working dogs*, fowling & wild birds* — the
+  feather's source)
+- nets & netting* (nets as gear and as weapon: fishing net AoL `:354`, handled
+  net for rats `:356`, the fighter's net `:1655`, the bola `:1889`; Legend's
+  Entangle — a net or a bola can only be evaded, never parried, pp. 105–106,
+  109; a sink for twine, rope & cordage*; Fishing; fowling & wild birds*)
+- hides, blinds & tree stands* (waiting instead of stalking: a hide built in a
+  room and a quarry read lazily while the hunter sits still — Hunting TP6's
+  stalk turned around, its shot TP7, its distance Projectile RWP8; AoL's tree
+  net `:498`, sleeping safe off the ground, Rest)
+- traps, pits & deadfalls* (traps for large game and for guarding stores, beyond
+  Hunting TP11's snare: AoL snare/trap `:126`, block and tackle for traps `:158`,
+  water trap `:510`; harm waits for Stage 5; overlaps Storage DP13's trap of
+  sticks and twine — decide whether they merge)
+- practice yards & training dummies* (archery butts and dummies, MUME's targets,
+  Projectile §15: what practice teaches when E.2's trivial-work gate says easy
+  work teaches nothing, `docs/PolishedWorld_Trivial_Work_Decomposition.md`; straw
+  for butts; sport & contests*)
+- shields & bucklers* (the shield as a craft: only shields parry missiles,
+  Legend p. 140, so Stage 5's projectiles need one; wood and hard leather, AoL
+  `:1189`, buckler `:1539`, target shield `:1695`, Legend p. 104; Stage 5's
+  economy half beside armour & padding*)
+- game seasons & hunting rights* (who may hunt where and when: closed seasons,
+  overhunting, keeping game, players' own rules with no NPC wardens; Hunting
+  TP9–TP10, stock and pressure; settlements & commons; law/crime/bounties)
 - [Adam approved the seventeen above on 2026-11-09 and likes systems that make the
   world feel immersive and alive; seven were added after the homunculus note the
   same day, at his request (Rev 6), seven after the names note on 2026-11-10
-  (Rev 9), and the seven before this line after the atlas note the same day
-  (Rev 11), the land itself as a source of systems; ask again "more systems for the queue?" at the end of
+  (Rev 9), seven after the atlas note the same day (Rev 11), the land itself as
+  a source of systems, and the seven before this line after the projectile note
+  the same day (Rev 13), the hunt and the bow as a source of systems; ask again "more systems for the queue?" at the end of
   the next session]
 
 Last:
