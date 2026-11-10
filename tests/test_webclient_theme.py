@@ -36,7 +36,8 @@ Each class names the bug it pressures:
                            pre-wrap never reaches it; parse_html leaves the
                            spaces raw (Evennia 6.1.0).
     TestBreakpoint         a second breakpoint appears, or the one value
-                           drifts from the 80rem W6.1's matchMedia will use.
+                           drifts from the query pw_text.js passes to
+                           matchMedia (W6.1 lock 5).
     TestNoExternalCss      the stylesheet pulls a font or file from another
                            host, or a font file at all (WC2, lock 8).
 """
@@ -54,6 +55,7 @@ REPO = Path(settings.GAME_DIR)
 PROJECT_CSS = REPO / "web" / "static" / "polishedworld" / "css" / "webclient.css"
 EVENNIA_CSS = "webclient/css/webclient.css"
 PALETTE = REPO / "art" / "palette" / "palette.json"
+TEXT_JS = REPO / "web" / "static" / "polishedworld" / "js" / "pw_text.js"
 
 # The text area's surface; ANSI colour classes must be readable on it.
 TEXT_SURFACE = "background"
@@ -344,6 +346,12 @@ class TestBreakpoint(_ThemeTest):
         )
         self.assertTrue(widths, "no breakpoint")
         self.assertEqual(set(widths), {BREAKPOINT})
+
+    def test_text_router_asks_for_the_same_breakpoint(self):
+        # The call form, not a comment that names the value (W-af).
+        source = TEXT_JS.read_text(encoding="utf-8")
+        calls = re.findall(r"""matchMedia\(\s*["']\(min-width:\s*([0-9.]+[a-z]+)\)["']\s*\)""", source)
+        self.assertEqual(calls, [BREAKPOINT])
 
 
 class TestNoExternalCss(_ThemeTest):

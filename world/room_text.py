@@ -15,12 +15,12 @@ DefaultCharacter's at_post_move and at_post_puppet, objects.py:3236 and
 
 Joined with a newline the two are exactly the old message: Evennia's
 `format_appearance` collapses runs of newlines to one and strips the ends
-(objects.py:1878, `compress_whitespace(max_linebreaks=1)`), so cutting the
-appearance template between `{desc}` and `{exits}` and formatting each half
-the same way loses and adds nothing. The template's header and footer are
-empty for the project's Room; a footer would move from after the lists to
-the end of the first message. A telnet session sees the same lines; the one
-byte-level difference is the colour reset the portal appends to every
+(objects.py:1864-1876, `compress_whitespace(max_linebreaks=1)`), so cutting
+the appearance template between `{desc}` and `{exits}` and formatting each
+half the same way loses and adds nothing. The template's header and footer
+are empty for the project's Room; a footer would move from after the lists
+to the end of the first message. A telnet session sees the same lines; the
+one byte-level difference is the colour reset the portal appends to every
 message (telnet.py send_text), now also at the end of the first.
 
 The webclient hides `room_contents` only when the location panel shows the

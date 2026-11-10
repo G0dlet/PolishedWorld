@@ -242,6 +242,12 @@ a.pw-room-exit {
   text-decoration: underline;
 }
 
+/* The room-lists toggle (W6.1, lock 6A), the panel's last row. Below the
+   breakpoint pw_text.js disables it, checked; the label dims to say so. */
+.pw-room-toggle { margin: .75rem 0 0; }
+
+.pw-room-toggle input:disabled + label { color: var(--pw-muted); }
+
 /* The text area. <main> is the scroll container: Evennia's default_out
    scrolls #messagewindow's grandparent, so #messagewindow itself must not. */
 #main {

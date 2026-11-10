@@ -37,6 +37,15 @@ Each class names the bug it pressures:
                            claim falls through to default_out's unescaped
                            "Error or Unhandled event" line (W4.3). Its
                            behaviour is tested in Node: tests/js/.
+    TestMessageLog         the text area stops being a polite log, or a
+                           second live region appears, so a screen reader
+                           hears a panel or the text twice (W6.1 lock 1,
+                           WC14).
+    TestRoomListsToggle    the *room lists in text* toggle leaves the room
+                           panel, loses its label, sits between the lists,
+                           or carries a state in the markup that the script
+                           sets from the layout and the store (W6.1 lock 6,
+                           WC4).
 """
 
 import hashlib
@@ -163,6 +172,8 @@ ROOM_IDS = (
     "pw-room-things",
     "pw-room-things-list",
 )
+# The room-lists toggle (W6.1 lock 6); the same id is in tests/js/test_pw_text.js.
+TOGGLE_ID = "pw-room-lists-in-text"
 # The panel's list rows and their labels, which are look's
 # (evennia get_display_exits, typeclasses/rooms.py), in look's order (WC1).
 ROOM_ROWS = (("exits", "Exits"), ("characters", "Characters"), ("things", "You see"))
@@ -723,3 +734,55 @@ class TestRoomPanel(_PageTest):
     def test_rows_start_hidden(self):
         for element_id in ("pw-room-name",) + tuple("pw-room-" + key for key, _l in ROOM_ROWS):
             self.assertIn("hidden", self.page.tags[self._index(element_id)][1], element_id)
+
+
+class TestMessageLog(_PageTest):
+    """
+    #messagewindow, the element default_out appends to, is the page's one
+    live region: role="log" with aria-live="polite" written out, though the
+    role implies it (W6.1 lock 1, WC14). Not <main>, which only scrolls.
+    """
+
+    LIVE_ROLES = ("log", "status", "alert", "timer", "marquee")
+
+    def test_log_role_and_polite(self):
+        attrs = [a for _t, a in self.page.tags if a.get("id") == "messagewindow"]
+        self.assertEqual(len(attrs), 1)
+        self.assertEqual((attrs[0].get("role"), attrs[0].get("aria-live")), ("log", "polite"))
+
+    def test_the_only_live_region(self):
+        live = [
+            a.get("id") or t for t, a in self.page.tags
+            if "aria-live" in a or a.get("role") in self.LIVE_ROLES
+        ]
+        self.assertEqual(live, ["messagewindow"])
+
+
+class TestRoomListsToggle(_PageTest):
+    """
+    The *room lists in text* toggle (W6.1 lock 6, WC4): a checkbox in the
+    location panel after its lists, named by a <label>; pw_text.js sets its
+    checked and disabled state from the breakpoint and the store, so the
+    markup carries neither, and it is never hidden.
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_a_checkbox_in_the_room_panel_after_the_lists(self):
+        i = self._index(TOGGLE_ID)
+        tag, attrs = self.page.tags[i]
+        self.assertEqual((tag, attrs.get("type")), ("input", "checkbox"))
+        self.assertIn("pw-room", self.page.within[i])
+        self.assertGreater(i, self._index("pw-room-things-list"))
+
+    def test_named_by_its_label(self):
+        self.assertRegex(self.html, r'<label for="%s"[^>]*>Room lists in text</label>' % TOGGLE_ID)
+
+    def test_state_left_to_the_script(self):
+        _tag, attrs = self.page.tags[self._index(TOGGLE_ID)]
+        for name in ("checked", "disabled", "hidden"):
+            self.assertNotIn(name, attrs, name)
