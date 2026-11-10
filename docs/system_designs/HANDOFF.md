@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 7 · 2026-11-10** — the next note **changed**, docs only, with roadmap Rev 67, BACKLOG Rev 94 and README Rev 44: Adam decided `rpg/rpsystem`'s timing (BACKLOG *Strangers by description*, now SCHEDULED). Its design note is the queue's *names, recognition & introductions\**, written next — before the newcomer's economy, any time before Stage 4.6 ships — and its queue entry names the contrib. The newcomer's note stays after Stage 4.6 and reads the names note. No document, prefix or tie-in changed.
 > **Rev 6 · 2026-11-09** — seven systems **added** to the queue, docs only, with README Rev 43: after the homunculus note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, marked *, ahead of the bracket line: sauna, bathhouse & hot springs; sledges, skis & winter travel; tales & storytelling; lending, borrowing & the tool library; flowers & seasonal greenery; carrier birds & messenger animals; constructs, golems & scarecrows. No document, prefix or tie-in changed.
 > **Rev 5 · 2026-11-09** — a seventeenth note, docs only, with roadmap Rev 66, BACKLOG Rev 93 and README Rev 42: `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1, written off the queue at Adam's request like Comfort — a player-made creature grown from an egg, commanded to do simple tasks and passed on in its jar. *Where we are*, the prefixes (J), three queue entries (alchemy & poisons\*, fowling & wild birds\*, magic), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 4 · 2026-11-09** — seventeen systems **added** to the queue, docs only, with README Rev 41: Adam approved two lists from the chat after the Comfort note (nine, then eight more), and said he especially likes systems that make the world feel immersive and alive. They are Claude's suggestions, marked *, ahead of the bracket line. No document, prefix or tie-in changed.
@@ -61,8 +62,19 @@ nothing locked. One docs patch for `main` per session.
 
 ## This session: Adam picks from the queue
 Storage is done, and the docs have moved to `docs/system_designs/`. **Next, decided
-2026-11-09 (roadmap Rev 61, decision log *Order after the webclient*): the
-newcomer's economy\*** — written after roadmap Stage 4.6 (Survival loop) ships, so
+2026-11-10 (roadmap Rev 67, BACKLOG *Strangers by description*): names,
+recognition & introductions\*** — the queue entry below, with Evennia's
+`rpg/rpsystem` contrib read at `v6.1.0` as the tool (sdesc, recog, pose, mask,
+`rplanguage`; the BACKLOG entry lists the display overrides it meets and the
+`get_search_result` it replaces). It reads no code Stage 4.6 adds, so it may be
+written any time before that stage ships; the newcomer's note then reads how a
+newcomer learns names from it. Adam took Claude's leaning on scope as a leaning,
+not a lock: sdesc, recog and pose first; masks with disguise and law/crime;
+languages with *languages & tongues\**. Its code is Stage 5's first slice, after
+that stage's design session — not beside the webclient, not in the alpha.
+
+**After it, decided 2026-11-09 (roadmap Rev 61, decision log *Order after the
+webclient*): the newcomer's economy\*** — written after roadmap Stage 4.6 (Survival loop) ships, so
 its first steps can read drinking at the spring and natural healing as live code.
 Adam's question goes with it: should PolishedWorld have a newbie school, as many
 MUDs have had? Claude's leaning from that chat, nothing decided: keep the school's
@@ -429,7 +441,9 @@ Claude's additions*:
   chargen stores them; regional speech as a reason to trade through a
   go-between; written scripts tie letters & notice boards; Armageddon's
   languages as prior art to read)
-- names, recognition & introductions* (who knows whose name: a stranger seen
+- names, recognition & introductions* (NEXT, 2026-11-10 — Evennia's
+  `rpg/rpsystem` at `v6.1.0` is the tool to read, BACKLOG *Strangers by
+  description*; who knows whose name: a stranger seen
   as a description until introduced — Armageddon's short descriptions as
   prior art to read; statues show the key today,
   `typeclasses/characters.py:518`; the first thing law/crime needs to name a

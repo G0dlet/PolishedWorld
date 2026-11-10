@@ -1,5 +1,7 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 94 · 2026-11-10** — one entry **scheduled**, docs only, with roadmap Rev 67, README Rev 44 and the series handoff `docs/system_designs/HANDOFF.md` Rev 7: ***Strangers by description — `rpg/rpsystem`*** moves from OPEN to SCHEDULED. Adam decided its timing: the design note is the series queue's *names, recognition & introductions*, written before the newcomer's economy note; the code is the first slice after Stage 5's design session and before combat code; not beside the webclient and not in the alpha. The entry gains a leaning on scope (sdesc, recog and pose first — Claude's recommendation, taken by Adam as a leaning, not a lock) and three open questions: what a statue shows, which multimatch form the game uses, and the `recog` push to the webclient.
+
 > **Rev 93 · 2026-11-09** — one entry **annotated**, docs only, with roadmap Rev 66, README Rev 42 and `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1: ***Automated test players — a scripted load run and a few LLM agents*** gains a note that a homunculus — the player-made creature the new design note proposes — is not an automated player. Its activity-log lines are kept; they carry the homunculus as `actor` and its maker as a `[dbref, key]` pair in a `maker` field, so the runbook's offline filter drops them only when the maker is a listed bot.
 
 > **Rev 92 · 2026-11-09** — four entries **added**, docs only, from a review of Evennia's contribs against the pinned `v6.1.0` tag (the ten the project already imports excluded; *Player mail* already filed). **Added** (*UX & Item Identity*): ***An NPC guide driven by a language model — `rpg/llm`***, BLOCKED on the newcomer's economy design note — fun but not needed now (Adam's call); the contrib is the starting point, a Google-AI-generated Vultr guide reviewed the same day is not, and `tutorials/talking_npc` is named as the guide that cannot invent a recipe; ***Strangers by description — `rpg/rpsystem`***, OPEN — Adam finds it fitting for an immersive, cozy, living world; decided before Stage 5's design session because every system that shows or targets a character by name adds a site, combat most of all. **Added** (*Tooling & Process*): ***Components contrib — not adopted, with a revisit trigger***, BLOCKED on that trigger; ***Read EvAdventure's twitch combat before Stage 5's design***, SCHEDULED for that session.
@@ -2926,15 +2928,39 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Open:** all of it or a part (sdesc and recog without languages or masks);
   how a newcomer learns names, which is what the alpha measures; whether
   `who` shows names; whether an automated test player is recognisable
-  (*Automated test players*' open question).
+  (*Automated test players*' open question). **Added (2026-11-10, Rev 94):**
+  what a statue shows — today the key (`typeclasses/characters.py:518`),
+  which gives a stranger's name away; which multimatch form the game uses —
+  Evennia 6.1.0's default is `name-N` (`settings_default.py:417`), the form
+  the Testing Reference's protocols use (`fiber-1`, `hunt rabbit-1`), while
+  the contrib's README asks for
+  `N-name` and its emote references read `/1-tall` (`rpsystem.py:208`); and
+  that a `recog` must push the recogniser's `room` snapshot — the webclient
+  already builds it per viewer (`world/client_state.py:198` on
+  `feature/webclient`, WC8), so nothing else in the panel changes.
+- **Leaning (2026-11-10):** sdesc, recog and pose first; masks with the
+  queue's disguise and law/crime notes; `rplanguage` with its *languages &
+  tongues* note. Claude's recommendation, taken by Adam as a leaning — the
+  design note's to weigh, the decomposition's to lock.
 - **Why deferred:** A design decision; the alpha order and the order after
-  the webclient stand.
-- **Trigger:** A one-system design note before Stage 5's design session — at
-  the latest that session itself, since combat targeting is the largest new
-  name surface.
+  the webclient stand. **Timing decided (2026-11-10, Rev 94):** not beside
+  the webclient — the contrib meets the same display overrides the
+  webclient's panels read, and two branches on one seam conflict; and not in
+  the alpha — decision (G) measures onboarding, and a cohort of eight to ten
+  who know each other gets the friction of `/tall` and `recog` without the
+  strangers that make it worth it. The instance is wiped at close-out, so
+  waiting costs no migration.
+- **Trigger:** The series' design note *names, recognition & introductions*
+  (`docs/system_designs/HANDOFF.md`), written before the newcomer's economy
+  note — any time before Stage 4.6 ships, since it reads no live code it
+  lacks, and the newcomer's note can then read how a newcomer learns names.
+  The code is the first slice after Stage 5's design session and before
+  combat code, since combat targeting is the largest new name surface
+  (roadmap Stage 5, *Strangers*).
 - **Origin:** Adam, contrib review 2026-11-09 — he finds it fitting for an
   immersive, cozy, living world.
-- **Status:** OPEN
+- **Status:** SCHEDULED (design note before the newcomer's; code before
+  Stage 5's combat code)
 
 ### A screen-reader pass
 - **What:** Play the core loop with Evennia's `SCREENREADER` option on (a
