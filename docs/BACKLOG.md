@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 97 · 2026-11-10** — one entry **annotated**, docs only, with roadmap Rev 70, README Rev 49, the series handoff `docs/system_designs/HANDOFF.md` Rev 12 and `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1: ***Read EvAdventure's twitch combat before Stage 5's design*** gains what the projectile note found reading EvAdventure at `v6.1.0`: its only missile is `EvAdventureThrowable`, a one-use consumable weapon, with no distance, loading or recovery, so ranged combat is project code whatever the reading decides about action queues.
 > **Rev 96 · 2026-11-10** — one entry **added** and two **annotated**, docs only, with roadmap Rev 69, README Rev 47, the series handoff `docs/system_designs/HANDOFF.md` Rev 10 and `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1: ***World atlas — Azgaar's Fantasy Map Generator as the source*** joins World & Rooms. Adam asked what Claude thought of making PolishedWorld's world with Azgaar's Fantasy Map Generator; the chat recommended it as a frozen atlas the game looks things up in — biomes, rivers, coast, climate, old roads and ruins — not as a room generator, and Adam asked for this entry and the design note. ***Biome fragment library for dynamic room descriptions*** gains a note that its keys are the vocabulary the atlas maps the generator's thirteen biomes onto, and ***⛔ Regional weather (per-area rather than global)*** a note that the atlas is a region concept it can hang on. Status unchanged on both; the new entry is OPEN, its trigger roadmap Stage 6's design session.
 > **Rev 95 · 2026-11-10** — two entries **annotated**, docs only, with roadmap Rev 68, README Rev 45, the series handoff `docs/system_designs/HANDOFF.md` Rev 8 and `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1: ***Strangers by description — `rpg/rpsystem`*** gains the design note and what it found — the slice is larger than the five display overrides, since `who`, the statue, the player corpse, the teach offer and sixteen room messages give names away today, and the contrib's search breaks `name-N` for players in `get`, `hunt` and `craft` alike — and the note's leanings on the entry's open questions. ***A screen-reader pass*** gains the note's lesson: Armageddon's *Remember Me* thread, in which a screen-reader player showed that long descriptions and client-side name triggers shut readers out; a short description and a server-side recog are the remedy, and the pass reads them once they ship. Status unchanged on both.
 > **Rev 94 · 2026-11-10** — one entry **scheduled**, docs only, with roadmap Rev 67, README Rev 44 and the series handoff `docs/system_designs/HANDOFF.md` Rev 7: ***Strangers by description — `rpg/rpsystem`*** moves from OPEN to SCHEDULED. Adam decided its timing: the design note is the series queue's *names, recognition & introductions*, written before the newcomer's economy note; the code is the first slice after Stage 5's design session and before combat code; not beside the webclient and not in the alpha. The entry gains a leaning on scope (sdesc, recog and pose first — Claude's recommendation, taken by Adam as a leaning, not a lock) and three open questions: what a statue shows, which multimatch form the game uses, and the `recog` push to the webclient.
@@ -3917,6 +3918,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Stage 5's design and source-verification session, as its first
   reading.
 - **Origin:** Adam, contrib review 2026-11-09.
+- **Projectiles (2026-11-10, Rev 97):** read for
+  `docs/system_designs/PolishedWorld_Projectile_Design.md` (§2.7): at `v6.1.0`
+  EvAdventure's only missile is `EvAdventureThrowable`
+  (`tutorials/evadventure/objects.py:270`), a one-use consumable weapon; there
+  is no distance, no loading and no recovery. Read it for queues and cooldowns
+  as planned; ranged combat — range per encounter, bundles, spend at release —
+  is project code either way.
 - **Status:** SCHEDULED (Stage 5 design session)
 
 ---

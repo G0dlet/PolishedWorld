@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 12 · 2026-11-10** — a twentieth note, docs only, with roadmap Rev 70, BACKLOG Rev 97 and README Rev 49: `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1, written off the queue at Adam's request — how PolishedWorld should handle projectiles. It takes the mechanic half of the queue's *bowyery & fletching\**, which keeps the crafts. The chat drafted the design first, outside the method, and Adam asked whether this file had been followed; it had not — prior art and STOPP 1 were skipped. The prior art read afterwards changed four proposals, and the draft's claims about wind and light were wrong (neither exists in code). The method gains a gotcha for it. New prefix stem RW (RWP/RWQ/RWG), because no single letter is left; departure rows Y.
 > **Rev 11 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 48: after the atlas note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, most grown from the atlas note's open edges — the land itself as a source of systems — marked *, ahead of the bracket line: caves, overhangs & natural shelter; mountains, passes & the high ground; bogs, fens & peat; shore, strand & beachcombing; wildlife ranges & seasonal movement; expeditions & the opening frontier; haunted places & sacred sites. No document, prefix or tie-in changed.
 > **Rev 10 · 2026-11-10** — a nineteenth note, docs only, with roadmap Rev 69, BACKLOG Rev 96 and README Rev 47: `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1, written off the queue at Adam's request like Comfort and Homunculi — whether Azgaar's Fantasy Map Generator could make PolishedWorld's world; the answer is a frozen atlas the game looks things up in, not a room generator. The generator was read at 1.157.0 from a shallow clone. Adam answered the proposal with a bare "kör", so its questions are QQ1–QQ4 with the chat's leanings; QQ5–QQ14 were found while writing. *Where we are*, the prefixes (Q; no departure rows), two queue entries (biomes & regional resources\*, maps & navigation), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
 > **Rev 9 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 46: after the names note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the names note's open edges. They are marked *, ahead of the bracket line: voices & manner of speech; eavesdropping, whispers & private talk; channels, tells & the out-of-character line; crowds & busy rooms; sightlines & seeing into the next room; renown, epithets & being known; households, kin & family names. No document, prefix or tie-in changed.
@@ -22,7 +23,7 @@ nothing locked. One docs patch for `main` per session.
   and a seventeenth, Homunculi, were written off the queue at Adam's request
   (2026-11-09); an eighteenth, Names, was written next by decision
   (2026-11-10); a nineteenth, Atlas, off the queue at Adam's request the same
-  day. To resume, paste this
+  day, and a twentieth, Projectiles, the same way. To resume, paste this
   file as the first message of a new design chat.
 - Fifteen documents: Fishing, Housing, Hunting, Cooking, Temperature, Farming,
   Textiles, Water, Foraging, Light, Forest, Rendering, Pottery, Rest, Storage, in
@@ -68,18 +69,31 @@ nothing locked. One docs patch for `main` per session.
   file Rev 10. Code read at `main` `f157bc0`; the generator at 1.157.0
   (`4b34afc`). Confirm with a fresh clone that Adam pushed it; the tree is the
   receipt.
-- Catalogue loop 54/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Twentieth: Projectiles (bows, slings and thrown weapons; ammunition in
+  counted bundles; distance per encounter; the shot spent at release; breakage,
+  loss and recovery) as `docs/system_designs/PolishedWorld_Projectile_Design.md`
+  Rev 1, with roadmap Rev 70 (Stage 5's *Projectiles* line), BACKLOG Rev 97
+  (annotation on *Read EvAdventure's twitch combat before Stage 5's design*),
+  README Rev 49 and this file Rev 12. Code read at `main` `fac8e2b`; Evennia at
+  `v6.1.0`. Drafted first as a Claude Doc outside the method; the repo note is
+  the canonical one. Confirm with a fresh clone that Adam pushed it; the tree is
+  the receipt.
+- Catalogue loop 55/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
   VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
-  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG, RWP/RWQ/RWG (+ RWP-L1–L7, WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
   NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7, UP-L1–L3, QP-L1–L4…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
   temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
-  X1–X2 comfort, K1–K9 names; Rendering, Pottery, Storage, Homunculi and Atlas have none). OQ is taken. HP
+  X1–X2 comfort, K1–K9 names, Y1–Y6 projectiles; Rendering, Pottery, Storage, Homunculi and Atlas have none). OQ is taken. HP
   avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
-  webclient tasks are W1.1-style. Free single letters for departure rows: V (reads
-  as Water) — K went to Names; regrep a new one. Checked free before Names:
+  webclient tasks are W1.1-style. No single letter is left for a prefix family:
+  every free one reads as a Legend or engine word (AP, HP, MP — Legend's Magic
+  Points — SP, XP) or is taken (IP, OQ); Projectiles used the two-letter stem RW
+  (RWQ16), and the next note takes a two-letter stem too. Free single letters for
+  departure rows: V (reads as Water), P and Z (0 hits on 2026-11-10) — K went to
+  Names, Y to Projectiles; regrep a new one. Checked free before Names:
   QP/QQ/QG (0 hits; Q went to Atlas); IP is taken by the runbook's IP-ban — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
   typeclasses/ server/.
 
@@ -211,7 +225,10 @@ Claude's additions*:
   hiding, Light LQ3/LQ16; locks and keys for Housing and store rooms, Storage DP15;
   the clay-and-wax box for copying keys, AoL :194; a sleeper or statue robbed,
   Rest NQ5; feeds law/crime/bounties)
-- bowyery & fletching* (BACKLOG DECISION #10's wood revisit, Stage 5 and bows;
+- bowyery & fletching* (the crafts only: the mechanic is written —
+  Projectile RWQ12; arrows and their yield per craft, RWP6; the training arrow
+  against waiting for a feather, RWQ6, RWP22; drying shafts, Project Gorgon in
+  Projectile §2.5; BACKLOG DECISION #10's wood revisit, Stage 5 and bows;
   arrows as a sink; the feather orphan `:231`; sling bullets `world/prototypes.py:463`,
   fired bullets wait, Pottery PQ16)
 - rope & cordage* (twine exists — now also the bow drill and wick, Light LP5/LP7;
@@ -756,6 +773,24 @@ Last:
 
 After the doc, ask whether there are more systems to add to the queue.
 
+Tie-ins already written. Projectiles (RWP…): lesson slot = MUME's `recover`
+(Achaea has none: archery is class skills and artefact bows) — recover from
+floor and corpse, `recover all` takes anyone's, missiles break more on the
+killing shot, a fleeing quarry carries the arrow, being hit cancels a shot.
+DragonRealms the model: range per pair (missile/pole/melee), indoors starts
+close, aim ramps to a cap. Aardwolf the warning: shots into the next room invite
+kiting. Project Gorgon: no ammo slot, arrows by the hundred, back at the
+autopsy. Armageddon: arrows lost less as skill rises. RWG1 every projectile
+player-made; RWG3 nothing flies, nothing ticks; RWG5 the hunting shot is not
+combat. RWP4 bundles with a count (Storage DP9's counts); RWP7 distance per
+encounter, the room's span only the start; RWP8 the stalk sets distance;
+RWP10 no shots between rooms before Stage 5 and the haven; RWP14 one
+`shot_modifiers()` — wind and light read zero until they exist; RWP17 spend at
+release; RWP19 break and loss fall with skill, clay bullets crumble on a hit;
+RWP20 `recover` a Perception search over pile and corpse; RWP23 a weaponless
+hunt only close after a good stalk. Y1–Y6 departures; RWQ15 a quarry's
+`delete()` sends what it holds home, so it carries a count, not arrows.
+
 Tie-ins already written. Atlas (QP…): lesson slot = Daggerfall (no MUD lesson
 found) — coarse 1000 × 500 maps of height, climate and politics drive all
 detail, terrain inside a pixel is generated, the climate key picks textures and
@@ -1005,7 +1040,17 @@ storage own no raw material.
 9. End by presenting the updated `docs/system_designs/HANDOFF.md` from the patch;
    it is the next chat's prompt.
 
-## Gotchas (all nineteen sessions)
+## Gotchas (all twenty sessions)
+- Follow the method from step 1 even when a chat starts as a plain request for a
+  document: the projectile note was drafted before prior art and STOPP 1, and the
+  prior art then changed four proposals (Projectile Rev 1). A draft written
+  first also claimed wind and a light level the code does not have — check every
+  "reads X" against live source.
+- `DefaultObject.delete()` clears contents to their home before deleting
+  (`evennia/objects/objects.py:1538`, `:1579`, `:1348` at 6.1.0): anything put
+  inside a creature that is later deleted — at death or on an exitless escape —
+  lands in Limbo (Projectile RWQ15). `Corpse.crumble` deletes contents first for
+  the same reason (`typeclasses/corpse.py:166`).
 - Blood Magic (`/mnt/project/blood_magic_ebook.pdf`) is encoded, not a readable
   PDF — pdftotext, pypdf and pdfplumber all fail; read it through
   `project_knowledge_search`, where page numbers appear as bare lines before the
