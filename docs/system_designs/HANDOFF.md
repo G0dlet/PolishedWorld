@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 8 · 2026-11-10** — an eighteenth note, docs only, with roadmap Rev 68, BACKLOG Rev 95 and README Rev 45: `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1, the queue's *names, recognition & introductions\**, written next as decided in Rev 7, with Evennia's `rpg/rpsystem` read at `v6.1.0` as the tool. Adam answered the proposal with a bare "kör", so its questions are UQ1–UQ5 with the chat's leanings. *Where we are*, *This session* (the next note is the newcomer's economy, after Stage 4.6), the prefixes (U; departure rows K), the queue (the names entry leaves; pointers on four others), the tie-ins and the gotchas are updated.
 > **Rev 7 · 2026-11-10** — the next note **changed**, docs only, with roadmap Rev 67, BACKLOG Rev 94 and README Rev 44: Adam decided `rpg/rpsystem`'s timing (BACKLOG *Strangers by description*, now SCHEDULED). Its design note is the queue's *names, recognition & introductions\**, written next — before the newcomer's economy, any time before Stage 4.6 ships — and its queue entry names the contrib. The newcomer's note stays after Stage 4.6 and reads the names note. No document, prefix or tie-in changed.
 > **Rev 6 · 2026-11-09** — seven systems **added** to the queue, docs only, with README Rev 43: after the homunculus note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, marked *, ahead of the bracket line: sauna, bathhouse & hot springs; sledges, skis & winter travel; tales & storytelling; lending, borrowing & the tool library; flowers & seasonal greenery; carrier birds & messenger animals; constructs, golems & scarecrows. No document, prefix or tie-in changed.
 > **Rev 5 · 2026-11-09** — a seventeenth note, docs only, with roadmap Rev 66, BACKLOG Rev 93 and README Rev 42: `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1, written off the queue at Adam's request like Comfort — a player-made creature grown from an egg, commanded to do simple tasks and passed on in its jar. *Where we are*, the prefixes (J), three queue entries (alchemy & poisons\*, fowling & wild birds\*, magic), the tie-ins and the gotchas are updated. The next note is unchanged: the newcomer's economy, after Stage 4.6.
@@ -16,7 +17,8 @@ nothing locked. One docs patch for `main` per session.
 ## Where we are (verify — live source wins)
 - The series paused after fifteen documents (2026-11-08); a sixteenth, Comfort,
   and a seventeenth, Homunculi, were written off the queue at Adam's request
-  (2026-11-09). To resume, paste this
+  (2026-11-09); an eighteenth, Names, was written next by decision
+  (2026-11-10). To resume, paste this
   file as the first message of a new design chat.
 - Fifteen documents: Fishing, Housing, Hunting, Cooking, Temperature, Farming,
   Textiles, Water, Foraging, Light, Forest, Rendering, Pottery, Rest, Storage, in
@@ -45,35 +47,34 @@ nothing locked. One docs patch for `main` per session.
   (annotation on *Automated test players*), README Rev 42 and this file Rev 5.
   Adam's leaning — simpler chores and some gathering — is JQ2, not locked.
   Confirm with a fresh clone that Adam pushed it; the tree is the receipt.
-- Catalogue loop 52/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Eighteenth: Names (names, recognition & introductions — strangers seen by a
+  short description until named; Evennia's `rpg/rpsystem` at `v6.1.0` as the
+  tool) as `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1, with
+  roadmap Rev 68 (Stage 5's *Strangers* line and *Nuläge* annotated), BACKLOG
+  Rev 95 (annotations on *Strangers by description* and *A screen-reader
+  pass*), README Rev 45 and this file Rev 8. Code read at `main` `4422b65`.
+  Confirm with a fresh clone that Adam pushed it; the tree is the receipt.
+- Catalogue loop 53/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
   VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
-  EP/EQ/EG, JP/JQ/JG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
-  NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
+  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG (+ WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7, UP-L1–L3…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
   temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
-  X1–X2 comfort; Rendering, Pottery, Storage and Homunculi have none). OQ is taken. HP
+  X1–X2 comfort, K1–K9 names; Rendering, Pottery, Storage and Homunculi have none). OQ is taken. HP
   avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
-  webclient tasks are W1.1-style. Free single letters for departure rows: K V (K
-  reads as Temperature, V as Water) — regrep a new one. Checked free before
-  Storage: UP/UQ/UG, QP/QQ/QG (0 hits) — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
+  webclient tasks are W1.1-style. Free single letters for departure rows: V (reads
+  as Water) — K went to Names; regrep a new one. Checked free before Names:
+  QP/QQ/QG (0 hits); IP is taken by the runbook's IP-ban — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
   typeclasses/ server/.
 
 ## This session: Adam picks from the queue
-Storage is done, and the docs have moved to `docs/system_designs/`. **Next, decided
-2026-11-10 (roadmap Rev 67, BACKLOG *Strangers by description*): names,
-recognition & introductions\*** — the queue entry below, with Evennia's
-`rpg/rpsystem` contrib read at `v6.1.0` as the tool (sdesc, recog, pose, mask,
-`rplanguage`; the BACKLOG entry lists the display overrides it meets and the
-`get_search_result` it replaces). It reads no code Stage 4.6 adds, so it may be
-written any time before that stage ships; the newcomer's note then reads how a
-newcomer learns names from it. Adam took Claude's leaning on scope as a leaning,
-not a lock: sdesc, recog and pose first; masks with disguise and law/crime;
-languages with *languages & tongues\**. Its code is Stage 5's first slice, after
-that stage's design session — not beside the webclient, not in the alpha.
+Names is done (Rev 8): `docs/system_designs/PolishedWorld_Names_Design.md`. Its
+code is Stage 5's first slice, after that stage's design session — not beside
+the webclient, not in the alpha.
 
-**After it, decided 2026-11-09 (roadmap Rev 61, decision log *Order after the
+**Next, decided 2026-11-09 (roadmap Rev 61, decision log *Order after the
 webclient*): the newcomer's economy\*** — written after roadmap Stage 4.6 (Survival loop) ships, so
 its first steps can read drinking at the spring and natural healing as live code.
 Adam's question goes with it: should PolishedWorld have a newbie school, as many
@@ -86,6 +87,9 @@ doing it for real, hints that fire once (BACKLOG *First-steps hints*). Read the
 prior art on mud schools and tutorial areas before weighing that leaning. Read
 Comfort Design first: the temple is the first haven and its threshold the first a
 newcomer crosses (EP9, EP14), and EP2's three questions apply to a first hour too.
+Read Names Design too: a newcomer sees everyone as a description and is seen as
+one; one first-steps hint teaches `introduce` and `recog` (UP23); the description
+is composed at character creation (UP1), a step the first hour passes through.
 
 After it, the previous leaning: lodging & safe logout — best beside Stage 5's
 design session, since the statue's safety becomes a combat question. Rest NQ18 leans
@@ -113,7 +117,9 @@ Queue:
   from another's clamp, Forest YQ3; ash or fat taken from another's fire, Rendering
   ZQ15; wares taken from another's pit or kiln, Pottery PQ11; a sleeper or statue
   robbed, Rest NQ5; taking from another's bin or jar, Storage DQ4; a haven guards
-  bodies, never goods set down, Comfort EP10)
+  bodies, never goods set down, Comfort EP10; a witness names a thief by a
+  short description, stable by design, Names UG4; `recog` as the witness's
+  memory, masks and hoods that defeat it, Names UP9)
 
 From the suggestion files:
 - brewing, fermentation & beekeeping (Craft (Brewer), core p. 57; ale, mead,
@@ -122,7 +128,8 @@ From the suggestion files:
   pollination for Farming GP2; barrels; fermenting jars, Pottery PP10)
 - letters, couriers & notice boards (BACKLOG *Player mail*; `books.py`, `scribe`;
   + paper, ink, parchment and literacy* — PROPOSED_UNRATIFIED,
-  `world/material_registry.py:478–483`; ink from soot/charcoal)
+  `world/material_registry.py:478–483`; ink from soot/charcoal; a letter of
+  introduction, after Haven & Hearth's parchment, Names UQ4)
 - contracts, seals & reputation (overlaps law; herb labels as a trust signal,
   Foraging RP3)
 - settlements & commons (land ownership: Farming GQ4, Housing BQ2; common wells,
@@ -156,7 +163,10 @@ Claude's additions*:
   and the folk recipe's discipline and source, Homunculus JP4/JQ13)
 - hygiene & bathing* (soap from tallow and lye is designed and held back for a
   consumer, Rendering ZP12/ZQ13 — this system is a candidate; washing reads Water VP2)
-- barbers, tattoos & appearance* (Textiles WG4's rule applied to characters)
+- barbers, tattoos & appearance* (Textiles WG4's rule applied to characters;
+  the only way a short description changes, Names UP2; masks, hoods and
+  disguise as worn items that apply the contrib's `enable_recog` lock, Legend
+  Disguise p. 58 against Insight or Perception, Names UP9/UP-L2)
 - smithing & metalwork* (forge + anvil, registry decision 9 — leaned by Pottery PP9:
   fixtures in a room, the hammer carried; shears, scythe, cloak pin, spade,
   fireproof pan, fish hooks, needles; flint and steel, Light LQ5; the lantern,
@@ -306,7 +316,7 @@ Claude's additions*:
 - heraldry, banners & signs* (who is who at a distance: a mark on a shield, a
   shop sign, a banner over a hall; composed from parts like Textiles WG4, never
   free text; dye and pigment as sinks; ties contracts, seals & reputation,
-  guilds and painting, carving & sculpture)
+  guilds and painting, carving & sculpture; names at a distance, Names §15)
 - crop pests* (what is left of *vermin & crop pests* after Storage DQ6: birds and
   mice in a growing field; scarecrows; Farming's rule that nothing is lost in a
   moment, GG2 — probably Farming's own, decide whether it needs a doc at all)
@@ -440,14 +450,9 @@ Claude's additions*:
 - languages & tongues* (Legend's Language skills — verify page and how
   chargen stores them; regional speech as a reason to trade through a
   go-between; written scripts tie letters & notice boards; Armageddon's
-  languages as prior art to read)
-- names, recognition & introductions* (NEXT, 2026-11-10 — Evennia's
-  `rpg/rpsystem` at `v6.1.0` is the tool to read, BACKLOG *Strangers by
-  description*; who knows whose name: a stranger seen
-  as a description until introduced — Armageddon's short descriptions as
-  prior art to read; statues show the key today,
-  `typeclasses/characters.py:518`; the first thing law/crime needs to name a
-  thief; ties disguise in barbers, tattoos & appearance and heraldry)
+  languages as prior art to read; Language pp. 60–61, 50 % fluent, Language
+  (Native) +50 % at creation p. 19 — no Language skill in code; the contrib's
+  `rplanguage` garbles by a level 0.0–1.0, Names UP21/UP-L3)
 - cultures & homelands* (Legend's Cultural Background column in the
   profession table and the Cultures column on every equipment row — Barbarian,
   Civilised, Nomad, Primitive; verify what chargen records; regional goods and
@@ -657,7 +662,30 @@ Last:
 
 After the doc, ask whether there are more systems to add to the queue.
 
-Tie-ins already written. Homunculi (JP…): lesson slot = Ultima Online's shards
+Tie-ins already written. Names (UP…): lesson slot = Armageddon's *Remember Me*
+thread (2013) — a screen-reader player shut out by long short descriptions and
+client-side triggers; veterans wanted strangeness, the thread converged on
+limits (masks defeat it, same room only, keyed to the person): strangeness is
+the point, illegibility is not (UG2). Sindome (names shown, an honour rule —
+left; `@shortdesc` menus — taken), Genesis and MUD-Dev 2001 (introduction vs
+naming; the bluff), Haven & Hearth (memorize, per-viewer name, kin as claim
+permissions, the parchment). Contrib facts: sdesc falls back to the key
+(`rpsystem.py:690`); recog is a free label on the viewer (`:836–837`), a naming
+system; `forget` finds only the room (`:1191`); `mask` is a free command
+(`:1236`); Builders fall back to key search (`:1339`). UG3 the game tells no
+name its owner did not give; UG4 a description is evidence. UP1 description
+composed in chargen (build, feature, noun; ≤40 chars); UP2 no player `sdesc`;
+UP5 `recog`; UP6 truthful `introduce` sets hearers' recog; UP7 `forget`
+anywhere; UP9 masks later as items; UP10 every name via `$You()`/`mapping` or
+`get_display_name(looker)`; UP11 grep test; UP12 statue, UP13 body (owner id at
+`typeclasses/characters.py:1294–1296`), UP14 `who` a count, UP15 teach offer;
+UP16 only Character takes the contrib; UP17 `N-name`; UP19 pose resets on move;
+UP22 recog pushes `room` to the recogniser, description/pose to the room;
+UP23 newcomer hint. Departures K1–K9 (who, statue, corpse, sixteen room
+messages, teach, multimatch, say/emote/pose, room listing, chargen step).
+Found while writing: UQ6 `craft` searches the same way; UQ7 recog lost on
+characters created before the contrib (backfill); UQ8 account-level commands.
+Homunculi (JP…): lesson slot = Ultima Online's shards
 (unattended skill macroing allowed, unattended gathering forbidden — its goods reach
 everyone's market); Achaea has a rule but no story (alchemist's homunculus from own
 flesh, powers learned one at a time); RuneScape familiars (one at a time, a span,
@@ -863,12 +891,22 @@ storage own no raw material.
 9. End by presenting the updated `docs/system_designs/HANDOFF.md` from the patch;
    it is the next chat's prompt.
 
-## Gotchas (all seventeen sessions)
+## Gotchas (all eighteen sessions)
 - Blood Magic (`/mnt/project/blood_magic_ebook.pdf`) is encoded, not a readable
   PDF — pdftotext, pypdf and pdfplumber all fail; read it through
   `project_knowledge_search`, where page numbers appear as bare lines before the
   page's text (enchanting pp. 67–70, homunculi p. 76). Monsters of Legend II is
   text: alchemical duplicate pp. 9–10, root guardian p. 123.
+- `rpg/rpsystem` at 6.1.0: its `get_search_result` sends `name-N` to its own
+  parser as one word, so `fiber-1` finds nothing for a non-Builder while the
+  error template still offers it; the README's `N-name` settings fix it
+  (`README.md:80–81`). Builders fall back to key search only when no
+  description matched (`rpsystem.py:1339`). A recog is written into an
+  Attribute's stored dict (`:836–837`) that only the contrib's creation hook
+  creates (`:1562–1563`). Evennia's `who` lists account names, and with the
+  default `AUTO_CREATE_CHARACTER_WITH_ACCOUNT` those are character names.
+  `msg_contents` with `$You()`/`mapping` resolves names per receiver
+  (`objects.py:1051`); moves already do (`:2293`, `:2349`).
 - No Magic Points trait in code — POW is a static trait (`typeclasses/characters.py:264`);
   the roadmap's Stage 7 said otherwise until Rev 66.
 - Cooldowns are a Character handler (`typeclasses/characters.py:155`); the forage

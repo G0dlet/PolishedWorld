@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 95 · 2026-11-10** — two entries **annotated**, docs only, with roadmap Rev 68, README Rev 45, the series handoff `docs/system_designs/HANDOFF.md` Rev 8 and `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1: ***Strangers by description — `rpg/rpsystem`*** gains the design note and what it found — the slice is larger than the five display overrides, since `who`, the statue, the player corpse, the teach offer and sixteen room messages give names away today, and the contrib's search breaks `name-N` for players in `get`, `hunt` and `craft` alike — and the note's leanings on the entry's open questions. ***A screen-reader pass*** gains the note's lesson: Armageddon's *Remember Me* thread, in which a screen-reader player showed that long descriptions and client-side name triggers shut readers out; a short description and a server-side recog are the remedy, and the pass reads them once they ship. Status unchanged on both.
 > **Rev 94 · 2026-11-10** — one entry **scheduled**, docs only, with roadmap Rev 67, README Rev 44 and the series handoff `docs/system_designs/HANDOFF.md` Rev 7: ***Strangers by description — `rpg/rpsystem`*** moves from OPEN to SCHEDULED. Adam decided its timing: the design note is the series queue's *names, recognition & introductions*, written before the newcomer's economy note; the code is the first slice after Stage 5's design session and before combat code; not beside the webclient and not in the alpha. The entry gains a leaning on scope (sdesc, recog and pose first — Claude's recommendation, taken by Adam as a leaning, not a lock) and three open questions: what a statue shows, which multimatch form the game uses, and the `recog` push to the webclient.
 
 > **Rev 93 · 2026-11-09** — one entry **annotated**, docs only, with roadmap Rev 66, README Rev 42 and `docs/system_designs/PolishedWorld_Homunculus_Design.md` Rev 1: ***Automated test players — a scripted load run and a few LLM agents*** gains a note that a homunculus — the player-made creature the new design note proposes — is not an automated player. Its activity-log lines are kept; they carry the homunculus as `actor` and its maker as a `[dbref, key]` pair in a `maker` field, so the runbook's offline filter drops them only when the maker is a listed bot.
@@ -2959,6 +2960,27 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (roadmap Stage 5, *Strangers*).
 - **Origin:** Adam, contrib review 2026-11-09 — he finds it fitting for an
   immersive, cozy, living world.
+- **Annotation (2026-11-10, Names Design):** the design note is written —
+  `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1. It finds the
+  slice larger than the overrides above: `who` lists account names, which
+  are character names (K1); the statue's look and messages, the player
+  corpse's key and the teach offer give a key away (K2, K3, K5); sixteen
+  room messages name their actor by key (K4, converted through `$You()` and
+  `mapping`); and the contrib's search hands `fiber-1` to its parser as one
+  word, so for a player `get`, `hunt` and `craft` find nothing until
+  multimatch moves to `N-name` (K6, UP17, UQ6). Two more found while
+  writing: a recog written on a character created before the contrib is
+  lost without an error, so the slice carries a backfill (UQ7); and
+  account-level commands name accounts (UQ8). The note's leanings on the
+  open questions above, nothing decided: sdesc, recog and pose first, plus a
+  truthful `introduce` (UP6, UQ11); the description composed at character
+  creation, with no `sdesc` command for players (UP1, UP2); a first-steps
+  hint teaches a newcomer `introduce` and `recog` (UP23); `who` shows a
+  count to players (UQ1); an agent is honest in its long description, not
+  its short one (UQ3); a statue is named as the looker knows its sleeper
+  (UP12); `N-name` multimatch (UP17); and `recog`, `forget` or `introduce`
+  pushes `room` to the recogniser, a changed description or pose to the
+  room (UP22).
 - **Status:** SCHEDULED (design note before the newcomer's; code before
   Stage 5's combat code)
 
@@ -2973,6 +2995,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   reader is not yet a player.
 - **Trigger:** Before the first opening beyond an invited cohort.
 - **Origin:** Adam, gap review 2026-11-04.
+- **Annotation (2026-11-10, Names Design):** the names note's prior art is
+  Armageddon's *Remember Me* thread (2013): a player using a screen reader
+  showed that every line must be read through a long short description
+  before the action, and that client-side name triggers take the reader out
+  of the game window and break on identical descriptions. The note answers
+  with descriptions of at most 40 characters and the contrib's server-side
+  `recog` (`docs/system_designs/PolishedWorld_Names_Design.md`, §2.1, UG2,
+  UP1, UP5); this pass reads both once Stage 5's first slice ships them.
 - **Status:** OPEN
 
 ### Webclient: `TypeError` on Enter while disconnected
