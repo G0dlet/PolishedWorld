@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 99 · 2026-11-11** — one entry **added** and one **annotated**, docs only, with webclient decomposition Rev 13 (W6.2 shipped, `a1214e2` on `feature/webclient`; Component 6 done). **Added** (*UX & Item Identity*): ***Webclient: `page` has no type*** — W6.2's census found `page` untyped at both ends, so the *Talk* tab cannot file it and it shows in *All* only (OPEN). **Annotated:** ***Webclient: the Orca pass is not run (W6.1)*** gains a W6.2 step: in a filtered tab, a line of another tab is `display:none` and should not be read. No entry closed.
 > **Rev 98 · 2026-11-11** — one entry **added** and two **annotated**, docs only, with webclient decomposition Rev 12 (W6.1 shipped, `a6c334c` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — W6.1's browser protocol ran every step but the screen reader: Orca did not run reliably on the work machine, so speech for new lines and Enter in Orca's browse mode have no receipt (OPEN; trigger W8.1). **Annotated:** ***Webclient: `TypeError` on Enter while disconnected*** — read at source and reproduced at W6.1: the `TypeError` is jQuery 3.7.1's `leverageNative`, which the 3.2.1 Evennia's page pins does not have, and the `DOMException` comes from the three-minute idle timer, not from a key, with no jQuery in its stack; its trigger is replaced (jQuery half decided at W8.1, timer half reported upstream). ***A screen-reader pass*** gains a pointer to the new entry. No entry closed.
 > **Rev 97 · 2026-11-10** — one entry **annotated**, docs only, with roadmap Rev 70, README Rev 49, the series handoff `docs/system_designs/HANDOFF.md` Rev 12 and `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1: ***Read EvAdventure's twitch combat before Stage 5's design*** gains what the projectile note found reading EvAdventure at `v6.1.0`: its only missile is `EvAdventureThrowable`, a one-use consumable weapon, with no distance, loading or recovery, so ranged combat is project code whatever the reading decides about action queues.
 > **Rev 96 · 2026-11-10** — one entry **added** and two **annotated**, docs only, with roadmap Rev 69, README Rev 47, the series handoff `docs/system_designs/HANDOFF.md` Rev 10 and `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1: ***World atlas — Azgaar's Fantasy Map Generator as the source*** joins World & Rooms. Adam asked what Claude thought of making PolishedWorld's world with Azgaar's Fantasy Map Generator; the chat recommended it as a frozen atlas the game looks things up in — biomes, rivers, coast, climate, old roads and ruins — not as a room generator, and Adam asked for this entry and the design note. ***Biome fragment library for dynamic room descriptions*** gains a note that its keys are the vocabulary the atlas maps the generator's thirteen biomes onto, and ***⛔ Regional weather (per-area rather than global)*** a note that the atlas is a region concept it can hang on. Status unchanged on both; the new entry is OPEN, its trigger roadmap Stage 6's design session.
@@ -3126,6 +3127,28 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   read with Evennia's `SCREENREADER` option, triggered before an opening
   beyond the invited cohort; this entry is the webclient's page.
 - **Origin:** Webclient W6.1 browser protocol (2026-11-10).
+- **Status:** OPEN
+- *(Rev 99)* W6.2 adds a step: with *Channels* open, a `say` from a second
+  account is not read (its line is `display:none` in that tab), and after
+  switching to *Talk* the tab is announced as selected; the tabs' arrow keys
+  are tried once in Orca's focus mode (webclient decomposition Rev 13, §16).
+
+### Webclient: `page` has no type
+- **What:** `page` sends plain text at both ends (`commands/default/comms.py`
+  `CmdPage`: `target.msg(f"{header} {message}")`, `:1436`, and the sender's
+  echo, `:1447`), so the webclient's *Talk* tab (W6.2, `pw_tabs.js`, which
+  files `say`, `whisper` and `pose` by `kwargs.type`) cannot tell a page from
+  any other line, and it shows in *All* only. The fix is a project `CmdPage`
+  that sends both lines with `{"type": "page"}`, `"page"` added to
+  `pw_tabs.js`'s talk types, and the cmdset swap read against the merged
+  cmdset (decomp §3 *command names*).
+- **Why deferred:** W6.2 lock 1A kept the task to the client; a command
+  override is server code outside the webclient decomposition, and the alpha
+  cohort shares one room more often than it pages.
+- **Trigger:** a player asks to find pages in *Talk*, or the first design that
+  touches private messages (***Player mail — `game_systems/mail`***).
+- **Origin:** Webclient W6.2 census (webclient decomposition Rev 13, §3
+  *type census*).
 - **Status:** OPEN
 
 ## Tooling & Process
