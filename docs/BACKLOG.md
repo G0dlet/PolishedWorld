@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 101 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 15 (W7.1 shipped, `33423d5` on `feature/webclient`; Component 7 done). **Added** (*UX & Item Identity*): ***`inventory` hides why two garments are two rows*** — W7.1's protocol printed two identical-looking rows for two garments of one name in different condition: the contrib groups by description and crops it before the condition line (OPEN). **Annotated:** ***Webclient: a skills panel (W7.2, cut)*** — `skills` would be the fifth OOB domain, not the sixth. No entry closed.
 > **Rev 100 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 14 (Component 7 narrowed: W7.1 stays, W7.2 cut, WC13). **Added** (*UX & Item Identity*): ***Webclient: a skills panel (W7.2, cut)*** — the panel W7.2 would have built, with what it needs: a sixth OOB domain and a push at every write to a skill (OPEN). No entry closed or annotated.
 > **Rev 99 · 2026-11-11** — one entry **added** and one **annotated**, docs only, with webclient decomposition Rev 13 (W6.2 shipped, `a1214e2` on `feature/webclient`; Component 6 done). **Added** (*UX & Item Identity*): ***Webclient: `page` has no type*** — W6.2's census found `page` untyped at both ends, so the *Talk* tab cannot file it and it shows in *All* only (OPEN). **Annotated:** ***Webclient: the Orca pass is not run (W6.1)*** gains a W6.2 step: in a filtered tab, a line of another tab is `display:none` and should not be read. No entry closed.
 > **Rev 98 · 2026-11-11** — one entry **added** and two **annotated**, docs only, with webclient decomposition Rev 12 (W6.1 shipped, `a6c334c` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — W6.1's browser protocol ran every step but the screen reader: Orca did not run reliably on the work machine, so speech for new lines and Enter in Orca's browse mode have no receipt (OPEN; trigger W8.1). **Annotated:** ***Webclient: `TypeError` on Enter while disconnected*** — read at source and reproduced at W6.1: the `TypeError` is jQuery 3.7.1's `leverageNative`, which the 3.2.1 Evennia's page pins does not have, and the `DOMException` comes from the three-minute idle timer, not from a key, with no jQuery in its stack; its trigger is replaced (jQuery half decided at W8.1, timer half reported upstream). ***A screen-reader pass*** gains a pointer to the new entry. No entry closed.
@@ -3154,8 +3155,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 
 ### Webclient: a skills panel (W7.2, cut)
 - **What:** Webclient decomposition W7.2: skill values as `skills` prints
-  them, in a panel, updated when an improvement lands. It needs a sixth OOB
-  domain, `skills` (WC5's pattern: a pure snapshot builder in
+  them, in a panel, updated when an improvement lands. It needs a fifth OOB
+  domain, `skills` (the sixth until W7.1 put its lists in `char`,
+  decomposition Rev 15) (WC5's pattern: a pure snapshot builder in
   `world/client_state.py`, the domain in `DOMAINS` and in `pw_state.js`, whose
   parity a test reads), a renderer on `pw_state.on("skills", …)`, and a push
   at every write to a skill's value — improvement on use and any other writer
@@ -3168,6 +3170,27 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** an alpha player asks for skills in the client, or Stage 5's
   combat design wants skill values on screen during a fight.
 - **Origin:** Webclient decomposition Rev 14, after W6.2 (2026-11-11).
+- **Status:** OPEN
+
+### `inventory` hides why two garments are two rows
+- **What:** the clothing contrib's `inventory` groups items by name and
+  description (`group_objects_by_key_and_desc`, contrib `clothing.py:676`,
+  `:689`) and crops the description to 50 characters (`:679`, `:692`).
+  `DurableObject.get_display_desc` puts the condition line after the prose
+  (`typeclasses/durable.py:122`), so two garments of one name in different
+  condition are two groups whose rows read the same — the difference is
+  cropped away. W7.1's browser protocol (step 7) printed two rows
+  `a w71 sash  A plain linen shirt, light against the skin a[...]`; the
+  webclient panel groups by name and shows *two w71 sashes* (decomposition
+  W7.1 lock 2).
+- **Why deferred:** text only and older than the webclient; the fix is a
+  choice about how a garment's condition is shown (a word beside the name,
+  a column of its own, or a project `inventory` that groups by name and
+  counts), which belongs with item identity, not with a panel task.
+- **Trigger:** an alpha player asks why the same item is listed twice, or
+  the next change to how condition is displayed.
+- **Origin:** Webclient decomposition Rev 15, W7.1 protocol step 7
+  (2026-11-11).
 - **Status:** OPEN
 
 ## Tooling & Process
