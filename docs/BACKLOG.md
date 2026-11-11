@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 102 · 2026-11-11** — two entries **decided** and one **annotated**, docs only, with webclient decomposition Rev 16 (W8.1: `feature/webclient` merged to `main` as `399e306`, PR #27, tagged `alpha-20261111`). **Decided** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — one timeboxed try at W8.1: Orca on the work machine echoed keys but read no page text, not even a one-line control page with `#messagewindow`'s markup and no project code, so the fault is the tool's; the epic closes with WC14 resting on markup and keyboard, and the entry takes ***A screen-reader pass***'s trigger (OPEN). ***Webclient: `TypeError` on Enter while disconnected*** — the `TypeError` half is decided, jQuery stays 3.7.1; the `DOMException` half waits for the upstream report (OPEN). **Annotated:** ***A screen-reader pass*** — the webclient's Orca pass now runs with it. No entry closed.
 > **Rev 101 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 15 (W7.1 shipped, `33423d5` on `feature/webclient`; Component 7 done). **Added** (*UX & Item Identity*): ***`inventory` hides why two garments are two rows*** — W7.1's protocol printed two identical-looking rows for two garments of one name in different condition: the contrib groups by description and crops it before the condition line (OPEN). **Annotated:** ***Webclient: a skills panel (W7.2, cut)*** — `skills` would be the fifth OOB domain, not the sixth. No entry closed.
 > **Rev 100 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 14 (Component 7 narrowed: W7.1 stays, W7.2 cut, WC13). **Added** (*UX & Item Identity*): ***Webclient: a skills panel (W7.2, cut)*** — the panel W7.2 would have built, with what it needs: a sixth OOB domain and a push at every write to a skill (OPEN). No entry closed or annotated.
 > **Rev 99 · 2026-11-11** — one entry **added** and one **annotated**, docs only, with webclient decomposition Rev 13 (W6.2 shipped, `a1214e2` on `feature/webclient`; Component 6 done). **Added** (*UX & Item Identity*): ***Webclient: `page` has no type*** — W6.2's census found `page` untyped at both ends, so the *Talk* tab cannot file it and it shows in *All* only (OPEN). **Annotated:** ***Webclient: the Orca pass is not run (W6.1)*** gains a W6.2 step: in a filtered tab, a line of another tab is `display:none` and should not be read. No entry closed.
@@ -3062,6 +3063,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Annotation (2026-11-11, webclient W6.1):** the webclient's own page has
   its Orca pass filed separately, ***Webclient: the Orca pass is not run
   (W6.1)***, with trigger W8.1.
+- **Annotation (2026-11-11, webclient W8.1):** that pass could not run (Orca
+  read no page text on the work machine, not even a control page) and now
+  takes this entry's trigger; the two passes run together.
 - **Status:** OPEN
 
 ### Webclient: `TypeError` on Enter while disconnected
@@ -3107,8 +3111,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   only the console shows it) or take OQ-W4's fallback, 3.2.1. The
   `DOMException` is reported to Evennia when Adam next files upstream issues;
   this entry then points at the report.
+- **Decided at W8.1 (Rev 102):** jQuery stays **3.7.1**. The `TypeError`
+  shows only in the console and the reconnect proceeds; 3.2.1 carries
+  CVE-2019-11358 (fixed in 3.4.0) and CVE-2020-11022 and -11023 (fixed in
+  3.5.0), and taking it would void every browser protocol run since W3.1
+  (webclient decomposition Rev 16, W8.1 lock 4). No code changes.
 - **Origin:** Webclient W4.3 browser protocol, step 4 (2026-11-08).
-- **Status:** OPEN
+- **Status:** OPEN — the `DOMException` half only; closes when the upstream
+  report is filed and linked here.
 
 ### Webclient: the Orca pass is not run (W6.1)
 - **What:** W6.1's browser protocol (webclient decomposition Rev 12) ran every
@@ -3121,10 +3131,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   where Orca sends the click itself, follows it (step 7b).
 - **Why deferred:** Orca spoke once on the work machine and then would not run
   reliably; chasing it would have held W6.1's push for a tool problem.
-- **Trigger:** W8.1 — closed or decided before `feature/webclient` merges, so
-  the epic does not close with WC14 resting on markup alone; earlier if Orca
-  runs on either machine. The pass is W6.1's protocol steps 2, 7b and 8, with
-  the room-lists toggle read aloud once on and once off.
+- **Trigger (Rev 102, replaces W8.1):** the trigger of ***A screen-reader
+  pass*** (this section), before an opening beyond the invited cohort, and the
+  two passes run together; earlier if Orca runs on either machine. The pass is
+  W6.1's protocol steps 2, 7b and 8, with the room-lists toggle read aloud once
+  on and once off, and the W6.2 step below.
 - **Related:** ***A screen-reader pass*** (this section) is the game's text
   read with Evennia's `SCREENREADER` option, triggered before an opening
   beyond the invited cohort; this entry is the webclient's page.
@@ -3134,6 +3145,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   account is not read (its line is `display:none` in that tab), and after
   switching to *Talk* the tab is announced as selected; the tabs' arrow keys
   are tried once in Orca's focus mode (webclient decomposition Rev 13, §16).
+- *(Rev 102)* **Tried at W8.1 (2026-11-11), timeboxed to 15 minutes:** Orca on
+  the work machine echoed keys (`return` on Enter) but read no page text: not
+  `look`'s output, not a `say` from the second account, and not a control page
+  (`file:///tmp/live.html`) with `#messagewindow`'s markup (`role="log"`,
+  `aria-live="polite"`) that added a line every four seconds with no Evennia,
+  jQuery or project code. The fault is the tool's in this setup, not the
+  page's. Not read: `about:support` → *Accessibility* → *Activated*; a reader
+  that gets no accessibility tree from Firefox echoes keys and nothing else,
+  so that is the next try's first check. The epic closes with WC14 resting on
+  markup and keyboard receipts (webclient decomposition Rev 16).
 
 ### Webclient: `page` has no type
 - **What:** `page` sends plain text at both ends (`commands/default/comms.py`
