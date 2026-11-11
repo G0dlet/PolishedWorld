@@ -12,6 +12,7 @@ from evennia.utils.utils import inherits_from
 from commands.command import Command
 from world import timed_actions
 from world import activity_log
+from world import client_state
 from typeclasses.consumables import Food, Drink
 
 
@@ -62,6 +63,8 @@ class CmdEat(Command):
             gauge="hunger",
             delta=caller.traits.hunger.current - hunger_before,
         )
+        # W4.2: hunger moved, and the food left `carried`.
+        client_state.push(caller, "survival", "char")
 
 
 class CmdDrink(Command):
@@ -112,6 +115,7 @@ class CmdDrink(Command):
         caller.msg(obj.consume_message.format(key=obj.get_display_name(caller)))
         if obj.is_empty():
             caller.msg(f"{obj.get_display_name(caller)} runs dry.")
+        client_state.push(caller, "survival")   # W4.2
 
 
 class CmdRest(Command):

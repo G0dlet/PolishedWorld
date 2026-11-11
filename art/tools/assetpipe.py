@@ -50,10 +50,18 @@ ZONEMAP_NAMES = {"body_zonemap.png"}
 
 BODY_DIR = Path(__file__).resolve().parents[1] / "body"
 
-# The figure's outline is drawn in the palette's Background colour. Outline
-# pixels are left out of every zone mask so that tinting a zone in the client
-# never recolours the outline (decision B1, Task 2.2).
-OUTLINE_KEY = "background"
+# The body master's figure edge is drawn in Muted, a one-pixel outline that
+# reaches 3:1 against Panel (webclient decomp WC11, W2.3); inner dark details
+# such as the eyes stay in Background. Pixels in either colour are left out of
+# every zone mask, so tinting a zone in the client never recolours the outline
+# or the details (decision B1, Task 2.2; widened to two keys in W2.3).
+OUTLINE_KEY = "muted"
+DETAIL_KEY = "background"
+MASK_EXCLUDED_KEYS = (OUTLINE_KEY, DETAIL_KEY)
+
+# The edge checks apply to this master only: it is the one figure the client
+# draws on a panel, and its outline is the only thing the masks rely on.
+BODY_BASE_NAME = "body_base.png"
 
 # Zone masks are alpha masks for CSS mask-image: only the alpha channel
 # matters, the colour is never shown.
@@ -78,6 +86,10 @@ class Palette:
     chroma_key: RGB
     zone_keys: dict[str, RGB]
     by_key: dict[str, RGB]
+    # The surface the body figure is drawn on, and the contrast its edge must
+    # reach against it -- both read from palette.json, never restated here.
+    edge_surface: RGB
+    edge_min_contrast: float
 
 
 @dataclass
@@ -111,6 +123,8 @@ def load_palette(path: Path = PALETTE_PATH) -> Palette:
         chroma = hex_to_rgb(data["chroma_key"])
         zones = {name: hex_to_rgb(h) for name, h in data["zone_keys"].items()}
         by_key = {c["key"]: hex_to_rgb(c["hex"]) for c in data["colors"]}
+        edge_surface = hex_to_rgb(data["contrast_surfaces"]["panel"])
+        edge_min_contrast = float(data["rules"]["status_min_contrast"])
     except (OSError, ValueError, KeyError, TypeError) as err:
         raise PaletteError(f"cannot read palette {path}: {err}") from err
 
@@ -120,9 +134,30 @@ def load_palette(path: Path = PALETTE_PATH) -> Palette:
         raise PaletteError(f"tool colours overlap motif colours: {clash}")
     if len(set(zones.values())) != len(zones):
         raise PaletteError("two zones share the same key colour")
-    if OUTLINE_KEY not in by_key:
-        raise PaletteError(f"palette has no {OUTLINE_KEY!r} colour for outlines")
-    return Palette(colors=colors, chroma_key=chroma, zone_keys=zones, by_key=by_key)
+    for key in MASK_EXCLUDED_KEYS:
+        if key not in by_key:
+            raise PaletteError(f"palette has no {key!r} colour for outlines")
+    return Palette(
+        colors=colors, chroma_key=chroma, zone_keys=zones, by_key=by_key,
+        edge_surface=edge_surface, edge_min_contrast=edge_min_contrast,
+    )
+
+
+def _linear(channel: int) -> float:
+    c = channel / 255
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(rgb: RGB) -> float:
+    r, g, b = (_linear(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(a: RGB, b: RGB) -> float:
+    """WCAG 2 contrast ratio, the formula palette.json's contrast_* fields use."""
+    la, lb = relative_luminance(a), relative_luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
 
 
 def expected_size(name: str) -> tuple[int, int] | None:
@@ -221,7 +256,71 @@ def validate(path: Path, palette: Palette) -> Report:
 
     if not report.errors and _colours(img) == {palette.chroma_key}:
         report.errors.append("image is empty (only #FF00FF)")
+    if not report.errors and name == BODY_BASE_NAME:
+        report.errors += _edge_errors(img, palette)
     return report
+
+
+_N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
+_N8 = _N4 + ((1, 1), (1, -1), (-1, 1), (-1, -1))
+
+
+def _touches_background(pixels, size, x, y, key, steps) -> bool:
+    """True if a neighbour is the chroma key or lies outside the image.
+
+    Outside the image is background too: the client draws the figure on a
+    panel, so a figure pixel on the image border is an edge pixel.
+    """
+    width, height = size
+    for dx, dy in steps:
+        nx, ny = x + dx, y + dy
+        if not (0 <= nx < width and 0 <= ny < height) or pixels[nx, ny] == key:
+            return True
+    return False
+
+
+def _summarise(coords_by_colour: dict[RGB, list[tuple[int, int]]], what: str) -> list[str]:
+    lines = []
+    for rgb, coords in sorted(coords_by_colour.items(), key=lambda item: -len(item[1])):
+        shown = ", ".join(f"({x},{y})" for x, y in coords[:MAX_COORDS_SHOWN])
+        more = len(coords) - MAX_COORDS_SHOWN
+        tail = f" and {more} more" if more > 0 else ""
+        lines.append(f"{rgb_to_hex(rgb)} {what}: {len(coords)} px at {shown}{tail}")
+    return lines
+
+
+def _edge_errors(img: Image.Image, palette: Palette) -> list[str]:
+    """The body master's two edge rules (webclient decomp WC11, W2.3).
+
+    1. Every figure pixel that shares a side with the background must reach
+       the palette's status contrast against the panel. This is the rule the
+       outline exists for; it does not care which colour does the job.
+    2. The outline colour may only be the figure's edge (touching the
+       background on a side or a corner). Used as an inner fill it would be
+       left out of the zone masks without anyone noticing.
+    """
+    width, height = img.size
+    pixels = img.load()
+    key = palette.chroma_key
+    outline = palette.by_key[OUTLINE_KEY]
+    low: dict[RGB, list[tuple[int, int]]] = {}
+    inner: dict[RGB, list[tuple[int, int]]] = {}
+    for y in range(height):
+        for x in range(width):
+            rgb = pixels[x, y]
+            if rgb == key:
+                continue
+            if (_touches_background(pixels, img.size, x, y, key, _N4)
+                    and contrast_ratio(rgb, palette.edge_surface) < palette.edge_min_contrast):
+                low.setdefault(rgb, []).append((x, y))
+            if rgb == outline and not _touches_background(pixels, img.size, x, y, key, _N8):
+                inner.setdefault(rgb, []).append((x, y))
+    threshold = f"{palette.edge_min_contrast:g}:1"
+    return (
+        _summarise(low, f"on the figure's edge is below {threshold} against "
+                        f"{rgb_to_hex(palette.edge_surface)}")
+        + _summarise(inner, "is the outline colour but not on the figure's edge")
+    )
 
 
 def clean(path: Path, out_dir: Path, palette: Palette) -> Report:
@@ -270,7 +369,7 @@ def build_body_masks(
     width, height = base.size
     bpx, zpx = base.load(), zonemap.load()
     key = palette.chroma_key
-    outline = palette.by_key[OUTLINE_KEY]
+    excluded = {palette.by_key[k] for k in MASK_EXCLUDED_KEYS}
     zone_of = {rgb: zone for zone, rgb in palette.zone_keys.items()}
 
     mismatches = [
@@ -290,7 +389,7 @@ def build_body_masks(
     for y in range(height):
         for x in range(width):
             zone = zone_of.get(zpx[x, y])
-            if zone is not None and bpx[x, y] != outline:
+            if zone is not None and bpx[x, y] not in excluded:
                 masks[zone].putpixel((x, y), MASK_ON)
                 counts[zone] += 1
 

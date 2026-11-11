@@ -67,6 +67,13 @@ def broadcast_weather_change(new_state):
     room has db.is_indoor set truthy) do not hear it. A character with no
     location is treated as outdoors, preserving prior behavior.
     """
+    # W4.2: every puppet's `world` snapshot, indoors too -- the state changed
+    # even where it is not heard, and the browser hides it by `indoor`.
+    # Before the message check, so a state without a message still reaches
+    # the panel. Imported here, as below: client_state imports this module.
+    from world import client_state
+
+    client_state.push_online("world")
     message = WEATHER_MESSAGES.get(new_state)
     if not message:
         return

@@ -1,5 +1,6 @@
 """
-Tasks 2.1 and 2.2: the asset pipeline's validate, clean and split-body steps.
+Tasks 2.1, 2.2 and W2.3: the asset pipeline's validate, clean and split-body
+steps, and the body master's edge rules.
 
 Run from the repository root (outside `evennia test`, which never sees art/):
 
@@ -22,7 +23,14 @@ one way the pipeline can let a broken asset through:
 * TestClean -- only valid masters are written; magenta becomes fully
   transparent and every other pixel keeps its exact colour.
 * TestSplitBody -- the seven masks are pure alpha, disjoint, leave the
-  outline out, and nothing is written when the masters disagree.
+  outline and the inner details out, and nothing is written when the
+  masters disagree.
+* TestContrast -- the contrast formula reproduces every contrast_panel
+  figure in palette.json, so the edge rule measures what the palette says.
+* TestBodyEdge -- the figure's edge reaches the palette's contrast against
+  Panel (side neighbours only, the image border counts as background, the
+  threshold comes from the palette), the outline colour is never an inner
+  fill, and only body_base.png is held to either rule.
 * TestRealMasters -- the committed body masters pass.
 * TestPublishedUpToDate -- the files committed under web/static/ are what
   the pipeline produces today, so a master edited without re-running the
@@ -32,6 +40,7 @@ one way the pipeline can let a broken asset through:
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import json
 import sys
@@ -47,7 +56,9 @@ import assetpipe  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 MAGENTA = (255, 0, 255)
-OUTLINE = (0x0E, 0x15, 0x12)  # palette "background", used as outline
+OUTLINE = (0x9D, 0x9B, 0x8C)  # palette "muted", the figure's edge (W2.3)
+DETAIL = (0x0E, 0x15, 0x12)  # palette "background", inner dark details
+DARK_WOOD = (0x4B, 0x30, 0x26)  # 1.35:1 against Panel
 SKIN = (0xE7, 0xB9, 0x8A)
 ZONE_KEYS = [
     (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
@@ -147,7 +158,7 @@ class TestColours(_TmpCase):
         self.assertIn("empty", self.errors(path)[0])
 
     def test_full_bleed_without_magenta_is_fine(self):
-        path = self.make("room_test.png", size=(320, 180), fill=OUTLINE)
+        path = self.make("room_test.png", size=(320, 180), fill=DETAIL)
         self.assertEqual(self.errors(path), [])
 
 
@@ -181,20 +192,20 @@ class TestZoneMap(_TmpCase):
         self.assertEqual(errs, ["zone left_leg (#8000FF) is missing"])
 
     def test_palette_colour_in_zone_map(self):
-        errs = self.errors(self.zonemap(ZONE_KEYS + [OUTLINE]))
+        errs = self.errors(self.zonemap(ZONE_KEYS + [DETAIL]))
         self.assertIn("#0E1512 is not a zone key", errs[0])
 
 
 class TestClean(_TmpCase):
     def test_magenta_becomes_transparent_rest_is_exact(self):
-        src = self.make("icon_x.png", pixels={(5, 5): SKIN, (6, 5): OUTLINE})
+        src = self.make("icon_x.png", pixels={(5, 5): SKIN, (6, 5): DETAIL})
         out = self.dir / "out" / "deeper"
         report = assetpipe.clean(src, out, self.palette)
         self.assertTrue(report.ok, report.errors)
         with Image.open(out / "icon_x.png") as img:
             self.assertEqual(img.mode, "RGBA")
             self.assertEqual(img.getpixel((5, 5)), SKIN + (255,))
-            self.assertEqual(img.getpixel((6, 5)), OUTLINE + (255,))
+            self.assertEqual(img.getpixel((6, 5)), DETAIL + (255,))
             self.assertEqual(img.getpixel((0, 0)), (0, 0, 0, 0))
             alphas = {v for _count, v in img.getchannel("A").getcolors()}
             self.assertEqual(alphas, {0, 255})
@@ -216,14 +227,22 @@ class TestClean(_TmpCase):
 
 
 class TestSplitBody(_TmpCase):
-    """A 32x64 figure: column x=5 is head (rows 0-2), x=6 is every other zone."""
+    """A 32x64 figure: a 3x3 head at x=4-6, y=1-3, and x=9 is every other zone.
+
+    The head has the outline colour on its left edge at (4, 2) and an inner
+    detail in Background at its centre (5, 2), which touches no background, so
+    the fixture passes the edge rules and both exclusions are exercised.
+    """
+
+    HEAD = [(x, y) for y in range(1, 4) for x in range(4, 7)]
 
     def masters(self, base_px=None, zone_px=None):
         zones = list(self.palette.zone_keys.items())
-        zmap = {(5, y): zones[0][1] for y in range(3)}
-        zmap.update({(6, i): rgb for i, (_z, rgb) in enumerate(zones[1:])})
+        zmap = {xy: zones[0][1] for xy in self.HEAD}
+        zmap.update({(9, 1 + i): rgb for i, (_z, rgb) in enumerate(zones[1:])})
         bmap = {xy: SKIN for xy in zmap}
-        bmap[(5, 1)] = OUTLINE  # an outline pixel inside the head zone
+        bmap[(4, 2)] = OUTLINE  # the edge, inside the head zone
+        bmap[(5, 2)] = DETAIL  # an eye: inner, never tinted
         bmap.update(base_px or {})
         zmap.update(zone_px or {})
         base = self.make("body_base.png", size=(32, 64), pixels=bmap)
@@ -249,15 +268,16 @@ class TestSplitBody(_TmpCase):
         report, out = self.split(*self.masters())
         self.assertTrue(report.ok, report.errors)
         with Image.open(out / "body_head.png") as head:
-            self.assertEqual(head.getpixel((5, 0)), assetpipe.MASK_ON)
-            self.assertEqual(head.getpixel((5, 1)), assetpipe.MASK_OFF)
+            self.assertEqual(head.getpixel((5, 1)), assetpipe.MASK_ON)
+            self.assertEqual(head.getpixel((4, 2)), assetpipe.MASK_OFF, "outline")
+            self.assertEqual(head.getpixel((5, 2)), assetpipe.MASK_OFF, "inner detail")
         on = []
         for path in out.iterdir():
             with Image.open(path) as img:
                 on += [(x, y) for y in range(64) for x in range(32)
                        if img.getpixel((x, y))[3]]
         self.assertEqual(len(on), len(set(on)))
-        self.assertEqual(len(on), 2 + 6)
+        self.assertEqual(len(on), 7 + 6)
 
     def test_coverage_mismatch_writes_nothing(self):
         base, zonemap = self.masters(base_px={(20, 20): SKIN})
@@ -267,13 +287,13 @@ class TestSplitBody(_TmpCase):
         self.assertFalse(out.exists())
 
     def test_zone_that_is_all_outline(self):
-        base, zonemap = self.masters(base_px={(6, 0): OUTLINE})
+        base, zonemap = self.masters(base_px={(9, 1): OUTLINE})
         report, out = self.split(base, zonemap)
         self.assertEqual(report.errors, ["zone chest has no pixels inside the outline"])
         self.assertFalse(out.exists())
 
     def test_invalid_master_is_named(self):
-        base, zonemap = self.masters(base_px={(5, 0): (1, 2, 3)})
+        base, zonemap = self.masters(base_px={(5, 1): (1, 2, 3)})
         report, out = self.split(base, zonemap)
         self.assertTrue(report.errors[0].startswith("body_base.png: #010203"))
         self.assertFalse(out.exists())
@@ -290,6 +310,82 @@ class TestSplitBody(_TmpCase):
         base, _zonemap = self.masters()
         report, _out = self.split(base, base)
         self.assertIn("body_base.png is not a zone map", report.errors)
+
+
+class TestContrast(_TmpCase):
+    def test_formula_reproduces_the_palette_figures(self):
+        data = json.loads(assetpipe.PALETTE_PATH.read_text(encoding="utf-8"))
+        panel = assetpipe.hex_to_rgb(data["contrast_surfaces"]["panel"])
+        for colour in data["colors"]:
+            with self.subTest(key=colour["key"]):
+                ratio = assetpipe.contrast_ratio(assetpipe.hex_to_rgb(colour["hex"]), panel)
+                self.assertEqual(round(ratio, 2), colour["contrast_panel"])
+
+    def test_threshold_and_surface_come_from_the_palette(self):
+        self.assertEqual(self.palette.edge_surface, (0x17, 0x23, 0x1F))
+        self.assertEqual(self.palette.edge_min_contrast, 3.0)
+
+
+class TestBodyEdge(_TmpCase):
+    """A 4x4 block at x=10-13, y=10-13 on the 32x64 body canvas."""
+
+    BLOCK = [(x, y) for y in range(10, 14) for x in range(10, 14)]
+
+    def base(self, extra=None, name="body_base.png", size=(32, 64), fill=SKIN):
+        px = {xy: fill for xy in self.BLOCK}
+        px.update(extra or {})
+        return self.make(name, size=size, pixels=px)
+
+    def test_bright_edge_passes(self):
+        self.assertEqual(self.errors(self.base()), [])
+
+    def test_dark_pixel_on_a_side_edge_fails(self):
+        errs = self.errors(self.base({(10, 11): DARK_WOOD}))
+        self.assertEqual(len(errs), 1)
+        self.assertIn("#4B3026 on the figure's edge is below 3:1 against #17231F", errs[0])
+        self.assertIn("(10,11)", errs[0])
+
+    def test_dark_pixel_inside_passes(self):
+        self.assertEqual(self.errors(self.base({(11, 11): DARK_WOOD})), [])
+
+    def test_corner_contact_alone_is_not_an_edge(self):
+        # A notch at (10, 10) gives (11, 11) one background neighbour, on a
+        # corner only. An outline drawn in steps has many such pixels, and
+        # they are not where the figure's edge is seen.
+        path = self.base({(10, 10): MAGENTA, (11, 11): DARK_WOOD})
+        self.assertEqual(self.errors(path), [])
+
+    def test_image_border_counts_as_background(self):
+        # (0, 30) has figure on its other three sides: the image border is
+        # its only background contact.
+        px = {(x, y): SKIN for x in range(3) for y in range(28, 33)}
+        px[(0, 30)] = DARK_WOOD
+        path = self.make("body_base.png", size=(32, 64), pixels=px)
+        errs = self.errors(path)
+        self.assertEqual(len(errs), 1)
+        self.assertIn("(0,30)", errs[0])
+
+    def test_outline_colour_as_inner_fill_fails(self):
+        errs = self.errors(self.base({(11, 11): OUTLINE}))
+        self.assertEqual(len(errs), 1)
+        self.assertIn("#9D9B8C is the outline colour but not on the figure's edge", errs[0])
+
+    def test_outline_colour_touching_background_on_a_corner_passes(self):
+        path = self.base({(10, 10): MAGENTA, (11, 11): OUTLINE})
+        self.assertEqual(self.errors(path), [])
+
+    def test_threshold_is_the_palettes(self):
+        path = self.base({(10, 11): DARK_WOOD})
+        lenient = dataclasses.replace(self.palette, edge_min_contrast=1.0)
+        self.assertEqual(assetpipe.validate(path, lenient).errors, [])
+        strict = dataclasses.replace(self.palette, edge_min_contrast=10.0)
+        self.assertTrue(assetpipe.validate(self.base(), strict).errors)
+
+    def test_only_the_body_base_is_held_to_the_edge_rules(self):
+        icon = self.make("icon_x.png", pixels={(5, 5): DARK_WOOD, (6, 5): OUTLINE})
+        self.assertEqual(self.errors(icon), [])
+        zone_mask_name = self.base({(10, 11): DARK_WOOD}, name="body_head.png")
+        self.assertEqual(self.errors(zone_mask_name), [])
 
 
 class TestRealMasters(unittest.TestCase):

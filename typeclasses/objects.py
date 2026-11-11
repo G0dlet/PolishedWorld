@@ -22,6 +22,21 @@ class ObjectParent:
 
     """
 
+    def at_object_delete(self):
+        """
+        Push what a deletion changes (W4.2): the carrier's `char` and, if the
+        object lay in a room, that room's viewers. `delete()` runs no leave
+        hook, so nothing else would. On the next reactor turn, when the
+        object is gone. Never vetoes the deletion.
+
+        Returns:
+            bool: whatever the parent returns (True: go ahead).
+        """
+        from world import client_state
+
+        client_state.push_after_removal(self.location)
+        return super().at_object_delete()
+
     def at_pre_put_in(self, putter, target, **kwargs):
         """
         Refuse `put` into anything that is not a container (W4.2 Q3).

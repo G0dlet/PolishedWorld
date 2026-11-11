@@ -24,20 +24,31 @@ from evennia.utils import logger
 from evennia.utils.utils import inherits_from
 
 from typeclasses.durable import DurableObject
+from typeclasses.objects import ObjectParent
+from world import client_state
 from world.thermal import apply_thermal_stress
 
 
-class ClothingWithBuffs(DurableObject, ContribClothing):
+class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
     """
     Wearable garment with a thermal `warmth` rating and a shared wear axis.
 
     condition (0-100) is inherited from DurableObject: the mixin owns the
     Attribute (default 100), apply_wear/is_broken, and condition_line(). Effective
     warmth is still scaled by condition/100 in thermal.worn_warmth, so a worn-out
-    garment insulates less. MRO is (DurableObject, ContribClothing) so
-    DurableObject's condition descriptor takes precedence while ContribClothing's
-    wear/remove resolve unchanged; the default 100 matches the old local
-    AttributeProperty, so no already-spawned garment needs migrating.
+    garment insulates less. MRO is (ObjectParent, DurableObject, ContribClothing)
+    so DurableObject's condition descriptor takes precedence while
+    ContribClothing's wear/remove resolve unchanged; the default 100 matches the
+    old local AttributeProperty, so no already-spawned garment needs migrating.
+
+    ObjectParent comes first because the clothing contrib's base is a plain
+    DefaultObject, not settings.BASE_OBJECT_TYPECLASS (the containers contrib's
+    is), so nothing else brings it (W5.1b). It gives a garment the hooks every
+    typeclass has: at_object_delete tells the carrier's panel (a disassembled
+    or destroyed garment leaves its ENC), and at_pre_put_in refuses a put into
+    a garment. ContribClothing defines neither, so nothing is shadowed.
+    tests/test_client_state.py TestObjectParentCensus holds every typeclass to
+    this.
 
     warmth: insulation this piece contributes, read by thermal.worn_warmth via
         db.warmth. autocreate=True so every garment has a real db.warmth
@@ -63,9 +74,14 @@ class ClothingWithBuffs(DurableObject, ContribClothing):
 
         super().wear() sets db.worn first, so worn_warmth already counts this
         piece when we recompute -- the new warmth registers at once.
+
+        W7.1: the garment moves to the panel's worn list without a move, so
+        no move hook pushes; this does. Soon, as the move hooks push, so the
+        frame is built after the wear has finished.
         """
         super().wear(wearer, wearstyle, quiet=quiet)
         apply_thermal_stress(wearer)
+        client_state.push_soon(wearer, "char")
 
     def remove(self, wearer, quiet=False):
         """
@@ -73,9 +89,13 @@ class ClothingWithBuffs(DurableObject, ContribClothing):
 
         super().remove() clears db.worn first, so the recompute already excludes
         this piece's warmth.
+
+        W7.1: pushes as wear() does. A garment given away also runs this, from
+        at_post_move; push_soon makes it one frame with the leave hook's.
         """
         super().remove(wearer, quiet=quiet)
         apply_thermal_stress(wearer)
+        client_state.push_soon(wearer, "char")
 
     def at_post_move(self, source_location, move_type="move", **kwargs):
         """

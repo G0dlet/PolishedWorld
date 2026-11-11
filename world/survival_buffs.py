@@ -54,8 +54,11 @@ class ColdStress(BaseBuff):
 
     Stacks = cold_stress from world.thermal.thermal_stress, set fresh each tick
     by apply_thermal_stress(). Drives faster hunger/fatigue depletion via mult
-    mods. Silent on purpose: it is reset (remove+add) every tick, so onset and
-    relief messaging is handled elsewhere (bucket-transition pattern), never here.
+    mods. Silent on purpose: it is reset (remove+add) every tick, so an onset or
+    relief message in its hooks would fire every tick. No message, command or
+    `status` line names the stress yet; the worded state with a direction is
+    roadmap *Temperature & exposure* (docs/system_designs/
+    PolishedWorld_Temperature_Design.md, J1, KP1-KP2).
     """
     key = "cold_stress"
     name = "Cold"

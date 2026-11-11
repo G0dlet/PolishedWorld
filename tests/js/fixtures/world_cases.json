@@ -1,0 +1,209 @@
+{
+  "about": "W5.3 parity table. Each case is what the time command prints at that absolute game second (Date, Time, Season); tests/test_time_command.py checks it against world.gametime_utils, tests/js/test_pw_world.js checks pw_world.js against it. calendar is world.client_state._calendar().",
+  "calendar": {
+    "units": [
+      [
+        "year",
+        31449600
+      ],
+      [
+        "month",
+        2419200
+      ],
+      [
+        "week",
+        604800
+      ],
+      [
+        "day",
+        86400
+      ],
+      [
+        "hour",
+        3600
+      ],
+      [
+        "min",
+        60
+      ]
+    ],
+    "month_names": [
+      "Frostmelt",
+      "Greenrise",
+      "Bloomtide",
+      "Brightdawn",
+      "Sunpeak",
+      "Harvestwarm",
+      "Goldendays",
+      "Leaffall",
+      "Emberwind",
+      "Darkening",
+      "Frosthold",
+      "Deepsnow",
+      "Icewane"
+    ],
+    "seasons": {
+      "spring": [
+        1,
+        2,
+        3
+      ],
+      "summer": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "autumn": [
+        8,
+        9,
+        10
+      ],
+      "winter": [
+        11,
+        12,
+        13
+      ]
+    },
+    "times_of_day": [
+      [
+        "night",
+        0.8333333333333334,
+        1.0
+      ],
+      [
+        "night",
+        0.0,
+        0.16666666666666666
+      ],
+      [
+        "dawn",
+        0.16666666666666666,
+        0.25
+      ],
+      [
+        "morning",
+        0.25,
+        0.375
+      ],
+      [
+        "day",
+        0.375,
+        0.5
+      ],
+      [
+        "afternoon",
+        0.5,
+        0.625
+      ],
+      [
+        "evening",
+        0.625,
+        0.75
+      ],
+      [
+        "dusk",
+        0.75,
+        0.8333333333333334
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "seconds": 0,
+      "date": "Year 1, Frostmelt 1",
+      "time": "00:00 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 14399,
+      "date": "Year 1, Frostmelt 1",
+      "time": "03:59 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 14400,
+      "date": "Year 1, Frostmelt 1",
+      "time": "04:00 (dawn)",
+      "season": "spring"
+    },
+    {
+      "seconds": 43199,
+      "date": "Year 1, Frostmelt 1",
+      "time": "11:59 (day)",
+      "season": "spring"
+    },
+    {
+      "seconds": 43200,
+      "date": "Year 1, Frostmelt 1",
+      "time": "12:00 (afternoon)",
+      "season": "spring"
+    },
+    {
+      "seconds": 71999,
+      "date": "Year 1, Frostmelt 1",
+      "time": "19:59 (dusk)",
+      "season": "spring"
+    },
+    {
+      "seconds": 72000,
+      "date": "Year 1, Frostmelt 1",
+      "time": "20:00 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 86399,
+      "date": "Year 1, Frostmelt 1",
+      "time": "23:59 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 604800,
+      "date": "Year 1, Frostmelt 8",
+      "time": "00:00 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 7257599,
+      "date": "Year 1, Bloomtide 28",
+      "time": "23:59 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 7257600,
+      "date": "Year 1, Brightdawn 1",
+      "time": "00:00 (night)",
+      "season": "summer"
+    },
+    {
+      "seconds": 16934399,
+      "date": "Year 1, Goldendays 28",
+      "time": "23:59 (night)",
+      "season": "summer"
+    },
+    {
+      "seconds": 16934400,
+      "date": "Year 1, Leaffall 1",
+      "time": "00:00 (night)",
+      "season": "autumn"
+    },
+    {
+      "seconds": 31449599,
+      "date": "Year 1, Icewane 28",
+      "time": "23:59 (night)",
+      "season": "winter"
+    },
+    {
+      "seconds": 31449600,
+      "date": "Year 2, Frostmelt 1",
+      "time": "00:00 (night)",
+      "season": "spring"
+    },
+    {
+      "seconds": 123456789.75,
+      "date": "Year 4, Icewane 1",
+      "time": "21:33 (night)",
+      "season": "winter"
+    }
+  ]
+}
