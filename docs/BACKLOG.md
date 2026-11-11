@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 104 · 2026-11-11** — one entry **added**, docs only, with the webclient visual pass decomposition (Rev 1) and roadmap Rev 72. **Added** (*UX & Item Identity*): ***Webclient: mockup elements without server data*** — an exit's destination, an icon per item, culture and homeland, an ambient temperature and a portrait, which the pass leaves out (WV5, WV6); OPEN for the first two, BLOCKED for the rest. No entry closed.
 > **Rev 103 · 2026-11-11** — three entries **annotated**, docs only, with webclient decomposition Rev 17 (W8.2: the epic closes) and roadmap Rev 71. ***Persistent alpha instance*** (*Operations*): L6.1 checks out `alpha-20261111` (on `399e306`, PR #27), which ships the webclient, or a later tag if the visual pass lands first; behind TLS the instance sets `WEBSOCKET_CLIENT_URL` (runbook §7, Rev 7). ***Waterskin `durability` → `condition` migration*** and ***Fatigue-exhaustion consequence***: Stage 4.6, which schedules both, now follows the new *Webclient visual pass* (roadmap decision log, *Order after the webclient*, amended). No status changes, no entry added: the visual pass's home is its roadmap entry.
 > **Rev 102 · 2026-11-11** — two entries **decided** and one **annotated**, docs only, with webclient decomposition Rev 16 (W8.1: `feature/webclient` merged to `main` as `399e306`, PR #27, tagged `alpha-20261111`). **Decided** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — one timeboxed try at W8.1: Orca on the work machine echoed keys but read no page text, not even a one-line control page with `#messagewindow`'s markup and no project code, so the fault is the tool's; the epic closes with WC14 resting on markup and keyboard, and the entry takes ***A screen-reader pass***'s trigger (OPEN). ***Webclient: `TypeError` on Enter while disconnected*** — the `TypeError` half is decided, jQuery stays 3.7.1; the `DOMException` half waits for the upstream report (OPEN). **Annotated:** ***A screen-reader pass*** — the webclient's Orca pass now runs with it. No entry closed.
 > **Rev 101 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 15 (W7.1 shipped, `33423d5` on `feature/webclient`; Component 7 done). **Added** (*UX & Item Identity*): ***`inventory` hides why two garments are two rows*** — W7.1's protocol printed two identical-looking rows for two garments of one name in different condition: the contrib groups by description and crops it before the condition line (OPEN). **Annotated:** ***Webclient: a skills panel (W7.2, cut)*** — `skills` would be the fifth OOB domain, not the sixth. No entry closed.
@@ -3221,6 +3222,29 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Webclient decomposition Rev 15, W7.1 protocol step 7
   (2026-11-11).
 - **Status:** OPEN
+
+### Webclient: mockup elements without server data
+- **What:** The reference mockup `webclient_03` shows five things the server
+  does not hold, which the visual pass leaves out (Webclient visual decomp
+  WV5, WV6): (1) an exit's destination beside its direction ("north — toward
+  the market"); (2) an icon per item in the room and inventory lists, from the
+  `item_` family; (3) culture and homeland under the character's name (only
+  `db.profession` exists); (4) an ambient temperature in the world panel's
+  weather row; (5) a portrait of the character.
+- **Why deferred:** each needs data or a system first, and WC1 asks that the
+  text says it before a panel does. (1) needs look's exit line to name
+  destinations too; (2) needs an icon key per prototype and a family of art;
+  (3) is a chargen design decision, not a client one; (4) needs a temperature
+  in the weather model (*Temperature & exposure*); (5) needs a stored
+  appearance, and a generic face would be WC12's *Intact for a system that
+  does not exist*.
+- **Trigger:** per part — (1) and (2): the visual pass merged and an alpha
+  player or Adam asks for them; (3): a chargen change that adds culture or
+  homeland; (4): *Temperature & exposure* J1 shipped; (5): a stored
+  appearance (for instance from the names design note's descriptions).
+- **Origin:** Webclient visual pass decomposition Rev 1, STOPP 0
+  (2026-11-11).
+- **Status:** OPEN (parts 1–2), BLOCKED (parts 3–5)
 
 ## Tooling & Process
 
