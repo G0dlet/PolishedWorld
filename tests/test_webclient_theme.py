@@ -32,14 +32,21 @@ Each class names the bug it pressures:
                            kwargs is null, but the server always sends an
                            object (wire_formats/evennia_v1.py:103 dumps
                            [cmd, args, kwargs], kwargs {} at least), so a
-                           text line gets class="undefined" and .out's
-                           pre-wrap never reaches it; parse_html leaves the
+                           text line gets class="undefined" (or, since W6.2,
+                           its tab's class) and .out's pre-wrap never
+                           reaches it; parse_html leaves the
                            spaces raw (Evennia 6.1.0).
     TestBreakpoint         a second breakpoint appears, or the one value
                            drifts from the query pw_text.js passes to
                            matchMedia (W6.1 lock 5).
     TestNoExternalCss      the stylesheet pulls a font or file from another
                            host, or a font file at all (WC2, lock 8).
+    TestTextTabs           a filtered tab shows lines of another tab or
+                           hides the client's err/sys lines, All hides
+                           anything, the tab row loses its own grid area
+                           (it would scroll with the text or overlap it), or
+                           a hidden unread mark shows (W6.2 locks 2A, 5B,
+                           7A).
 """
 
 import json
@@ -426,3 +433,40 @@ class TestRoomPanelHidden(_ThemeTest):
 
     def test_hidden_wins_in_the_room_panel(self):
         self.assertEqual(_decl_values(self.rules, "#pw-room [hidden]", ("display",)), ["none"])
+
+
+class TestTextTabs(_ThemeTest):
+    """
+    The tabs filter one log (W6.2 lock 2A): #messagewindow carries the open
+    tab in data-pw-tab, and a line without that tab's class, or the class
+    every tab shows (the client's err/sys lines, lock 7A), is not displayed.
+    All has no rule: it shows every line. The tab row is a grid area of its
+    own in both layouts, so it stays put while <main> scrolls, and a hidden
+    unread mark stays hidden (5B).
+    """
+
+    FILTERED = ("channels", "talk")
+
+    def test_each_filtered_tab_hides_the_other_lines(self):
+        for name in self.FILTERED:
+            selector = '#messagewindow[data-pw-tab="%s"] > div:not(.pw-tab-%s):not(.pw-tab-every)' % (name, name)
+            self.assertEqual(_decl_values(self.rules, selector, ("display",)), ["none"], selector)
+
+    def test_all_hides_nothing(self):
+        for rule in self.rules:
+            for selector in rule.selectors:
+                self.assertNotIn('data-pw-tab="all"', selector, selector)
+
+    def test_tab_row_is_its_own_grid_area_in_both_layouts(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-tabs", ("grid-area",)), ["tabs"])
+        media = "@media (min-width: %s)" % BREAKPOINT
+        for where in (None, media):
+            areas = _decl_values(self.rules, "#clientwrapper", ("grid-template-areas",), where)
+            self.assertEqual(len(areas), 1, where)
+            rows = re.findall(r'"([^"]*)"', areas[0])
+            self.assertEqual([row.split().count("tabs") for row in rows].count(0), len(rows) - 1, rows)
+            self.assertEqual(rows.index(next(r for r in rows if "tabs" in r)) + 1,
+                             rows.index(next(r for r in rows if "text" in r)), rows)
+
+    def test_hidden_wins_in_the_tabs(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-tabs [hidden]", ("display",)), ["none"])

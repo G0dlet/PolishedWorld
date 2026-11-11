@@ -72,16 +72,17 @@ body {
   outline-offset: 2px;
 }
 
-/* The grid. DOM order is input, header, panels, text (Tab order, lock 6);
-   the areas put them where mockup v3 shows them. */
+/* The grid. DOM order is input, header, panels, tabs, text (Tab order,
+   lock 6; tabs W6.2); the areas put them where mockup v3 shows them. */
 #clientwrapper {
   box-sizing: border-box;
   height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-areas:
     "header"
+    "tabs"
     "text"
     "input";
   gap: .5rem;
@@ -273,7 +274,8 @@ a.pw-room-exit {
 /* Every message line keeps the server's spaces (banner, EvTable columns).
    default_out.js:13 gives a line the class "out" only when kwargs is null,
    and the server always sends an object (wire_formats/evennia_v1.py:103),
-   so text lines arrive as class="undefined" and .out never matches them;
+   so a line pw_tabs.js leaves untagged arrives as class="undefined", a
+   tagged one as its tab's class, and .out never matches either;
    parse_html leaves runs of spaces raw. This rule does not depend on the
    class. */
 #messagewindow > div {
@@ -293,6 +295,58 @@ a.pw-room-exit {
 .sys { color: var(--pw-health); }
 .err { color: var(--pw-fire); }
 .prompt { color: var(--pw-text); }
+
+/* The tabs over the text (W6.2). One log, filtered (lock 2A): pw_tabs.js
+   writes the open tab into #messagewindow's data-pw-tab and gives each line
+   it routes its tab's class (pw-tab-channels, pw-tab-talk) or the class
+   every tab shows (pw-tab-every: the client's err/sys lines, lock 7A). All
+   has no rule; it shows every line. The selected tab is told by weight and
+   a thicker bottom edge, not by colour alone (WC14); the row scrolls
+   sideways in itself below the breakpoint if it must (8A). */
+#pw-tabs {
+  grid-area: tabs;
+  display: flex;
+  gap: .25rem;
+  overflow-x: auto;
+}
+
+#pw-tabs [role="tab"] {
+  min-height: 2.75rem;
+  padding: .375rem .75rem;
+  background: var(--pw-panel);
+  color: var(--pw-text);
+  border: 2px solid var(--pw-border_wood);
+  border-radius: .25rem .25rem 0 0;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#pw-tabs [role="tab"][aria-selected="true"] {
+  background: var(--pw-panel_light);
+  color: var(--pw-highlight);
+  font-weight: 700;
+  border-bottom-width: 5px;
+}
+
+#pw-tabs [hidden] { display: none; }
+
+/* The unread mark (5B): the word is in the tab's name, the bullet is
+   decoration that screen readers skip ("/ ''", as the panel buttons). */
+.pw-tab-new {
+  margin-left: .375rem;
+  color: var(--pw-warning);
+}
+
+.pw-tab-new::before {
+  content: "\2022 ";
+  content: "\2022 " / "";
+}
+
+#messagewindow[data-pw-tab="channels"] > div:not(.pw-tab-channels):not(.pw-tab-every),
+#messagewindow[data-pw-tab="talk"] > div:not(.pw-tab-talk):not(.pw-tab-every) {
+  display: none;
+}
 
 /* Input row. Evennia fixes #input to the bottom of the window; here it is
    a grid item under the text area. */
@@ -344,9 +398,10 @@ a.pw-room-exit {
 @media (min-width: 80rem) {
   #clientwrapper {
     grid-template-columns: 17rem minmax(0, 1fr) 17rem;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       "header header header"
+      "left   tabs   right"
       "left   text   right"
       "left   input  right";
   }

@@ -11,8 +11,8 @@ default_out.js writes the prompt into .prompt.
 
 DOM order is Tab order (W3.2, lock 6): the command line first, then the
 header's panel buttons (shown only below the breakpoint), the two panels,
-and the text last, so its links (W6.1) do not stand between the player and
-the panels. The stylesheet's grid areas place each part where mockup v3
+the text's tabs (W6.2), and the text last, so its links (W6.1) do not stand
+between the player and the panels. The stylesheet's grid areas place each part where mockup v3
 shows it. The panels take tabindex="-1" so layout.js can move focus into an
 opened drawer; that keeps them out of the Tab sequence.
 
@@ -31,6 +31,13 @@ aria-live="polite" written out, though the role implies it. The location
 panel ends with the *room lists in text* toggle (W6.1, lock 6A, WC4);
 pw_text.js sets its checked and disabled state from the breakpoint and the
 store, so the markup carries neither.
+
+The tabs over the text (W6.2) filter that one log rather than holding logs
+of their own (lock 2A): every tab controls #main-sub, the one tab panel,
+which pw_tabs.js names by the selected tab. All is selected here, so the
+page starts on All before any script runs (lock 6A); the roving tabindex
+leaves one tab in the Tab sequence. Each tab's unread mark starts hidden
+(5B); the stylesheet puts a bullet before its word.
 {% endcomment %}
 
 {% block client %}
@@ -123,8 +130,14 @@ store, so the markup carries neither.
   </section>
 </aside>
 
+<div id="pw-tabs" role="tablist" aria-label="Text">
+  <button id="pw-tab-all" type="button" role="tab" aria-controls="main-sub" aria-selected="true" tabindex="0">All<span id="pw-tab-all-new" class="pw-tab-new" hidden>new</span></button>
+  <button id="pw-tab-channels" type="button" role="tab" aria-controls="main-sub" aria-selected="false" tabindex="-1">Channels<span id="pw-tab-channels-new" class="pw-tab-new" hidden>new</span></button>
+  <button id="pw-tab-talk" type="button" role="tab" aria-controls="main-sub" aria-selected="false" tabindex="-1">Talk<span id="pw-tab-talk-new" class="pw-tab-new" hidden>new</span></button>
+</div>
+
 <main id="main">
-  <div id="main-sub">
+  <div id="main-sub" role="tabpanel" aria-labelledby="pw-tab-all">
     <div id="messagewindow" role="log" aria-live="polite"></div>
   </div>
 </main>

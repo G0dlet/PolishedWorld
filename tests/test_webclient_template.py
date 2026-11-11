@@ -46,6 +46,15 @@ Each class names the bug it pressures:
                            or carries a state in the markup that the script
                            sets from the layout and the store (W6.1 lock 6,
                            WC4).
+    TestTextTabs           the tabs that filter the text (W6.2) lose their
+                           order, their place between the panels and the
+                           text, the markup's start on All (lock 6A), the
+                           panel they control, or their hidden unread marks
+                           (5B); or the text panel stops being named by the
+                           selected tab.
+    TestTabsScript         pw_tabs.js stops registering as a plugin, or
+                           writes markup itself. Its behaviour is tested in
+                           Node: tests/js/test_pw_tabs.js.
 """
 
 import hashlib
@@ -76,6 +85,10 @@ EXPECTED_SCRIPTS = [
     # The text router (W5.4, WC4): claims the room_contents lines the room
     # panel already shows, so it too must come before default_out.
     "polishedworld/js/pw_text.js",
+    # The tab router (W6.2): tags each line it lets through with its tab's
+    # class and claims none, so it comes after pw_text.js (lines that one
+    # hides never reach a tab) and before default_out, which writes them.
+    "polishedworld/js/pw_tabs.js",
     "webclient/js/plugins/history.js",
     "webclient/js/plugins/default_in.js",
     "webclient/js/plugins/default_out.js",
@@ -113,6 +126,10 @@ SURVIVAL_JS = "polishedworld/js/pw_survival.js"
 WORLD_JS = "polishedworld/js/pw_world.js"
 TEXT_JS = "polishedworld/js/pw_text.js"
 ROOM_JS = "polishedworld/js/pw_room.js"
+TABS_JS = "polishedworld/js/pw_tabs.js"
+# The tabs, in order (W6.2 lock 1A). A literal, as CHAR_IDS (W-z);
+# tests/js/test_pw_tabs.js and tests/test_webclient_theme.py hold the same.
+TABS = (("all", "All"), ("channels", "Channels"), ("talk", "Talk"))
 FIGURE = "polishedworld/characters/body/body_base.png"
 # The ids pw_char.js writes to. A literal list, not one read from the script,
 # so an empty list in the script cannot make these tests pass (W-z);
@@ -343,7 +360,12 @@ class TestLandmarks(_PageTest):
                 self.assertLessEqual(int(attrs["tabindex"]), 0, (tag, attrs))
 
     def test_panel_buttons_control_the_panels(self):
-        buttons = [a for t, a in self.page.tags if t == "button" and a.get("aria-controls")]
+        # The text tabs control #main-sub (TestTextTabs); this test is about
+        # the drawer buttons only, which carry the class layout.js reads.
+        buttons = [
+            a for t, a in self.page.tags
+            if t == "button" and a.get("aria-controls") and a.get("class") == "pw-panel-button"
+        ]
         self.assertEqual(sorted(a["aria-controls"] for a in buttons), sorted(PANEL_LABELS))
         for attrs in buttons:
             self.assertEqual(attrs.get("type"), "button", attrs)
@@ -786,3 +808,79 @@ class TestRoomListsToggle(_PageTest):
         _tag, attrs = self.page.tags[self._index(TOGGLE_ID)]
         for name in ("checked", "disabled", "hidden"):
             self.assertNotIn(name, attrs, name)
+
+
+class TestTextTabs(_PageTest):
+    """
+    The tabs over the text (W6.2): a tablist after the side panels and
+    before <main>, so Tab reaches input, panels, tabs, text; one button per
+    tab in TABS order, each controlling #main-sub, the one tab panel; All
+    selected in the markup (lock 6A), so the page starts on All even before
+    the script runs; and an unread mark per tab, hidden (5B).
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_tablist_between_the_panels_and_the_text(self):
+        i = self._index("pw-tabs")
+        tag, attrs = self.page.tags[i]
+        self.assertEqual((tag, attrs.get("role"), attrs.get("aria-label")), ("div", "tablist", "Text"))
+        self.assertGreater(i, self._index("pw-panel-right"))
+        self.assertLess(i, self._index("main"))
+        self.assertEqual(self.page.within[i], ["clientwrapper"])
+
+    def test_tabs_in_order_with_their_labels(self):
+        tabs = [a.get("id") for _t, a in self.page.tags if a.get("role") == "tab"]
+        self.assertEqual(tabs, ["pw-tab-%s" % name for name, _label in TABS])
+        for name, label in TABS:
+            self.assertRegex(self.html, r'id="pw-tab-%s"[^>]*>%s<' % (name, label))
+            self.assertIn("pw-tabs", self.page.within[self._index("pw-tab-" + name)])
+
+    def test_buttons_controlling_the_text_panel(self):
+        for name, _label in TABS:
+            tag, attrs = self.page.tags[self._index("pw-tab-" + name)]
+            self.assertEqual((tag, attrs.get("type"), attrs.get("aria-controls")), ("button", "button", "main-sub"))
+
+    def test_all_selected_in_the_markup(self):
+        state = [
+            (self.page.tags[self._index("pw-tab-" + name)][1].get("aria-selected"),
+             self.page.tags[self._index("pw-tab-" + name)][1].get("tabindex"))
+            for name, _label in TABS
+        ]
+        self.assertEqual(state, [("true", "0"), ("false", "-1"), ("false", "-1")])
+
+    def test_text_panel_named_by_the_selected_tab(self):
+        _tag, attrs = self.page.tags[self._index("main-sub")]
+        self.assertEqual((attrs.get("role"), attrs.get("aria-labelledby")), ("tabpanel", "pw-tab-all"))
+
+    def test_an_unread_mark_per_tab_hidden(self):
+        for name, _label in TABS:
+            i = self._index("pw-tab-%s-new" % name)
+            tag, attrs = self.page.tags[i]
+            self.assertEqual((tag, attrs.get("class")), ("span", "pw-tab-new"))
+            self.assertIn("hidden", attrs)
+            self.assertIn("pw-tab-" + name, self.page.within[i])
+        self.assertRegex(self.html, r'<span id="pw-tab-all-new" class="pw-tab-new" hidden>new</span>')
+
+
+class TestTabsScript(EvenniaTest):
+    """
+    pw_tabs.js is a plugin (W6.2): it tags the lines default_out writes, so
+    it is registered with plugin_handler (its place is pinned by
+    TestScriptOrder) and writes no markup itself; the tabs are in the page.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(TABS_JS)
+
+    def test_registers_as_plugin(self):
+        self.assertIn('plugin_handler.add("pw_tabs", pw_tabs)', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in MARKUP_SINKS:
+            self.assertNotIn(sink, self.source, sink)
