@@ -11,7 +11,6 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## Planned
 
-- A better-looking webclient: frames, icons and pictures
 - Healing over time, real tiredness and drinking at the spring
 - Combat
 - A wider world to explore
@@ -20,6 +19,7 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## In progress
 
+- A better-looking webclient: frames, icons and pictures
 - The closed alpha
 
 ## Done
