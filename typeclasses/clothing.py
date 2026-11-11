@@ -25,6 +25,7 @@ from evennia.utils.utils import inherits_from
 
 from typeclasses.durable import DurableObject
 from typeclasses.objects import ObjectParent
+from world import client_state
 from world.thermal import apply_thermal_stress
 
 
@@ -73,9 +74,14 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
 
         super().wear() sets db.worn first, so worn_warmth already counts this
         piece when we recompute -- the new warmth registers at once.
+
+        W7.1: the garment moves to the panel's worn list without a move, so
+        no move hook pushes; this does. Soon, as the move hooks push, so the
+        frame is built after the wear has finished.
         """
         super().wear(wearer, wearstyle, quiet=quiet)
         apply_thermal_stress(wearer)
+        client_state.push_soon(wearer, "char")
 
     def remove(self, wearer, quiet=False):
         """
@@ -83,9 +89,13 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
 
         super().remove() clears db.worn first, so the recompute already excludes
         this piece's warmth.
+
+        W7.1: pushes as wear() does. A garment given away also runs this, from
+        at_post_move; push_soon makes it one frame with the leave hook's.
         """
         super().remove(wearer, quiet=quiet)
         apply_thermal_stress(wearer)
+        client_state.push_soon(wearer, "char")
 
     def at_post_move(self, source_location, move_type="move", **kwargs):
         """

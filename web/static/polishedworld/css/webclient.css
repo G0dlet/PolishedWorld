@@ -158,8 +158,9 @@ body {
 #pw-char [hidden] { display: none; }
 
 /* The panel headings: the character's name, Survival (W5.2), World
-   (W5.3) and Location (W5.4). */
-.pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title {
+   (W5.3), Location (W5.4) and Inventory (W7.1). */
+.pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title,
+.pw-inventory-title {
   margin: 0 0 .5rem;
   font-size: 1rem;
   color: var(--pw-highlight);
@@ -248,6 +249,24 @@ a.pw-room-exit {
 .pw-room-toggle { margin: .75rem 0 0; }
 
 .pw-room-toggle input:disabled + label { color: var(--pw-muted); }
+
+/* Inventory panel (W7.1), the left panel's last section. Its rows start
+   hidden until the first char frame, as the location panel's do, and are
+   laid out as that panel's rows. An empty list says "Nothing." in the
+   muted colour, so it does not read as an item. */
+#pw-inventory [hidden] { display: none; }
+
+#pw-inventory { margin-top: 1rem; }
+
+.pw-inventory-row { margin: .5rem 0; }
+
+.pw-inventory-label, .pw-inventory-empty { color: var(--pw-muted); }
+
+.pw-inventory-list {
+  margin: .25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
 
 /* The text area. <main> is the scroll container: Evennia's default_out
    scrolls #messagewindow's grandparent, so #messagewindow itself must not. */

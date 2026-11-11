@@ -91,9 +91,34 @@ def _trait(char, key):
 # The four builders
 # ----------------------------------------------------------------------
 
+def inventory_lists(char):
+    """
+    What `inventory` lists, as the inventory panel shows it (W7.1).
+
+    Split on `db.worn` as the clothing contrib's `inventory` splits
+    (clothing.py:668, :679); a wear style is a truthy string there
+    (clothing.py:487), so a restyled garment stays worn. Grouped by display
+    name through `room_text.numbered_names`, the helper the room's things
+    read -- not by name and description as `inventory`'s table groups: a
+    garment's condition is in its description (DurableObject
+    .get_display_desc) and wear changes it without a push, so two cloaks
+    are one row here and two in the text (lock 2). Container contents,
+    condition, wear style and covered layers are left out: `inventory`
+    prints none of them, so wear, `cover` and `uncover` need no push.
+    """
+    carried, worn = [], []
+    for obj in char.contents:
+        (worn if obj.db.worn else carried).append(obj)
+    return {
+        "carried": [_plain(name) for name in room_text.numbered_names(carried, char)],
+        "worn": [_plain(name) for name in room_text.numbered_names(worn, char)],
+    }
+
+
 def char_snapshot(char):
     """
-    Name, health and the encumbrance band (WC12).
+    Name, health, the encumbrance band (WC12) and what is carried and worn
+    (W7.1 lock 1: one snapshot, so the lists and the figure always agree).
 
     Health's label is `char.health_desc()`, not `trait.desc()`: the two
     disagree (desc() reads the absolute value against bounds shaped for a
@@ -112,6 +137,7 @@ def char_snapshot(char):
             "limit": limit,
             "band": encumbrance.band(carried, limit),
         },
+        "inventory": inventory_lists(char),
     }
 
 

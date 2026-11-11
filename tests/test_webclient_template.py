@@ -107,6 +107,8 @@ EXPECTED_SCRIPTS = [
     "polishedworld/js/pw_world.js",
     # The location panel's renderer, the second on room (W5.4).
     "polishedworld/js/pw_room.js",
+    # The inventory panel's renderer, the second on char (W7.1).
+    "polishedworld/js/pw_inventory.js",
 ]
 
 EXPECTED_STYLESHEETS = [
@@ -127,6 +129,7 @@ WORLD_JS = "polishedworld/js/pw_world.js"
 TEXT_JS = "polishedworld/js/pw_text.js"
 ROOM_JS = "polishedworld/js/pw_room.js"
 TABS_JS = "polishedworld/js/pw_tabs.js"
+INVENTORY_JS = "polishedworld/js/pw_inventory.js"
 # The tabs, in order (W6.2 lock 1A). A literal, as CHAR_IDS (W-z);
 # tests/js/test_pw_tabs.js and tests/test_webclient_theme.py hold the same.
 TABS = (("all", "All"), ("channels", "Channels"), ("talk", "Talk"))
@@ -194,6 +197,18 @@ TOGGLE_ID = "pw-room-lists-in-text"
 # The panel's list rows and their labels, which are look's
 # (evennia get_display_exits, typeclasses/rooms.py), in look's order (WC1).
 ROOM_ROWS = (("exits", "Exits"), ("characters", "Characters"), ("things", "You see"))
+# The ids pw_inventory.js writes (W7.1); the same list is in
+# tests/js/test_pw_inventory.js.
+INVENTORY_IDS = (
+    "pw-inventory",
+    "pw-inventory-carried",
+    "pw-inventory-carried-list",
+    "pw-inventory-worn",
+    "pw-inventory-worn-list",
+)
+# The panel's rows and labels, in `inventory`'s order: carried, then worn
+# (contrib clothing.py:668-688; W7.1 lock 4).
+INVENTORY_ROWS = (("carried", "Carrying"), ("worn", "Wearing"))
 # Every markup sink a renderer must not write (Rev 5 (d)).
 MARKUP_SINKS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write")
 
@@ -755,6 +770,83 @@ class TestRoomPanel(_PageTest):
 
     def test_rows_start_hidden(self):
         for element_id in ("pw-room-name",) + tuple("pw-room-" + key for key, _l in ROOM_ROWS):
+            self.assertIn("hidden", self.page.tags[self._index(element_id)][1], element_id)
+
+
+class TestInventoryScript(EvenniaTest):
+    """
+    pw_inventory.js is a renderer like pw_room.js (W7.1): registered with
+    pw_state.on for char -- the second renderer there, after pw_char.js --
+    never with plugin_handler, and it writes text only. Its behaviour is
+    tested in Node: tests/js/test_pw_inventory.js.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.source = _read_static(INVENTORY_JS)
+
+    def test_not_a_plugin(self):
+        self.assertNotIn("plugin_handler", self.source)
+
+    def test_registers_for_char(self):
+        # The call, not the bare name (W-af).
+        self.assertIn('pw_state.on("char", function', self.source)
+
+    def test_never_writes_markup(self):
+        for sink in MARKUP_SINKS:
+            self.assertNotIn(sink, self.source, sink)
+
+
+class TestInventoryPanel(_PageTest):
+    """
+    The inventory panel's markup (W7.1, lock 4): its own section, last in the
+    left panel, after the survival panel, named by its heading, holding every
+    id the renderer writes, one row per list with its label, carried first as
+    `inventory` prints it; the rows start hidden until the first char frame.
+    TestCharPanel's live-region test already covers the left panel.
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_every_id_the_renderer_writes(self):
+        for element_id in INVENTORY_IDS:
+            self._index(element_id)
+
+    def test_last_in_the_left_panel(self):
+        for element_id in INVENTORY_IDS:
+            within = self.page.within[self._index(element_id)]
+            self.assertIn("pw-panel-left", within, element_id)
+            self.assertNotIn("pw-survival", within, element_id)
+            self.assertNotIn("pw-char", within, element_id)
+        before = max(self._index(e) for e in CHAR_IDS + SURVIVAL_IDS)
+        self.assertGreater(self._index("pw-inventory"), before)
+        last_left = max(i for i, _t in enumerate(self.page.tags)
+                        if "pw-panel-left" in self.page.within[i])
+        self.assertEqual(last_left, self._index("pw-inventory-worn-list"))
+
+    def test_section_named_by_its_heading(self):
+        tag, attrs = self.page.tags[self._index("pw-inventory")]
+        self.assertEqual(tag, "section")
+        heading = attrs.get("aria-labelledby")
+        self.assertEqual(heading, "pw-inventory-title")
+        self.assertEqual(self.page.tags[self._index(heading)][0], "h2")
+        self.assertRegex(self.html, r'<h2 id="pw-inventory-title"[^>]*>Inventory</h2>')
+
+    def test_rows_in_inventorys_order_with_labels(self):
+        rows = [self._index("pw-inventory-" + key) for key, _label in INVENTORY_ROWS]
+        self.assertEqual(rows, sorted(rows))
+        for key, label in INVENTORY_ROWS:
+            pattern = (r'<div id="pw-inventory-%s"[^>]*>\s*<span class="pw-inventory-label">%s</span>\s*'
+                       r'<ul id="pw-inventory-%s-list"' % (key, label, key))
+            self.assertRegex(self.html, pattern, key)
+
+    def test_rows_start_hidden(self):
+        for key, _label in INVENTORY_ROWS:
+            element_id = "pw-inventory-" + key
             self.assertIn("hidden", self.page.tags[self._index(element_id)][1], element_id)
 
 

@@ -29,7 +29,7 @@ from evennia.contrib.base_systems import custom_gametime as cgt
 from evennia.server import sessionhandler
 from evennia.utils.ansi import strip_ansi
 from evennia.utils.test_resources import EvenniaTest
-from evennia.utils.utils import callables_from_module
+from evennia.utils.utils import callables_from_module, group_objects_by_key_and_desc
 
 from commands.character_commands import _whole
 from server.conf import inputfuncs
@@ -56,16 +56,18 @@ class TestCharSnapshot(EvenniaTest):
     Pressures: the health label read from trait.desc() instead of
     health_desc() (they disagree at full health: desc() reads the absolute
     value against the bounds), floats on the wire, a band computed from a
-    second read, markup in the name, and a missing trait crashing the build.
+    second read, markup in the name, a missing trait crashing the build, and
+    the inventory lists left out of the snapshot (W7.1 lock 1).
     """
 
     def test_keys_and_types(self):
         snap = client_state.char_snapshot(self.char1)
-        self.assertEqual(set(snap), {"name", "health", "encumbrance"})
+        self.assertEqual(set(snap), {"name", "health", "encumbrance", "inventory"})
         self.assertEqual(set(snap["health"]), {"current", "max", "desc"})
         for key in ("current", "max"):
             self.assertIs(type(snap["health"][key]), int)
         self.assertEqual(set(snap["encumbrance"]), {"carried", "limit", "band"})
+        self.assertEqual(set(snap["inventory"]), {"carried", "worn"})
         self.assertEqual(_json_roundtrip(snap), snap)
 
     def test_health_reads_like_status(self):
@@ -92,7 +94,79 @@ class TestCharSnapshot(EvenniaTest):
         self.char1.traits.remove("health")
         snap = client_state.char_snapshot(self.char1)
         self.assertIsNone(snap["health"])
-        self.assertEqual(set(snap), {"name", "health", "encumbrance"})
+        self.assertEqual(set(snap), {"name", "health", "encumbrance", "inventory"})
+
+
+CLOTHING = "typeclasses.clothing.ClothingWithBuffs"
+THING = "typeclasses.objects.Object"
+
+
+class TestInventoryLists(EvenniaTest):
+    """
+    Pressures W7.1 locks 1-2: the lists ride in the char snapshot, not in a
+    fifth domain; they split on db.worn as `inventory` does (a wear style is
+    a truthy string there, contrib clothing.py:487); they group by display
+    name, not by name and description as the contrib's `inventory` does --
+    a garment's condition is in its description (durable.py:105) and changes
+    without a push; and the names are asked for the carrier.
+    """
+
+    def _make(self, typeclass, key):
+        return create_object(typeclass, key=key, location=self.char1)
+
+    def test_in_the_char_snapshot(self):
+        before = client_state.char_snapshot(self.char1)["inventory"]
+        self._make(THING, "pebble")
+        after = client_state.char_snapshot(self.char1)["inventory"]
+        self.assertEqual([before, after],
+                         [{"carried": [], "worn": []}, {"carried": ["a pebble"], "worn": []}])
+
+    def test_not_a_fifth_domain(self):
+        # A guard on lock 1, green by construction: a literal, not the list (W-z).
+        self.assertEqual(client_state.DOMAINS, ("char", "survival", "world", "room"))
+
+    def test_worn_and_carried_split(self):
+        self._make(THING, "pebble")
+        self._make(CLOTHING, "shirt").wear(self.char1, True, quiet=True)
+        self.assertEqual(client_state.inventory_lists(self.char1),
+                         {"carried": ["a pebble"], "worn": ["a shirt"]})
+
+    def test_a_wear_style_still_counts_as_worn(self):
+        self._make(CLOTHING, "shirt").wear(self.char1, "loosely", quiet=True)
+        self.assertEqual(client_state.inventory_lists(self.char1),
+                         {"carried": [], "worn": ["a shirt"]})
+
+    def test_grouped_by_name_not_by_condition(self):
+        worn_in, worn_out = self._make(CLOTHING, "cloak"), self._make(CLOTHING, "cloak")
+        worn_in.db.condition, worn_out.db.condition = 90, 20
+        # The receipt that the fixture tells the two groupings apart.
+        text_rows = [key for key, _desc, _objs in
+                     group_objects_by_key_and_desc([worn_in, worn_out], caller=self.char1)]
+        self.assertEqual([text_rows, client_state.inventory_lists(self.char1)["carried"]],
+                         [["a cloak", "a cloak"], ["two cloaks"]])
+
+    def test_sorted_by_name_and_counted(self):
+        for key in ("rope", "apple", "rope"):
+            self._make(THING, key)
+        self.assertEqual(client_state.inventory_lists(self.char1)["carried"],
+                         ["an apple", "two ropes"])
+
+    def test_names_are_plain(self):
+        # An MXP link in a key survives get_numbered_name (colour does not),
+        # so the plain text is the snapshot's own step, as in the room's.
+        self._make(THING, "|lclook|ltstone|le")
+        self._make(CLOTHING, "|lclook|ltshirt|le").wear(self.char1, True, quiet=True)
+        self.assertEqual(client_state.inventory_lists(self.char1),
+                         {"carried": ["a stone"], "worn": ["a shirt"]})
+
+    def test_named_for_the_carrier(self):
+        self._make(THING, "pebble")
+        with mock.patch("typeclasses.objects.Object.get_display_name",
+                        autospec=True, return_value="pebble") as name:
+            client_state.inventory_lists(self.char1)
+        lookers = {c.args[1] if len(c.args) > 1 else c.kwargs.get("looker")
+                   for c in name.call_args_list}
+        self.assertEqual(lookers, {self.char1})
 
 
 class TestSurvivalSnapshot(EvenniaTest):
@@ -605,6 +679,55 @@ class TestHookSites(ReactorMixin, EvenniaTest):
             self.assertTrue(garment.delete())
         soon.assert_called_once_with(self.char1, "char")
 
+    def test_wear_and_remove_push_char(self):
+        shirt = create_object(CLOTHING, key="shirt", location=self.char1)
+        with mock.patch.object(client_state, "push_soon") as soon:
+            shirt.wear(self.char1, True, quiet=True)
+            worn = list(soon.call_args_list)
+            soon.reset_mock()
+            shirt.remove(self.char1, quiet=True)
+            removed = list(soon.call_args_list)
+        self.assertEqual([worn, removed], [[mock.call(self.char1, "char")]] * 2)
+
+    def test_wear_moves_the_garment_in_the_pushed_frame(self):
+        shirt = create_object(CLOTHING, key="shirt", location=self.char1)
+        with mock.patch.object(client_state, "push"):
+            self.reactor.run()   # the creation's own push
+        frames = []
+        with mock.patch.object(self.session, "data_out") as spy:
+            for step in (lambda: shirt.wear(self.char1, True, quiet=True),
+                         lambda: shirt.remove(self.char1, quiet=True)):
+                spy.reset_mock()
+                step()
+                self.reactor.run()
+                frames.append([p[0][0]["inventory"] for d, p in _sent(spy) if d == "char"])
+        self.assertEqual(frames, [[{"carried": [], "worn": ["a shirt"]}],
+                                  [{"carried": ["a shirt"], "worn": []}]])
+
+    def test_a_worn_garment_given_away_is_one_frame(self):
+        # The leave hook and remove() (via the garment's at_post_move) both
+        # ask; push_soon makes it one frame, built after both have run.
+        shirt = create_object(CLOTHING, key="shirt", location=self.char1)
+        shirt.wear(self.char1, True, quiet=True)
+        with mock.patch.object(client_state, "push"):
+            self.reactor.run()
+        with mock.patch.object(self.session, "data_out") as spy:
+            shirt.move_to(self.char2, quiet=True)
+            self.reactor.run()
+        frames = [p[0][0]["inventory"] for d, p in _sent(spy) if d == "char"]
+        self.assertEqual(frames, [{"carried": [], "worn": []}])
+
+    def test_another_character_gets_no_frame(self):
+        shirt = create_object(CLOTHING, key="shirt", location=self.char1)
+        with mock.patch.object(client_state, "push"):
+            self.reactor.run()
+        with mock.patch.object(self.char1, "msg") as mine, \
+                mock.patch.object(self.char2, "msg") as theirs:
+            shirt.wear(self.char1, True, quiet=True)
+            self.reactor.run()
+        frames = [len([c for c in m.call_args_list if "char" in c.kwargs]) for m in (mine, theirs)]
+        self.assertEqual(frames, [1, 0])
+
     def test_deletion_from_a_room_pushes_the_room(self):
         thing = create_object("typeclasses.objects.Object", key="crumb", location=self.room1)
         with mock.patch.object(client_state, "push_soon") as soon, \
@@ -802,6 +925,9 @@ class TestPushCensus(EvenniaTest):
         ("commands/crafting_commands.py", "_complete_craft", "push_soon"): 1,
         ("typeclasses/scripts.py", "CreatureSpawnScript._spawn_one", "push_room_soon"): 1,
         ("world/barter.py", "PWTradeHandler._finish_and_clear", "push"): 2,
+        # W7.1 lock 3: the worn state changes without a move
+        ("typeclasses/clothing.py", "ClothingWithBuffs.wear", "push_soon"): 1,
+        ("typeclasses/clothing.py", "ClothingWithBuffs.remove", "push_soon"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the

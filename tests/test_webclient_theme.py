@@ -435,6 +435,17 @@ class TestRoomPanelHidden(_ThemeTest):
         self.assertEqual(_decl_values(self.rules, "#pw-room [hidden]", ("display",)), ["none"])
 
 
+class TestInventoryPanelHidden(_ThemeTest):
+    """
+    The inventory panel (W7.1): its rows start hidden and hide again on a
+    char frame without an inventory, so the hidden rule must win there as in
+    the others.
+    """
+
+    def test_hidden_wins_in_the_inventory_panel(self):
+        self.assertEqual(_decl_values(self.rules, "#pw-inventory [hidden]", ("display",)), ["none"])
+
+
 class TestTextTabs(_ThemeTest):
     """
     The tabs filter one log (W6.2 lock 2A): #messagewindow carries the open

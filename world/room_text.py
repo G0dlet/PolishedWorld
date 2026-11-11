@@ -47,6 +47,31 @@ from evennia.utils.utils import inherits_from
 LISTS_KWARG = "room_lists"
 
 
+def numbered_names(objs, viewer, **kwargs):
+    """
+    Display strings for `objs` as `viewer` sees them: grouped by display
+    name and numbered as DefaultObject.get_display_things does ("two
+    stones"), sorted by name. The one grouping both the room's things (look
+    and the room panel) and the inventory panel (W7.1 lock 2) read.
+
+    Args:
+        objs (iterable): the objects to name.
+        viewer (Object): whose display names are asked for.
+        **kwargs: passed on to `get_display_name`.
+
+    Returns:
+        list[str]: one string per name, "a stone" or "two stones".
+    """
+    grouped = {}
+    for obj in objs:
+        grouped.setdefault(obj.get_display_name(viewer, **kwargs), []).append(obj)
+    names = []
+    for name, group in sorted(grouped.items()):
+        singular, plural = group[0].get_numbered_name(len(group), viewer, key=name)
+        names.append(singular if len(group) == 1 else plural)
+    return names
+
+
 def room_lists(room, viewer, **kwargs):
     """
     The room's lists as look shows them to `viewer`.
@@ -73,14 +98,9 @@ def room_lists(room, viewer, **kwargs):
         if obj == viewer or not obj.access(viewer, "view"):
             continue
         (statues if getattr(obj, "is_statue", False) else characters).append(obj)
-    # DefaultObject.get_display_things' grouping, kept here once.
-    grouped = {}
-    for thing in room.filter_visible(room.contents_get(content_type="object"), viewer, **kwargs):
-        grouped.setdefault(thing.get_display_name(viewer, **kwargs), []).append(thing)
-    things = []
-    for name, group in sorted(grouped.items()):
-        singular, plural = group[0].get_numbered_name(len(group), viewer, key=name)
-        things.append(singular if len(group) == 1 else plural)
+    things = numbered_names(
+        room.filter_visible(room.contents_get(content_type="object"), viewer, **kwargs),
+        viewer, **kwargs)
     return {"exits": exits, "characters": characters, "things": things, "statues": statues}
 
 

@@ -30,6 +30,8 @@ decides whether a room_contents text line reaches default_out (WC4), and
 polishedworld/js/pw_room.js, the location panel's renderer, after
 pw_world.js. Deferred scripts run in document order, so pw_gauge is defined
 before either gauge renderer runs.
+Added (W7.1): polishedworld/js/pw_inventory.js, the inventory panel's
+renderer, the second on char, after pw_room.js.
 
 Script order is load-bearing. webclient_gui.js does not sort plugins; it
 calls them in <script> order and stops at the first that claims an event.
@@ -118,6 +120,8 @@ carry over any change to the globals or the core script paths.
     <script defer src="{% static 'polishedworld/js/pw_world.js' %}"></script>
     <!-- Not a plugin: the location panel's renderer, on pw_state.on (W5.4). -->
     <script defer src="{% static 'polishedworld/js/pw_room.js' %}"></script>
+    <!-- Not a plugin: the inventory panel's renderer, on pw_state.on (W7.1). -->
+    <script defer src="{% static 'polishedworld/js/pw_inventory.js' %}"></script>
 
     {% block scripts %}
     {% endblock %}
