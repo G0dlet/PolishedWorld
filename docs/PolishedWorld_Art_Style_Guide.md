@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 5 · 2026-11-11** — new §5 subsection *Frames and icons*: the edge-contrast property the webclient visual pass's first briefs state (visual decomposition V2.1), written here because both assistants follow it (§1). `validate` does not check it yet.
 > **Rev 4 · 2026-11-11** — the outline rule after WC11 (webclient decomposition W2.3, shipped on `main` with the webclient merge `399e306`): §5's outline is Muted `#9D9B8C`, the edge-contrast rule is written as the property, and the Rev 3 open item is closed; §10 lists the body master's two edge checks in `validate`.
 > **Rev 3 · 2026-11-06** — the asset pipeline exists (`art/tools/assetpipe.py`, Tasks 2.1–2.2 on `feature/webclient-assets`): §1 and §2 lose "planned", §5 gains the outline rule and the zone masks, new §10 documents the tool. Open item: the outline's contrast against Panel.
 > **Rev 2 · 2026-11-06** — add the reference mockups in `art/reference/` (three WebP files, direction only) to the directory layout and a new §9.
@@ -144,6 +145,12 @@ Examples: `icon_inventory.png`, `status_thirst.png`, `weather_night_rain.png`, `
 - **Outline:** the figure's outer outline is drawn in Muted `#9D9B8C` (5.78:1 against Panel), the figure's one-pixel edge and nowhere else; inner dark details such as the eyes may stay Background `#0E1512` (1.14:1 against Panel, too dark for an edge). Neither colour belongs to any zone mask, so tinting a zone in the client never recolours the outline or the details.
 - **Edge contrast:** every figure pixel that shares a side with the background, or with the image border, reaches the palette's `status_min_contrast` (3:1) against Panel. This is the property the outline exists for, and `validate` checks it (§10) whichever colour does the job. Describe it in a brief to the illustrator as this property, not as a procedure ("recolour the dark edge pixels" missed eight hair pixels that had never had an outline).
 - **Zone masks:** `split-body` (§10) writes `body_<zone>.png` for the seven zones: white where the zone is, fully transparent elsewhere. Only the alpha channel matters; the client colours a zone by its wound level through CSS `mask-image`. Masks are never shown directly.
+
+### Frames and icons
+
+- **Edge contrast:** every motif pixel that shares a side with `#FF00FF`, or with the image border, is a colour with **Status: Yes** in §3, so it reaches 3:1 against both Panel and Background. A frame drawn for buttons, whose surface is Panel light, also leaves Water off that edge (2.80:1 against Panel light). Border/Wood (2.62:1 against Panel), Dark wood, Deep green, the surfaces and Night blue may be used inside a motif but never on its edge. `validate` checks edge contrast only for `body_base.png` (§10); for frames and icons the delivery is checked in the browser (webclient visual decomposition V3.1–V3.2).
+- **Frames** are 9-slice at 48×48 with 16 px corners (CSS `border-image`). The centre 16×16 is never shown and is delivered as `#FF00FF`; each edge piece repeats along the box without a seam.
+- **Icons** always stand beside a word that says the same thing (§7). They are told apart in greyscale by shape, and carry no text.
 
 ## 6. Mongoose Legend UI rules
 

@@ -1,10 +1,11 @@
 # PolishedWorld — Webclient Visual Pass Decomposition
 
+> **Rev 2 · 2026-11-11** — **V2.1 is done:** the frame and icon briefs left with Adam as two handoff files (`brief_frames_V2.1.md`, `brief_icons_V2.1.md`), not committed (§6). A *Shipped* line, §11's two rows filled, OQ-V3's first half closed. The briefs' edge rule is written into the art style guide (Rev 5, §5 *Frames and icons*) in the same commit, because the guide is where anything both assistants must follow lives (§1).
 > **Rev 1 · 2026-11-11** — first version. Decomposes the *Webclient visual pass* (roadmap Rev 71, *Parallel / opportunistic backlog*; decision log, *Order after the webclient*, amended 2026-11-11) into five components and fourteen tasks, against live source read the same day: `main` at `9652eec` (tree `4858607`), the only branch on origin; tags `alpha-20261107` and `alpha-20261111` (→ `399e306`). Sources read before the locks: the roadmap entry, the art style guide Rev 4 (§3, §5, §6, §7, §9, §10), Evennia Ref Rev 31 §19, the mockup `art/reference/webclient_03.webp`, and `web/static/polishedworld/css/webclient.css` and `web/templates/webclient/webclient.html` as they stand on `main`. Locked at STOPP 0 (Adam took every recommendation): WV1–WV8. With roadmap Rev 72, BACKLOG Rev 104 (one entry added) and README Rev 52.
 > **Canonical:** `docs/PolishedWorld_Webclient_Visual_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
 **Design sources:** `docs/PolishedWorld_Art_Style_Guide.md` (palette v0.2.1, §5 production rules and prefixes, §7 accessibility, §9 the mockups are direction and the guide wins, §10 asset pipeline); `docs/PolishedWorld_Webclient_Decomposition.md` (WC1–WC16, which this epic inherits unchanged); Evennia Ref §19 (the page, the script order, the four payloads, the push sites).
-**Status:** Decomposed (2026-11-11). No task started.
+**Status:** In progress. V2.1 done (Rev 2); the frame and icon deliveries are with ChatGPT.
 **Branch:** `feature/webclient-visual`, created from `main` with `--no-track` (lesson 64); art lands on it as its own commits (WV7).
 **Rough scope:** 14 tasks, ~5–7 sessions at 5 h/week of Claude's time, plus ChatGPT's deliveries, which set the pace of Component 3. Component 4 can be cut to BACKLOG without touching anything before it (WV5).
 **Roles:** Claude writes the CSS, markup, JS and the briefs; ChatGPT draws the pixel art; Adam is creative director, approves each family and carries the briefs and deliveries between the two (style guide §1).
@@ -123,6 +124,7 @@ A brief task commits nothing to the branch: its result is a handoff file in the 
 - **Approach:** two briefs. **Frames** (`frame_`, 48×48, 9-slice with 16 px corners, style guide §5): which surfaces get one (panels, the text area, buttons — STOPP 0), and the properties: palette colours only on `#FF00FF`; the 16 px edge strips repeat without a seam; the corners carry the ornament; the centre 16×16 is not shown (the panel's background colour is); the inner edge reads against Panel. **Icons** (`icon_` for each panel heading; `status_` for health, hunger, thirst, fatigue; 32×32): one motif per file, readable at ×1 without colour, distinct in silhouette from its neighbours, each edge pixel against transparency at 3:1 against Panel (the property the body's outline exists for, §5).
 - **Testing:** Adam reads each brief before carrying it; §11 gains the rows.
 - **Commit:** `docs(webclient-visual): frame and icon briefs (V2.1)` (on `main`)
+- **Shipped (Rev 2):** two handoff files carried by Adam, `brief_frames_V2.1.md` and `brief_icons_V2.1.md`, each self-contained: the 27 hex values with a *Status* column, the mockup as direction, the properties as requirements and a checklist ChatGPT ticks before delivery. Locked at STOPP 0 (Adam took every recommendation): **(1A)** two frames — `frame_panel` on each section of the side panels and on the text area, `frame_button` on the tabs, the ▶ button and the *ALPHA* badge; the command line's focus edge stays CSS; **(2A)** eight `icon_` files, the five panel headings and the location panel's three list labels, named by the text's words (WV1): `character`, `survival`, `inventory`, `world`, `location`, `exits`, `characters`, `things`; **(3A)** four `status_` files, `health`, `hunger`, `thirst`, `fatigue` — one fatigue icon, not one per Legend level (WC12); it stands beside the word, so §7's shape-per-level rule does not apply to it; **(4A)** two self-contained briefs with checklists. **Found at STOPP 0:** today's panel border, Border/Wood `#865638`, is 2.62:1 against Panel, under the 3:1 a graphical edge needs; and `assetpipe validate` checks edge contrast only for `body_base.png`. So the briefs state the edge as a property — every pixel touching magenta or the image border is a *Status: Yes* colour (≥ 3:1 against Panel and Background), and on `frame_button` not Water, which reaches 2.80:1 against the button's Panel light — and V3.1–V3.2 check it in the browser.
 
 ### Task V2.2 — Briefs: weather, season, banner, location
 - **Goal:** ChatGPT has what it needs to draw the world panel's icons and the two pictures.
@@ -204,8 +206,8 @@ Each task starts when its family is delivered and Adam has approved it. The mast
 
 | Brief | Task | Files asked for | Delivered |
 | --- | --- | --- | --- |
-| Frames | V2.1 | `frame_*.png`, 48×48 (surfaces decided at V2.1) | |
-| Icons | V2.1 | `icon_<heading>.png`, `status_health/hunger/thirst/fatigue.png`, 32×32 | |
+| Frames | V2.1 | `frame_panel.png`, `frame_button.png`, 48×48, 9-slice with 16 px corners (brief `brief_frames_V2.1.md`, sent 2026-11-11) | |
+| Icons | V2.1 | `icon_character`, `icon_survival`, `icon_inventory`, `icon_world`, `icon_location`, `icon_exits`, `icon_characters`, `icon_things`, `status_health`, `status_hunger`, `status_thirst`, `status_fatigue`, 32×32 (brief `brief_icons_V2.1.md`, sent 2026-11-11) | |
 | Weather | V2.2 | `weather_day_<state>.png`, `weather_night_<state>.png` for clear, raining, snowing, foggy | |
 | Seasons | V2.2 | `season_spring/summer/autumn/winter.png` | |
 | Banner | V2.2 | `banner_*.png`, 320×40 (count decided at V2.2) | |
@@ -215,7 +217,7 @@ Each task starts when its family is delivered and Adam has approved it. The mast
 
 - **OQ-V1 — The home machine's Node version.** Not read since OQ-W1 closed. Until it is, the JS tests run at work or in the sandbox. Closes at the first session on the home machine.
 - **OQ-V2 — Percentage or numbers on a gauge.** V1.3.
-- **OQ-V3 — Which surfaces get a frame, and which periods are night.** V2.1 and V3.3.
+- **OQ-V3 — Which surfaces get a frame, and which periods are night.** *Surfaces closed (Rev 2): V2.1 lock 1A.* The night periods close at V3.3.
 
 ## 13. Consequences worth reading twice
 
