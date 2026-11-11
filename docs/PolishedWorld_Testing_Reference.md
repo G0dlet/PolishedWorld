@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 22 · 2026-11-11** — **the webclient (webclient decomposition W8.2; merged as `399e306`, tagged `alpha-20261111`).** **New §22: the webclient** — running the Node tests (`node --test tests/js/*.js`, 122 in nine files) and how they load browser files (`module.exports` for `pw_state`, otherwise a `vm` context, several files in page order); the four fakes (markup sinks that throw, `pw_state`, `window` with `matchMedia` and `localStorage`, a page with focus and key counters); registration tested by its call form; the parity table both layers read; on the Python side `ReactorMixin`, the push census, phantom values for a shared helper, the second-session test with its receipt, and the red receipt against a no-op renderer; how a browser protocol is run (two browsers, the `server/.static` receipt, one-value console receipts, `innerWidth`, `reboot` for a disconnect, the storage trap, the screen-reader control page); and an index of the protocols as run, W3.1–W8.1.
 > **Rev 21 · 2026-11-06** — **the asset pipeline (Webclient decomposition W2.1–W2.4; merged as `37844da`).** **New §21: the asset pipeline** — running its tests outside `evennia test`, the three publishing commands and the shell `evennia reload` the browser check needs, what the tests read (the contrast formula pinned by the palette's own figures, three edge-rule fixtures that each reach one case, a mutation that survived on a fixture gap), and how a master from ChatGPT is received. **§13** gains one rule: read the parallel runner's result with `grep`, never `tail` — its teardown lines come after the result, one per worker.
 > **Rev 20 · 2026-11-05** — **the dev board (BACKLOG Rev 66; merged as `fbbe222`).** **New §20: the dev board** — how the view's tests reach the file (a patched module global, read per request), the shipped-file test that catches a heading typo, a mutation that survived on a fixture gap rather than dead code, and the protocol as run on the work machine, with what each step proved and what it did not.
 > **Rev 19 · 2026-11-05** — **the `ingame_reports` findings (BACKLOG Rev 65; merged as `588bc69`).** **New §19: in-game reports** — what the tests read through (the real cmdhandler, the reader's own lock check and the staff menu's node; EvenniaTest's `setUp` logs in, so `at_post_login` runs in every test), the three-client protocol as run, with the three menu predictions that missed and why, and how to read the menu (a cached list, `manage reports` is the player type, the menu creates hubs and the export does not). **§13** gains one rule: a GitHub Desktop step can stash the local `TREASURY_DBREF` line, which turns the suite green for the wrong reason — read `git --no-pager stash list` and the settings diff before judging a full run.
@@ -1303,6 +1304,69 @@ Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `test
 1. **Compare with the committed master pixel by pixel** before running anything: how many pixels changed, from which colour to which, whether the magenta positions are identical (if not, the zone map must change too), and whether the zone map still covers exactly the figure's pixels.
 2. **Then `validate`.** On `main` before W2.3 the edge rules did not exist, so step 1 was the only check of what the brief asked for.
 3. **Check the property, not the brief's procedure.** The first delivery did exactly what the brief said — recolour the dark pixels that touch the background, 156 of them — and passed every check above, but eight hair pixels at the top of the head had never had an outline and stayed at 1.35:1 against Panel. The brief described a procedure where it should have stated the property (*every edge pixel reaches 3:1*); the second brief named the eight pixels, and W2.3 turned the property into a `validate` rule so the next master is held to it by the tool.
+
+## 22. The webclient
+
+*(Webclient decomposition W3.1–W8.1; merged as `399e306`, tagged `alpha-20261111`. Code `web/static/polishedworld/`, `web/templates/webclient/`, `world/client_state.py`, `world/room_text.py`; Python tests `tests/test_client_state.py`, `tests/test_room_look.py`, `tests/test_webclient_template.py`, `tests/test_webclient_theme.py`, `tests/test_time_command.py`; JavaScript tests `tests/js/`. What the client relies on in Evennia is Evennia Ref §19.)*
+
+### 22.1 The JavaScript tests (Node)
+
+- **Run them outside `evennia test`,** which never sees `tests/js/`: from the repository root, `node --test tests/js/*.js` (Node 20 or later; the work machine has v20.20.2). 122 tests in nine files at the merge (char 14, gauge 5, inventory 9, room 12, state 21, survival 10, tabs 17, text 18, world 16). A directory argument fails on Node 22 (`node --test tests/js/` → *Cannot find module*) and a bare `node --test` finds none of the `test_*.js` files, so glob the files.
+- **How a browser file is loaded.** `pw_state.js` exports its factory through `module.exports` when `module` exists, so each test builds its own store with `require(FILE).create()`. Every other file runs as the page runs it: read as text and executed with `vm.runInContext` in a `vm.createContext` sandbox that holds only the globals the file uses (`pw_state`, `plugin_handler`, `document`, `window`, `console`). Files the page loads together run in **one** context in page order — `pw_gauge.js` before the panel that reads it — so a test catches a script that depends on load order.
+- **The fakes, one per kind of page contact:**
+  - *a fake element whose markup sinks throw* (`fakeElement` in the panel tests): `innerHTML` and `outerHTML` are setters that throw, `insertAdjacentHTML` throws, so a renderer that writes markup fails the test that drives it, not just a static grep;
+  - *a fake `pw_state`* whose `on` records `[domain, fn]`, so a test calls the renderer it registered;
+  - *a fake `window`* (W6.1, `test_pw_text.js`): `matchMedia` returns a query object with `matches`, `change` listeners and a `fire(now)` that flips it; `localStorage` is a store with `readThrows`/`writeThrows` options and a `writes` list, or a getter that throws (a browser that refuses storage);
+  - *a fake page with focus and key counters* (W6.2, `test_pw_tabs.js`): elements record `page.focused` on `focus()`, and a `keyEvent` counts `prevented` and `stopped`, so a test reads how many times each was called — "stopped and never prevented" is a pair of numbers.
+- **Registration is tested by the call form.** `TestCharScript.test_registers_for_char` looks for `pw_state.on("char", function`, not the bare name: the header comment names the call too, and the first version passed with the registration removed (W-M112).
+- **One table, two test layers** (W5.3 lock 3B). `tests/js/fixtures/world_cases.json` holds 16 cases on period, week, month, season and year boundaries plus one fractional second, with `_calendar()`'s output; `tests/test_time_command.py` checks it against `gametime_utils` and `tests/js/test_pw_world.js` against `pw_world.js`. The case count is a literal on both sides: a loop over an empty table is vacuously green.
+
+### 22.2 What the Python tests read
+
+- **`ReactorMixin`** (`tests/test_client_state.py`) patches `client_state.delay` with a fake reactor **before** `EvenniaTest.setUp` builds its rooms and characters. Their creation already schedules room pushes; a send scheduled on the real reactor never runs in a test, and its pending mark (`ndb.client_state_pending`) swallows every later push of the same kind. The fixture's own sends are run, with `push` patched, and discarded at the end of `setUp`. A test then calls `self.reactor.run()`, which returns how many callbacks ran — the receipt that the deferred path executed.
+- **The census.** `TestPushCensus` walks the production modules' ASTs: every push call by function, every `.location =` (each must sit in a function that pushes, or in a list of exceptions with reasons), and every write to a trait a panel shows mapped to its domain. A new site fails it until it is named.
+- **A shared helper is tested with phantom values** (`tests/test_room_look.py::TestOneHelper`). Counting calls to `room_lists` stays green while any one caller uses it; patching it to answer with entries the real room does not hold (`"a phantom"`, a non-character under *Characters*) and reading **each** caller's output shows which callers read it.
+- **A second session on the same puppet.** `test_look_command_answers_only_the_typing_session` gives the character a second, mocked session, takes a receipt that it is reachable (`char1.msg("receipt")` reaches it once), then runs the command and asserts it heard nothing. Without the receipt the mock could be unreachable and the test vacuous; without the second session the mutation "answer every session" (W-M143) survived.
+- **Red first, and red for each test's own reason.** New webclient tests ran red against empty stubs before any code. A stub that registers nothing makes every writer test red for one shared reason, so W7.1's Node writer tests also ran against a stub that registers a renderer that does nothing: each then failed on its own assertion. A test added after the red run takes its red receipt from a mutation that removes exactly what it guards (W7.1 `test_names_are_plain`, W-M202/W-M203).
+
+### 22.3 Running a browser protocol
+
+- **Two browsers, two accounts**: Firefox as `G0dlet`, Chrome as `tester`. DevTools open on *Network → WS* (the socket on 4002; open a frame to read a field at its end — the list view cuts the line) and *Console*.
+- **After a change, the shell's `evennia reload`, then a receipt that it took**: the new file or string is in `server/.static`, not only "the page loads". W5.4's first receipt was a 404 for both new scripts: patch applied, tests run, no reload.
+- **A console receipt evaluates to one value** (`every(...)` → `true`, not a collapsed `Array(4)`), the code span holds only the expression and the expected value stands outside it, and the expression reads the exported object (`pw_state.latest`, not the factory's inner `getLatest`).
+- **A predicted frame reads the sender's kwargs handling**: an `|lc` link's `{}` leaves as `{"cmdid": n}` (Evennia Ref §19.6 *msg kwargs*).
+- **A width is read from `innerWidth`**, not DevTools' width field. They differed by 29 px both times it was read (W6.1: field 1200, `innerWidth` 1229; W7.1: field 361, `innerWidth` 390); the cause is not read.
+- **A disconnect is `evennia reboot`**, not `reload`: `reload` keeps the Portal and the websocket, so the client's *connection closed* line never comes (Evennia Ref §19.6 *reload and reboot*). A page reload or `Evennia.connection.close()` ends the browser's login: the next connection shows the login screen (Evennia Ref §19.6 *auto-login*).
+- **Stored values.** An expected `null` in `localStorage` assumes nobody wrote. When a stored value differs: clear it, reload without touching the page, and arm a trap that prints a stack on every write, after each login:
+
+  ```
+  (s => { Storage.prototype.setItem = function (k, v) { console.trace("pw write", k, v); return s.call(this, k, v); }; return "armed"; })(Storage.prototype.setItem)
+  ```
+
+  At W6.1 the first read gave `"false"` with the toggle untouched; after clearing, the trap showed only Adam's own writes, each from the toggle's `change` listener. The first `"false"` is unexplained.
+- **Objects for a protocol**: start with `inventory` (lesson 71); a step that moves a number picks an object whose value moves (`enc` 0 items do not); a garment to wear needs a type without a cap (`CLOTHING_TYPE_LIMIT`, `server/conf/settings.py:210`: `undershirt` is capped at one), so W7.1 spawned an `accessory` with a unique key; `spawn` places by assignment (`building.py:4620`), so a step after it predicts no room-panel frame.
+- **A Shipped claim needs a picture of it, or "per Adam"** — and a claim about *how* something was done (Tab, Space, Enter) needs a picture of the way, not just of the result.
+- **A screen reader that says nothing**: try a control page with the same markup and no project code (W8.1: `/tmp/live.html`, one `#messagewindow` with `role="log"` and `aria-live="polite"`). Silent there too → the tool, not the page. Next time, read Firefox's `about:support` → *Accessibility* → *Activated* first (BACKLOG, the Orca entry).
+
+### 22.4 The protocols, as run (work machine, 2026-11-06 → 2026-11-11)
+
+Each task's protocol is written out in its *Shipped* line in the decomposition; the table is the index.
+
+| Task | What the protocol showed |
+| --- | --- |
+| W3.1 | ten requests, all `localhost` (websocket 101 on 4002); `jQuery.fn.jquery` `"3.7.1"`; coloured `look`; Shift+↑ recall |
+| W3.2 | twelve requests, all `localhost`; the banner's spaces collapsed until `#messagewindow > div` got `pre-wrap` (fixed before push) |
+| W4.1 | the four frames on login, printed as *Error or Unhandled event* until W4.3 claimed them |
+| W4.2, W4.2b | five steps (step 2's item weighed 0, so `carried` did not move); then trade, craft and spawn each pushing |
+| W4.3 | six steps; the frames claimed, nothing printed; after a close the next connection asked for a login (Evennia Ref §19.6 *auto-login*) |
+| W5.1, W5.1b | damage 20 → 14 moved panel and `status` together in one `char` frame; `@destroy` of a worn 3-ENC shirt left 3/20 before W5.1b, 0/20 after |
+| W5.2 | `eat` and `drink` moved the bars; the tick moved them without a command; panel and `status` agreed on labels; one character's push reached no other socket |
+| W5.3 | panel and `time` agreed minute by minute; `weather snowing` sent one `world` frame |
+| W5.4 | exit keys beside *Exits:*; a second character arriving, leaving as a statue and returning |
+| W6.1 | the room-lists toggle and its storage; Enter on a text link sent one frame with `cmdid` and kept focus on the link; the `TypeError` on Enter while disconnected (BACKLOG) |
+| W6.2 | steps 0–11: channel lines in *Channels*, `say`/`pose`/`whisper` in *Talk*, the *new* marks; `reload` against `reboot` |
+| W7.1 | steps 1–10: carrying and wearing lists, `give` of a worn garment, stacking, `@destroy`, the drawer at `innerWidth` 390, no storage write |
+| W8.1 | the Orca pass, timeboxed, fell to its fallback: Orca read no page text, the control page included |
 
 ## Domain quick-refs
 

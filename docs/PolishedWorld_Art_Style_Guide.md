@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 4 · 2026-11-11** — the outline rule after WC11 (webclient decomposition W2.3, shipped on `main` with the webclient merge `399e306`): §5's outline is Muted `#9D9B8C`, the edge-contrast rule is written as the property, and the Rev 3 open item is closed; §10 lists the body master's two edge checks in `validate`.
 > **Rev 3 · 2026-11-06** — the asset pipeline exists (`art/tools/assetpipe.py`, Tasks 2.1–2.2 on `feature/webclient-assets`): §1 and §2 lose "planned", §5 gains the outline rule and the zone masks, new §10 documents the tool. Open item: the outline's contrast against Panel.
 > **Rev 2 · 2026-11-06** — add the reference mockups in `art/reference/` (three WebP files, direction only) to the directory layout and a new §9.
 > **Rev 1 · 2026-11-06** — first version: palette v0.2.1 (locked), reserved tool colours, production rules, Legend UI rules, QA checklist.
@@ -140,9 +141,9 @@ Examples: `icon_inventory.png`, `status_thirst.png`, `weather_night_rain.png`, `
 - The seven zone layers are extracted from the zone map by script, never drawn or generated separately.
 - The zone map must be drawn by hand in a pixel editor. An AI-generated zone map gets anti-aliasing between zones and will fail validation.
 - The figure faces the viewer: the character's **right** side is on the **left** of the image.
-- **Outline:** the figure's outline (and dark details such as the eyes) is drawn in Background `#0E1512`. Those pixels belong to no zone mask, so tinting a zone in the client never recolours the outline.
+- **Outline:** the figure's outer outline is drawn in Muted `#9D9B8C` (5.78:1 against Panel), the figure's one-pixel edge and nowhere else; inner dark details such as the eyes may stay Background `#0E1512` (1.14:1 against Panel, too dark for an edge). Neither colour belongs to any zone mask, so tinting a zone in the client never recolours the outline or the details.
+- **Edge contrast:** every figure pixel that shares a side with the background, or with the image border, reaches the palette's `status_min_contrast` (3:1) against Panel. This is the property the outline exists for, and `validate` checks it (§10) whichever colour does the job. Describe it in a brief to the illustrator as this property, not as a procedure ("recolour the dark edge pixels" missed eight hair pixels that had never had an outline).
 - **Zone masks:** `split-body` (§10) writes `body_<zone>.png` for the seven zones: white where the zone is, fully transparent elsewhere. Only the alpha channel matters; the client colours a zone by its wound level through CSS `mask-image`. Masks are never shown directly.
-- **Open item:** Background `#0E1512` has only 1.14:1 contrast against Panel, so the outline nearly disappears on a plain panel. To be settled when the client panel is built: either the silhouette sits on Panel light, or the outline moves to a lighter palette colour (which would change the masters and the rule above).
 
 ## 6. Mongoose Legend UI rules
 
@@ -208,7 +209,8 @@ What `validate` rejects:
 - a size other than the prefix's native size;
 - any pixel that is not fully opaque (masters carry magenta, not alpha);
 - any colour that is not an exact palette colour or `#FF00FF` (one channel off by one fails); in `body_zonemap.png`, any colour that is not a zone key or `#FF00FF`, and a missing zone;
-- an image that is only `#FF00FF`.
+- an image that is only `#FF00FF`;
+- in `body_base.png`, a figure pixel on the edge (sharing a side with `#FF00FF` or the image border) below 3:1 against Panel, and a Muted pixel that is not on the figure's edge (it touches neither `#FF00FF` nor the image border on any side or corner) — an inner fill in the outline colour would silently fall out of every zone mask. The outline colour is the tool's `OUTLINE_KEY`; the surface and the threshold are read from `palette.json` (`contrast_surfaces.panel`, `rules.status_min_contrast`), never restated.
 
 `split-body` additionally requires both masters to cover exactly the same pixels and every zone to keep at least one pixel inside the outline. Every file is validated and every mask built before the first write, so a failure never leaves a partial set in the output folder.
 
