@@ -26,6 +26,10 @@ Each class names the bug it pressures:
     TestStylesheetOrder    the project stylesheet loads before Evennia's, so
                            Evennia's stock rules (the black .out, the fixed
                            #input) win again.
+    TestAlphaMark          the ALPHA mark leaves the title (the page's name
+                           no longer reads "... Alpha") or is written in
+                           capitals, which some screen readers spell out
+                           letter by letter (visual pass V1.2, lock 1A).
     TestLandmarks          a side panel loses its label, Tab no longer
                            reaches input, panels and text in that order, or
                            a panel button stops naming the panel it opens.
@@ -347,6 +351,16 @@ class TestStylesheetOrder(_PageTest):
             if t == "link" and a.get("rel") == "stylesheet"
         ]
         self.assertEqual(hrefs, EXPECTED_STYLESHEETS)
+
+
+class TestAlphaMark(_PageTest):
+    def test_alpha_is_a_word_inside_the_title(self):
+        # Inside the title, so the page's name reads "PolishedWorld Alpha";
+        # written "Alpha", so speech says the word -- the stylesheet shows it
+        # in capitals (visual pass V1.2, lock 1A).
+        title = re.search(r'<p class="pw-title">(.*?)</p>', self.html, re.S)
+        self.assertIsNotNone(title)
+        self.assertRegex(title.group(1), r'^\S.*<span class="pw-alpha">Alpha</span>$')
 
 
 class TestLandmarks(_PageTest):

@@ -50,6 +50,13 @@ Each class names the bug it pressures:
                            browser fakes a bold because a rule asks for a
                            weight the face lacks, or a control or the text
                            picks the face up (visual pass V1.1, locks 2A, 3A).
+    TestChrome             a box or control edge drops below 3:1 against
+                           the surfaces (WCAG 1.4.11), a drawer turns
+                           transparent over the text, the sections lose their
+                           own boxes, the selected tab is told by colour only,
+                           a heading loses its rule or outgrows the title, or
+                           the ALPHA mark becomes unreadable (visual pass V1.2,
+                           locks 1A-4A).
     TestTextTabs           a filtered tab shows lines of another tab or
                            hides the client's err/sys lines, All hides
                            anything, the tab row loses its own grid area
@@ -82,14 +89,22 @@ HEADING_WEIGHT = "700"
 HEADING_FONT = "polishedworld/fonts/alegreya-bold.woff2"
 HEADING_FONT_SHA256 = "160515d1858004e4c49fa2d6263854ac08571a23020aa62d23a98c2811597d70"
 HEADING_LICENSE = "polishedworld/fonts/OFL.txt"
-# The selectors set in the heading face (lock 3A): the header's title and the
-# panels' h2. The ALPHA mark joins them when V1.2 adds it.
+# The selectors set in the heading face (lock 3A): the header's title, the
+# ALPHA mark inside it (V1.2) and the panels' h2.
 HEADING_SELECTORS = (
-    ".pw-title", ".pw-char-name", ".pw-survival-title", ".pw-world-title",
+    ".pw-title", ".pw-alpha", ".pw-char-name", ".pw-survival-title", ".pw-world-title",
     ".pw-room-title", ".pw-inventory-title",
 )
 # Controls keep the body's font (lock 3A).
 CONTROL_SELECTORS = ('#pw-tabs [role="tab"]', "#inputsend", ".pw-panel-button", "#inputfield")
+# Visual pass V1.2. Each panel section is its own box (lock 3A); the panel
+# headings (the h2 group, one rule) and the title (lock 2A).
+SECTION_SELECTOR = "#pw-panel-left > section"
+PANEL_HEADINGS = (".pw-char-name", ".pw-survival-title", ".pw-world-title", ".pw-room-title", ".pw-inventory-title")
+# The edges that mark where a box or a control is (WCAG 1.4.11): 3:1 against
+# both surfaces, which is the palette's status flag.
+EDGE_SELECTORS = (SECTION_SELECTOR, "#main", '#pw-tabs [role="tab"]', ".pw-panel-button", ".pw-alpha")
+SELECTED_TAB = '#pw-tabs [role="tab"][aria-selected="true"]'
 PROJECT_CSS = REPO / "web" / "static" / "polishedworld" / "css" / "webclient.css"
 EVENNIA_CSS = "webclient/css/webclient.css"
 PALETTE = REPO / "art" / "palette" / "palette.json"
@@ -602,3 +617,69 @@ class TestHeadingFont(_ThemeTest):
             for prop, value in rule.decls:
                 if prop in ("font", "font-family"):
                     self.assertNotIn(HEADING_FAMILY, _family_names(value), rule.selectors)
+
+
+def _rem(value):
+    match = re.fullmatch(r"([0-9.]+)rem", value.strip())
+    return float(match.group(1)) if match else None
+
+
+class TestChrome(_ThemeTest):
+    def decl(self, selector, prop):
+        values = _decl_values(self.rules, selector, (prop,))
+        return values[-1] if values else None
+
+    def test_sections_are_boxes_on_the_panel_surface(self):
+        rules = [r for r in self.rules if r.media is None and SECTION_SELECTOR in r.selectors]
+        self.assertTrue(rules, SECTION_SELECTOR)
+        self.assertIn("#pw-panel-right > section", rules[-1].selectors)
+        self.assertEqual(self.decl(SECTION_SELECTOR, "background"), "var(--pw-panel)")
+        self.assertIn("var(--pw-copper)", self.decl(SECTION_SELECTOR, "border"))
+
+    def test_sections_are_spaced(self):
+        self.assertEqual(self.decl("#pw-panel-left > section + section", "margin-top"), ".5rem")
+        self.assertEqual(self.decl("#pw-panel-right > section + section", "margin-top"), ".5rem")
+
+    def test_columns_are_opaque_and_unframed(self):
+        # Below the breakpoint a column is a fixed drawer over the text: it
+        # must keep a surface of its own.
+        self.assertEqual(self.decl("#pw-panel-left", "background"), "var(--pw-background)")
+        self.assertEqual(self.decl("#pw-panel-left", "border"), "none")
+
+    def test_box_and_control_edges_reach_3_to_1(self):
+        seen = set()
+        for rule in self.rules:
+            hit = set(rule.selectors) & set(EDGE_SELECTORS + (SELECTED_TAB,))
+            if not hit:
+                continue
+            for prop, value in rule.decls:
+                if not prop.startswith("border") or prop.endswith(("radius", "width")):
+                    continue
+                for name in VAR.findall(value):
+                    seen.update(hit)
+                    self.assertTrue(
+                        self.palette[name]["status"], "%s %s uses %s" % (rule.selectors, prop, name)
+                    )
+        self.assertEqual(seen - {SELECTED_TAB}, set(EDGE_SELECTORS))
+
+    def test_selected_tab_is_marked_beyond_colour(self):
+        self.assertEqual(self.decl(SELECTED_TAB, "font-weight"), "700")
+        width = self.decl(SELECTED_TAB, "border-bottom-width")
+        self.assertIsNotNone(width)
+        self.assertGreaterEqual(int(re.fullmatch(r"(\d+)px", width).group(1)), 3)
+        self.assertEqual(self.decl(SELECTED_TAB, "border-bottom-color"), "var(--pw-gold_link)")
+
+    def test_tabs_round_every_corner(self):
+        self.assertEqual(self.decl('#pw-tabs [role="tab"]', "border-radius"), ".25rem")
+
+    def test_headings_have_a_rule_and_the_title_leads(self):
+        for selector in PANEL_HEADINGS:
+            self.assertEqual(_rem(self.decl(selector, "font-size")), 1.125, selector)
+            self.assertIn("var(--pw-border_wood)", self.decl(selector, "border-bottom") or "", selector)
+        self.assertGreater(_rem(self.decl(".pw-title", "font-size")), 1.125)
+
+    def test_alpha_mark_is_readable_and_shown_in_capitals(self):
+        fg = VAR.findall(self.decl(".pw-alpha", "color"))[0]
+        bg = VAR.findall(self.decl(".pw-alpha", "background"))[0]
+        self.assertGreaterEqual(contrast(self.palette[fg]["hex"], self.palette[bg]["hex"]), 4.5)
+        self.assertEqual(self.decl(".pw-alpha", "text-transform"), "uppercase")
