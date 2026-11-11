@@ -40,7 +40,16 @@ Each class names the bug it pressures:
                            drifts from the query pw_text.js passes to
                            matchMedia (W6.1 lock 5).
     TestNoExternalCss      the stylesheet pulls a font or file from another
-                           host, or a font file at all (WC2, lock 8).
+                           host, or @imports a stylesheet (WC2). W3.2 lock 8's
+                           "no font files" is superseded for headings by the
+                           visual pass's WV3: an @font-face may load one of
+                           our own files, by a relative url().
+    TestHeadingFont        the heading face is not the pinned file (a new
+                           binary slipped in), its OFL notice is lost, a
+                           heading falls back without a serif stack, the
+                           browser fakes a bold because a rule asks for a
+                           weight the face lacks, or a control or the text
+                           picks the face up (visual pass V1.1, locks 2A, 3A).
     TestTextTabs           a filtered tab shows lines of another tab or
                            hides the client's err/sys lines, All hides
                            anything, the tab row loses its own grid area
@@ -49,6 +58,7 @@ Each class names the bug it pressures:
                            7A).
 """
 
+import hashlib
 import json
 import re
 from collections import namedtuple
@@ -59,6 +69,27 @@ from django.contrib.staticfiles import finders
 from django.test import SimpleTestCase
 
 REPO = Path(settings.GAME_DIR)
+# The heading face (visual pass V1.1). Alegreya[wght].ttf from google/fonts
+# commit c30b221beb0c1da59d563feb91ec8656a1fa972a (ofl/alegreya; sha256 of
+# the TTF ba5564634b93a8f8ba57b48cd4f1ae7417d2b4656fbac779028679b00de3cf12),
+# instanced at wght 700 with fontTools 4.67.0 and brotli 1.2.1:
+#   t = TTFont(ttf, recalcTimestamp=False)
+#   f = instancer.instantiateVariableFont(t, {"wght": 700}, updateFontNames=True)
+#   f.flavor = "woff2"; f.save(out)
+# recalcTimestamp=False makes the output byte-for-byte repeatable.
+HEADING_FAMILY = "Alegreya"
+HEADING_WEIGHT = "700"
+HEADING_FONT = "polishedworld/fonts/alegreya-bold.woff2"
+HEADING_FONT_SHA256 = "160515d1858004e4c49fa2d6263854ac08571a23020aa62d23a98c2811597d70"
+HEADING_LICENSE = "polishedworld/fonts/OFL.txt"
+# The selectors set in the heading face (lock 3A): the header's title and the
+# panels' h2. The ALPHA mark joins them when V1.2 adds it.
+HEADING_SELECTORS = (
+    ".pw-title", ".pw-char-name", ".pw-survival-title", ".pw-world-title",
+    ".pw-room-title", ".pw-inventory-title",
+)
+# Controls keep the body's font (lock 3A).
+CONTROL_SELECTORS = ('#pw-tabs [role="tab"]', "#inputsend", ".pw-panel-button", "#inputfield")
 PROJECT_CSS = REPO / "web" / "static" / "polishedworld" / "css" / "webclient.css"
 EVENNIA_CSS = "webclient/css/webclient.css"
 PALETTE = REPO / "art" / "palette" / "palette.json"
@@ -134,6 +165,29 @@ def parse_css(css, media=None):
     return rules, at_rules
 
 
+def font_faces(css):
+    """
+    The declarations of every top-level @font-face block, as a list of dicts
+    {property: value}. parse_css skips at-rule blocks other than @media, so
+    the font rules need their own reader.
+    """
+    css = _strip_comments(css)
+    faces = []
+    for match in re.finditer(r"@font-face\s*\{([^{}]*)\}", css):
+        decls = {}
+        for decl in match.group(1).split(";"):
+            if ":" in decl:
+                prop, value = decl.split(":", 1)
+                decls[prop.strip().lower()] = value.strip()
+        faces.append(decls)
+    return faces
+
+
+def _family_names(value):
+    """A font-family value as a list of names without quotes."""
+    return [name.strip().strip("'\"") for name in value.split(",")]
+
+
 def _luminance(hex_colour):
     h = hex_colour.lstrip("#")
     channels = [int(h[k:k + 2], 16) / 255 for k in (0, 2, 4)]
@@ -201,6 +255,7 @@ class TestCssReader(SimpleTestCase):
         body { color: var(--pw-text); background: #000 }
         @media (min-width: 80rem) { #main, aside { display: grid; } }
         @keyframes blink { to { visibility: hidden; } }
+        @font-face { font-family: "X"; src: url("../fonts/x.woff2") format("woff2"); }
     """
 
     def test_reader_sees_media_rules_and_skips_comments(self):
@@ -213,6 +268,13 @@ class TestCssReader(SimpleTestCase):
         media = [r.media for r in rules if r.selectors == ("#main", "aside")]
         self.assertEqual(media, ["@media (min-width: 80rem)"])
         self.assertTrue(any(a.startswith("@import") for a in at_rules), at_rules)
+
+    def test_font_face_reader_sees_the_block(self):
+        self.assertEqual(
+            font_faces(self.SAMPLE),
+            [{"font-family": '"X"', "src": 'url("../fonts/x.woff2") format("woff2")'}],
+        )
+        self.assertEqual(_family_names('"A B", Georgia, serif'), ["A B", "Georgia", "serif"])
 
     def test_contrast_matches_palette_json(self):
         palette = _palette()
@@ -362,9 +424,21 @@ class TestBreakpoint(_ThemeTest):
 
 
 class TestNoExternalCss(_ThemeTest):
-    def test_no_import_or_font_face(self):
+    def test_no_import(self):
         for at_rule in self.at_rules:
-            self.assertFalse(at_rule.startswith(("@import", "@font-face")), at_rule)
+            self.assertFalse(at_rule.startswith("@import"), at_rule)
+
+    def test_font_faces_load_only_our_own_files(self):
+        # Relative to the stylesheet (polishedworld/css/), so the file is
+        # found under polishedworld/fonts/ whatever STATIC_URL is.
+        faces = font_faces(PROJECT_CSS.read_text(encoding="utf-8"))
+        for face in faces:
+            urls = re.findall(r"url\(\s*(['\"]?)([^'\")]+)\1\s*\)", face.get("src", ""))
+            self.assertTrue(urls, face)
+            for _, url in urls:
+                self.assertTrue(url.startswith("../fonts/"), url)
+                self.assertTrue(url.endswith(".woff2"), url)
+                self.assertIsNotNone(finders.find("polishedworld/fonts/" + url[len("../fonts/"):]), url)
 
     def test_no_url_to_another_host(self):
         for rule in self.rules:
@@ -481,3 +555,50 @@ class TestTextTabs(_ThemeTest):
 
     def test_hidden_wins_in_the_tabs(self):
         self.assertEqual(_decl_values(self.rules, "#pw-tabs [hidden]", ("display",)), ["none"])
+
+
+class TestHeadingFont(_ThemeTest):
+    def test_one_face_our_file_swapped_in(self):
+        faces = font_faces(PROJECT_CSS.read_text(encoding="utf-8"))
+        self.assertEqual(len(faces), 1, faces)
+        face = faces[0]
+        self.assertEqual(_family_names(face["font-family"]), [HEADING_FAMILY])
+        self.assertEqual(face["src"], 'url("../fonts/%s") format("woff2")' % HEADING_FONT.rsplit("/", 1)[1])
+        self.assertEqual(face["font-weight"], HEADING_WEIGHT)
+        self.assertEqual(face["font-style"], "normal")
+        self.assertEqual(face["font-display"], "swap")
+
+    def test_hash_matches_pin(self):
+        path = finders.find(HEADING_FONT)
+        self.assertIsNotNone(path, HEADING_FONT)
+        self.assertEqual(hashlib.sha256(Path(path).read_bytes()).hexdigest(), HEADING_FONT_SHA256)
+
+    def test_ofl_notice_kept(self):
+        path = finders.find(HEADING_LICENSE)
+        self.assertIsNotNone(path, HEADING_LICENSE)
+        text = Path(path).read_text(encoding="utf-8")
+        self.assertIn("SIL OPEN FONT LICENSE Version 1.1", text)
+        self.assertIn("The Alegreya Project Authors", text)
+
+    def test_headings_use_the_face_with_a_serif_fallback(self):
+        for selector in HEADING_SELECTORS:
+            families = _decl_values(self.rules, selector, ("font-family",))
+            self.assertTrue(families, selector)
+            names = _family_names(families[-1])
+            self.assertEqual(names[0], HEADING_FAMILY, selector)
+            self.assertEqual(names[-1], "serif", selector)
+
+    def test_every_rule_with_the_face_asks_for_its_weight(self):
+        # A weight the face lacks makes the browser synthesise one.
+        for rule in self.rules:
+            props = dict(rule.decls)
+            if HEADING_FAMILY in _family_names(props.get("font-family", "")):
+                self.assertEqual(props.get("font-weight"), HEADING_WEIGHT, rule.selectors)
+
+    def test_controls_and_text_keep_their_fonts(self):
+        for rule in self.rules:
+            if not set(rule.selectors) & set(CONTROL_SELECTORS + ("body", "#main")):
+                continue
+            for prop, value in rule.decls:
+                if prop in ("font", "font-family"):
+                    self.assertNotIn(HEADING_FAMILY, _family_names(value), rule.selectors)

@@ -18,6 +18,10 @@
   so it moves with the reader's font size. Below it the text area takes the
   width and the panels open as drawers from the header buttons
   (polishedworld/js/layout.js). W6.1's matchMedia must use the same value.
+
+  Fonts: monospace for the text and the input, system-ui for everything
+  else (W3.2 lock 8), except the headings, which are set in one face of our
+  own (visual pass V1.1, below :root).
 --- */
 
 :root {
@@ -49,6 +53,22 @@
   --pw-blossom_pink: #EFA0BA;
   --pw-snow_ice:     #D7F0F4;
   --pw-night_blue:   #172A4A;
+}
+
+/* The heading face (visual pass V1.1, WV3). Alegreya at weight 700, one
+   instance of google/fonts' variable Alegreya, served from our own static
+   files with its licence beside it (fonts/OFL.txt). The url is relative to
+   this file, so it does not depend on STATIC_URL. swap shows the fallback
+   until the file arrives. Only the header's title and the panel headings use
+   it; controls and the text keep their fonts (lock 3A). Every rule that
+   names the face also asks for 700, the one weight the file has, so the
+   browser never synthesises another. */
+@font-face {
+  font-family: "Alegreya";
+  src: url("../fonts/alegreya-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 /* Overall page. Evennia sets a monospace body, and .5rem below 480px;
@@ -99,6 +119,7 @@ body {
 .pw-title {
   margin: 0 auto 0 0;
   color: var(--pw-highlight);
+  font-family: "Alegreya", Georgia, "DejaVu Serif", serif;
   font-size: 1.125rem;
   font-weight: 700;
 }
@@ -162,7 +183,9 @@ body {
 .pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title,
 .pw-inventory-title {
   margin: 0 0 .5rem;
+  font-family: "Alegreya", Georgia, "DejaVu Serif", serif;
   font-size: 1rem;
+  font-weight: 700;
   color: var(--pw-highlight);
 }
 
