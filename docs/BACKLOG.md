@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 98 · 2026-11-11** — one entry **added** and two **annotated**, docs only, with webclient decomposition Rev 12 (W6.1 shipped, `a6c334c` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — W6.1's browser protocol ran every step but the screen reader: Orca did not run reliably on the work machine, so speech for new lines and Enter in Orca's browse mode have no receipt (OPEN; trigger W8.1). **Annotated:** ***Webclient: `TypeError` on Enter while disconnected*** — read at source and reproduced at W6.1: the `TypeError` is jQuery 3.7.1's `leverageNative`, which the 3.2.1 Evennia's page pins does not have, and the `DOMException` comes from the three-minute idle timer, not from a key, with no jQuery in its stack; its trigger is replaced (jQuery half decided at W8.1, timer half reported upstream). ***A screen-reader pass*** gains a pointer to the new entry. No entry closed.
 > **Rev 97 · 2026-11-10** — one entry **annotated**, docs only, with roadmap Rev 70, README Rev 49, the series handoff `docs/system_designs/HANDOFF.md` Rev 12 and `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1: ***Read EvAdventure's twitch combat before Stage 5's design*** gains what the projectile note found reading EvAdventure at `v6.1.0`: its only missile is `EvAdventureThrowable`, a one-use consumable weapon, with no distance, loading or recovery, so ranged combat is project code whatever the reading decides about action queues.
 > **Rev 96 · 2026-11-10** — one entry **added** and two **annotated**, docs only, with roadmap Rev 69, README Rev 47, the series handoff `docs/system_designs/HANDOFF.md` Rev 10 and `docs/system_designs/PolishedWorld_Atlas_Design.md` Rev 1: ***World atlas — Azgaar's Fantasy Map Generator as the source*** joins World & Rooms. Adam asked what Claude thought of making PolishedWorld's world with Azgaar's Fantasy Map Generator; the chat recommended it as a frozen atlas the game looks things up in — biomes, rivers, coast, climate, old roads and ruins — not as a room generator, and Adam asked for this entry and the design note. ***Biome fragment library for dynamic room descriptions*** gains a note that its keys are the vocabulary the atlas maps the generator's thirteen biomes onto, and ***⛔ Regional weather (per-area rather than global)*** a note that the atlas is a region concept it can hang on. Status unchanged on both; the new entry is OPEN, its trigger roadmap Stage 6's design session.
 > **Rev 95 · 2026-11-10** — two entries **annotated**, docs only, with roadmap Rev 68, README Rev 45, the series handoff `docs/system_designs/HANDOFF.md` Rev 8 and `docs/system_designs/PolishedWorld_Names_Design.md` Rev 1: ***Strangers by description — `rpg/rpsystem`*** gains the design note and what it found — the slice is larger than the five display overrides, since `who`, the statue, the player corpse, the teach offer and sixteen room messages give names away today, and the contrib's search breaks `name-N` for players in `get`, `hunt` and `craft` alike — and the note's leanings on the entry's open questions. ***A screen-reader pass*** gains the note's lesson: Armageddon's *Remember Me* thread, in which a screen-reader player showed that long descriptions and client-side name triggers shut readers out; a short description and a server-side recog are the remedy, and the pass reads them once they ship. Status unchanged on both.
@@ -3055,6 +3056,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   with descriptions of at most 40 characters and the contrib's server-side
   `recog` (`docs/system_designs/PolishedWorld_Names_Design.md`, §2.1, UG2,
   UP1, UP5); this pass reads both once Stage 5's first slice ships them.
+- **Annotation (2026-11-11, webclient W6.1):** the webclient's own page has
+  its Orca pass filed separately, ***Webclient: the Orca pass is not run
+  (W6.1)***, with trigger W8.1.
 - **Status:** OPEN
 
 ### Webclient: `TypeError` on Enter while disconnected
@@ -3074,12 +3078,54 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   uncaught `DOMException: An attempt was made to use an object that is not,
   or is no longer, usable` from `evennia.js:282` (`msg`, a send on a socket
   that is closed) through `evennia.js:137` and `webclient_gui.js:313`. Same
-  scene: a key pressed while the client was disconnected.
-- **Trigger:** W6 (the text-area component), first step: reproduce both on
-  `main`'s stock page and on `feature/webclient` with `pw_state.js` removed;
-  if they are upstream, report them there and close this entry; if they
-  follow jQuery 3.7.1, decide there.
+  scene: a key pressed while the client was disconnected. *(Rev 98: not a
+  key — `:313` is the idle timer; see below.)*
+- **Read at W6.1 (Rev 98):** W6's first step was done by reading source rather
+  than on `main`'s stock page (webclient decomposition Rev 12, §3 *jQuery
+  focus*, *idle timer*). **The `TypeError`:** Enter in the command line calls
+  `onSend` and then `inputfield.blur()` (`default_in.js:56`); while
+  disconnected `onSend` opens `confirm()` first (`webclient_gui.js:206`).
+  jQuery 3.7.1 runs `.focus()` and `.blur()` through `leverageNative`, whose
+  `saved.slice(1)` is the minified `n.slice` (`jquery.js:5388`); 3.2.1, which
+  Evennia's own page loads, has no `leverageNative`, so the stock page has no
+  such frame. Reproduced with W6.1 on `feature/webclient` (2026-11-10, 23:50):
+  the same stack, `default_in.js:56` → `webclient_gui.js:66` → `:307`. W6.1
+  does not touch it: `pw_text.js` claims Enter only on a link inside the text
+  area. **The `DOMException`:** `webclient_gui.js:313` is not a key but the
+  idle timer, which sends `["text",["idle"],{}]` every three minutes through
+  `Evennia.msg`, and `msg` checks no connection (`evennia.js:123–137`). The
+  WebSocket standard has `send()` raise `InvalidStateError` only while a
+  socket is still connecting (a browser rule, not checked against the standard
+  for this entry), so the tick most likely fell during a reconnect. No jQuery
+  and no project file is in that stack: it is upstream whatever the jQuery
+  version.
+- **Trigger (Rev 98, replaces W6):** the `TypeError` is decided at W8.1,
+  before `feature/webclient` merges: keep 3.7.1 (the reconnect still proceeds;
+  only the console shows it) or take OQ-W4's fallback, 3.2.1. The
+  `DOMException` is reported to Evennia when Adam next files upstream issues;
+  this entry then points at the report.
 - **Origin:** Webclient W4.3 browser protocol, step 4 (2026-11-08).
+- **Status:** OPEN
+
+### Webclient: the Orca pass is not run (W6.1)
+- **What:** W6.1's browser protocol (webclient decomposition Rev 12) ran every
+  step without a screen reader. Markup and keyboard have receipts:
+  `#messagewindow` is the page's one live region (`role="log"`,
+  `aria-live="polite"`), Tab reaches the links in the text, Enter follows one
+  with no empty command, and a new line leaves the focus on the link. What has
+  no receipt: that Orca speaks new lines without the reader moving there
+  (steps 2 and 8 with speech), and that Enter on a link in Orca's browse mode,
+  where Orca sends the click itself, follows it (step 7b).
+- **Why deferred:** Orca spoke once on the work machine and then would not run
+  reliably; chasing it would have held W6.1's push for a tool problem.
+- **Trigger:** W8.1 — closed or decided before `feature/webclient` merges, so
+  the epic does not close with WC14 resting on markup alone; earlier if Orca
+  runs on either machine. The pass is W6.1's protocol steps 2, 7b and 8, with
+  the room-lists toggle read aloud once on and once off.
+- **Related:** ***A screen-reader pass*** (this section) is the game's text
+  read with Evennia's `SCREENREADER` option, triggered before an opening
+  beyond the invited cohort; this entry is the webclient's page.
+- **Origin:** Webclient W6.1 browser protocol (2026-11-10).
 - **Status:** OPEN
 
 ## Tooling & Process
