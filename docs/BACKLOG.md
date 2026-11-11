@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 100 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 14 (Component 7 narrowed: W7.1 stays, W7.2 cut, WC13). **Added** (*UX & Item Identity*): ***Webclient: a skills panel (W7.2, cut)*** — the panel W7.2 would have built, with what it needs: a sixth OOB domain and a push at every write to a skill (OPEN). No entry closed or annotated.
 > **Rev 99 · 2026-11-11** — one entry **added** and one **annotated**, docs only, with webclient decomposition Rev 13 (W6.2 shipped, `a1214e2` on `feature/webclient`; Component 6 done). **Added** (*UX & Item Identity*): ***Webclient: `page` has no type*** — W6.2's census found `page` untyped at both ends, so the *Talk* tab cannot file it and it shows in *All* only (OPEN). **Annotated:** ***Webclient: the Orca pass is not run (W6.1)*** gains a W6.2 step: in a filtered tab, a line of another tab is `display:none` and should not be read. No entry closed.
 > **Rev 98 · 2026-11-11** — one entry **added** and two **annotated**, docs only, with webclient decomposition Rev 12 (W6.1 shipped, `a6c334c` on `feature/webclient`). **Added** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — W6.1's browser protocol ran every step but the screen reader: Orca did not run reliably on the work machine, so speech for new lines and Enter in Orca's browse mode have no receipt (OPEN; trigger W8.1). **Annotated:** ***Webclient: `TypeError` on Enter while disconnected*** — read at source and reproduced at W6.1: the `TypeError` is jQuery 3.7.1's `leverageNative`, which the 3.2.1 Evennia's page pins does not have, and the `DOMException` comes from the three-minute idle timer, not from a key, with no jQuery in its stack; its trigger is replaced (jQuery half decided at W8.1, timer half reported upstream). ***A screen-reader pass*** gains a pointer to the new entry. No entry closed.
 > **Rev 97 · 2026-11-10** — one entry **annotated**, docs only, with roadmap Rev 70, README Rev 49, the series handoff `docs/system_designs/HANDOFF.md` Rev 12 and `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1: ***Read EvAdventure's twitch combat before Stage 5's design*** gains what the projectile note found reading EvAdventure at `v6.1.0`: its only missile is `EvAdventureThrowable`, a one-use consumable weapon, with no distance, loading or recovery, so ranged combat is project code whatever the reading decides about action queues.
@@ -3149,6 +3150,24 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   touches private messages (***Player mail — `game_systems/mail`***).
 - **Origin:** Webclient W6.2 census (webclient decomposition Rev 13, §3
   *type census*).
+- **Status:** OPEN
+
+### Webclient: a skills panel (W7.2, cut)
+- **What:** Webclient decomposition W7.2: skill values as `skills` prints
+  them, in a panel, updated when an improvement lands. It needs a sixth OOB
+  domain, `skills` (WC5's pattern: a pure snapshot builder in
+  `world/client_state.py`, the domain in `DOMAINS` and in `pw_state.js`, whose
+  parity a test reads), a renderer on `pw_state.on("skills", …)`, and a push
+  at every write to a skill's value — improvement on use and any other writer
+  a census finds — counted by WC8's AST census test.
+- **Why deferred:** cut at Rev 14 (WC13): `skills` already prints the values
+  (WC1) and they change rarely, while the push sites are new — W4.2 never
+  counted skill writes — so the panel costs a census for the least-read
+  state. W7.1 (inventory and equipment) was kept, since it rides on push
+  sites that exist.
+- **Trigger:** an alpha player asks for skills in the client, or Stage 5's
+  combat design wants skill values on screen during a fight.
+- **Origin:** Webclient decomposition Rev 14, after W6.2 (2026-11-11).
 - **Status:** OPEN
 
 ## Tooling & Process
