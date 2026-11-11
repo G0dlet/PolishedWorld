@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 51 · 2026-11-11** — no document added: the lessons register's row now reads 1–296 (Lessons Rev 5, the webclient close-out W8.2). The directory-vs-list loop was run (55/0).
 > **Rev 50 · 2026-11-10** — no row changed, docs only: the series handoff `docs/system_designs/HANDOFF.md` moves to Rev 13 — seven systems added to its queue at Adam's request, after the projectile note. The directory-vs-list loop was run (55/0).
 > **Rev 49 · 2026-11-10** — index `PolishedWorld_Projectile_Design.md` (projectile design notes from a design chat: prior art with MUME's recover as the lesson and Aardwolf's shots between rooms as the warning, Legend alignment, the loop, six departures from shipped behaviour, launchers and ammunition in bundles, distance per encounter, the shot spent at release, breakage, loss and recovery, the hunt and the world it reads, open questions). The twentieth *design (feature, pre-decomposition)* row; the series handoff `docs/system_designs/HANDOFF.md` moves to Rev 12 in the same commit, with roadmap Rev 70 and BACKLOG Rev 97. Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree (55/0).
 > **Rev 48 · 2026-11-10** — no row changed, docs only: the series handoff `docs/system_designs/HANDOFF.md` moves to Rev 11 — seven systems added to its queue at Adam's request, after the atlas note. The directory-vs-list loop was run (54/0).
@@ -101,7 +102,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–237) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–296) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
