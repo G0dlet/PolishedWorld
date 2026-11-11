@@ -11,6 +11,7 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## Planned
 
+- A better-looking webclient: frames, icons and pictures
 - Healing over time, real tiredness and drinking at the spring
 - Combat
 - A wider world to explore
@@ -20,7 +21,6 @@ a top-level bullet under one of them, and anything else is ignored.
 ## In progress
 
 - The closed alpha
-- A webclient with panels beside the text
 
 ## Done
 
@@ -34,3 +34,4 @@ a top-level bullet under one of them, and anything else is ignored.
 - Character creation
 - Weight and carrying
 - Death and recovering your body
+- A webclient with panels beside the text

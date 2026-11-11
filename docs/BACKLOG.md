@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 103 · 2026-11-11** — three entries **annotated**, docs only, with webclient decomposition Rev 17 (W8.2: the epic closes) and roadmap Rev 71. ***Persistent alpha instance*** (*Operations*): L6.1 checks out `alpha-20261111` (on `399e306`, PR #27), which ships the webclient, or a later tag if the visual pass lands first; behind TLS the instance sets `WEBSOCKET_CLIENT_URL` (runbook §7, Rev 7). ***Waterskin `durability` → `condition` migration*** and ***Fatigue-exhaustion consequence***: Stage 4.6, which schedules both, now follows the new *Webclient visual pass* (roadmap decision log, *Order after the webclient*, amended). No status changes, no entry added: the visual pass's home is its roadmap entry.
 > **Rev 102 · 2026-11-11** — two entries **decided** and one **annotated**, docs only, with webclient decomposition Rev 16 (W8.1: `feature/webclient` merged to `main` as `399e306`, PR #27, tagged `alpha-20261111`). **Decided** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — one timeboxed try at W8.1: Orca on the work machine echoed keys but read no page text, not even a one-line control page with `#messagewindow`'s markup and no project code, so the fault is the tool's; the epic closes with WC14 resting on markup and keyboard, and the entry takes ***A screen-reader pass***'s trigger (OPEN). ***Webclient: `TypeError` on Enter while disconnected*** — the `TypeError` half is decided, jQuery stays 3.7.1; the `DOMException` half waits for the upstream report (OPEN). **Annotated:** ***A screen-reader pass*** — the webclient's Orca pass now runs with it. No entry closed.
 > **Rev 101 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 15 (W7.1 shipped, `33423d5` on `feature/webclient`; Component 7 done). **Added** (*UX & Item Identity*): ***`inventory` hides why two garments are two rows*** — W7.1's protocol printed two identical-looking rows for two garments of one name in different condition: the contrib groups by description and crops it before the condition line (OPEN). **Annotated:** ***Webclient: a skills panel (W7.2, cut)*** — `skills` would be the fifth OOB domain, not the sixth. No entry closed.
 > **Rev 100 · 2026-11-11** — one entry **added**, docs only, with webclient decomposition Rev 14 (Component 7 narrowed: W7.1 stays, W7.2 cut, WC13). **Added** (*UX & Item Identity*): ***Webclient: a skills panel (W7.2, cut)*** — the panel W7.2 would have built, with what it needs: a sixth OOB domain and a push at every write to a skill (OPEN). No entry closed or annotated.
@@ -393,6 +394,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   touching waterskin next*) fires with roadmap **Stage 4.6 — Survival loop**,
   whose first slice is Water slice 1 and carries this migration (VQ6). Done
   there, after the webclient merges.
+- **Annotation (2026-11-11, roadmap Rev 71):** Stage 4.6 now follows the
+  *Webclient visual pass*, which comes directly after the webclient (decision
+  log, *Order after the webclient*, amended). The schedule above holds with that
+  order; nothing else changes.
 - **Status:** OPEN
 
 ### Hunt-independent needle primitive
@@ -1803,6 +1808,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   natural healing, decomposed together after the webclient merges. The design
   note's leanings above are that decomposition's inputs, not locks; the open
   questions in the 2026-10-18 annotation are closed there.
+- **Annotation (2026-11-11, roadmap Rev 71):** Stage 4.6 is decomposed after the
+  *Webclient visual pass*, which comes directly after the webclient (decision
+  log, *Order after the webclient*, amended); nothing else changes.
 - **Status:** OPEN
 
 ---
@@ -3505,6 +3513,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `WEAR_TICK_INTERVAL = 30`, a dev value parked behind "TODO: 10800 before
   merge" since 2026-07-02 — garments would wear 360 times too fast; runbook §7,
   Rev 6, which also gives the deploy's ticker receipt.
+- **Annotation (2026-11-11, webclient close-out):** L6.1 checks out
+  **`alpha-20261111`** (on `399e306`, PR #27, tree `c2ec635`), the merge that
+  ships the webclient, the wear fix included; or a later tag if the *Webclient
+  visual pass* (roadmap Rev 71) lands first. Behind the TLS proxy the instance
+  also sets `WEBSOCKET_CLIENT_URL = "wss://…"` in `secret_settings.py`, or the
+  browser refuses the client's `ws://` socket as mixed content; runbook §7, Rev 7.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones

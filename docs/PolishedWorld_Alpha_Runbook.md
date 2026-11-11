@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 7 · 2026-11-11** — §7 names the tag L6.1 deploys: **`alpha-20261111`** on `399e306` (PR #27, the webclient merge), or a later tag if the webclient visual pass lands first (roadmap Rev 71); `alpha-20261107` predates the webclient. §7 gains *The webclient behind TLS*: `WEBSOCKET_CLIENT_URL = "wss://…"` in `secret_settings.py` before the first https visit, `evennia reboot`, and the browser's receipt (webclient decomposition W8.2, lock 3A).
 > **Rev 6 · 2026-11-07** — §7 names the tag L6.1 deploys: **`alpha-20261107`** on `d19cfd4` (PR #26, the `fix/wear-interval` merge). `alpha-20261105` and `alpha-20261104` both ship `WEAR_TICK_INTERVAL = 30`, a dev value left behind a "TODO: 10800 before merge" since 2026-07-02, which wears garments 360 times faster than they are calibrated for; neither is deployed. A test now pins both tick intervals and fails on any "before merge" marker in production code (`tests/test_server_startstop.py`).
 > **Rev 5 · 2026-11-05** — §7 names the tag L6.1 deploys: **`alpha-20261105`** on `fbbe222` (the dev-board merge), which carries the report commands and the board; `alpha-20261104` predates both and is not deployed. §7 also says how the dev board moves: `docs/board.md` is read on every request, so a card moved by a deploy shows without `evennia reload`.
 > **Rev 4 · 2026-11-05** — the report commands (BACKLOG *In-game bug, idea and player reports*, merged `588bc69`): §2 gains a row in *Who can do what* and a *Reports* section (what players type, the three `manage` menus as run from `warden`, how to read a report, the cached list); §7 notes that a change through the login hook reaches a connected player only at their next login; §8's close-out step 1 exports the reports before the wipe.
@@ -385,7 +386,7 @@ python -c "import sqlite3,os; s=sqlite3.connect('server/evennia.db3'); d=sqlite3
 
 ## 7. Deploy
 
-**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261107`** (on `d19cfd4`, the `fix/wear-interval` merge, PR #26; tree `4fd0297`). *(Rev 6)* `alpha-20261105` (on `fbbe222`) and `alpha-20261104` (on `df0dc4e`) are not deployed: both tick garment wear every 30 s instead of every 10800 s. After the first start, `@py from evennia import TICKER_HANDLER; self.msg(str(sorted(k[3:5] for k in TICKER_HANDLER.all_display())))` prints `[(600, 'survival'), (10800, 'garment_wear')]` — the deploy's receipt that the right intervals run. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
+**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261111`** (on `399e306`, the webclient merge, PR #27; tree `c2ec635`), or a later `alpha-YYYYMMDD` if the webclient visual pass lands before L6.1 (roadmap Rev 71). *(Rev 7)* `alpha-20261107` (on `d19cfd4`, PR #26) predates the webclient and is not deployed. *(Rev 6)* `alpha-20261105` (on `fbbe222`) and `alpha-20261104` (on `df0dc4e`) are not deployed either: both tick garment wear every 30 s instead of every 10800 s. After the first start, `@py from evennia import TICKER_HANDLER; self.msg(str(sorted(k[3:5] for k in TICKER_HANDLER.all_display())))` prints `[(600, 'survival'), (10800, 'garment_wear')]` — the deploy's receipt that the right intervals run. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
 
 ```
 git fetch --prune
@@ -397,6 +398,14 @@ evennia reload
 ```
 
 Backup (§6) before every deploy. A change to the connection screen and to file-help entries takes effect on `evennia reload` (seen in L4.2). **A change that arrives through the login hook reaches a connected player only at their next login**: `evennia reload` does not run `at_post_login` (seen for the report commands, 2026-11-05). After such a deploy, say so: `wall Log out and in once to get the new commands.` Which changes need `evennia reboot` (portal-side: ports, protocols) is verified in L6.1.
+
+**The webclient behind TLS** *(Rev 7; not yet run — L6.1)*. The page builds its websocket address as `ws://<host>:4002` unless `WEBSOCKET_CLIENT_URL` is set (Evennia Ref §19.1). Served over https, a `ws://` address is mixed content and the browser refuses it: the website loads and the client never connects. Before the first visit over https, add one line to `server/conf/secret_settings.py` (git-ignored, imported last by `settings.py`), in Evennia's form `"ws[s]://hostname[:port]"` (`settings_default.py:118–123`), with the host, and the port if any, at which the TLS proxy forwards to the websocket port 4002:
+
+```
+WEBSOCKET_CLIENT_URL = "wss://<host>"
+```
+
+The value is chosen with the proxy in L6. Then `evennia reboot` from the shell, which stops and starts Portal and Server, so both read the setting. Receipt: in the browser, DevTools → *Network → WS* shows the socket at that address with status 101, and `look` answers in the text area.
 
 **The dev board** (`/board/`) is `docs/board.md`, read on every request: a deploy whose tag moves a card shows it at once, with no `evennia reload`. A missing or unreadable file shows *Board unavailable*, never an error page. Cards move on `main` at epic start and close-out, with the roadmap (seen on the work dev DB, 2026-11-05; Testing Ref §20).
 
