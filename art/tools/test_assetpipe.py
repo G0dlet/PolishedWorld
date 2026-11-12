@@ -34,7 +34,9 @@ one way the pipeline can let a broken asset through:
 * TestRealMasters -- the committed body masters pass.
 * TestPublishedUpToDate -- the files committed under web/static/ are what
   the pipeline produces today, so a master edited without re-running the
-  pipeline is caught.
+  pipeline is caught; for the cleaned families (FAMILIES: the webclient's
+  icons since visual pass V3.2) also every master is valid, and a published
+  file without a master, or a master never published, fails.
 * TestCli -- exit codes 0/1/2 as documented.
 """
 
@@ -399,6 +401,12 @@ class TestRealMasters(unittest.TestCase):
 
 class TestPublishedUpToDate(_TmpCase):
     PUBLISHED = REPO / "web" / "static" / "polishedworld" / "characters" / "body"
+    # The families published by `clean` alone: master folder -> published
+    # folder. The body is not here; it also needs split-body (above).
+    FAMILIES = {
+        "icons": (REPO / "art" / "ui" / "icons",
+                  REPO / "web" / "static" / "polishedworld" / "ui" / "icons"),
+    }
 
     def assert_same_pixels(self, committed, fresh):
         with Image.open(committed) as a, Image.open(fresh) as b:
@@ -418,6 +426,19 @@ class TestPublishedUpToDate(_TmpCase):
         for name in names:
             with self.subTest(name=name):
                 self.assert_same_pixels(self.PUBLISHED / name, fresh / name)
+
+    def test_published_families_match_their_masters(self):
+        for family, (masters, published) in self.FAMILIES.items():
+            with self.subTest(family=family):
+                fresh = self.dir / family
+                names = sorted(p.name for p in masters.glob("*.png"))
+                self.assertTrue(names, f"no masters in {masters}")
+                for name in names:
+                    report = assetpipe.clean(masters / name, fresh, self.palette)
+                    self.assertTrue(report.ok, f"{family}/{name}: {report.errors}")
+                self.assertEqual(sorted(p.name for p in published.iterdir()), names)
+                for name in names:
+                    self.assert_same_pixels(published / name, fresh / name)
 
 
 class TestCli(_TmpCase):
