@@ -309,7 +309,7 @@ body {
    gauge's description is, so the value reads first. */
 #pw-world [hidden] { display: none; }
 
-.pw-world-row { margin: .25rem 0; }
+.pw-world-row { margin: .25rem 0; padding-left: 2.5rem; }
 
 .pw-world-label { color: var(--pw-muted); }
 
@@ -377,6 +377,48 @@ body {
 #pw-survival-hunger::before { background-image: url("../ui/icons/status_hunger.png"); }
 #pw-survival-thirst::before { background-image: url("../ui/icons/status_thirst.png"); }
 #pw-survival-fatigue::before { background-image: url("../ui/icons/status_fatigue.png"); }
+
+/* Weather and season icons (visual pass V3.3). pw_world.js names the icon
+   in the row's data-icon (lock 3) and these rules map the name to its file
+   in ui/world/, which art/tools/assetpipe.py clean makes of art/ui/world/
+   (lock 4). A row without the attribute has no ::before, so a key the
+   script does not know shows the word alone (lock 5, WV4). The icon stands
+   as a gauge's does (lock 2): every world row starts at the gauges'
+   2.5rem, so the four labels form one column, and the two rows with an
+   icon are at least the icon's 32 px high. Flex drops the space between
+   label and value, so the gap puts one back. */
+#pw-world-season, #pw-world-weather {
+  position: relative;
+  display: flex;
+  align-items: center;
+  column-gap: .25em;
+  min-height: 32px;
+}
+
+#pw-world-season[data-icon]::before, #pw-world-weather[data-icon]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  background-repeat: no-repeat;
+  background-size: 32px 32px;
+  image-rendering: pixelated;
+}
+
+#pw-world-weather[data-icon="weather_day_clear"]::before { background-image: url("../ui/world/weather_day_clear.png"); }
+#pw-world-weather[data-icon="weather_day_raining"]::before { background-image: url("../ui/world/weather_day_raining.png"); }
+#pw-world-weather[data-icon="weather_day_snowing"]::before { background-image: url("../ui/world/weather_day_snowing.png"); }
+#pw-world-weather[data-icon="weather_day_foggy"]::before { background-image: url("../ui/world/weather_day_foggy.png"); }
+#pw-world-weather[data-icon="weather_night_clear"]::before { background-image: url("../ui/world/weather_night_clear.png"); }
+#pw-world-weather[data-icon="weather_night_raining"]::before { background-image: url("../ui/world/weather_night_raining.png"); }
+#pw-world-weather[data-icon="weather_night_snowing"]::before { background-image: url("../ui/world/weather_night_snowing.png"); }
+#pw-world-weather[data-icon="weather_night_foggy"]::before { background-image: url("../ui/world/weather_night_foggy.png"); }
+#pw-world-season[data-icon="season_spring"]::before { background-image: url("../ui/world/season_spring.png"); }
+#pw-world-season[data-icon="season_summer"]::before { background-image: url("../ui/world/season_summer.png"); }
+#pw-world-season[data-icon="season_autumn"]::before { background-image: url("../ui/world/season_autumn.png"); }
+#pw-world-season[data-icon="season_winter"]::before { background-image: url("../ui/world/season_winter.png"); }
 
 .pw-room-list {
   margin: .25rem 0 0;

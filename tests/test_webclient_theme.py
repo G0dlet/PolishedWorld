@@ -79,6 +79,14 @@ Each class names the bug it pressures:
                            smoothed instead of pixelated, carries content a
                            screen reader would read, or a published icon is
                            used by nothing (visual pass V3.2).
+    TestWorldIcons         a weather state or season has no icon or points
+                           at a file that is not published, a published
+                           world icon is used by nothing, an icon is not
+                           empty decoration at x1, the world rows' labels
+                           leave the gauges' column or a row is lower than
+                           its icon, or pw_world.js's tables drift from the
+                           server's weather states, seasons or night
+                           (visual pass V3.3, locks 1-5).
     TestGaugesAndLists     a gauge's value (numbers and description) leaves
                            the right edge or cannot wrap inside its column, so
                            a long description pushes the row out of its box
@@ -187,6 +195,12 @@ ICONS = {
     "#pw-survival-fatigue::before": "status_fatigue.png",
 }
 ICON_DIR = "polishedworld/ui/icons/"
+# Visual pass V3.3. The weather and season icons, named by pw_world.js in the
+# row's data-icon and mapped to their files here (locks 3, 4).
+WORLD_ICON_DIR = "polishedworld/ui/world/"
+WORLD_ICON_ROWS = ("#pw-world-season", "#pw-world-weather")
+WORLD_ICON_BASE = tuple(row + "[data-icon]::before" for row in WORLD_ICON_ROWS)
+WORLD_JS = REPO / "web" / "static" / "polishedworld" / "js" / "pw_world.js"
 # Visual pass V1.3. The lists of things a player reads as items get a square
 # marker (lock 2A); the exits get an arrow instead (lock 3A).
 ITEM_LISTS = ("#pw-room-characters-list", "#pw-room-things-list", ".pw-inventory-list")
@@ -959,6 +973,91 @@ class TestIcons(_ThemeTest):
                 self.assertEqual(decls.get("background-size"), "32px 32px")
                 self.assertEqual(decls.get("background-repeat"), "no-repeat")
                 self.assertEqual(decls.get("image-rendering"), "pixelated")
+
+
+def _js_table(name):
+    """The array literal `var <name> = [...];` in pw_world.js, as a list."""
+    found = re.findall(r"^\s*var %s = (\[[^\]]*\]);$" % name, WORLD_JS.read_text(), re.M)
+    if len(found) != 1:
+        raise AssertionError("expected one `var %s = [...];` in pw_world.js, found %d" % (name, len(found)))
+    return json.loads(found[0])
+
+
+class TestWorldIcons(_ThemeTest):
+    @staticmethod
+    def expected():
+        """data-icon value -> (row, file), from the server's own words."""
+        from world import gametime_utils
+        from world.weather import WEATHER_STATES
+
+        out = {}
+        for state in WEATHER_STATES:
+            for half in ("day", "night"):
+                out["weather_%s_%s" % (half, state)] = ("#pw-world-weather", "weather_%s_%s.png" % (half, state))
+        for season in gametime_utils._SEASONS:
+            out["season_" + season] = ("#pw-world-season", "season_%s.png" % season)
+        return out
+
+    def test_every_weather_and_season_points_at_its_published_file(self):
+        for name, (row, filename) in self.expected().items():
+            with self.subTest(name=name):
+                selector = '%s[data-icon="%s"]::before' % (row, name)
+                self.assertEqual(
+                    self.merged(selector).get("background-image"), 'url("../ui/world/%s")' % filename
+                )
+                self.assertIsNotNone(finders.find(WORLD_ICON_DIR + filename), filename)
+
+    def test_every_published_world_icon_is_used(self):
+        folder = finders.find(WORLD_ICON_DIR.rstrip("/"))
+        self.assertIsNotNone(folder, WORLD_ICON_DIR)
+        self.assertEqual(
+            sorted(p.name for p in Path(folder).iterdir()),
+            sorted(filename for _, filename in self.expected().values()),
+        )
+
+    def test_icons_are_empty_decoration_at_x1_pixelated(self):
+        for selector in WORLD_ICON_BASE:
+            with self.subTest(selector=selector):
+                decls = self.merged(selector)
+                self.assertEqual(decls.get("content"), '""')
+                self.assertEqual(decls.get("width"), "32px")
+                self.assertEqual(decls.get("height"), "32px")
+                self.assertEqual(decls.get("background-size"), "32px 32px")
+                self.assertEqual(decls.get("background-repeat"), "no-repeat")
+                self.assertEqual(decls.get("image-rendering"), "pixelated")
+
+    def test_icon_stands_in_the_gauges_column(self):
+        # Lock 2: the icon sits at the row's left edge, inside the padding
+        # every world row shares with the gauges, so the labels line up.
+        self.assertEqual(self.merged(".pw-world-row").get("padding-left"),
+                         self.merged(".pw-gauge").get("padding-left"))
+        for selector in WORLD_ICON_BASE:
+            with self.subTest(selector=selector):
+                decls = self.merged(selector)
+                self.assertEqual([decls.get(k) for k in ("position", "top", "left")],
+                                 ["absolute", "0", "0"])
+        for row in WORLD_ICON_ROWS:
+            with self.subTest(row=row):
+                decls = self.merged(row)
+                self.assertEqual(decls.get("position"), "relative")
+                self.assertEqual(decls.get("min-height"), "32px")
+
+    def test_script_tables_are_the_servers_words(self):
+        # Locks 1 and 5: pw_world.js names an icon only for a key in its
+        # tables, so a state or season missing there would lose its icon.
+        from unittest.mock import patch
+
+        from world import gametime_utils
+        from world.weather import WEATHER_STATES
+
+        self.assertEqual(_js_table("WEATHER_KEYS"), list(WEATHER_STATES))
+        self.assertEqual(_js_table("SEASON_KEYS"), list(gametime_utils._SEASONS))
+        nights = []
+        for period in gametime_utils.TIMES_OF_DAY:
+            with patch.object(gametime_utils, "get_time_of_day", return_value=period):
+                if gametime_utils.is_nighttime():
+                    nights.append(period)
+        self.assertEqual(_js_table("NIGHT_PERIODS"), nights)
 
 
 class TestGaugesAndLists(_ThemeTest):
