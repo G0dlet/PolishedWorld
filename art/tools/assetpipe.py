@@ -40,7 +40,9 @@ NATIVE_SIZES: dict[str, tuple[int, int]] = {
     "item_": (32, 32),
     "body_": (32, 64),
     "frame_": (48, 48),
-    "room_": (320, 180),
+    # 96x54, the size the webclient's Location panel shows at x1 (visual
+    # pass V2.2 lock 1A, style guide Rev 7); 320x180 until V3.4.
+    "room_": (96, 54),
     "banner_": (320, 40),
 }
 
@@ -58,6 +60,11 @@ BODY_DIR = Path(__file__).resolve().parents[1] / "body"
 OUTLINE_KEY = "muted"
 DETAIL_KEY = "background"
 MASK_EXCLUDED_KEYS = (OUTLINE_KEY, DETAIL_KEY)
+
+# Full pictures (style guide section 5, *Weather icons and pictures*): every
+# pixel is painted, so #FF00FF is not their background, and clean would turn
+# a stray magenta pixel into a hole (visual pass V3.4).
+PICTURE_PREFIXES = ("banner_", "room_")
 
 # The edge checks apply to this master only: it is the one figure the client
 # draws on a panel, and its outline is the only thing the masks rely on.
@@ -250,6 +257,9 @@ def validate(path: Path, palette: Palette) -> Report:
             for zone, key in palette.zone_keys.items():
                 if key not in present:
                     report.errors.append(f"zone {zone} ({rgb_to_hex(key)}) is missing")
+    elif name.startswith(PICTURE_PREFIXES):
+        allowed = set(palette.colors)
+        report.errors += _colour_errors(img, allowed, "in palette v0.2.1 (a picture has no #FF00FF)")
     else:
         allowed = {palette.chroma_key, *palette.colors}
         report.errors += _colour_errors(img, allowed, "in palette v0.2.1")
