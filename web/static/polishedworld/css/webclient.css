@@ -18,6 +18,10 @@
   so it moves with the reader's font size. Below it the text area takes the
   width and the panels open as drawers from the header buttons
   (polishedworld/js/layout.js). W6.1's matchMedia must use the same value.
+
+  Fonts: monospace for the text and the input, system-ui for everything
+  else (W3.2 lock 8), except the headings, which are set in one face of our
+  own (visual pass V1.1, below :root).
 --- */
 
 :root {
@@ -51,6 +55,22 @@
   --pw-night_blue:   #172A4A;
 }
 
+/* The heading face (visual pass V1.1, WV3). Alegreya at weight 700, one
+   instance of google/fonts' variable Alegreya, served from our own static
+   files with its licence beside it (fonts/OFL.txt). The url is relative to
+   this file, so it does not depend on STATIC_URL. swap shows the fallback
+   until the file arrives. Only the header's title and the panel headings use
+   it; controls and the text keep their fonts (lock 3A). Every rule that
+   names the face also asks for 700, the one weight the file has, so the
+   browser never synthesises another. */
+@font-face {
+  font-family: "Alegreya";
+  src: url("../fonts/alegreya-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Overall page. Evennia sets a monospace body, and .5rem below 480px;
    the font-size here wins over that media rule by source order. */
 html, body {
@@ -70,6 +90,19 @@ body {
 :focus-visible {
   outline: 2px solid var(--pw-gold_link);
   outline-offset: 2px;
+}
+
+/* Evennia's box for a connect message. Our template leaves its block
+   empty and nothing removes the box, but Evennia's stylesheet makes it
+   `position: absolute; width: 100%; padding: .5em .9em`. That is 28.8 px
+   wider than the page: in Firefox's responsive design mode the viewport
+   grows to fit it (`innerWidth` 929 at 900) and an open drawer ends 29 px
+   off the screen. It is also 16 px high across the top of the header,
+   where a hit-test finds it instead of what lies under it. Hidden whole,
+   since narrowing it would leave that strip (visual pass OQ-V4). A
+   template test fails if the block is ever given content. */
+#connecting {
+  display: none;
 }
 
 /* The grid. DOM order is input, header, panels, tabs, text (Tab order,
@@ -99,17 +132,36 @@ body {
 .pw-title {
   margin: 0 auto 0 0;
   color: var(--pw-highlight);
-  font-size: 1.125rem;
+  font-family: "Alegreya", Georgia, "DejaVu Serif", serif;
+  font-size: 1.5rem;
   font-weight: 700;
+}
+
+/* The ALPHA mark (visual pass V1.2, lock 1A). Written "Alpha" inside the
+   title, so speech says the word and the page's name reads "PolishedWorld
+   Alpha"; shown in capitals here. Gold/Link on Panel light is 5.85:1; the
+   Copper edge is 3:1 or more against both surfaces. */
+.pw-alpha {
+  display: inline-block;
+  margin-left: .5rem;
+  padding: 0 .375rem;
+  vertical-align: middle;
+  background: var(--pw-panel_light);
+  color: var(--pw-gold_link);
+  border: 2px solid var(--pw-copper);
+  border-radius: .25rem;
+  font-family: "Alegreya", Georgia, "DejaVu Serif", serif;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .pw-panel-button {
   min-height: 2.75rem;
-  padding: .375rem .75rem;
+  padding: 0;
   background: var(--pw-panel_light);
   color: var(--pw-text);
-  border: 2px solid var(--pw-border_wood);
-  border-radius: .25rem;
   font: inherit;
   cursor: pointer;
 }
@@ -127,17 +179,29 @@ body {
   content: " \25BE" / "";
 }
 
-/* Side panels: framed surfaces; below the breakpoint, closed drawers. */
+/* Side panels: columns of boxes, one per section (visual pass V1.2, lock
+   3A); below the breakpoint, closed drawers. A column keeps the page's
+   surface, so an open drawer is never transparent over the text. Each
+   section is its own box in frame_panel (V3.1, the frames block below);
+   the frame's inner band stands where the padding stood. */
 #pw-panel-left, #pw-panel-right {
   display: none;
   box-sizing: border-box;
   min-height: 0;
   overflow-y: auto;
-  padding: .75rem;
-  background: var(--pw-panel);
+  padding: .5rem;
+  background: var(--pw-background);
   color: var(--pw-text);
-  border: 2px solid var(--pw-border_wood);
-  border-radius: .25rem;
+  border: none;
+}
+
+#pw-panel-left > section, #pw-panel-right > section {
+  padding: 0;
+  background: var(--pw-panel);
+}
+
+#pw-panel-left > section + section, #pw-panel-right > section + section {
+  margin-top: .5rem;
 }
 
 #pw-panel-left.pw-open, #pw-panel-right.pw-open {
@@ -158,11 +222,17 @@ body {
 #pw-char [hidden] { display: none; }
 
 /* The panel headings: the character's name, Survival (W5.2), World
-   (W5.3), Location (W5.4) and Inventory (W7.1). */
+   (W5.3), Location (W5.4) and Inventory (W7.1). The rule beneath is
+   decoration in Border/Wood; the heading's text carries the meaning
+   (visual pass V1.2, lock 2A). */
 .pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title,
 .pw-inventory-title {
   margin: 0 0 .5rem;
-  font-size: 1rem;
+  padding-bottom: .25rem;
+  border-bottom: 1px solid var(--pw-border_wood);
+  font-family: "Alegreya", Georgia, "DejaVu Serif", serif;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: var(--pw-highlight);
 }
 
@@ -184,11 +254,38 @@ body {
    level of a gauge. Health keeps the default fill; each survival gauge has
    its own palette colour, which tells the bars apart at a glance but never
    alone: each row's label names its gauge. */
-.pw-gauge { margin: .5rem 0; }
+/* A gauge with its icon (visual pass V3.2): the icon stands in a column of
+   its own, spanning the label line and the bar. The label line (V1.3, lock
+   1A, and its fix, lock A): the label at the left, the value -- numbers and
+   description in one span, in DOM order -- at the right edge. The value
+   column may shrink below its longest word and wraps inside itself,
+   right-aligned, so "Fatigue 0/100 exhausted" stays inside a 17rem panel.
+   A hidden gauge stays hidden: #pw-char [hidden] and #pw-survival [hidden]
+   outweigh this class. */
+.pw-gauge {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: .375rem;
+  align-items: baseline;
+  min-height: 32px;
+  margin: .5rem 0;
+  padding-left: 2.5rem;
+}
+
+.pw-gauge-label { grid-column: 1; }
+
+.pw-gauge-value {
+  grid-column: 2;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
 
 .pw-gauge-desc { color: var(--pw-muted); }
 
 .pw-bar {
+  grid-column: 1 / -1;
   display: block;
   height: .5rem;
   margin-top: .25rem;
@@ -209,10 +306,13 @@ body {
 
 /* World panel (W5.3). Its rows start hidden until the first world frame,
    and the weather row hides indoors. The label in the muted colour, as a
-   gauge's description is, so the value reads first. */
+   gauge's description is, so the value reads first. Since V3.3 every row
+   starts at the gauges' column, which leaves a date too little room for
+   one line: balanced wrapping breaks it after the comma ("Year 12," /
+   "Harvestwarm 28") instead of leaving its last word alone (V3.3b). */
 #pw-world [hidden] { display: none; }
 
-.pw-world-row { margin: .25rem 0; }
+.pw-world-row { margin: .25rem 0; padding-left: 2.5rem; text-wrap: balance; }
 
 .pw-world-label { color: var(--pw-muted); }
 
@@ -227,16 +327,180 @@ body {
 
 #pw-room { margin-top: 1rem; }
 
-.pw-room-name { margin: .25rem 0; font-weight: bold; }
+/* The name sits right of its picture (visual pass V3.4, lock 4) and wraps
+   balanced in what is left beside it (V3.3b). The display is declared here
+   on the class: a rule on #pw-room-name[...] would tie #pw-room [hidden]
+   in specificity and, coming later, win over it. */
+.pw-room-name {
+  display: flex;
+  align-items: center;
+  column-gap: .5rem;
+  margin: .25rem 0;
+  font-weight: bold;
+  text-wrap: balance;
+}
 
 .pw-room-row { margin: .5rem 0; }
 
 .pw-room-label { color: var(--pw-muted); }
 
+/* Icons (visual pass V3.2). Each one is a ::before beside a word that
+   already says what it means (WC14): a CSS background with empty content,
+   so it is decoration by construction and screen readers skip it. 32 px is
+   the icons' native size, the one whole factor that fits beside the text
+   (WC10); pixelated keeps the pixels square. The files are what
+   art/tools/assetpipe.py clean makes of art/ui/icons/ (style guide §10). */
+.pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title,
+.pw-inventory-title, .pw-room-label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.pw-char-name::before, .pw-survival-title::before, .pw-inventory-title::before,
+.pw-world-title::before, .pw-room-title::before,
+#pw-room-exits .pw-room-label::before, #pw-room-characters .pw-room-label::before,
+#pw-room-things .pw-room-label::before,
+#pw-char-health::before, #pw-survival-hunger::before,
+#pw-survival-thirst::before, #pw-survival-fatigue::before {
+  content: "";
+  flex: none;
+  width: 32px;
+  height: 32px;
+  background-repeat: no-repeat;
+  background-size: 32px 32px;
+  image-rendering: pixelated;
+}
+
+#pw-char-health::before, #pw-survival-hunger::before,
+#pw-survival-thirst::before, #pw-survival-fatigue::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.pw-char-name::before { background-image: url("../ui/icons/icon_character.png"); }
+.pw-survival-title::before { background-image: url("../ui/icons/icon_survival.png"); }
+.pw-inventory-title::before { background-image: url("../ui/icons/icon_inventory.png"); }
+.pw-world-title::before { background-image: url("../ui/icons/icon_world.png"); }
+.pw-room-title::before { background-image: url("../ui/icons/icon_location.png"); }
+#pw-room-exits .pw-room-label::before { background-image: url("../ui/icons/icon_exits.png"); }
+#pw-room-characters .pw-room-label::before { background-image: url("../ui/icons/icon_characters.png"); }
+#pw-room-things .pw-room-label::before { background-image: url("../ui/icons/icon_things.png"); }
+#pw-char-health::before { background-image: url("../ui/icons/status_health.png"); }
+#pw-survival-hunger::before { background-image: url("../ui/icons/status_hunger.png"); }
+#pw-survival-thirst::before { background-image: url("../ui/icons/status_thirst.png"); }
+#pw-survival-fatigue::before { background-image: url("../ui/icons/status_fatigue.png"); }
+
+/* Weather and season icons (visual pass V3.3). pw_world.js names the icon
+   in the row's data-icon (lock 3) and these rules map the name to its file
+   in ui/world/, which art/tools/assetpipe.py clean makes of art/ui/world/
+   (lock 4). A row without the attribute has no ::before, so a key the
+   script does not know shows the word alone (lock 5, WV4). The icon stands
+   as a gauge's does (lock 2): every world row starts at the gauges'
+   2.5rem, so the four labels form one column, and the two rows with an
+   icon are at least the icon's 32 px high. Flex drops the space between
+   label and value, so the gap puts one back. */
+#pw-world-season, #pw-world-weather {
+  position: relative;
+  display: flex;
+  align-items: center;
+  column-gap: .25em;
+  min-height: 32px;
+}
+
+#pw-world-season[data-icon]::before, #pw-world-weather[data-icon]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  background-repeat: no-repeat;
+  background-size: 32px 32px;
+  image-rendering: pixelated;
+}
+
+#pw-world-weather[data-icon="weather_day_clear"]::before { background-image: url("../ui/world/weather_day_clear.png"); }
+#pw-world-weather[data-icon="weather_day_raining"]::before { background-image: url("../ui/world/weather_day_raining.png"); }
+#pw-world-weather[data-icon="weather_day_snowing"]::before { background-image: url("../ui/world/weather_day_snowing.png"); }
+#pw-world-weather[data-icon="weather_day_foggy"]::before { background-image: url("../ui/world/weather_day_foggy.png"); }
+#pw-world-weather[data-icon="weather_night_clear"]::before { background-image: url("../ui/world/weather_night_clear.png"); }
+#pw-world-weather[data-icon="weather_night_raining"]::before { background-image: url("../ui/world/weather_night_raining.png"); }
+#pw-world-weather[data-icon="weather_night_snowing"]::before { background-image: url("../ui/world/weather_night_snowing.png"); }
+#pw-world-weather[data-icon="weather_night_foggy"]::before { background-image: url("../ui/world/weather_night_foggy.png"); }
+#pw-world-season[data-icon="season_spring"]::before { background-image: url("../ui/world/season_spring.png"); }
+#pw-world-season[data-icon="season_summer"]::before { background-image: url("../ui/world/season_summer.png"); }
+#pw-world-season[data-icon="season_autumn"]::before { background-image: url("../ui/world/season_autumn.png"); }
+#pw-world-season[data-icon="season_winter"]::before { background-image: url("../ui/world/season_winter.png"); }
+
+/* Banner and location picture (visual pass V3.4). As the world icons: a
+   script names the picture (pw_world.js the banner by season, pw_room.js
+   the location picture by `indoor`) and these rules map the name to its
+   file in ui/pictures/ (lock 5), so both are CSS backgrounds, decoration by
+   construction (WC14). Both at x1 (lock 1). The banner is an empty element
+   at the header's right end -- the title's auto margin puts it there
+   (lock 2) -- and shows only in the wide layout and only with a name
+   (locks 3, 6); below the breakpoint the header holds the drawer buttons.
+   The location picture is the room name's ::before (lock 4). */
+#pw-banner {
+  display: none;
+  flex: none;
+  width: 320px;
+  height: 40px;
+  background-repeat: no-repeat;
+  background-size: 320px 40px;
+  image-rendering: pixelated;
+}
+
+#pw-banner[data-banner="banner_spring"] { background-image: url("../ui/pictures/banner_spring.png"); }
+#pw-banner[data-banner="banner_summer"] { background-image: url("../ui/pictures/banner_summer.png"); }
+#pw-banner[data-banner="banner_autumn"] { background-image: url("../ui/pictures/banner_autumn.png"); }
+#pw-banner[data-banner="banner_winter"] { background-image: url("../ui/pictures/banner_winter.png"); }
+
+#pw-room-name[data-picture]::before {
+  content: "";
+  flex: none;
+  width: 96px;
+  height: 54px;
+  background-repeat: no-repeat;
+  background-size: 96px 54px;
+  image-rendering: pixelated;
+}
+
+#pw-room-name[data-picture="room_indoor"]::before { background-image: url("../ui/pictures/room_indoor.png"); }
+#pw-room-name[data-picture="room_outdoor"]::before { background-image: url("../ui/pictures/room_outdoor.png"); }
+
 .pw-room-list {
   margin: .25rem 0 0;
   padding: 0;
   list-style: none;
+}
+
+/* Markers (visual pass V1.3). The lists a player reads as items get a
+   square in Copper (lock 2A); a marker also keeps the list a list for
+   Safari's VoiceOver, which drops the role under list-style: none. The
+   exits get an arrow instead (lock 3A), with empty alt text so speech
+   skips it; the direction is told by the arrow and the link, not by
+   colour. "Nothing." in an empty inventory row is not an item. */
+#pw-room-characters-list, #pw-room-things-list, .pw-inventory-list {
+  list-style: square inside;
+}
+
+#pw-room-characters-list > li::marker, #pw-room-things-list > li::marker,
+.pw-inventory-list > li::marker {
+  color: var(--pw-copper);
+}
+
+.pw-inventory-empty { list-style: none; }
+
+#pw-room-exits-list { list-style: none; }
+
+#pw-room-exits-list > li::before {
+  content: "\2192";
+  content: "\2192" / "";
+  margin-right: .25rem;
+  color: var(--pw-gold_link);
 }
 
 a.pw-room-exit {
@@ -265,21 +529,21 @@ a.pw-room-exit {
 .pw-inventory-list {
   margin: .25rem 0 0;
   padding: 0;
-  list-style: none;
 }
 
 /* The text area. <main> is the scroll container: Evennia's default_out
-   scrolls #messagewindow's grandparent, so #messagewindow itself must not. */
+   scrolls #messagewindow's grandparent, so #messagewindow itself must not.
+   It wears frame_panel (V3.1). The side padding makes 18 px with the
+   frame, what the edge and padding were before it, so the line keeps its
+   80 columns at the breakpoint. */
 #main {
   grid-area: text;
   box-sizing: border-box;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: .75rem 1rem;
+  padding: 0 .125rem;
   background: var(--pw-background);
-  border: 2px solid var(--pw-border_wood);
-  border-radius: .25rem;
   font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, "Courier New", monospace;
   font-size: .875rem;
   line-height: 1.4;
@@ -320,8 +584,10 @@ a.pw-room-exit {
    it routes its tab's class (pw-tab-channels, pw-tab-talk) or the class
    every tab shows (pw-tab-every: the client's err/sys lines, lock 7A). All
    has no rule; it shows every line. The selected tab is told by weight and
-   a thicker bottom edge, not by colour alone (WC14); the row scrolls
-   sideways in itself below the breakpoint if it must (8A). */
+   a Gold/Link list under its label, inside the frame, not by colour alone
+   (WC14; V3.1 lock 5A: the frame's image covers the border's own colour,
+   so the mark cannot be a border; 5.85:1 against Panel light); the row
+   scrolls sideways in itself below the breakpoint if it must (8A). */
 #pw-tabs {
   grid-area: tabs;
   display: flex;
@@ -331,11 +597,9 @@ a.pw-room-exit {
 
 #pw-tabs [role="tab"] {
   min-height: 2.75rem;
-  padding: .375rem .75rem;
+  padding: 0;
   background: var(--pw-panel);
   color: var(--pw-text);
-  border: 2px solid var(--pw-border_wood);
-  border-radius: .25rem .25rem 0 0;
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
@@ -345,7 +609,7 @@ a.pw-room-exit {
   background: var(--pw-panel_light);
   color: var(--pw-highlight);
   font-weight: 700;
-  border-bottom-width: 5px;
+  box-shadow: inset 0 -4px 0 var(--pw-gold_link);
 }
 
 #pw-tabs [hidden] { display: none; }
@@ -390,26 +654,97 @@ a.pw-room-exit {
   flex: 1 1 auto;
   box-sizing: border-box;
   min-width: 0;
-  height: 3rem;
+  height: calc(1.4rem + 32px);
   padding: .5rem .75rem;
   background: var(--pw-panel);
   color: var(--pw-text);
-  border: 2px solid var(--pw-border_wood);
+  border: 2px solid var(--pw-copper);
   border-radius: .25rem;
   font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, "Courier New", monospace;
   font-size: 1rem;
   resize: none;
 }
 
+/* The command line (visual pass V1.4). The field's edge is plain Copper
+   and turns Gold/Link with focus, beside the global outline (lock 3A).
+   The placeholder is Muted at full opacity, 5.78:1 on Panel; Firefox
+   would dim it otherwise. The field has no frame (V2.1 lock 1A); its
+   height is one body line plus two frame edges, the sum that makes the
+   framed send button beside it (V3.1 lock 1A). */
+#inputfield:focus { border-color: var(--pw-gold_link); }
+
+#inputfield::placeholder {
+  color: var(--pw-muted);
+  opacity: 1;
+}
+
+/* The send button (locks 1A, 2A): the game's one green control. It shows
+   only a play glyph in Highlight (4.17:1 on Deep green, above the 3:1 a
+   graphical label needs), silent to speech; its name is the word "Send"
+   in a visually hidden span, which screen readers and voice control read.
+   default_in.js finds it by #inputsend, so the id and its place stay. */
 #inputsend {
   height: auto;
-  padding: 0 1rem;
-  background: var(--pw-panel_light);
+  min-width: 3rem;
+  padding: 0;
+  background: var(--pw-deep_green);
   color: var(--pw-highlight);
-  border: 2px solid var(--pw-border_wood);
-  border-radius: .25rem;
   font: inherit;
   cursor: pointer;
+}
+
+#inputsend::before {
+  content: "\25B6";
+  content: "\25B6" / "";
+}
+
+/* Hidden from sight, kept for screen readers (never display: none). */
+.pw-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Frames (visual pass V3.1). Six boxes wear a 9-slice frame from
+   polishedworld/ui/frames/ (lock 3A): frame_panel on each panel section
+   and on the text area, frame_button on the tabs, the drawer buttons and
+   the send button. The ALPHA mark and the command field keep their plain
+   Copper edge.
+
+   The files are 48x48 with 16 px corners and are drawn at x1, so the
+   border is as wide as the slice (lock 1A). Only the outer 5 px of a slice
+   are drawn; the box's own background shows in the other 11. That is why
+   the corners are square (a rounded background would notch every frame
+   corner) and why these boxes have little or no padding: the frame's
+   inner band is the padding. Each edge is one colour along its length, so
+   `stretch` is exact (lock 4A); `pixelated` keeps the corners sharp when
+   the browser zooms.
+
+   If an image does not load, the border's own style shows: a double
+   Copper line (lock 2A). `border` is a shorthand that also resets
+   border-image, so it stands first here; no later rule for these boxes,
+   and no state of them, may declare a border. */
+#pw-panel-left > section, #pw-panel-right > section, #main,
+#pw-tabs [role="tab"], .pw-panel-button, #inputsend {
+  border: 16px double var(--pw-copper);
+  border-radius: 0;
+  border-image-slice: 16;
+  border-image-repeat: stretch;
+  image-rendering: pixelated;
+}
+
+#pw-panel-left > section, #pw-panel-right > section, #main {
+  border-image-source: url("../ui/frames/frame_panel.png");
+}
+
+#pw-tabs [role="tab"], .pw-panel-button, #inputsend {
+  border-image-source: url("../ui/frames/frame_button.png");
 }
 
 /* Three columns. The .pw-open selectors are repeated so a drawer left open
@@ -427,6 +762,10 @@ a.pw-room-exit {
 
   .pw-panel-button {
     display: none;
+  }
+
+  #pw-banner[data-banner] {
+    display: block;
   }
 
   #pw-panel-left, #pw-panel-left.pw-open,

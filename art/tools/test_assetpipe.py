@@ -15,6 +15,9 @@ one way the pipeline can let a broken asset through:
 * TestNaming -- names follow the style guide; the prefix decides the size, so a
   wrong prefix must fail instead of falling back to some default.
 * TestSize -- every prefix enforces its own native size.
+* TestPictures -- a banner or location picture is a full rectangle (style
+  guide section 5): #FF00FF in it fails, since clean would turn it into a
+  hole (visual pass V3.4).
 * TestColours -- the palette match is exact: one channel off by one is a
   failure, and zone keys are not allowed outside the zone map.
 * TestTransparency -- masters carry magenta, not alpha; a converted RGBA must
@@ -34,7 +37,11 @@ one way the pipeline can let a broken asset through:
 * TestRealMasters -- the committed body masters pass.
 * TestPublishedUpToDate -- the files committed under web/static/ are what
   the pipeline produces today, so a master edited without re-running the
-  pipeline is caught.
+  pipeline is caught; for the cleaned families (FAMILIES: the webclient's
+  icons since visual pass V3.2, its frames since V3.1, its weather and
+  season icons since V3.3, its banners and location pictures since V3.4)
+  also every master is valid, and a published file without a master, or a
+  master never published, fails.
 * TestCli -- exit codes 0/1/2 as documented.
 """
 
@@ -59,6 +66,8 @@ MAGENTA = (255, 0, 255)
 OUTLINE = (0x9D, 0x9B, 0x8C)  # palette "muted", the figure's edge (W2.3)
 DETAIL = (0x0E, 0x15, 0x12)  # palette "background", inner dark details
 DARK_WOOD = (0x4B, 0x30, 0x26)  # 1.35:1 against Panel
+# The prefixes of full pictures, which carry no magenta (visual pass V3.4).
+PICTURES = ("banner_", "room_")
 SKIN = (0xE7, 0xB9, 0x8A)
 ZONE_KEYS = [
     (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
@@ -127,10 +136,11 @@ class TestSize(_TmpCase):
     def test_each_prefix_enforces_its_native_size(self):
         for prefix, size in assetpipe.NATIVE_SIZES.items():
             with self.subTest(prefix=prefix):
-                good = self.make(f"{prefix}x.png", size=size, pixels={(1, 1): SKIN})
+                fill = DETAIL if prefix in PICTURES else MAGENTA
+                good = self.make(f"{prefix}x.png", size=size, fill=fill, pixels={(1, 1): SKIN})
                 self.assertEqual(self.errors(good), [])
                 wrong = (size[0] * 2, size[1])
-                bad = self.make(f"{prefix}y.png", size=wrong, pixels={(1, 1): SKIN})
+                bad = self.make(f"{prefix}y.png", size=wrong, fill=fill, pixels={(1, 1): SKIN})
                 self.assertIn("expected", self.errors(bad)[0])
 
 
@@ -158,7 +168,24 @@ class TestColours(_TmpCase):
         self.assertIn("empty", self.errors(path)[0])
 
     def test_full_bleed_without_magenta_is_fine(self):
-        path = self.make("room_test.png", size=(320, 180), fill=DETAIL)
+        # 96x54 since visual pass V3.4 (V2.2 lock 1A): the size the Location
+        # panel shows at x1.
+        path = self.make("room_test.png", size=(96, 54), fill=DETAIL)
+        self.assertEqual(self.errors(path), [])
+
+
+class TestPictures(_TmpCase):
+    def test_magenta_in_a_picture_fails(self):
+        for name, size in (("banner_x.png", (320, 40)), ("room_x.png", (96, 54))):
+            with self.subTest(name=name):
+                path = self.make(name, size=size, fill=DETAIL, pixels={(3, 4): MAGENTA})
+                errs = self.errors(path)
+                self.assertEqual(len(errs), 1, errs)
+                self.assertIn("#FF00FF", errs[0])
+                self.assertIn("(3,4)", errs[0])
+
+    def test_an_icon_keeps_magenta_as_its_background(self):
+        path = self.make("weather_day_x.png", pixels={(5, 5): SKIN})
         self.assertEqual(self.errors(path), [])
 
 
@@ -399,6 +426,18 @@ class TestRealMasters(unittest.TestCase):
 
 class TestPublishedUpToDate(_TmpCase):
     PUBLISHED = REPO / "web" / "static" / "polishedworld" / "characters" / "body"
+    # The families published by `clean` alone: master folder -> published
+    # folder. The body is not here; it also needs split-body (above).
+    FAMILIES = {
+        "icons": (REPO / "art" / "ui" / "icons",
+                  REPO / "web" / "static" / "polishedworld" / "ui" / "icons"),
+        "frames": (REPO / "art" / "ui" / "frames",
+                   REPO / "web" / "static" / "polishedworld" / "ui" / "frames"),
+        "world": (REPO / "art" / "ui" / "world",
+                  REPO / "web" / "static" / "polishedworld" / "ui" / "world"),
+        "pictures": (REPO / "art" / "ui" / "pictures",
+                     REPO / "web" / "static" / "polishedworld" / "ui" / "pictures"),
+    }
 
     def assert_same_pixels(self, committed, fresh):
         with Image.open(committed) as a, Image.open(fresh) as b:
@@ -418,6 +457,19 @@ class TestPublishedUpToDate(_TmpCase):
         for name in names:
             with self.subTest(name=name):
                 self.assert_same_pixels(self.PUBLISHED / name, fresh / name)
+
+    def test_published_families_match_their_masters(self):
+        for family, (masters, published) in self.FAMILIES.items():
+            with self.subTest(family=family):
+                fresh = self.dir / family
+                names = sorted(p.name for p in masters.glob("*.png"))
+                self.assertTrue(names, f"no masters in {masters}")
+                for name in names:
+                    report = assetpipe.clean(masters / name, fresh, self.palette)
+                    self.assertTrue(report.ok, f"{family}/{name}: {report.errors}")
+                self.assertEqual(sorted(p.name for p in published.iterdir()), names)
+                for name in names:
+                    self.assert_same_pixels(published / name, fresh / name)
 
 
 class TestCli(_TmpCase):

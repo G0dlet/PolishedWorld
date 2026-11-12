@@ -21,11 +21,23 @@ Each class names the bug it pressures:
                            text and unknown command, so anything after it
                            never sees a message.
     TestSkeleton           the DOM no longer matches what Evennia's plugins
-                           look up by id, or #messagewindow's grandparent is
-                           not <main> (default_out scrolls the grandparent).
+                           look up by id, #messagewindow's grandparent is
+                           not <main> (default_out scrolls the grandparent),
+                           or the `connecting` block is given content while
+                           the stylesheet hides its box (visual pass OQ-V4).
     TestStylesheetOrder    the project stylesheet loads before Evennia's, so
                            Evennia's stock rules (the black .out, the fixed
                            #input) win again.
+    TestAlphaMark          the ALPHA mark leaves the title (the page's name
+                           no longer reads "... Alpha") or is written in
+                           capitals, which some screen readers spell out
+                           letter by letter (visual pass V1.2, lock 1A).
+    TestGaugeMarkup        a gauge's numbers and description leave their
+                           shared value span, change order, or lose the space
+                           between them (visual pass V1.3 fix, lock A).
+    TestCommandLineMarkup  the send button's name stops being the word "Send"
+                           in its own hidden span, or the field loses its
+                           label or placeholder (visual pass V1.4, 1A, 3A).
     TestLandmarks          a side panel loses its label, Tab no longer
                            reaches input, panels and text in that order, or
                            a panel button stops naming the panel it opens.
@@ -192,6 +204,9 @@ ROOM_IDS = (
     "pw-room-things",
     "pw-room-things-list",
 )
+# The header's banner (visual pass V3.4), written by pw_world.js; the same id
+# is in tests/js/test_pw_world.js BANNER.
+BANNER_ID = "pw-banner"
 # The room-lists toggle (W6.1 lock 6); the same id is in tests/js/test_pw_text.js.
 TOGGLE_ID = "pw-room-lists-in-text"
 # The panel's list rows and their labels, which are look's
@@ -326,6 +341,15 @@ class TestScriptOrder(_PageTest):
 
 
 class TestSkeleton(_PageTest):
+    def test_connecting_block_is_empty(self):
+        # The stylesheet hides #connecting (visual pass OQ-V4; theme test
+        # test_connecting_box_is_hidden). That is safe only while the block
+        # renders nothing: a connect message written into it would be
+        # invisible. Whoever fills the block meets this test first.
+        box = re.search(r'<div id="connecting">(.*?)</div>', self.html, re.S)
+        self.assertIsNotNone(box)
+        self.assertEqual(box.group(1).strip(), "")
+
     def test_ids_evennia_plugins_look_up(self):
         for element_id in ("messagewindow", "inputfield", "inputsend", "prompt", "clientwrapper"):
             self.assertIn(element_id, self.page.ancestors, element_id)
@@ -347,6 +371,71 @@ class TestStylesheetOrder(_PageTest):
             if t == "link" and a.get("rel") == "stylesheet"
         ]
         self.assertEqual(hrefs, EXPECTED_STYLESHEETS)
+
+
+class TestAlphaMark(_PageTest):
+    def test_alpha_is_a_word_inside_the_title(self):
+        # Inside the title, so the page's name reads "PolishedWorld Alpha";
+        # written "Alpha", so speech says the word -- the stylesheet shows it
+        # in capitals (visual pass V1.2, lock 1A).
+        title = re.search(r'<p class="pw-title">(.*?)</p>', self.html, re.S)
+        self.assertIsNotNone(title)
+        self.assertRegex(title.group(1), r'^\S.*<span class="pw-alpha">Alpha</span>$')
+
+
+class TestBannerMarkup(_PageTest):
+    """
+    The banner (visual pass V3.4): an empty element in the header after the
+    title and before the drawer buttons, so the title's auto margin puts it
+    at the right end (lock 2) and nothing in it is read or focused (WC14).
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_in_the_header_between_title_and_buttons(self):
+        i = self._index(BANNER_ID)
+        self.assertIn("pw-header", self.page.within[i])
+        title = next(n for n, (_t, a) in enumerate(self.page.tags) if a.get("class") == "pw-title")
+        button = next(n for n, (_t, a) in enumerate(self.page.tags) if a.get("class") == "pw-panel-button")
+        self.assertTrue(title < i < button, (title, i, button))
+
+    def test_empty_and_not_announced(self):
+        self.assertRegex(self.html, r'<div id="%s" class="pw-banner"></div>' % BANNER_ID)
+
+
+class TestGaugeMarkup(_PageTest):
+    GAUGES = ("pw-char-health", "pw-survival-hunger", "pw-survival-thirst", "pw-survival-fatigue")
+
+    def test_value_span_holds_numbers_then_description(self):
+        for gauge in self.GAUGES:
+            with self.subTest(gauge=gauge):
+                pattern = (
+                    r'<p id="%(g)s" class="pw-gauge" hidden>\s*'
+                    r'<span class="pw-gauge-label">[A-Z][a-z]+</span>\s*'
+                    r'<span class="pw-gauge-value">'
+                    r'<span id="%(g)s-numbers" class="pw-gauge-numbers"></span> '
+                    r'<span id="%(g)s-desc" class="pw-gauge-desc"></span>'
+                    r'</span>\s*<span class="pw-bar"'
+                ) % {"g": gauge}
+                self.assertIsNotNone(re.search(pattern, self.html), gauge)
+
+
+class TestCommandLineMarkup(_PageTest):
+    def test_send_is_named_by_a_hidden_word(self):
+        self.assertIn(
+            '<button id="inputsend" type="button"><span class="pw-visually-hidden">Send</span></button>',
+            self.html,
+        )
+
+    def test_field_keeps_its_label_and_has_a_placeholder(self):
+        self.assertIn(
+            '<textarea id="inputfield" aria-label="Command" placeholder="Type a command"></textarea>',
+            self.html,
+        )
 
 
 class TestLandmarks(_PageTest):

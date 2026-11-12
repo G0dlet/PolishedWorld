@@ -16,6 +16,15 @@
  *   writer      a renderer is missing for world or room, more than one timer
  *               runs per page (lock 5), an unchanged line is rewritten every
  *               second, or markup is written instead of text.
+ *   icons       (visual pass V3.3) a weather or season gets no icon or
+ *               another's, the night icon shows outside the period night
+ *               or not in it (lock 1), an unknown key gets an icon name
+ *               (lock 5), the tables drift from the server's words, or an
+ *               icon is not set, not cleared indoors, or rewritten every
+ *               second.
+ *   banner      (visual pass V3.4) the header's banner is not the season's,
+ *               shows for a season it does not know (lock 6), is rewritten
+ *               every second, or a page without it breaks the panel.
  */
 "use strict";
 
@@ -27,7 +36,14 @@ const vm = require("node:vm");
 
 const FILE = path.join(__dirname, "..", "..", "web", "static", "polishedworld", "js", "pw_world.js");
 const TABLE = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "world_cases.json"), "utf8"));
-const { worldView, gameSecondsAt, showWeather } = require(FILE);
+const {
+    worldView, gameSecondsAt, showWeather, weatherIcon, seasonIcon,
+    WEATHER_KEYS, SEASON_KEYS, NIGHT_PERIODS, bannerName,
+} = require(FILE);
+
+// The banner sits in the header, outside the panel (V3.4); the same id is in
+// tests/test_webclient_template.py BANNER_ID.
+const BANNER = "pw-banner";
 
 // The ids the renderer writes. A literal list (W-z); the same list is in
 // tests/test_webclient_template.py WORLD_IDS for the page's side.
@@ -68,8 +84,17 @@ describe("parity", () => {
     });
 
     it("says what time prints at every case", () => {
-        const got = TABLE.cases.map((c) => worldView(c.seconds, CAL));
+        const got = TABLE.cases.map((c) => {
+            const v = worldView(c.seconds, CAL);
+            return { date: v.date, time: v.time, season: v.season };
+        });
         const want = TABLE.cases.map((c) => ({ date: c.date, time: c.time, season: c.season }));
+        assert.deepEqual(got, want);
+    });
+
+    it("names the period that time prints in brackets", () => {
+        const got = TABLE.cases.map((c) => worldView(c.seconds, CAL).period);
+        const want = TABLE.cases.map((c) => /\((\w+)\)$/.exec(c.time)[1]);
         assert.deepEqual(got, want);
     });
 });
@@ -108,7 +133,15 @@ describe("weather", () => {
 // ------------------------------------------------------------------ writer
 
 function fakeElement(id) {
-    const el = { id: id, hidden: true, writes: 0, style: {} };
+    const el = { id: id, hidden: true, writes: 0, style: {}, attrs: {}, attrWrites: 0 };
+    el.setAttribute = (name, value) => {
+        el.attrWrites += 1;
+        el.attrs[name] = String(value);
+    };
+    el.removeAttribute = (name) => {
+        el.attrWrites += 1;
+        delete el.attrs[name];
+    };
     let text = "";
     Object.defineProperty(el, "textContent", {
         get() { return text; },
@@ -172,6 +205,99 @@ function values(elements) {
     }
     return out;
 }
+
+function iconsOf(elements) {
+    const out = {};
+    for (const key of ["season", "weather"]) {
+        const attrs = elements["pw-world-" + key].attrs;
+        out[key] = Object.prototype.hasOwnProperty.call(attrs, "data-icon") ? attrs["data-icon"] : null;
+    }
+    return out;
+}
+
+const at = (h, m) => h * 3600 + m * 60;
+
+describe("icons", () => {
+    it("keeps the server's words", () => {
+        // Literals, as the DOMAINS lists in test_pw_state.js and
+        // tests/test_client_state.py; tests/test_webclient_theme.py
+        // TestWorldIcons reads the same tables from pw_world.js and
+        // compares them with the server.
+        assert.deepEqual(
+            [WEATHER_KEYS, SEASON_KEYS, NIGHT_PERIODS],
+            [["clear", "raining", "snowing", "foggy"], ["spring", "summer", "autumn", "winter"], ["night"]]
+        );
+    });
+
+    it("names a day and a night icon for every weather", () => {
+        const got = WEATHER_KEYS.map((w) => [weatherIcon(w, "day"), weatherIcon(w, "night")]);
+        assert.deepEqual(got, [
+            ["weather_day_clear", "weather_night_clear"],
+            ["weather_day_raining", "weather_night_raining"],
+            ["weather_day_snowing", "weather_night_snowing"],
+            ["weather_day_foggy", "weather_night_foggy"],
+        ]);
+    });
+
+    it("is night in the period night and in no other (lock 1)", () => {
+        const got = CAL.times_of_day.map((span) => [span[0], weatherIcon("clear", span[0])]);
+        assert.deepEqual(got, CAL.times_of_day.map((span) => [
+            span[0], span[0] === "night" ? "weather_night_clear" : "weather_day_clear",
+        ]));
+    });
+
+    it("turns at 20:00 and at 04:00", () => {
+        const icon = (s) => weatherIcon("foggy", worldView(s, CAL).period);
+        assert.deepEqual(
+            [icon(at(3, 59)), icon(at(4, 0)), icon(at(19, 59)), icon(at(20, 0))],
+            ["weather_night_foggy", "weather_day_foggy", "weather_day_foggy", "weather_night_foggy"]
+        );
+    });
+
+    it("names an icon for every season", () => {
+        assert.deepEqual(SEASON_KEYS.map(seasonIcon),
+            ["season_spring", "season_summer", "season_autumn", "season_winter"]);
+    });
+
+    it("names nothing for a key it does not know (lock 5)", () => {
+        assert.deepEqual(
+            [weatherIcon("cloudy", "day"), weatherIcon("undefined", "night"), weatherIcon("", "day"),
+             seasonIcon("monsoon"), seasonIcon("")],
+            [null, null, null, null, null]
+        );
+    });
+});
+
+describe("banner", () => {
+    it("names a banner for every season and none for a season it does not know", () => {
+        assert.deepEqual([...SEASON_KEYS, "monsoon", ""].map(bannerName),
+            ["banner_spring", "banner_summer", "banner_autumn", "banner_winter", null, null]);
+    });
+
+    it("sets the season's banner on a frame and turns it with the season", () => {
+        const { elements, renderer } = load([...IDS, BANNER]);
+        renderer("world")(world(), null);
+        assert.equal(elements[BANNER].attrs["data-banner"], "banner_spring");
+        // Frostmelt 8 + 112 days: month 5, Sunpeak, summer.
+        renderer("world")(world({ game_seconds: 604800 + 112 * 86400 }), null);
+        assert.equal(elements[BANNER].attrs["data-banner"], "banner_summer");
+    });
+
+    it("does not rewrite the banner when the season has not changed", () => {
+        const { elements, timers, clock, renderer } = load([...IDS, BANNER]);
+        renderer("world")(world(), null);
+        clock.now = 1000;
+        timers[0][0]();
+        timers[0][0]();
+        assert.equal(elements[BANNER].attrWrites, 1);
+    });
+
+    it("draws the panel on a page without the banner", () => {
+        const { elements, renderer } = load(IDS);
+        renderer("world")(world(), null);
+        assert.equal(values(elements).season, "spring");
+    });
+});
 
 describe("writer", () => {
     it("registers one renderer for world and one for room", () => {
@@ -240,6 +366,53 @@ describe("writer", () => {
         renderer("room")(room(), null);
         renderer("world")(world({ weather: "<b>x</b>" }), null);
         assert.equal(elements["pw-world-weather-value"].textContent, "<b>x</b>");
+    });
+
+    it("sets the season and weather icons on a frame", () => {
+        const { elements, renderer } = load(IDS);
+        renderer("room")(room(), null);
+        renderer("world")(world(), null);
+        assert.deepEqual(iconsOf(elements), { season: "season_spring", weather: "weather_day_raining" });
+    });
+
+    it("turns the weather icon to night on the timer at 20:00", () => {
+        const { elements, timers, clock, renderer } = load(IDS);
+        renderer("room")(room(), null);
+        renderer("world")(world({ game_seconds: 604800 + at(19, 59) + 50 }), null);
+        assert.equal(iconsOf(elements).weather, "weather_day_raining");
+        clock.now = 3000;   // twelve game seconds later: 20:00:02
+        timers[0][0]();
+        assert.equal(iconsOf(elements).weather, "weather_night_raining");
+    });
+
+    it("clears the weather icon indoors and sets it again outdoors", () => {
+        const { elements, renderer } = load(IDS);
+        renderer("room")(room(), null);
+        renderer("world")(world(), null);
+        renderer("room")(room({ indoor: true }), null);
+        assert.deepEqual(iconsOf(elements), { season: "season_spring", weather: null });
+        renderer("room")(room(), null);
+        assert.equal(iconsOf(elements).weather, "weather_day_raining");
+    });
+
+    it("sets no icon for a weather it does not know, and keeps the word", () => {
+        const { elements, renderer } = load(IDS);
+        renderer("room")(room(), null);
+        renderer("world")(world(), null);
+        renderer("world")(world({ weather: "cloudy" }), null);
+        assert.deepEqual([iconsOf(elements).weather, values(elements).weather], [null, "cloudy"]);
+    });
+
+    it("does not rewrite an icon that has not changed", () => {
+        const { elements, timers, clock, renderer } = load(IDS);
+        renderer("room")(room(), null);
+        renderer("world")(world(), null);
+        clock.now = 1000;
+        timers[0][0]();
+        timers[0][0]();
+        for (const key of ["season", "weather"]) {
+            assert.equal(elements["pw-world-" + key].attrWrites, 1, key);
+        }
     });
 
     it("registers nothing and starts no timer on a page without the panel", () => {

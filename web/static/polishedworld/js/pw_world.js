@@ -31,11 +31,31 @@
  *   6   Own <section> first in the right panel, static markup, one row per
  *       line of `time` with its label; the mockup's temperature is printed
  *       by no command, so it is not here.
+ *
+ * Weather and season icons (visual pass V3.3; Adam took every
+ * recommendation at STOPP 0). The script only names the icon: it sets the
+ * row's data-icon to the file's stem (weather_night_raining, season_summer)
+ * and the stylesheet maps each name to its file, so every icon is a CSS
+ * background, decoration by construction (WC14).
+ *   1   Night is the one period `night` (20:00-04:00), as the server's
+ *       is_nighttime() says; dawn and dusk are day.
+ *   5   A key this file does not know gets no data-icon, so no icon: the
+ *       word stands alone (WV4).
+ * The banner (visual pass V3.4) follows the season the same way: the header's
+ * #pw-banner gets data-banner (banner_summer), the stylesheet the file, and
+ * an unknown season gets no attribute and so no banner (lock 6). The banner
+ * stands outside this panel; a page without it shows none.
+ * The three tables are the server's words. tests/test_webclient_theme.py
+ * reads them from this file and compares them with world/weather.py
+ * WEATHER_STATES, gametime_utils' seasons and is_nighttime().
  */
 (function () {
     "use strict";
 
     var ROWS = ["date", "time", "season", "weather"];
+    var WEATHER_KEYS = ["clear", "raining", "snowing", "foggy"];
+    var SEASON_KEYS = ["spring", "summer", "autumn", "winter"];
+    var NIGHT_PERIODS = ["night"];
 
     function pad2(n) {
         return (n < 10 ? "0" : "") + n;
@@ -79,7 +99,24 @@
                 + (part.week * 7 + part.day + 1),
             time: pad2(part.hour) + ":" + pad2(part.min) + " (" + period + ")",
             season: season,
+            period: period,
         };
+    }
+
+    // Lock 1: the weather icon's day or night half follows the period.
+    function weatherIcon(weather, period) {
+        if (WEATHER_KEYS.indexOf(weather) === -1) {
+            return null;
+        }
+        return (NIGHT_PERIODS.indexOf(period) === -1 ? "weather_day_" : "weather_night_") + weather;
+    }
+
+    function seasonIcon(season) {
+        return SEASON_KEYS.indexOf(season) === -1 ? null : "season_" + season;
+    }
+
+    function bannerName(season) {
+        return SEASON_KEYS.indexOf(season) === -1 ? null : "banner_" + season;
     }
 
     // Lock 4A: a known room, outdoors.
@@ -95,6 +132,8 @@
         var received = 0;
         var room = null;
         var shown = {};   // row -> text last written, null when hidden
+        var icons = {};   // row -> data-icon last written, null when none
+        var banner = null;   // data-banner last written, null when none
 
         function write(key, text) {
             if (shown[key] === text) {
@@ -107,6 +146,33 @@
             }
         }
 
+        // Lock 5: no name, no attribute.
+        function writeIcon(key, name) {
+            if (icons[key] === name) {
+                return;
+            }
+            icons[key] = name;
+            var row = document.getElementById("pw-world-" + key);
+            if (name === null) {
+                row.removeAttribute("data-icon");
+            } else {
+                row.setAttribute("data-icon", name);
+            }
+        }
+
+        function writeBanner(name) {
+            var el = document.getElementById("pw-banner");
+            if (el === null || banner === name) {
+                return;
+            }
+            banner = name;
+            if (name === null) {
+                el.removeAttribute("data-banner");
+            } else {
+                el.setAttribute("data-banner", name);
+            }
+        }
+
         function draw() {
             if (world === null) {
                 return;
@@ -116,6 +182,9 @@
             ROWS.forEach(function (key) {
                 write(key, view[key]);
             });
+            writeIcon("season", seasonIcon(view.season));
+            writeIcon("weather", view.weather === null ? null : weatherIcon(view.weather, view.period));
+            writeBanner(bannerName(view.season));
         }
 
         pw_state.on("world", function (snapshot) {
@@ -131,7 +200,11 @@
     }
 
     if (typeof module !== "undefined" && module.exports) {
-        module.exports = { worldView: worldView, gameSecondsAt: gameSecondsAt, showWeather: showWeather };
+        module.exports = {
+            worldView: worldView, gameSecondsAt: gameSecondsAt, showWeather: showWeather,
+            weatherIcon: weatherIcon, seasonIcon: seasonIcon, bannerName: bannerName,
+            WEATHER_KEYS: WEATHER_KEYS, SEASON_KEYS: SEASON_KEYS, NIGHT_PERIODS: NIGHT_PERIODS,
+        };
     }
     if (typeof pw_state !== "undefined" && typeof document !== "undefined") {
         if (document.readyState === "loading") {

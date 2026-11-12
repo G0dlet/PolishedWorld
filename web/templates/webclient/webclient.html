@@ -43,12 +43,13 @@ leaves one tab in the Tab sequence. Each tab's unread mark starts hidden
 {% block client %}
 <div id="input">
   <div id="prompt" class="prompt"></div>
-  <textarea id="inputfield" aria-label="Command"></textarea>
-  <button id="inputsend" type="button">Send</button>
+  <textarea id="inputfield" aria-label="Command" placeholder="Type a command"></textarea>
+  <button id="inputsend" type="button"><span class="pw-visually-hidden">Send</span></button>
 </div>
 
 <header id="pw-header">
-  <p class="pw-title">{{ game_name }}</p>
+  <p class="pw-title">{{ game_name }} <span class="pw-alpha">Alpha</span></p>
+  <div id="pw-banner" class="pw-banner"></div>
   <button class="pw-panel-button" type="button" aria-controls="pw-panel-left" aria-expanded="false">Character</button>
   <button class="pw-panel-button" type="button" aria-controls="pw-panel-right" aria-expanded="false">World</button>
 </header>
@@ -59,8 +60,7 @@ leaves one tab in the Tab sequence. Each tab's unread mark starts hidden
     <img id="pw-char-figure" class="pw-figure" src="{% static 'polishedworld/characters/body/body_base.png' %}" width="128" height="256" alt="Character">
     <p id="pw-char-health" class="pw-gauge" hidden>
       <span class="pw-gauge-label">Health</span>
-      <span id="pw-char-health-numbers" class="pw-gauge-numbers"></span>
-      <span id="pw-char-health-desc" class="pw-gauge-desc"></span>
+      <span class="pw-gauge-value"><span id="pw-char-health-numbers" class="pw-gauge-numbers"></span> <span id="pw-char-health-desc" class="pw-gauge-desc"></span></span>
       <span class="pw-bar" aria-hidden="true"><span id="pw-char-health-bar" class="pw-bar-fill"></span></span>
     </p>
     <p id="pw-char-enc" class="pw-enc"></p>
@@ -69,20 +69,17 @@ leaves one tab in the Tab sequence. Each tab's unread mark starts hidden
     <h2 id="pw-survival-title" class="pw-survival-title">Survival</h2>
     <p id="pw-survival-hunger" class="pw-gauge" hidden>
       <span class="pw-gauge-label">Hunger</span>
-      <span id="pw-survival-hunger-numbers" class="pw-gauge-numbers"></span>
-      <span id="pw-survival-hunger-desc" class="pw-gauge-desc"></span>
+      <span class="pw-gauge-value"><span id="pw-survival-hunger-numbers" class="pw-gauge-numbers"></span> <span id="pw-survival-hunger-desc" class="pw-gauge-desc"></span></span>
       <span class="pw-bar" aria-hidden="true"><span id="pw-survival-hunger-bar" class="pw-bar-fill"></span></span>
     </p>
     <p id="pw-survival-thirst" class="pw-gauge" hidden>
       <span class="pw-gauge-label">Thirst</span>
-      <span id="pw-survival-thirst-numbers" class="pw-gauge-numbers"></span>
-      <span id="pw-survival-thirst-desc" class="pw-gauge-desc"></span>
+      <span class="pw-gauge-value"><span id="pw-survival-thirst-numbers" class="pw-gauge-numbers"></span> <span id="pw-survival-thirst-desc" class="pw-gauge-desc"></span></span>
       <span class="pw-bar" aria-hidden="true"><span id="pw-survival-thirst-bar" class="pw-bar-fill"></span></span>
     </p>
     <p id="pw-survival-fatigue" class="pw-gauge" hidden>
       <span class="pw-gauge-label">Fatigue</span>
-      <span id="pw-survival-fatigue-numbers" class="pw-gauge-numbers"></span>
-      <span id="pw-survival-fatigue-desc" class="pw-gauge-desc"></span>
+      <span class="pw-gauge-value"><span id="pw-survival-fatigue-numbers" class="pw-gauge-numbers"></span> <span id="pw-survival-fatigue-desc" class="pw-gauge-desc"></span></span>
       <span class="pw-bar" aria-hidden="true"><span id="pw-survival-fatigue-bar" class="pw-bar-fill"></span></span>
     </p>
   </section>
