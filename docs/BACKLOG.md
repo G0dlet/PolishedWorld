@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 107 · 2026-11-12** — four entries **annotated**, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 1 (roadmap Stage 4.6, locks SL1–SL13), roadmap Rev 75 and README Rev 55. ***Waterskin `durability` → `condition` migration*** (*Crafting*) is task S1.3, and the vessel is not mended (SL5); ***`DeathWeakness` debuff → `fatigue_rate`*** BLOCKED → SCHEDULED (S3.5, SL12); ***Fatigue-exhaustion consequence*** OPEN → SCHEDULED, its 2026-10-18 open questions closed by SL8–SL11; ***Webclient: players and NPCs apart, and active conditions*** — trigger (2) fired and is answered narrowly (SL13), the entry stays OPEN on its other triggers. No entry added.
 > **Rev 106 · 2026-11-12** — one entry **added** and four **annotated**, docs only, with webclient visual decomposition Rev 11 (DONE) and roadmap Rev 74. **Added** (*UX & Item Identity*): ***Webclient art: possible later revisions*** — the frames' band and corners, the spring and summer icons' silhouettes, and richer banners and header toward `webclient_03`, which ChatGPT's reviews named and the closed decomposition can no longer hold; OPEN, triggered by a second visual pass or a visible problem with an acceptance criterion (art style guide §5, Rev 9). **Annotated**, the triggers that named the visual pass's merge (read before writing, lesson 182): *Persistent alpha instance* (L6.1 deploys `alpha-20261112`); *Waterskin `durability` → `condition` migration* and *Fatigue-exhaustion consequence* (Stage 4.6 is next); *Webclient: mockup elements without server data* (parts 1–2 wait only on someone asking).
 > **Rev 105 · 2026-11-12** — one entry **added**, docs only, with webclient visual decomposition Rev 10. **Added** (*UX & Item Identity*): ***Webclient: players and NPCs apart, and active conditions (V4.1, V4.2, cut)*** — the visual pass's Component 4, cut by Adam after V3.4 (WV5) because both tasks start with server text; OPEN. Before the entry was written, BACKLOG was read for triggers that name the visual pass (lesson 182): *Webclient: mockup elements without server data* (parts 1–2) and *Persistent alpha instance* (the tag) fire at its merge, and the two Stage 4.6 annotations at its close-out; the cut changes none of them.
 > **Rev 104 · 2026-11-11** — one entry **added**, docs only, with the webclient visual pass decomposition (Rev 1) and roadmap Rev 72. **Added** (*UX & Item Identity*): ***Webclient: mockup elements without server data*** — an exit's destination, an icon per item, culture and homeland, an ambient temperature and a portrait, which the pass leaves out (WV5, WV6); OPEN for the first two, BLOCKED for the rest. No entry closed.
@@ -403,6 +404,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   order; nothing else changes.
 - **Annotation (2026-11-12, roadmap Rev 74):** the visual pass merged (`ea41a0f`,
   PR #28), so Stage 4.6's decomposition is next; nothing else changes.
+- **Annotation (2026-11-12, survival loop decomposition Rev 1):** task **S1.3**
+  (SL4, SL5). `Drink` gains `DurableObject`; a refill wears 8 and a crafted
+  skin starts at 96/80/48/24 by band, which keeps today's 12/10/6/3 refills
+  and the split on the dip after the last. New in the decomposition: `repair`
+  accepts any `DurableObject` with cloth and twine as its default
+  (`commands/repair_commands.py:103`, `:121`), so the migration alone would
+  make the gourd mendable and close its sink — a vessel refuses `repair`.
+  `db.durability` is not migrated (no backfill; no instance is deployed).
 - **Status:** OPEN
 
 ### Hunt-independent needle primitive
@@ -1653,7 +1662,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (`world/death_contract.py:132`, death-consequence policy (v)); a level that
   sleep mends changes that promise, so the design leaves it to roadmap
   altitude (NQ14). The re-point alone needs no such ratification.
-- **Status:** BLOCKED (fatigue-exhaustion consequence)
+- **Annotation (2026-11-12, survival loop decomposition Rev 1):** task **S3.5**
+  (SL12). NQ14 is ratified (roadmap decision log, death-consequence policy,
+  note of this date): respawn sets fatigue to Wearied and the death message
+  gains *Rest mends the weariness that comes with it*. The buff carries one
+  `fatigue_rate` mod of +25 %. Recorded plainly: `fatigue_rate` scales the
+  awake clock after S3.3, so over the buff's 300 s the mod is worth about 75
+  seconds of a day measured in hours — the level is the consequence, and the
+  mod gains weight with Rest slice 2 or Temperature's *Exposed*.
+- **Status:** SCHEDULED (survival loop decomposition, S3.5)
 
 ---
 
@@ -1818,7 +1835,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   log, *Order after the webclient*, amended); nothing else changes.
 - **Annotation (2026-11-12, roadmap Rev 74):** the visual pass merged (`ea41a0f`,
   PR #28), so Stage 4.6's decomposition is next; nothing else changes.
-- **Status:** OPEN
+- **Annotation (2026-11-12, survival loop decomposition Rev 1):** tasks
+  **S3.1–S3.4** (SL8–SL11). The 2026-10-18 open questions are closed: the
+  thresholds are twenty-point bands; only the bottom test is Difficult; the
+  forced rest refuses movement, eating and drinking and lasts until the gauge
+  reaches Tired (41, about ninety real seconds at the shipped `rest` gain — a
+  placeholder Rest slice 2 replaces with the place's row); the state persists
+  in `db` across reload and relog. One departure from the 2026-11-08 leaning:
+  slice 1 has no `sleep`, so `rest` stays as shipped and a full rest resets
+  the awake clock (SL10) — in this slice a level costs minutes. The awake
+  clock's Athletics tests do not train the skill (SL9).
+- **Status:** SCHEDULED (survival loop decomposition, S3.1–S3.4)
 
 ---
 
@@ -3276,6 +3303,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   or an alpha player asks what is affecting them.
 - **Origin:** Webclient visual pass decomposition Rev 10, after V3.4
   (2026-11-12).
+- **Annotation (2026-11-12, survival loop decomposition Rev 1):** trigger (2)
+  fired with Rest slice 1 and is answered narrowly (SL13, task S3.1): `status`
+  prints the fatigue level with its penalty, and the client's survival panel
+  receives the level's word through the snapshot it already shows. The list of
+  active buffs — a text home, `conditions` in `char`, the pushes — is not
+  built; part (2) stays on its second trigger (*an alpha player asks what is
+  affecting them*), part (1) is unchanged.
 - **Status:** OPEN
 
 ### Webclient art: possible later revisions
