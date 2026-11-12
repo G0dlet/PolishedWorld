@@ -245,7 +245,14 @@ body {
    level of a gauge. Health keeps the default fill; each survival gauge has
    its own palette colour, which tells the bars apart at a glance but never
    alone: each row's label names its gauge. */
-.pw-gauge { margin: .5rem 0; }
+/* A gauge with its icon (visual pass V3.2): the icon stands in a column of
+   its own, spanning the label line and the bar. */
+.pw-gauge {
+  position: relative;
+  min-height: 32px;
+  margin: .5rem 0;
+  padding-left: 2.5rem;
+}
 
 .pw-gauge-desc { color: var(--pw-muted); }
 
@@ -293,6 +300,54 @@ body {
 .pw-room-row { margin: .5rem 0; }
 
 .pw-room-label { color: var(--pw-muted); }
+
+/* Icons (visual pass V3.2). Each one is a ::before beside a word that
+   already says what it means (WC14): a CSS background with empty content,
+   so it is decoration by construction and screen readers skip it. 32 px is
+   the icons' native size, the one whole factor that fits beside the text
+   (WC10); pixelated keeps the pixels square. The files are what
+   art/tools/assetpipe.py clean makes of art/ui/icons/ (style guide §10). */
+.pw-char-name, .pw-survival-title, .pw-world-title, .pw-room-title,
+.pw-inventory-title, .pw-room-label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.pw-char-name::before, .pw-survival-title::before, .pw-inventory-title::before,
+.pw-world-title::before, .pw-room-title::before,
+#pw-room-exits .pw-room-label::before, #pw-room-characters .pw-room-label::before,
+#pw-room-things .pw-room-label::before,
+#pw-char-health::before, #pw-survival-hunger::before,
+#pw-survival-thirst::before, #pw-survival-fatigue::before {
+  content: "";
+  flex: none;
+  width: 32px;
+  height: 32px;
+  background-repeat: no-repeat;
+  background-size: 32px 32px;
+  image-rendering: pixelated;
+}
+
+#pw-char-health::before, #pw-survival-hunger::before,
+#pw-survival-thirst::before, #pw-survival-fatigue::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.pw-char-name::before { background-image: url("../ui/icons/icon_character.png"); }
+.pw-survival-title::before { background-image: url("../ui/icons/icon_survival.png"); }
+.pw-inventory-title::before { background-image: url("../ui/icons/icon_inventory.png"); }
+.pw-world-title::before { background-image: url("../ui/icons/icon_world.png"); }
+.pw-room-title::before { background-image: url("../ui/icons/icon_location.png"); }
+#pw-room-exits .pw-room-label::before { background-image: url("../ui/icons/icon_exits.png"); }
+#pw-room-characters .pw-room-label::before { background-image: url("../ui/icons/icon_characters.png"); }
+#pw-room-things .pw-room-label::before { background-image: url("../ui/icons/icon_things.png"); }
+#pw-char-health::before { background-image: url("../ui/icons/status_health.png"); }
+#pw-survival-hunger::before { background-image: url("../ui/icons/status_hunger.png"); }
+#pw-survival-thirst::before { background-image: url("../ui/icons/status_thirst.png"); }
+#pw-survival-fatigue::before { background-image: url("../ui/icons/status_fatigue.png"); }
 
 .pw-room-list {
   margin: .25rem 0 0;

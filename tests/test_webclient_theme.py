@@ -57,6 +57,11 @@ Each class names the bug it pressures:
                            a heading loses its rule or outgrows the title, or
                            the ALPHA mark becomes unreadable (visual pass V1.2,
                            locks 1A-4A).
+    TestIcons              an icon is missing, points at a file that is not
+                           published, is drawn at a scale other than x1, is
+                           smoothed instead of pixelated, carries content a
+                           screen reader would read, or a published icon is
+                           used by nothing (visual pass V3.2).
     TestTextTabs           a filtered tab shows lines of another tab or
                            hides the client's err/sys lines, All hides
                            anything, the tab row loses its own grid area
@@ -105,6 +110,24 @@ PANEL_HEADINGS = (".pw-char-name", ".pw-survival-title", ".pw-world-title", ".pw
 # both surfaces, which is the palette's status flag.
 EDGE_SELECTORS = (SECTION_SELECTOR, "#main", '#pw-tabs [role="tab"]', ".pw-panel-button", ".pw-alpha")
 SELECTED_TAB = '#pw-tabs [role="tab"][aria-selected="true"]'
+# Visual pass V3.2: each icon sits on a ::before beside a word that already
+# says what it means (WC14), as a CSS background, so it is decoration by
+# construction. Selector -> file under polishedworld/ui/icons/.
+ICONS = {
+    ".pw-char-name::before": "icon_character.png",
+    ".pw-survival-title::before": "icon_survival.png",
+    ".pw-inventory-title::before": "icon_inventory.png",
+    ".pw-world-title::before": "icon_world.png",
+    ".pw-room-title::before": "icon_location.png",
+    "#pw-room-exits .pw-room-label::before": "icon_exits.png",
+    "#pw-room-characters .pw-room-label::before": "icon_characters.png",
+    "#pw-room-things .pw-room-label::before": "icon_things.png",
+    "#pw-char-health::before": "status_health.png",
+    "#pw-survival-hunger::before": "status_hunger.png",
+    "#pw-survival-thirst::before": "status_thirst.png",
+    "#pw-survival-fatigue::before": "status_fatigue.png",
+}
+ICON_DIR = "polishedworld/ui/icons/"
 PROJECT_CSS = REPO / "web" / "static" / "polishedworld" / "css" / "webclient.css"
 EVENNIA_CSS = "webclient/css/webclient.css"
 PALETTE = REPO / "art" / "palette" / "palette.json"
@@ -683,3 +706,39 @@ class TestChrome(_ThemeTest):
         bg = VAR.findall(self.decl(".pw-alpha", "background"))[0]
         self.assertGreaterEqual(contrast(self.palette[fg]["hex"], self.palette[bg]["hex"]), 4.5)
         self.assertEqual(self.decl(".pw-alpha", "text-transform"), "uppercase")
+
+
+class TestIcons(_ThemeTest):
+    def merged(self, selector):
+        """Every declaration that applies to selector outside @media, last wins."""
+        out = {}
+        for rule in self.rules:
+            if rule.media is None and selector in rule.selectors:
+                out.update(dict(rule.decls))
+        return out
+
+    def test_every_icon_points_at_its_published_file(self):
+        for selector, name in ICONS.items():
+            with self.subTest(selector=selector):
+                self.assertEqual(
+                    self.merged(selector).get("background-image"), 'url("../ui/icons/%s")' % name
+                )
+                self.assertIsNotNone(finders.find(ICON_DIR + name), name)
+
+    def test_every_published_icon_is_used(self):
+        folder = finders.find(ICON_DIR.rstrip("/"))
+        self.assertIsNotNone(folder, ICON_DIR)
+        self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), sorted(ICONS.values()))
+
+    def test_icons_are_empty_decoration_at_x1_pixelated(self):
+        # x1 is the only whole factor that fits beside the text (WC10); an
+        # empty content string is skipped by screen readers.
+        for selector in ICONS:
+            with self.subTest(selector=selector):
+                decls = self.merged(selector)
+                self.assertEqual(decls.get("content"), '""')
+                self.assertEqual(decls.get("width"), "32px")
+                self.assertEqual(decls.get("height"), "32px")
+                self.assertEqual(decls.get("background-size"), "32px 32px")
+                self.assertEqual(decls.get("background-repeat"), "no-repeat")
+                self.assertEqual(decls.get("image-rendering"), "pixelated")
