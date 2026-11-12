@@ -21,8 +21,10 @@ Each class names the bug it pressures:
                            text and unknown command, so anything after it
                            never sees a message.
     TestSkeleton           the DOM no longer matches what Evennia's plugins
-                           look up by id, or #messagewindow's grandparent is
-                           not <main> (default_out scrolls the grandparent).
+                           look up by id, #messagewindow's grandparent is
+                           not <main> (default_out scrolls the grandparent),
+                           or the `connecting` block is given content while
+                           the stylesheet hides its box (visual pass OQ-V4).
     TestStylesheetOrder    the project stylesheet loads before Evennia's, so
                            Evennia's stock rules (the black .out, the fixed
                            #input) win again.
@@ -336,6 +338,15 @@ class TestScriptOrder(_PageTest):
 
 
 class TestSkeleton(_PageTest):
+    def test_connecting_block_is_empty(self):
+        # The stylesheet hides #connecting (visual pass OQ-V4; theme test
+        # test_connecting_box_is_hidden). That is safe only while the block
+        # renders nothing: a connect message written into it would be
+        # invisible. Whoever fills the block meets this test first.
+        box = re.search(r'<div id="connecting">(.*?)</div>', self.html, re.S)
+        self.assertIsNotNone(box)
+        self.assertEqual(box.group(1).strip(), "")
+
     def test_ids_evennia_plugins_look_up(self):
         for element_id in ("messagewindow", "inputfield", "inputsend", "prompt", "clientwrapper"):
             self.assertIn(element_id, self.page.ancestors, element_id)

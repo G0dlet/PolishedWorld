@@ -92,6 +92,19 @@ body {
   outline-offset: 2px;
 }
 
+/* Evennia's box for a connect message. Our template leaves its block
+   empty and nothing removes the box, but Evennia's stylesheet makes it
+   `position: absolute; width: 100%; padding: .5em .9em`. That is 28.8 px
+   wider than the page: in Firefox's responsive design mode the viewport
+   grows to fit it (`innerWidth` 929 at 900) and an open drawer ends 29 px
+   off the screen. It is also 16 px high across the top of the header,
+   where a hit-test finds it instead of what lies under it. Hidden whole,
+   since narrowing it would leave that strip (visual pass OQ-V4). A
+   template test fails if the block is ever given content. */
+#connecting {
+  display: none;
+}
+
 /* The grid. DOM order is input, header, panels, tabs, text (Tab order,
    lock 6; tabs W6.2); the areas put them where mockup v3 shows them. */
 #clientwrapper {

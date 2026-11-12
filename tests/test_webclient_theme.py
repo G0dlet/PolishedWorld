@@ -25,7 +25,9 @@ Each class names the bug it pressures:
                            on the text area's surface.
     TestStockOverrides     one of Evennia's stock rules still wins: the black
                            box behind .out, the fixed #input, the 8 px font
-                           Evennia sets below 480 px, its monospace body.
+                           Evennia sets below 480 px, its monospace body, or
+                           the empty #connecting box that is wider than the
+                           page and lies over the header (visual pass OQ-V4).
     TestMessageWhitespace  the server's runs of spaces collapse again: the
                            banner and every EvTable lose their columns.
                            default_out.js:13 picks the class 'out' only when
@@ -497,6 +499,17 @@ class TestStockOverrides(_ThemeTest):
 
     def test_input_not_fixed(self):
         self.assertNotIn("fixed", _decl_values(self.rules, "#input", ("position",)))
+
+    def test_connecting_box_is_hidden(self):
+        # Evennia gives #connecting `position: absolute; width: 100%;
+        # padding: .5em .9em`: 28.8 px wider than the page, which Firefox's
+        # responsive design mode grows the viewport to fit (an open drawer
+        # then ends 29 px off the screen), and 16 px high over the top of
+        # the header, where a hit-test finds it first. Nothing fills or
+        # removes it, so it is hidden whole: narrowing it would leave the
+        # strip over the header (visual pass OQ-V4). Read outside @media:
+        # it holds at every width.
+        self.assertEqual(self.merged("#connecting").get("display"), "none")
 
     def test_text_and_input_are_monospace_panels_are_not(self):
         for selector in ("#main", "#inputfield"):
