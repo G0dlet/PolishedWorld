@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 23 · 2026-11-12** — **the webclient visual pass** (visual decomposition V5.2; merged as `ea41a0f`, PR #28, tagged `alpha-20261112`). §21.1 gives the pipeline's count after the pass (46); new **§21.4 *Receiving a picture or icon family***, as run at V3.1–V3.4 and V2.2.1 (hash, `validate` in the repo, master byte for byte, `rm` and `clean` the whole family, the family test red before green, approval in the client); §22.1 gives the Node count (142); new **§22.5 *The visual pass's tests and the static render*** and **§22.6 *its protocols, as run***.
 > **Rev 22 · 2026-11-11** — **the webclient (webclient decomposition W8.2; merged as `399e306`, tagged `alpha-20261111`).** **New §22: the webclient** — running the Node tests (`node --test tests/js/*.js`, 122 in nine files) and how they load browser files (`module.exports` for `pw_state`, otherwise a `vm` context, several files in page order); the four fakes (markup sinks that throw, `pw_state`, `window` with `matchMedia` and `localStorage`, a page with focus and key counters); registration tested by its call form; the parity table both layers read; on the Python side `ReactorMixin`, the push census, phantom values for a shared helper, the second-session test with its receipt, and the red receipt against a no-op renderer; how a browser protocol is run (two browsers, the `server/.static` receipt, one-value console receipts, `innerWidth`, `reboot` for a disconnect, the storage trap, the screen-reader control page); and an index of the protocols as run, W3.1–W8.1.
 > **Rev 21 · 2026-11-06** — **the asset pipeline (Webclient decomposition W2.1–W2.4; merged as `37844da`).** **New §21: the asset pipeline** — running its tests outside `evennia test`, the three publishing commands and the shell `evennia reload` the browser check needs, what the tests read (the contrast formula pinned by the palette's own figures, three edge-rule fixtures that each reach one case, a mutation that survived on a fixture gap), and how a master from ChatGPT is received. **§13** gains one rule: read the parallel runner's result with `grep`, never `tail` — its teardown lines come after the result, one per worker.
 > **Rev 20 · 2026-11-05** — **the dev board (BACKLOG Rev 66; merged as `fbbe222`).** **New §20: the dev board** — how the view's tests reach the file (a patched module global, read per request), the shipped-file test that catches a heading typo, a mutation that survived on a fixture gap rather than dead code, and the protocol as run on the work machine, with what each step proved and what it did not.
@@ -1288,7 +1289,7 @@ Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `test
 
 ### 21.1 Running it
 
-- **Tests run outside `evennia test`,** which never sees `art/`: `python -m unittest discover -s art/tools` from the repository root, with Pillow from `art/tools/requirements.txt` in the venv. 32 tests on `main` after W2.4; 43 on `feature/webclient` after W2.3. A full-suite receipt for a branch that touches the pipeline is therefore two lines: this one, and the suite's.
+- **Tests run outside `evennia test`,** which never sees `art/`: `python -m unittest discover -s art/tools` from the repository root, with Pillow from `art/tools/requirements.txt` in the venv. 32 tests on `main` after W2.4; 43 on `feature/webclient` after W2.3. *(Rev 23)* 46 on `main` after the visual pass: the picture rules (`room_` at 96×54, no `#FF00FF` in a `banner_` or `room_` file) and the four UI families in `TestPublishedUpToDate`. A full-suite receipt for a branch that touches the pipeline is therefore two lines: this one, and the suite's.
 - **Publishing is three commands,** in this order, after any change to a body master: `validate` the masters, `clean art/body/body_base.png --out web/static/polishedworld/characters/body`, `split-body --out web/static/polishedworld/characters/body`. `TestPublishedUpToDate` regenerates both into a temporary folder and compares pixels with what is committed, so a master committed without re-running the pipeline fails a test.
 - **The browser check needs the shell's `evennia reload`.** Only the launcher runs `collectstatic` (Webclient decomposition §3), and static files are served from `server/.static`; the in-game `reload` leaves the old file in place. Then open `http://localhost:4001/static/polishedworld/characters/body/body_base.png` (work machine, W2.2: the eight files were served).
 
@@ -1305,13 +1306,21 @@ Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `test
 2. **Then `validate`.** On `main` before W2.3 the edge rules did not exist, so step 1 was the only check of what the brief asked for.
 3. **Check the property, not the brief's procedure.** The first delivery did exactly what the brief said — recolour the dark pixels that touch the background, 156 of them — and passed every check above, but eight hair pixels at the top of the head had never had an outline and stayed at 1.35:1 against Panel. The brief described a procedure where it should have stated the property (*every edge pixel reaches 3:1*); the second brief named the eight pixels, and W2.3 turned the property into a `validate` rule so the next master is held to it by the tool.
 
+### 21.4 Receiving a picture or icon family (visual pass, as run 2026-11-11 → 2026-11-12)
+
+1. **Hash the delivery** and compare it with what is committed or was delivered before (`sha256sum`). A file sent again is often byte for byte the old one: the outdoor picture V2.2.1 came back inside a later review zip unchanged, which answered "is it deployed?" before anything else was read.
+2. **`validate` in the repository,** never the delivery's own report, then the brief's checks the tool cannot make (edge contrast for icons, the banners' shared geometry, night by shape), each by a script or a picture.
+3. **Put the master in `art/ui/<family>/` byte for byte, then republish the whole family:** `rm web/static/polishedworld/ui/<family>/*.png` and `clean art/ui/<family>/*.png --out web/static/polishedworld/ui/<family>`. `git status` must then show only the intended files in both folders: `clean` writes untouched files byte-identical, so the republish is its own receipt that nothing else moved.
+4. **Red before green for data, too:** with the master replaced and the published file not, `TestPublishedUpToDate` fails with *"<name> is stale"*; after `clean` it passes. That shows the test catches a forgotten publish, not only a changed tool.
+5. **Approval is in the client,** at ×1 and 200 % nearest-neighbour, in colour and greyscale, where the picture is used (a location picture beside each banner), and it is Adam's: `validate` passing is necessary, not sufficient (style guide §5 *Approval*).
+
 ## 22. The webclient
 
 *(Webclient decomposition W3.1–W8.1; merged as `399e306`, tagged `alpha-20261111`. Code `web/static/polishedworld/`, `web/templates/webclient/`, `world/client_state.py`, `world/room_text.py`; Python tests `tests/test_client_state.py`, `tests/test_room_look.py`, `tests/test_webclient_template.py`, `tests/test_webclient_theme.py`, `tests/test_time_command.py`; JavaScript tests `tests/js/`. What the client relies on in Evennia is Evennia Ref §19.)*
 
 ### 22.1 The JavaScript tests (Node)
 
-- **Run them outside `evennia test`,** which never sees `tests/js/`: from the repository root, `node --test tests/js/*.js` (Node 20 or later; the work machine has v20.20.2). 122 tests in nine files at the merge (char 14, gauge 5, inventory 9, room 12, state 21, survival 10, tabs 17, text 18, world 16). A directory argument fails on Node 22 (`node --test tests/js/` → *Cannot find module*) and a bare `node --test` finds none of the `test_*.js` files, so glob the files.
+- **Run them outside `evennia test`,** which never sees `tests/js/`: from the repository root, `node --test tests/js/*.js` (Node 20 or later; the work machine has v20.20.2). 122 tests in nine files at the merge (*(Rev 23)* 142 after the visual pass, which added the `icons` and `banner` groups in `test_pw_world.js` and the `picture` group in `test_pw_room.js`) (char 14, gauge 5, inventory 9, room 12, state 21, survival 10, tabs 17, text 18, world 16). A directory argument fails on Node 22 (`node --test tests/js/` → *Cannot find module*) and a bare `node --test` finds none of the `test_*.js` files, so glob the files.
 - **How a browser file is loaded.** `pw_state.js` exports its factory through `module.exports` when `module` exists, so each test builds its own store with `require(FILE).create()`. Every other file runs as the page runs it: read as text and executed with `vm.runInContext` in a `vm.createContext` sandbox that holds only the globals the file uses (`pw_state`, `plugin_handler`, `document`, `window`, `console`). Files the page loads together run in **one** context in page order — `pw_gauge.js` before the panel that reads it — so a test catches a script that depends on load order.
 - **The fakes, one per kind of page contact:**
   - *a fake element whose markup sinks throw* (`fakeElement` in the panel tests): `innerHTML` and `outerHTML` are setters that throw, `insertAdjacentHTML` throws, so a renderer that writes markup fails the test that drives it, not just a static grep;
@@ -1367,6 +1376,35 @@ Each task's protocol is written out in its *Shipped* line in the decomposition; 
 | W6.2 | steps 0–11: channel lines in *Channels*, `say`/`pose`/`whisper` in *Talk*, the *new* marks; `reload` against `reboot` |
 | W7.1 | steps 1–10: carrying and wearing lists, `give` of a worn garment, stacking, `@destroy`, the drawer at `innerWidth` 390, no storage write |
 | W8.1 | the Orca pass, timeboxed, fell to its fallback: Orca read no page text, the control page included |
+
+### 22.5 The visual pass's tests and the static render
+
+*(Visual decomposition V1.1–V3.4; tests `tests/test_webclient_theme.py`, `tests/test_webclient_template.py`, `tests/js/test_pw_world.js`, `tests/js/test_pw_room.js`, `art/tools/test_assetpipe.py`.)*
+
+- **The theme tests read the stylesheet as text,** through `_ThemeTest`'s reader, which also sees rules inside `@media` (`TestCssReader` guards it). The pass added `TestHeadingFont`, `TestChrome`, `TestFrames`, `TestIcons`, `TestWorldIcons`, `TestPictures`, `TestGaugesAndLists`, `TestCommandLine` and `TestStockOverrides.test_connecting_box_is_hidden`; the template tests gained `TestAlphaMark`, `TestBannerMarkup`, `TestGaugeMarkup`, `TestCommandLineMarkup` and `TestSkeleton.test_connecting_block_is_empty`. Each class's docstring names the bug it pressures. Targeted run at the merge: theme 78 + template 89 = 167.
+- **Every `url()` resolves,** and every published file is used: the icon and picture tests fail on a rule naming a missing file and on a file in a published family that no rule names.
+- **A table shared with the server is read out of the script's file** (`_js_table` in `TestWorldIcons`) and compared with the server's own values; the Node test pins the same table as literals. Two loose literals, one per side, catch only one side's change (Lessons 300).
+- **A rule that must not exist is a test too:** every `#pw-room-name` rule is free of `display` (Evennia Ref §19.7, the specificity trap).
+- **The static render (sandbox pre-receipt, not the protocol).** A few lines render the real page in Chromium through Playwright: `django.setup()` with `server.conf.settings`, `render_to_string("webclient/webclient.html", …)`, static files answered through `finders.find` in a `page.route`, every `.js` refused, and the `data-*` attributes and panel text set by hand. It measures boxes, overflow and wrapping before a patch leaves. Two rules from the pass: a stylesheet served to it is served as `text/css` (a copy named `.orig` never loaded, and the measurement seemed to hold — Lessons 298), and a measurement tries the longest value the game can give, not a typical one (Lessons 297).
+- **A console receipt is `JSON.stringify(…)`** of the array it reads: Firefox folds an array into `Array(3) […]` on a screenshot (Lessons 265).
+
+### 22.6 The visual pass's protocols, as run (work machine, Firefox 159, 2026-11-11 → 2026-11-12)
+
+Each task's protocol is written out in its *Shipped* line in the visual decomposition; the table is the index.
+
+| Task | What the protocol showed |
+| --- | --- |
+| V1.1 | headings in Alegreya, tabs, ▶ and text unchanged; one font request, from the game's host |
+| V1.2 | five boxes, ruled headings, the ALPHA mark and the tabs at full width; at 900 px the drawer buttons Copper-edged, the open *World* drawer opaque |
+| V1.3, its fix | two faults the tests could not see: *Fatigue 0/100 exhausted* pushed its row 7 px out of the panel, and the exit arrow sat against its word; fixed before push |
+| V1.4 | the green ▶ and the Copper field, a Gold edge on focus; ▶ and Enter both send, history works, one row at 900 px; the button's accessible name not read in the *Accessibility* panel |
+| V3.1 | frames on sections, text area, tabs and ▶ at 100 % and 200 %; both drawers at 900 × 800 |
+| V3.2 | all twelve heading and gauge icons in place, square and sharp at 200 % |
+| OQ-V4 | `[929, "connecting", "block"]` before, `[900, "BUTTON"]` after; one stale reading thrown away (an inline style from the console lasts until the page reloads) |
+| V3.3, V3.3b | indoors no weather row; dawn shows the day icon; the four states follow `weather`; *Year 1, Brightdawn 3* broke with *3* alone until V3.3b |
+| V3.4 | banner by season at the header's right end, the location picture by `indoor`, the other seasons set by hand; none at 900 px, the picture in the drawer |
+| V2.2.1 | `["room_indoor","Old Temple"]`, `["room_outdoor","Temple Clearing"]`, the drawer at 900, both sharp at 200 %, the outdoor picture beside the winter banner set by hand |
+| V5.1 | the full suite on the local merge result, tree `43de079`: 1447 OK in 751 s; Node 142; art tools 46 |
 
 ## Domain quick-refs
 
