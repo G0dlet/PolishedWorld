@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 105 · 2026-11-12** — one entry **added**, docs only, with webclient visual decomposition Rev 10. **Added** (*UX & Item Identity*): ***Webclient: players and NPCs apart, and active conditions (V4.1, V4.2, cut)*** — the visual pass's Component 4, cut by Adam after V3.4 (WV5) because both tasks start with server text; OPEN. Before the entry was written, BACKLOG was read for triggers that name the visual pass (lesson 182): *Webclient: mockup elements without server data* (parts 1–2) and *Persistent alpha instance* (the tag) fire at its merge, and the two Stage 4.6 annotations at its close-out; the cut changes none of them.
 > **Rev 104 · 2026-11-11** — one entry **added**, docs only, with the webclient visual pass decomposition (Rev 1) and roadmap Rev 72. **Added** (*UX & Item Identity*): ***Webclient: mockup elements without server data*** — an exit's destination, an icon per item, culture and homeland, an ambient temperature and a portrait, which the pass leaves out (WV5, WV6); OPEN for the first two, BLOCKED for the rest. No entry closed.
 > **Rev 103 · 2026-11-11** — three entries **annotated**, docs only, with webclient decomposition Rev 17 (W8.2: the epic closes) and roadmap Rev 71. ***Persistent alpha instance*** (*Operations*): L6.1 checks out `alpha-20261111` (on `399e306`, PR #27), which ships the webclient, or a later tag if the visual pass lands first; behind TLS the instance sets `WEBSOCKET_CLIENT_URL` (runbook §7, Rev 7). ***Waterskin `durability` → `condition` migration*** and ***Fatigue-exhaustion consequence***: Stage 4.6, which schedules both, now follows the new *Webclient visual pass* (roadmap decision log, *Order after the webclient*, amended). No status changes, no entry added: the visual pass's home is its roadmap entry.
 > **Rev 102 · 2026-11-11** — two entries **decided** and one **annotated**, docs only, with webclient decomposition Rev 16 (W8.1: `feature/webclient` merged to `main` as `399e306`, PR #27, tagged `alpha-20261111`). **Decided** (*UX & Item Identity*): ***Webclient: the Orca pass is not run (W6.1)*** — one timeboxed try at W8.1: Orca on the work machine echoed keys but read no page text, not even a one-line control page with `#messagewindow`'s markup and no project code, so the fault is the tool's; the epic closes with WC14 resting on markup and keyboard, and the entry takes ***A screen-reader pass***'s trigger (OPEN). ***Webclient: `TypeError` on Enter while disconnected*** — the `TypeError` half is decided, jQuery stays 3.7.1; the `DOMException` half waits for the upstream report (OPEN). **Annotated:** ***A screen-reader pass*** — the webclient's Orca pass now runs with it. No entry closed.
@@ -3245,6 +3246,29 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Webclient visual pass decomposition Rev 1, STOPP 0
   (2026-11-11).
 - **Status:** OPEN (parts 1–2), BLOCKED (parts 3–5)
+
+### Webclient: players and NPCs apart, and active conditions (V4.1, V4.2, cut)
+- **What:** the visual pass's Component 4 (Webclient visual decomp §8), two
+  parts. (1) Players and NPCs told apart in a room: look prints one
+  `Characters:` line (`typeclasses/rooms.py:335`) and `room_snapshot` sends one
+  `characters` list (`world/client_state.py:223`), so the text changes first
+  (two lines, or one with a marker), then the payload and the panel. (2) A
+  player's active conditions: no command in `commands/` lists a character's
+  buffs, so a text home comes first (a section of `status` or a command of its
+  own), then `conditions: [str]` in `char`, with pushes at the buff writers
+  the decomposition's §3 lists, counted by `TestPushCensus` (WC8).
+- **Why deferred:** each part starts with server text (WC1) and a census —
+  what counts as an NPC beside players and creatures, which buffs a player
+  should see — which makes the pair a small epic of its own rather than visual
+  polish. Cut after V3.4 (WV5): nothing earlier in the pass depends on it.
+- **Trigger:** per part — (1): the `rpg/rpsystem` slice (*Strangers by
+  description*), whose short descriptions change how look names characters,
+  or an alpha player cannot tell a player from an NPC; (2): Stage 4.6's Rest
+  slice 1, whose fatigue levels are conditions a player must be able to read,
+  or an alpha player asks what is affecting them.
+- **Origin:** Webclient visual pass decomposition Rev 10, after V3.4
+  (2026-11-12).
+- **Status:** OPEN
 
 ## Tooling & Process
 
