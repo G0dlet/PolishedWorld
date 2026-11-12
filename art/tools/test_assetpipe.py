@@ -35,9 +35,9 @@ one way the pipeline can let a broken asset through:
 * TestPublishedUpToDate -- the files committed under web/static/ are what
   the pipeline produces today, so a master edited without re-running the
   pipeline is caught; for the cleaned families (FAMILIES: the webclient's
-  icons since visual pass V3.2, its frames since V3.1) also every master is
-  valid, and a published file without a master, or a master never
-  published, fails.
+  icons since visual pass V3.2, its frames since V3.1, its weather and
+  season icons since V3.3) also every master is valid, and a published
+  file without a master, or a master never published, fails.
 * TestCli -- exit codes 0/1/2 as documented.
 """
 
@@ -409,6 +409,8 @@ class TestPublishedUpToDate(_TmpCase):
                   REPO / "web" / "static" / "polishedworld" / "ui" / "icons"),
         "frames": (REPO / "art" / "ui" / "frames",
                    REPO / "web" / "static" / "polishedworld" / "ui" / "frames"),
+        "world": (REPO / "art" / "ui" / "world",
+                  REPO / "web" / "static" / "polishedworld" / "ui" / "world"),
     }
 
     def assert_same_pixels(self, committed, fresh):
