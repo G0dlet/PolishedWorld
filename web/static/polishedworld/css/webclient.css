@@ -247,14 +247,16 @@ body {
    alone: each row's label names its gauge. */
 /* A gauge with its icon (visual pass V3.2): the icon stands in a column of
    its own, spanning the label line and the bar. The label line (V1.3, lock
-   1A): the label at the left, the numbers and the description at the right
-   edge, in the columns of their DOM order, so the eye reads what a screen
-   reader reads. A hidden gauge stays hidden: #pw-char [hidden] and
-   #pw-survival [hidden] outweigh this class. */
+   1A, and its fix, lock A): the label at the left, the value -- numbers and
+   description in one span, in DOM order -- at the right edge. The value
+   column may shrink below its longest word and wraps inside itself,
+   right-aligned, so "Fatigue 0/100 exhausted" stays inside a 17rem panel.
+   A hidden gauge stays hidden: #pw-char [hidden] and #pw-survival [hidden]
+   outweigh this class. */
 .pw-gauge {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr);
   column-gap: .375rem;
   align-items: baseline;
   min-height: 32px;
@@ -263,8 +265,15 @@ body {
 }
 
 .pw-gauge-label { grid-column: 1; }
-.pw-gauge-numbers { grid-column: 3; }
-.pw-gauge-desc { grid-column: 4; color: var(--pw-muted); }
+
+.pw-gauge-value {
+  grid-column: 2;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.pw-gauge-desc { color: var(--pw-muted); }
 
 .pw-bar {
   grid-column: 1 / -1;
@@ -386,8 +395,9 @@ body {
 #pw-room-exits-list { list-style: none; }
 
 #pw-room-exits-list > li::before {
-  content: "\2192 ";
-  content: "\2192 " / "";
+  content: "\2192";
+  content: "\2192" / "";
+  margin-right: .25rem;
   color: var(--pw-gold_link);
 }
 

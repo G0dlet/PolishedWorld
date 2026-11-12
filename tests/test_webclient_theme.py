@@ -62,8 +62,10 @@ Each class names the bug it pressures:
                            smoothed instead of pixelated, carries content a
                            screen reader would read, or a published icon is
                            used by nothing (visual pass V3.2).
-    TestGaugesAndLists     a gauge's numbers leave the right edge or are
-                           drawn in another order than the DOM reads them, an
+    TestGaugesAndLists     a gauge's value (numbers and description) leaves
+                           the right edge or cannot wrap inside its column, so
+                           a long description pushes the row out of its box
+                           (V1.3 fix, lock A), an
                            item list loses its marker or "Nothing." gains one,
                            or an exit's arrow is read aloud or lost (V1.3,
                            1A-3A). That a grid gauge stays hidden is
@@ -763,18 +765,22 @@ class TestGaugesAndLists(_ThemeTest):
                 out.update(dict(rule.decls))
         return out
 
-    def test_gauge_numbers_sit_right_in_dom_order(self):
-        # Label, numbers, description is the DOM's order; the columns keep
-        # it, so the eye reads what a screen reader reads (lock 1A).
-        self.assertEqual(self.merged(".pw-gauge").get("display"), "grid")
-        self.assertEqual(
-            self.merged(".pw-gauge").get("grid-template-columns"), "auto minmax(0, 1fr) auto auto"
-        )
-        columns = [
-            int(self.merged(sel).get("grid-column", "0"))
-            for sel in (".pw-gauge-label", ".pw-gauge-numbers", ".pw-gauge-desc")
-        ]
-        self.assertEqual(columns, [1, 3, 4])
+    def test_gauge_value_sits_right_and_wraps_inside_its_column(self):
+        # Two columns: the label, and the value (numbers and description in
+        # one span, in DOM order). The value column may shrink below its
+        # longest word and wraps inside itself, right-aligned, so "Fatigue
+        # 0/100 exhausted" stays in a 17rem panel (V1.3 fix, lock A).
+        gauge = self.merged(".pw-gauge")
+        self.assertEqual(gauge.get("display"), "grid")
+        self.assertEqual(gauge.get("grid-template-columns"), "auto minmax(0, 1fr)")
+        self.assertEqual(self.merged(".pw-gauge-label").get("grid-column"), "1")
+        value = self.merged(".pw-gauge-value")
+        self.assertEqual(value.get("grid-column"), "2")
+        self.assertEqual(value.get("min-width"), "0")
+        self.assertEqual(value.get("text-align"), "right")
+        self.assertEqual(value.get("overflow-wrap"), "anywhere")
+        for inner in (".pw-gauge-numbers", ".pw-gauge-desc"):
+            self.assertNotIn("grid-column", self.merged(inner), inner)
         self.assertEqual(self.merged(".pw-bar").get("grid-column"), "1 / -1")
 
     def test_item_lists_have_copper_square_markers(self):
@@ -792,5 +798,7 @@ class TestGaugesAndLists(_ThemeTest):
         contents = [v for p, v in decls if p == "content"]
         # A fallback without alt text first, then the one screen readers
         # read as nothing (the panel buttons' pattern).
-        self.assertEqual(contents, ['"\\2192 "', '"\\2192 " / ""'])
+        self.assertEqual(contents, ['"\\2192"', '"\\2192" / ""'])
+        # The gap is a margin: a trailing space in content collapses in Firefox.
+        self.assertEqual(self.merged(EXIT_ARROW).get("margin-right"), ".25rem")
         self.assertEqual(self.merged(EXIT_ARROW).get("color"), "var(--pw-gold_link)")

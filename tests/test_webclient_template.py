@@ -30,6 +30,9 @@ Each class names the bug it pressures:
                            no longer reads "... Alpha") or is written in
                            capitals, which some screen readers spell out
                            letter by letter (visual pass V1.2, lock 1A).
+    TestGaugeMarkup        a gauge's numbers and description leave their
+                           shared value span, change order, or lose the space
+                           between them (visual pass V1.3 fix, lock A).
     TestLandmarks          a side panel loses its label, Tab no longer
                            reaches input, panels and text in that order, or
                            a panel button stops naming the panel it opens.
@@ -361,6 +364,23 @@ class TestAlphaMark(_PageTest):
         title = re.search(r'<p class="pw-title">(.*?)</p>', self.html, re.S)
         self.assertIsNotNone(title)
         self.assertRegex(title.group(1), r'^\S.*<span class="pw-alpha">Alpha</span>$')
+
+
+class TestGaugeMarkup(_PageTest):
+    GAUGES = ("pw-char-health", "pw-survival-hunger", "pw-survival-thirst", "pw-survival-fatigue")
+
+    def test_value_span_holds_numbers_then_description(self):
+        for gauge in self.GAUGES:
+            with self.subTest(gauge=gauge):
+                pattern = (
+                    r'<p id="%(g)s" class="pw-gauge" hidden>\s*'
+                    r'<span class="pw-gauge-label">[A-Z][a-z]+</span>\s*'
+                    r'<span class="pw-gauge-value">'
+                    r'<span id="%(g)s-numbers" class="pw-gauge-numbers"></span> '
+                    r'<span id="%(g)s-desc" class="pw-gauge-desc"></span>'
+                    r'</span>\s*<span class="pw-bar"'
+                ) % {"g": gauge}
+                self.assertIsNotNone(re.search(pattern, self.html), gauge)
 
 
 class TestLandmarks(_PageTest):
