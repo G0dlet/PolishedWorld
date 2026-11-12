@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 106 · 2026-11-12** — one entry **added** and four **annotated**, docs only, with webclient visual decomposition Rev 11 (DONE) and roadmap Rev 74. **Added** (*UX & Item Identity*): ***Webclient art: possible later revisions*** — the frames' band and corners, the spring and summer icons' silhouettes, and richer banners and header toward `webclient_03`, which ChatGPT's reviews named and the closed decomposition can no longer hold; OPEN, triggered by a second visual pass or a visible problem with an acceptance criterion (art style guide §5, Rev 9). **Annotated**, the triggers that named the visual pass's merge (read before writing, lesson 182): *Persistent alpha instance* (L6.1 deploys `alpha-20261112`); *Waterskin `durability` → `condition` migration* and *Fatigue-exhaustion consequence* (Stage 4.6 is next); *Webclient: mockup elements without server data* (parts 1–2 wait only on someone asking).
 > **Rev 105 · 2026-11-12** — one entry **added**, docs only, with webclient visual decomposition Rev 10. **Added** (*UX & Item Identity*): ***Webclient: players and NPCs apart, and active conditions (V4.1, V4.2, cut)*** — the visual pass's Component 4, cut by Adam after V3.4 (WV5) because both tasks start with server text; OPEN. Before the entry was written, BACKLOG was read for triggers that name the visual pass (lesson 182): *Webclient: mockup elements without server data* (parts 1–2) and *Persistent alpha instance* (the tag) fire at its merge, and the two Stage 4.6 annotations at its close-out; the cut changes none of them.
 > **Rev 104 · 2026-11-11** — one entry **added**, docs only, with the webclient visual pass decomposition (Rev 1) and roadmap Rev 72. **Added** (*UX & Item Identity*): ***Webclient: mockup elements without server data*** — an exit's destination, an icon per item, culture and homeland, an ambient temperature and a portrait, which the pass leaves out (WV5, WV6); OPEN for the first two, BLOCKED for the rest. No entry closed.
 > **Rev 103 · 2026-11-11** — three entries **annotated**, docs only, with webclient decomposition Rev 17 (W8.2: the epic closes) and roadmap Rev 71. ***Persistent alpha instance*** (*Operations*): L6.1 checks out `alpha-20261111` (on `399e306`, PR #27), which ships the webclient, or a later tag if the visual pass lands first; behind TLS the instance sets `WEBSOCKET_CLIENT_URL` (runbook §7, Rev 7). ***Waterskin `durability` → `condition` migration*** and ***Fatigue-exhaustion consequence***: Stage 4.6, which schedules both, now follows the new *Webclient visual pass* (roadmap decision log, *Order after the webclient*, amended). No status changes, no entry added: the visual pass's home is its roadmap entry.
@@ -400,6 +401,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   *Webclient visual pass*, which comes directly after the webclient (decision
   log, *Order after the webclient*, amended). The schedule above holds with that
   order; nothing else changes.
+- **Annotation (2026-11-12, roadmap Rev 74):** the visual pass merged (`ea41a0f`,
+  PR #28), so Stage 4.6's decomposition is next; nothing else changes.
 - **Status:** OPEN
 
 ### Hunt-independent needle primitive
@@ -1813,6 +1816,8 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Annotation (2026-11-11, roadmap Rev 71):** Stage 4.6 is decomposed after the
   *Webclient visual pass*, which comes directly after the webclient (decision
   log, *Order after the webclient*, amended); nothing else changes.
+- **Annotation (2026-11-12, roadmap Rev 74):** the visual pass merged (`ea41a0f`,
+  PR #28), so Stage 4.6's decomposition is next; nothing else changes.
 - **Status:** OPEN
 
 ---
@@ -3245,6 +3250,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   appearance (for instance from the names design note's descriptions).
 - **Origin:** Webclient visual pass decomposition Rev 1, STOPP 0
   (2026-11-11).
+- **Annotation (2026-11-12, visual pass close-out):** the pass merged (`ea41a0f`,
+  PR #28), so parts 1–2 now wait only on the trigger's second half — an alpha
+  player or Adam asking for them. Nothing else changes.
 - **Status:** OPEN (parts 1–2), BLOCKED (parts 3–5)
 
 ### Webclient: players and NPCs apart, and active conditions (V4.1, V4.2, cut)
@@ -3268,6 +3276,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   or an alpha player asks what is affecting them.
 - **Origin:** Webclient visual pass decomposition Rev 10, after V3.4
   (2026-11-12).
+- **Status:** OPEN
+
+### Webclient art: possible later revisions
+- **What:** three revisions ChatGPT's reviews named during the webclient visual
+  pass (Webclient visual decomp §11), none ordered: (1) the frames
+  (`frame_panel`, `frame_button`) with a heavier band and a more prominent
+  corner ornament, tried only against the real layout (review of V2.1.1);
+  (2) `season_spring` and `season_summer` told apart by silhouette, not only by
+  tone and blossom dots — spring a sparser crown in three to five clusters with
+  branches showing, summer denser and wider (review of V3.3; the brief asked
+  for shape); (3) the four banners and the header with richer light,
+  vegetation and building detail toward `art/reference/webclient_03.webp`, at
+  the same 320×40 and with the seasons' shared geometry (reviews of V3.4 and
+  of V2.2.1, whose closing note proposes a next graphical stage on the header,
+  the banners and how the pixel art meets the interface).
+- **Why deferred:** every family was approved as delivered and the pass is
+  closed; by the art direction Adam set at V2.2.1 (art style guide §5, Rev 9) a
+  redraw is ordered for a specific visible problem with a before/after
+  acceptance criterion, which none of these yet states. Part (3) is the size of
+  a pass of its own, not a fix.
+- **Trigger:** Adam orders a second visual pass (part 3, with 1–2 as
+  candidates inside it), or names a visible problem in one of them with an
+  acceptance criterion.
+- **Origin:** Webclient visual pass decomposition Rev 11, V5.2 (2026-11-12).
 - **Status:** OPEN
 
 ## Tooling & Process
@@ -3567,6 +3599,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   visual pass* (roadmap Rev 71) lands first. Behind the TLS proxy the instance
   also sets `WEBSOCKET_CLIENT_URL = "wss://…"` in `secret_settings.py`, or the
   browser refuses the client's `ws://` socket as mixed content; runbook §7, Rev 7.
+- **Annotation (2026-11-12, visual pass close-out):** the pass landed first, so
+  L6.1 checks out **`alpha-20261112`** (annotated, on `ea41a0f`, PR #28, tree
+  `43de079`), which ships the webclient and its visual pass; runbook §7, Rev 8.
+  The pass adds static files only; the TLS note above stands.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones

@@ -19,7 +19,6 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## In progress
 
-- A better-looking webclient: frames, icons and pictures
 - The closed alpha
 
 ## Done
@@ -35,3 +34,4 @@ a top-level bullet under one of them, and anything else is ignored.
 - Weight and carrying
 - Death and recovering your body
 - A webclient with panels beside the text
+- A better-looking webclient: frames, icons and pictures

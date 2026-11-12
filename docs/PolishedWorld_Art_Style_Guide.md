@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 9 · 2026-11-12** — the art direction Adam set when he chose the outdoor location picture V2.2.1 over three later redraws (visual decomposition Rev 11): a new §5 subsection *Approval: legible first*; the location-picture rule in *Weather icons and pictures* records the exception it was given; §8 adds that `validate` passing is not approval. The visual pass is closed, so every family in §2 exists.
 > **Rev 8 · 2026-11-12** — the webclient visual pass's weather, season and picture families (visual decomposition V3.3–V3.4, on `feature/webclient-visual`): §2 lists `world/` and `pictures/`; §5's Rev 7 note is closed, since `NATIVE_SIZES` now gives `room_` 96×54; §10 lists the tool's new rule that a banner or location picture carries no `#FF00FF`, and the publish command for any family.
 > **Rev 7 · 2026-11-12** — what the webclient visual pass's second briefs state (visual decomposition V2.2), written here because both assistants follow it (§1): §5's size table gives the location picture as 96×54, the size that fits the client's *Location* panel at ×1 (`assetpipe.py` still says 320×180 for `room_` and follows at V3.4); §5's file-name examples use the names the client will ask for; a new §5 subsection *Weather icons and pictures*; §8 tells pictures from motifs on a background.
 > **Rev 6 · 2026-11-12** — the webclient's first UI family exists (webclient visual decomposition V3.2, on `feature/webclient-visual`): §2 gains `art/ui/<family>/` and its published counterpart `web/static/polishedworld/ui/<family>/`, §10 the command that publishes the icons, and §10's *Tests* the family table in `TestPublishedUpToDate`.
@@ -164,7 +165,16 @@ A file that the client picks by a game value is named by that value as the game 
 - **Night is told by shape** (§7): every `weather_night_` icon contains a moon or stars, and no `weather_day_` icon does. The day and night icons of one state share the same weather motif.
 - **Banners and location pictures are full rectangles.** Every pixel is painted, nothing is transparent and `#FF00FF` is not used; where a picture should melt into what is behind it, that colour is painted (Background behind a banner, Panel behind a location picture). The edge-contrast rule above is for motifs on a background and does not apply: all 27 colours may be used anywhere in a picture. No frame is drawn into a picture.
 - **A set of banners is one landscape:** terrain, buildings, trunks and paths stand on the same pixels in every file of the set, and only the season's dress changes. A banner shows no time of day and no falling weather, because it is shown at every hour and the weather has its own icon.
-- **A location picture says only what the game knows about the room** — today, indoors or outdoors. It shows no season, time of day, weather, lit fire, particular trade or creature. The mood of every picture is the tone guide's (`docs/PolishedWorld_Tone_Guide.md`).
+- **A location picture says only what the game knows about the room** — today, indoors or outdoors. It shows no season, time of day, weather, lit fire, particular trade or creature. The mood of every picture is the tone guide's (`docs/PolishedWorld_Tone_Guide.md`). *(Rev 9)* Under *Approval* below, legibility wins where this rule costs it: the approved `room_outdoor.png` keeps a Night blue sky and green ground, because without them its path and horizon stop reading at 96×54.
+
+### Approval: legible first
+
+Decided by Adam on 2026-11-12, when he chose `room_outdoor.png` V2.2.1 over three redraws that met its brief's checklist more closely and read worse (visual decomposition V3.4).
+
+- **Recognisable at native size comes first.** A picture or icon is judged at ×1 and at 200 % nearest-neighbour, in colour and in greyscale, and where it is used — a location picture beside each banner, an icon beside its word. Distinct value masses (sky, distant land, trees, ground, path; motif and background) come before palette percentages or a brief's checklist.
+- **A figure in a brief is a hypothesis**, such as "grass under 10 %". It is tested against the picture it shapes and dropped where it costs legibility.
+- **`validate` passing is necessary, not sufficient.** It checks size, palette, opacity and magenta; approval is Adam's, made on the picture in the client.
+- **No redraw without a specific visible problem and a before/after acceptance criterion.** A revision a review suggests without both is filed (BACKLOG *Webclient art: possible later revisions*), not ordered.
 
 ## 6. Mongoose Legend UI rules
 
@@ -194,6 +204,7 @@ No state may be distinguished by colour alone. Shape, symbol or text always carr
 - [ ] Readable at native size and without colour.
 - [ ] Body layers align exactly and follow the right/left convention.
 - [ ] Reviewed at real size in the client.
+- [ ] Approved by Adam on the picture in the client; `validate` passing is not approval (§5 *Approval*).
 - [ ] Style guide, manifest and any deviations updated together with the files.
 
 ## 9. Reference mockups

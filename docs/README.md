@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 54 · 2026-11-12** — the visual pass decomposition's row loses *people and conditions*, which were cut to BACKLOG (visual decomposition Rev 10, WV5); the document is DONE (Rev 11). No document added or removed.
 > **Rev 53 · 2026-11-12** — index `PolishedWorld_Tone_Guide.md` (the tone *hard roads, warm hearths* named cozy dark hard fantasy: three strands, refuges and routines, the tone per system, writing style, pacing, what breaks the tone, a review checklist — the writing half of the Comfort design). Added in the same commit as the document, with roadmap Rev 73; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (57/0).
 > **Rev 52 · 2026-11-11** — index `PolishedWorld_Webclient_Visual_Decomposition.md` (the webclient visual pass: heading font, chrome, art briefs and art in the client, players/NPCs and conditions as a cuttable component). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (56/0).
 > **Rev 51 · 2026-11-11** — no document added: the lessons register's row now reads 1–296 (Lessons Rev 5, the webclient close-out W8.2). The directory-vs-list loop was run (55/0).
@@ -121,7 +122,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Trivial work (E.2) decomposition | tactical (feature tasks) | `docs/PolishedWorld_Trivial_Work_Decomposition.md` |
 | Launch minimum decomposition (prerequisite 6 + the alpha instance) | tactical (feature and runbook tasks) | `docs/PolishedWorld_Launch_Minimum_Decomposition.md` |
 | Webclient decomposition (layout, OOB snapshots, panels) | tactical (feature tasks) | `docs/PolishedWorld_Webclient_Decomposition.md` |
-| Webclient visual pass decomposition (font, chrome, art, people and conditions) | tactical (feature tasks) | `docs/PolishedWorld_Webclient_Visual_Decomposition.md` |
+| Webclient visual pass decomposition (font, chrome, art) | tactical (feature tasks) | `docs/PolishedWorld_Webclient_Visual_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
