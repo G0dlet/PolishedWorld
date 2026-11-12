@@ -84,9 +84,11 @@ Each class names the bug it pressures:
                            world icon is used by nothing, an icon is not
                            empty decoration at x1, the world rows' labels
                            leave the gauges' column or a row is lower than
-                           its icon, or pw_world.js's tables drift from the
+                           its icon, pw_world.js's tables drift from the
                            server's weather states, seasons or night
-                           (visual pass V3.3, locks 1-5).
+                           (visual pass V3.3, locks 1-5), or a date too
+                           long for one line leaves its last word alone
+                           (V3.3b).
     TestGaugesAndLists     a gauge's value (numbers and description) leaves
                            the right edge or cannot wrap inside its column, so
                            a long description pushes the row out of its box
@@ -1041,6 +1043,12 @@ class TestWorldIcons(_ThemeTest):
                 decls = self.merged(row)
                 self.assertEqual(decls.get("position"), "relative")
                 self.assertEqual(decls.get("min-height"), "32px")
+
+    def test_rows_wrap_balanced(self):
+        # V3.3b: the gauges' column leaves "Year 1, Brightdawn 3" too little
+        # room; balanced wrapping breaks after the comma, greedy wrapping
+        # leaves "3" alone on a line.
+        self.assertEqual(self.merged(".pw-world-row").get("text-wrap"), "balance")
 
     def test_script_tables_are_the_servers_words(self):
         # Locks 1 and 5: pw_world.js names an icon only for a key in its

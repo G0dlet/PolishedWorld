@@ -306,10 +306,13 @@ body {
 
 /* World panel (W5.3). Its rows start hidden until the first world frame,
    and the weather row hides indoors. The label in the muted colour, as a
-   gauge's description is, so the value reads first. */
+   gauge's description is, so the value reads first. Since V3.3 every row
+   starts at the gauges' column, which leaves a date too little room for
+   one line: balanced wrapping breaks it after the comma ("Year 12," /
+   "Harvestwarm 28") instead of leaving its last word alone (V3.3b). */
 #pw-world [hidden] { display: none; }
 
-.pw-world-row { margin: .25rem 0; padding-left: 2.5rem; }
+.pw-world-row { margin: .25rem 0; padding-left: 2.5rem; text-wrap: balance; }
 
 .pw-world-label { color: var(--pw-muted); }
 
