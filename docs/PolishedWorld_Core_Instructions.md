@@ -1,5 +1,6 @@
 # PolishedWorld Development - Core Custom Instructions
 
+> **Rev 7 · 2026-11-12** — **the project's genre line names its tone.** *High fantasy* becomes *cozy dark hard fantasy*, the name Adam settled on in a tone chat for what the roadmap's North star already says, and *Core Design Pillars* gains the tone line under the four pillars, pointing at the new `docs/PolishedWorld_Tone_Guide.md` (writing) and `docs/system_designs/PolishedWorld_Comfort_Design.md` (mechanics). Only those two places change; *Current State* is still Rev 4's. The project-settings copy of these instructions is edited by hand to match.
 > **Rev 6 · 2026-11-09** — the *GameGold* lines follow `GameGold_Design.md` Rev 5 and roadmap Rev 63: a PoW phase of about one year instead of 100 bootstrap blocks, the chain launch split from Stage 8, and the platform line corrected from Bitcoin Core 26.x to the `28.x` branch that `GameGold_Design.md` Rev 3 confirmed. Only those two lines change. The project-settings copy of these instructions carries no GameGold parameters.
 > **Rev 5 · 2026-11-04** — **Python ≥ 3.12, not 3.11+.** The pinned Evennia 6.1.0 (`requirements.txt`, Launch Minimum L1.1) requires Python 3.12 or later in its wheel metadata; both machines run 3.14. Only that line changes: the *Current State* below is still Rev 4's and is not brought up to date here. The project-settings copy of these instructions is edited by hand to match.
 > **Rev 4 · 2026-10-17** — **Current State catches up two merges: Stage 4.5 and Epic A** (timed actions, `34b2ee4`). Rev 3's list stopped at Stage 4, its Active front still named Stage 4's PR, and its test line said *"316 tests green"*. The count is replaced by "full suite green", because a number in a section this short is wrong after the next component, and the section already says the roadmap wins. Also corrected, in *Contribs in Use*: Cooldowns was said to rate-limit `craft`, which has had no cooldown since Epic A TA2.2. The line now names what does read `caller.cooldowns`, from a grep of `commands/` and `typeclasses/` rather than from memory.
@@ -9,7 +10,7 @@
 > **Canonical:** `docs/PolishedWorld_Core_Instructions.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale — re-upload from the repo.
 
 ## Project Overview
-**PolishedWorld** is a high fantasy sandbox survival MUD built on:
+**PolishedWorld** is a cozy dark hard fantasy sandbox survival MUD built on:
 - **Framework**: Evennia 6.1.0, pinned (Python ≥ 3.12)
 - **Ruleset**: Mongoose Legend (d100 percentile system)
 - **Philosophy**: "Skynda långsamt" - careful, incremental development
@@ -20,6 +21,8 @@
 2. **Sandbox Survival** - Hunger, thirst, fatigue mechanics
 3. **Environmental Systems** - Day/night, weather, seasons (13-month calendar)
 4. **GameGold Integration** - Experimental cryptocurrency (blackcoin-more fork, 1:1 with in-game gold)
+
+**Tone — hard roads, warm hearths.** The world is indifferent; warmth is something players make for each other. A lens every epic is read through, not a fifth pillar. Writing and review: `docs/PolishedWorld_Tone_Guide.md`; mechanics: `docs/system_designs/PolishedWorld_Comfort_Design.md`.
 
 ---
 

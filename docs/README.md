@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 53 · 2026-11-12** — index `PolishedWorld_Tone_Guide.md` (the tone *hard roads, warm hearths* named cozy dark hard fantasy: three strands, refuges and routines, the tone per system, writing style, pacing, what breaks the tone, a review checklist — the writing half of the Comfort design). Added in the same commit as the document, with roadmap Rev 73; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (57/0).
 > **Rev 52 · 2026-11-11** — index `PolishedWorld_Webclient_Visual_Decomposition.md` (the webclient visual pass: heading font, chrome, art briefs and art in the client, players/NPCs and conditions as a cuttable component). Added in the same commit as the document; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (56/0).
 > **Rev 51 · 2026-11-11** — no document added: the lessons register's row now reads 1–296 (Lessons Rev 5, the webclient close-out W8.2). The directory-vs-list loop was run (55/0).
 > **Rev 50 · 2026-11-10** — no row changed, docs only: the series handoff `docs/system_designs/HANDOFF.md` moves to Rev 13 — seven systems added to its queue at Adam's request, after the projectile note. The directory-vs-list loop was run (55/0).
@@ -103,6 +104,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Evennia reference | reference (API / contribs) | `docs/PolishedWorld_Evennia_Reference.md` |
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
+| Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
 | Lessons register | reference (numbered working lessons, 1–296) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
