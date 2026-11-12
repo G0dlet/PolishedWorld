@@ -62,6 +62,13 @@ Each class names the bug it pressures:
                            smoothed instead of pixelated, carries content a
                            screen reader would read, or a published icon is
                            used by nothing (visual pass V3.2).
+    TestGaugesAndLists     a gauge's numbers leave the right edge or are
+                           drawn in another order than the DOM reads them, an
+                           item list loses its marker or "Nothing." gains one,
+                           or an exit's arrow is read aloud or lost (V1.3,
+                           1A-3A). That a grid gauge stays hidden is
+                           TestCharacterFigure's and TestSurvivalBars'
+                           test_hidden_wins_in_the_*_panel.
     TestTextTabs           a filtered tab shows lines of another tab or
                            hides the client's err/sys lines, All hides
                            anything, the tab row loses its own grid area
@@ -128,6 +135,10 @@ ICONS = {
     "#pw-survival-fatigue::before": "status_fatigue.png",
 }
 ICON_DIR = "polishedworld/ui/icons/"
+# Visual pass V1.3. The lists of things a player reads as items get a square
+# marker (lock 2A); the exits get an arrow instead (lock 3A).
+ITEM_LISTS = ("#pw-room-characters-list", "#pw-room-things-list", ".pw-inventory-list")
+EXIT_ARROW = "#pw-room-exits-list > li::before"
 PROJECT_CSS = REPO / "web" / "static" / "polishedworld" / "css" / "webclient.css"
 EVENNIA_CSS = "webclient/css/webclient.css"
 PALETTE = REPO / "art" / "palette" / "palette.json"
@@ -742,3 +753,44 @@ class TestIcons(_ThemeTest):
                 self.assertEqual(decls.get("background-size"), "32px 32px")
                 self.assertEqual(decls.get("background-repeat"), "no-repeat")
                 self.assertEqual(decls.get("image-rendering"), "pixelated")
+
+
+class TestGaugesAndLists(_ThemeTest):
+    def merged(self, selector):
+        out = {}
+        for rule in self.rules:
+            if rule.media is None and selector in rule.selectors:
+                out.update(dict(rule.decls))
+        return out
+
+    def test_gauge_numbers_sit_right_in_dom_order(self):
+        # Label, numbers, description is the DOM's order; the columns keep
+        # it, so the eye reads what a screen reader reads (lock 1A).
+        self.assertEqual(self.merged(".pw-gauge").get("display"), "grid")
+        self.assertEqual(
+            self.merged(".pw-gauge").get("grid-template-columns"), "auto minmax(0, 1fr) auto auto"
+        )
+        columns = [
+            int(self.merged(sel).get("grid-column", "0"))
+            for sel in (".pw-gauge-label", ".pw-gauge-numbers", ".pw-gauge-desc")
+        ]
+        self.assertEqual(columns, [1, 3, 4])
+        self.assertEqual(self.merged(".pw-bar").get("grid-column"), "1 / -1")
+
+    def test_item_lists_have_copper_square_markers(self):
+        for selector in ITEM_LISTS:
+            with self.subTest(selector=selector):
+                self.assertEqual(self.merged(selector).get("list-style"), "square inside")
+                self.assertEqual(self.merged(selector + " > li::marker").get("color"), "var(--pw-copper)")
+
+    def test_nothing_is_not_an_item(self):
+        self.assertEqual(self.merged(".pw-inventory-empty").get("list-style"), "none")
+
+    def test_exits_have_a_silent_arrow_and_no_marker(self):
+        self.assertEqual(self.merged("#pw-room-exits-list").get("list-style"), "none")
+        decls = [d for r in self.rules if EXIT_ARROW in r.selectors for d in r.decls]
+        contents = [v for p, v in decls if p == "content"]
+        # A fallback without alt text first, then the one screen readers
+        # read as nothing (the panel buttons' pattern).
+        self.assertEqual(contents, ['"\\2192 "', '"\\2192 " / ""'])
+        self.assertEqual(self.merged(EXIT_ARROW).get("color"), "var(--pw-gold_link)")

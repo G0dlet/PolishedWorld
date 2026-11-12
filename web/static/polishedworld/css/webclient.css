@@ -246,17 +246,28 @@ body {
    its own palette colour, which tells the bars apart at a glance but never
    alone: each row's label names its gauge. */
 /* A gauge with its icon (visual pass V3.2): the icon stands in a column of
-   its own, spanning the label line and the bar. */
+   its own, spanning the label line and the bar. The label line (V1.3, lock
+   1A): the label at the left, the numbers and the description at the right
+   edge, in the columns of their DOM order, so the eye reads what a screen
+   reader reads. A hidden gauge stays hidden: #pw-char [hidden] and
+   #pw-survival [hidden] outweigh this class. */
 .pw-gauge {
   position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  column-gap: .375rem;
+  align-items: baseline;
   min-height: 32px;
   margin: .5rem 0;
   padding-left: 2.5rem;
 }
 
-.pw-gauge-desc { color: var(--pw-muted); }
+.pw-gauge-label { grid-column: 1; }
+.pw-gauge-numbers { grid-column: 3; }
+.pw-gauge-desc { grid-column: 4; color: var(--pw-muted); }
 
 .pw-bar {
+  grid-column: 1 / -1;
   display: block;
   height: .5rem;
   margin-top: .25rem;
@@ -355,6 +366,31 @@ body {
   list-style: none;
 }
 
+/* Markers (visual pass V1.3). The lists a player reads as items get a
+   square in Copper (lock 2A); a marker also keeps the list a list for
+   Safari's VoiceOver, which drops the role under list-style: none. The
+   exits get an arrow instead (lock 3A), with empty alt text so speech
+   skips it; the direction is told by the arrow and the link, not by
+   colour. "Nothing." in an empty inventory row is not an item. */
+#pw-room-characters-list, #pw-room-things-list, .pw-inventory-list {
+  list-style: square inside;
+}
+
+#pw-room-characters-list > li::marker, #pw-room-things-list > li::marker,
+.pw-inventory-list > li::marker {
+  color: var(--pw-copper);
+}
+
+.pw-inventory-empty { list-style: none; }
+
+#pw-room-exits-list { list-style: none; }
+
+#pw-room-exits-list > li::before {
+  content: "\2192 ";
+  content: "\2192 " / "";
+  color: var(--pw-gold_link);
+}
+
 a.pw-room-exit {
   color: var(--pw-gold_link);
   text-decoration: underline;
@@ -381,7 +417,6 @@ a.pw-room-exit {
 .pw-inventory-list {
   margin: .25rem 0 0;
   padding: 0;
-  list-style: none;
 }
 
 /* The text area. <main> is the scroll container: Evennia's default_out
