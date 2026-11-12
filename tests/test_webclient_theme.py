@@ -71,6 +71,11 @@ Each class names the bug it pressures:
                            1A-3A). That a grid gauge stays hidden is
                            TestCharacterFigure's and TestSurvivalBars'
                            test_hidden_wins_in_the_*_panel.
+    TestCommandLine        the send button's glyph is read aloud or too faint
+                           for a label, its hidden name stops being hidden or
+                           is hidden from screen readers too, the field loses
+                           its focus edge, or the placeholder drops below the
+                           text contrast (visual pass V1.4, locks 1A-3A).
     TestTextTabs           a filtered tab shows lines of another tab or
                            hides the client's err/sys lines, All hides
                            anything, the tab row loses its own grid area
@@ -117,7 +122,10 @@ SECTION_SELECTOR = "#pw-panel-left > section"
 PANEL_HEADINGS = (".pw-char-name", ".pw-survival-title", ".pw-world-title", ".pw-room-title", ".pw-inventory-title")
 # The edges that mark where a box or a control is (WCAG 1.4.11): 3:1 against
 # both surfaces, which is the palette's status flag.
-EDGE_SELECTORS = (SECTION_SELECTOR, "#main", '#pw-tabs [role="tab"]', ".pw-panel-button", ".pw-alpha")
+EDGE_SELECTORS = (
+    SECTION_SELECTOR, "#main", '#pw-tabs [role="tab"]', ".pw-panel-button", ".pw-alpha",
+    "#inputfield", "#inputsend",
+)
 SELECTED_TAB = '#pw-tabs [role="tab"][aria-selected="true"]'
 # Visual pass V3.2: each icon sits on a ::before beside a word that already
 # says what it means (WC14), as a CSS background, so it is decoration by
@@ -802,3 +810,47 @@ class TestGaugesAndLists(_ThemeTest):
         # The gap is a margin: a trailing space in content collapses in Firefox.
         self.assertEqual(self.merged(EXIT_ARROW).get("margin-right"), ".25rem")
         self.assertEqual(self.merged(EXIT_ARROW).get("color"), "var(--pw-gold_link)")
+
+
+class TestCommandLine(_ThemeTest):
+    def merged(self, selector):
+        out = {}
+        for rule in self.rules:
+            if rule.media is None and selector in rule.selectors:
+                out.update(dict(rule.decls))
+        return out
+
+    def colour(self, selector, prop):
+        return self.palette[VAR.findall(self.merged(selector)[prop])[0]]["hex"]
+
+    def test_send_glyph_is_silent_and_a_readable_label(self):
+        # The glyph is the button's only visible label: 3:1 against its
+        # surface (WCAG 1.4.11); its alt text is empty, the name is the
+        # hidden word (lock 1A, 2A).
+        contents = [v for r in self.rules if "#inputsend::before" in r.selectors
+                    for p, v in r.decls if p == "content"]
+        self.assertEqual(contents, ['"\\25B6"', '"\\25B6" / ""'])
+        self.assertEqual(self.merged("#inputsend").get("background"), "var(--pw-deep_green)")
+        self.assertGreaterEqual(
+            contrast(self.colour("#inputsend", "color"), self.colour("#inputsend", "background")), 3.0
+        )
+
+    def test_visually_hidden_stays_in_the_accessibility_tree(self):
+        decls = self.merged(".pw-visually-hidden")
+        self.assertEqual(decls.get("position"), "absolute")
+        self.assertEqual(decls.get("width"), "1px")
+        self.assertEqual(decls.get("height"), "1px")
+        self.assertEqual(decls.get("overflow"), "hidden")
+        self.assertEqual(decls.get("clip-path"), "inset(50%)")
+        self.assertEqual(decls.get("white-space"), "nowrap")
+        for prop, value in (("display", "none"), ("visibility", "hidden")):
+            self.assertNotEqual(decls.get(prop), value, prop)
+
+    def test_field_edge_turns_gold_on_focus(self):
+        self.assertEqual(self.merged("#inputfield:focus").get("border-color"), "var(--pw-gold_link)")
+
+    def test_placeholder_is_readable_text(self):
+        decls = self.merged("#inputfield::placeholder")
+        self.assertEqual(decls.get("color"), "var(--pw-muted)")
+        # Firefox dims placeholders by default; 1 keeps the palette's 5.78:1.
+        self.assertEqual(decls.get("opacity"), "1")

@@ -556,22 +556,57 @@ a.pw-room-exit {
   padding: .5rem .75rem;
   background: var(--pw-panel);
   color: var(--pw-text);
-  border: 2px solid var(--pw-border_wood);
+  border: 2px solid var(--pw-copper);
   border-radius: .25rem;
   font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, "Courier New", monospace;
   font-size: 1rem;
   resize: none;
 }
 
+/* The command line (visual pass V1.4). The field's edge is Copper like
+   every box and turns Gold/Link with focus, beside the global outline
+   (lock 3A). The placeholder is Muted at full opacity, 5.78:1 on Panel;
+   Firefox would dim it otherwise. */
+#inputfield:focus { border-color: var(--pw-gold_link); }
+
+#inputfield::placeholder {
+  color: var(--pw-muted);
+  opacity: 1;
+}
+
+/* The send button (locks 1A, 2A): the game's one green control. It shows
+   only a play glyph in Highlight (4.17:1 on Deep green, above the 3:1 a
+   graphical label needs), silent to speech; its name is the word "Send"
+   in a visually hidden span, which screen readers and voice control read.
+   default_in.js finds it by #inputsend, so the id and its place stay. */
 #inputsend {
   height: auto;
+  min-width: 3rem;
   padding: 0 1rem;
-  background: var(--pw-panel_light);
+  background: var(--pw-deep_green);
   color: var(--pw-highlight);
-  border: 2px solid var(--pw-border_wood);
+  border: 2px solid var(--pw-copper);
   border-radius: .25rem;
   font: inherit;
   cursor: pointer;
+}
+
+#inputsend::before {
+  content: "\25B6";
+  content: "\25B6" / "";
+}
+
+/* Hidden from sight, kept for screen readers (never display: none). */
+.pw-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Three columns. The .pw-open selectors are repeated so a drawer left open

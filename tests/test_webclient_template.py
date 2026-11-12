@@ -33,6 +33,9 @@ Each class names the bug it pressures:
     TestGaugeMarkup        a gauge's numbers and description leave their
                            shared value span, change order, or lose the space
                            between them (visual pass V1.3 fix, lock A).
+    TestCommandLineMarkup  the send button's name stops being the word "Send"
+                           in its own hidden span, or the field loses its
+                           label or placeholder (visual pass V1.4, 1A, 3A).
     TestLandmarks          a side panel loses its label, Tab no longer
                            reaches input, panels and text in that order, or
                            a panel button stops naming the panel it opens.
@@ -381,6 +384,20 @@ class TestGaugeMarkup(_PageTest):
                     r'</span>\s*<span class="pw-bar"'
                 ) % {"g": gauge}
                 self.assertIsNotNone(re.search(pattern, self.html), gauge)
+
+
+class TestCommandLineMarkup(_PageTest):
+    def test_send_is_named_by_a_hidden_word(self):
+        self.assertIn(
+            '<button id="inputsend" type="button"><span class="pw-visually-hidden">Send</span></button>',
+            self.html,
+        )
+
+    def test_field_keeps_its_label_and_has_a_placeholder(self):
+        self.assertIn(
+            '<textarea id="inputfield" aria-label="Command" placeholder="Type a command"></textarea>',
+            self.html,
+        )
 
 
 class TestLandmarks(_PageTest):
