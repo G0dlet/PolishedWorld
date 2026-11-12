@@ -204,6 +204,9 @@ ROOM_IDS = (
     "pw-room-things",
     "pw-room-things-list",
 )
+# The header's banner (visual pass V3.4), written by pw_world.js; the same id
+# is in tests/js/test_pw_world.js BANNER.
+BANNER_ID = "pw-banner"
 # The room-lists toggle (W6.1 lock 6); the same id is in tests/js/test_pw_text.js.
 TOGGLE_ID = "pw-room-lists-in-text"
 # The panel's list rows and their labels, which are look's
@@ -378,6 +381,30 @@ class TestAlphaMark(_PageTest):
         title = re.search(r'<p class="pw-title">(.*?)</p>', self.html, re.S)
         self.assertIsNotNone(title)
         self.assertRegex(title.group(1), r'^\S.*<span class="pw-alpha">Alpha</span>$')
+
+
+class TestBannerMarkup(_PageTest):
+    """
+    The banner (visual pass V3.4): an empty element in the header after the
+    title and before the drawer buttons, so the title's auto margin puts it
+    at the right end (lock 2) and nothing in it is read or focused (WC14).
+    """
+
+    def _index(self, element_id):
+        for i, (_tag, attrs) in enumerate(self.page.tags):
+            if attrs.get("id") == element_id:
+                return i
+        self.fail("not on the page: #%s" % element_id)
+
+    def test_in_the_header_between_title_and_buttons(self):
+        i = self._index(BANNER_ID)
+        self.assertIn("pw-header", self.page.within[i])
+        title = next(n for n, (_t, a) in enumerate(self.page.tags) if a.get("class") == "pw-title")
+        button = next(n for n, (_t, a) in enumerate(self.page.tags) if a.get("class") == "pw-panel-button")
+        self.assertTrue(title < i < button, (title, i, button))
+
+    def test_empty_and_not_announced(self):
+        self.assertRegex(self.html, r'<div id="%s" class="pw-banner"></div>' % BANNER_ID)
 
 
 class TestGaugeMarkup(_PageTest):

@@ -8,6 +8,9 @@
  *   writer    no renderer on room, a second renderer, markup written instead
  *             of text, a row left visible when its list is empty, or an
  *             unchanged list rebuilt on every frame.
+ *   picture   (visual pass V3.4) the location picture is not the one
+ *             `indoor` asks for, stays after the room goes away, or is
+ *             rewritten on every frame.
  *   exits     a click sends anything but the exit's key, sends it twice, or
  *             follows the "#" link; Enter or Space on a link reaches
  *             default_in, which would send an empty command or move the focus
@@ -22,7 +25,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const FILE = path.join(__dirname, "..", "..", "web", "static", "polishedworld", "js", "pw_room.js");
-const { listItems } = require(FILE);
+const { listItems, pictureName } = require(FILE);
 
 // The ids the renderer writes. A literal list (W-z); the same list is in
 // tests/test_webclient_template.py ROOM_IDS for the page's side.
@@ -76,8 +79,10 @@ describe("items", () => {
 function fakeElement(tag, id) {
     const el = {
         tagName: tag, id: id || null, hidden: true, writes: 0, children: [],
-        listeners: {}, rebuilds: 0, className: "", href: null,
+        listeners: {}, rebuilds: 0, className: "", href: null, attrs: {}, attrWrites: 0,
     };
+    el.setAttribute = (name, value) => { el.attrWrites += 1; el.attrs[name] = String(value); };
+    el.removeAttribute = (name) => { el.attrWrites += 1; delete el.attrs[name]; };
     let text = "";
     Object.defineProperty(el, "textContent", {
         get() { return text; },
@@ -182,6 +187,45 @@ describe("writer", () => {
 
     it("registers nothing on a page without the panel", () => {
         assert.deepEqual(load([]).registrations, []);
+    });
+});
+
+// ---------------------------------------------------------------- picture
+
+function picture(elements) {
+    const attrs = elements["pw-room-name"].attrs;
+    return Object.prototype.hasOwnProperty.call(attrs, "data-picture") ? attrs["data-picture"] : null;
+}
+
+describe("picture", () => {
+    it("names the picture by indoor, and none without a room (lock 6)", () => {
+        assert.deepEqual(
+            [pictureName(room({ indoor: true })), pictureName(room()), pictureName(room({ name: null })),
+             pictureName(null)],
+            ["room_indoor", "room_outdoor", null, null]
+        );
+    });
+
+    it("sets the picture on the name and turns it with indoor", () => {
+        const { elements, render } = load(IDS);
+        render(room());
+        assert.equal(picture(elements), "room_outdoor");
+        render(room({ name: "Old Temple", indoor: true }));
+        assert.equal(picture(elements), "room_indoor");
+    });
+
+    it("clears the picture when the room goes away", () => {
+        const { elements, render } = load(IDS);
+        render(room({ indoor: true }));
+        render({ name: null, indoor: false, exits: [], characters: [], things: [] });
+        assert.equal(picture(elements), null);
+    });
+
+    it("does not rewrite the picture when it has not changed", () => {
+        const { elements, render } = load(IDS);
+        render(room());
+        render(room({ name: "Meadow" }));
+        assert.equal(elements["pw-room-name"].attrWrites, 1);
     });
 });
 

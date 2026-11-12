@@ -41,6 +41,10 @@
  *       is_nighttime() says; dawn and dusk are day.
  *   5   A key this file does not know gets no data-icon, so no icon: the
  *       word stands alone (WV4).
+ * The banner (visual pass V3.4) follows the season the same way: the header's
+ * #pw-banner gets data-banner (banner_summer), the stylesheet the file, and
+ * an unknown season gets no attribute and so no banner (lock 6). The banner
+ * stands outside this panel; a page without it shows none.
  * The three tables are the server's words. tests/test_webclient_theme.py
  * reads them from this file and compares them with world/weather.py
  * WEATHER_STATES, gametime_utils' seasons and is_nighttime().
@@ -111,6 +115,10 @@
         return SEASON_KEYS.indexOf(season) === -1 ? null : "season_" + season;
     }
 
+    function bannerName(season) {
+        return SEASON_KEYS.indexOf(season) === -1 ? null : "banner_" + season;
+    }
+
     // Lock 4A: a known room, outdoors.
     function showWeather(room) {
         return !!room && room.name !== null && !room.indoor;
@@ -125,6 +133,7 @@
         var room = null;
         var shown = {};   // row -> text last written, null when hidden
         var icons = {};   // row -> data-icon last written, null when none
+        var banner = null;   // data-banner last written, null when none
 
         function write(key, text) {
             if (shown[key] === text) {
@@ -151,6 +160,19 @@
             }
         }
 
+        function writeBanner(name) {
+            var el = document.getElementById("pw-banner");
+            if (el === null || banner === name) {
+                return;
+            }
+            banner = name;
+            if (name === null) {
+                el.removeAttribute("data-banner");
+            } else {
+                el.setAttribute("data-banner", name);
+            }
+        }
+
         function draw() {
             if (world === null) {
                 return;
@@ -162,6 +184,7 @@
             });
             writeIcon("season", seasonIcon(view.season));
             writeIcon("weather", view.weather === null ? null : weatherIcon(view.weather, view.period));
+            writeBanner(bannerName(view.season));
         }
 
         pw_state.on("world", function (snapshot) {
@@ -179,7 +202,7 @@
     if (typeof module !== "undefined" && module.exports) {
         module.exports = {
             worldView: worldView, gameSecondsAt: gameSecondsAt, showWeather: showWeather,
-            weatherIcon: weatherIcon, seasonIcon: seasonIcon,
+            weatherIcon: weatherIcon, seasonIcon: seasonIcon, bannerName: bannerName,
             WEATHER_KEYS: WEATHER_KEYS, SEASON_KEYS: SEASON_KEYS, NIGHT_PERIODS: NIGHT_PERIODS,
         };
     }

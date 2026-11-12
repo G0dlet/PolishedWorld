@@ -28,6 +28,13 @@
  *
  * A list is rebuilt only when its entries change, and every name is
  * written with textContent: object keys can hold any characters.
+ *
+ * The location picture (visual pass V3.4; Adam took every recommendation at
+ * STOPP 0). The room's name gets data-picture, room_indoor or room_outdoor
+ * by the snapshot's `indoor`, and the stylesheet draws the file as the
+ * name's ::before, left of the name (locks 4, 5). The client knows nothing
+ * else about a room, so there are two pictures. A frame without a room
+ * (name null) gets no attribute and so no picture (lock 6).
  */
 (function () {
     "use strict";
@@ -46,6 +53,14 @@
             }
             return { text: String(entry), key: null };
         });
+    }
+
+    // Lock 6: no room, no picture.
+    function pictureName(snapshot) {
+        if (!snapshot || snapshot.name === null) {
+            return null;
+        }
+        return snapshot.indoor ? "room_indoor" : "room_outdoor";
     }
 
     function start() {
@@ -93,6 +108,19 @@
             }
         }
 
+        function writePicture(name) {
+            if (shown.picture === name) {
+                return;
+            }
+            shown.picture = name;
+            var el = document.getElementById("pw-room-name");
+            if (name === null) {
+                el.removeAttribute("data-picture");
+            } else {
+                el.setAttribute("data-picture", name);
+            }
+        }
+
         function writeList(list, items) {
             var stamp = JSON.stringify(items);
             if (shown[list] === stamp) {
@@ -107,6 +135,7 @@
         pw_state.on("room", function (snapshot) {
             var known = !!snapshot && snapshot.name !== null;
             writeName(known ? String(snapshot.name) : null);
+            writePicture(pictureName(snapshot));
             LISTS.forEach(function (list) {
                 writeList(list, listItems(snapshot, list));
             });
@@ -114,7 +143,7 @@
     }
 
     if (typeof module !== "undefined" && module.exports) {
-        module.exports = { listItems: listItems };
+        module.exports = { listItems: listItems, pictureName: pictureName };
     }
     if (typeof pw_state !== "undefined" && typeof document !== "undefined") {
         if (document.readyState === "loading") {

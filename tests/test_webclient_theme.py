@@ -89,6 +89,15 @@ Each class names the bug it pressures:
                            (visual pass V3.3, locks 1-5), or a date too
                            long for one line leaves its last word alone
                            (V3.3b).
+    TestPictures           a season has no banner or a room kind no picture,
+                           one points at a file that is not published, a
+                           published picture is used by nothing, either is
+                           drawn at another scale or smoothed, the banner
+                           shows below the breakpoint or with no name, the
+                           picture's rule decides the name's display (it
+                           would tie #pw-room [hidden] and win), or the name
+                           stops sitting beside its picture (visual pass
+                           V3.4, locks 1-6).
     TestGaugesAndLists     a gauge's value (numbers and description) leaves
                            the right edge or cannot wrap inside its column, so
                            a long description pushes the row out of its box
@@ -203,6 +212,10 @@ WORLD_ICON_DIR = "polishedworld/ui/world/"
 WORLD_ICON_ROWS = ("#pw-world-season", "#pw-world-weather")
 WORLD_ICON_BASE = tuple(row + "[data-icon]::before" for row in WORLD_ICON_ROWS)
 WORLD_JS = REPO / "web" / "static" / "polishedworld" / "js" / "pw_world.js"
+# Visual pass V3.4. The banners by season and the location pictures by room
+# kind, named by the scripts and mapped to their files here (lock 5).
+PICTURE_DIR = "polishedworld/ui/pictures/"
+ROOM_KINDS = ("indoor", "outdoor")
 # Visual pass V1.3. The lists of things a player reads as items get a square
 # marker (lock 2A); the exits get an arrow instead (lock 3A).
 ITEM_LISTS = ("#pw-room-characters-list", "#pw-room-things-list", ".pw-inventory-list")
@@ -1066,6 +1079,72 @@ class TestWorldIcons(_ThemeTest):
                 if gametime_utils.is_nighttime():
                     nights.append(period)
         self.assertEqual(_js_table("NIGHT_PERIODS"), nights)
+
+
+class TestPictures(_ThemeTest):
+    @staticmethod
+    def expected():
+        """selector -> file, from the server's seasons and the two room kinds."""
+        from world import gametime_utils
+
+        out = {}
+        for season in gametime_utils._SEASONS:
+            out['#pw-banner[data-banner="banner_%s"]' % season] = "banner_%s.png" % season
+        for kind in ROOM_KINDS:
+            out['#pw-room-name[data-picture="room_%s"]::before' % kind] = "room_%s.png" % kind
+        return out
+
+    def test_every_season_and_room_kind_points_at_its_published_file(self):
+        for selector, filename in self.expected().items():
+            with self.subTest(selector=selector):
+                self.assertEqual(
+                    self.merged(selector).get("background-image"), 'url("../ui/pictures/%s")' % filename
+                )
+                self.assertIsNotNone(finders.find(PICTURE_DIR + filename), filename)
+
+    def test_every_published_picture_is_used(self):
+        folder = finders.find(PICTURE_DIR.rstrip("/"))
+        self.assertIsNotNone(folder, PICTURE_DIR)
+        self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), sorted(self.expected().values()))
+
+    def test_pictures_are_drawn_at_x1_pixelated(self):
+        for selector, size in (("#pw-banner", (320, 40)), ("#pw-room-name[data-picture]::before", (96, 54))):
+            with self.subTest(selector=selector):
+                decls = self.merged(selector)
+                self.assertEqual(decls.get("width"), "%dpx" % size[0])
+                self.assertEqual(decls.get("height"), "%dpx" % size[1])
+                self.assertEqual(decls.get("background-size"), "%dpx %dpx" % size)
+                self.assertEqual(decls.get("background-repeat"), "no-repeat")
+                self.assertEqual(decls.get("image-rendering"), "pixelated")
+                self.assertEqual(decls.get("flex"), "none")
+        self.assertEqual(self.merged("#pw-room-name[data-picture]::before").get("content"), '""')
+
+    def test_banner_shows_only_wide_and_named(self):
+        # Locks 3 and 6: hidden by default, shown only by the wide layout's
+        # rule, which also needs the script's name.
+        self.assertEqual(_decl_values(self.rules, "#pw-banner", ("display",)), ["none"])
+        self.assertEqual(
+            _decl_values(self.rules, "#pw-banner[data-banner]", ("display",), media="@media (min-width: %s)" % BREAKPOINT),
+            ["block"],
+        )
+        for rule in self.rules:
+            if rule.media is None:
+                for selector in rule.selectors:
+                    if selector.startswith("#pw-banner["):
+                        self.assertNotIn("display", dict(rule.decls), selector)
+
+    def test_picture_rules_leave_the_names_display_alone(self):
+        # #pw-room-name[data-picture] is as specific as #pw-room [hidden];
+        # declared later, a display there would show a hidden name.
+        for rule in self.rules:
+            for selector in rule.selectors:
+                if selector.startswith("#pw-room-name"):
+                    self.assertNotIn("display", dict(rule.decls), selector)
+
+    def test_name_sits_beside_its_picture_and_wraps_balanced(self):
+        decls = self.merged(".pw-room-name")
+        self.assertEqual([decls.get(k) for k in ("display", "align-items", "text-wrap")],
+                         ["flex", "center", "balance"])
 
 
 class TestGaugesAndLists(_ThemeTest):

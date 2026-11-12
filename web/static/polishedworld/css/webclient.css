@@ -327,7 +327,18 @@ body {
 
 #pw-room { margin-top: 1rem; }
 
-.pw-room-name { margin: .25rem 0; font-weight: bold; }
+/* The name sits right of its picture (visual pass V3.4, lock 4) and wraps
+   balanced in what is left beside it (V3.3b). The display is declared here
+   on the class: a rule on #pw-room-name[...] would tie #pw-room [hidden]
+   in specificity and, coming later, win over it. */
+.pw-room-name {
+  display: flex;
+  align-items: center;
+  column-gap: .5rem;
+  margin: .25rem 0;
+  font-weight: bold;
+  text-wrap: balance;
+}
 
 .pw-room-row { margin: .5rem 0; }
 
@@ -422,6 +433,43 @@ body {
 #pw-world-season[data-icon="season_summer"]::before { background-image: url("../ui/world/season_summer.png"); }
 #pw-world-season[data-icon="season_autumn"]::before { background-image: url("../ui/world/season_autumn.png"); }
 #pw-world-season[data-icon="season_winter"]::before { background-image: url("../ui/world/season_winter.png"); }
+
+/* Banner and location picture (visual pass V3.4). As the world icons: a
+   script names the picture (pw_world.js the banner by season, pw_room.js
+   the location picture by `indoor`) and these rules map the name to its
+   file in ui/pictures/ (lock 5), so both are CSS backgrounds, decoration by
+   construction (WC14). Both at x1 (lock 1). The banner is an empty element
+   at the header's right end -- the title's auto margin puts it there
+   (lock 2) -- and shows only in the wide layout and only with a name
+   (locks 3, 6); below the breakpoint the header holds the drawer buttons.
+   The location picture is the room name's ::before (lock 4). */
+#pw-banner {
+  display: none;
+  flex: none;
+  width: 320px;
+  height: 40px;
+  background-repeat: no-repeat;
+  background-size: 320px 40px;
+  image-rendering: pixelated;
+}
+
+#pw-banner[data-banner="banner_spring"] { background-image: url("../ui/pictures/banner_spring.png"); }
+#pw-banner[data-banner="banner_summer"] { background-image: url("../ui/pictures/banner_summer.png"); }
+#pw-banner[data-banner="banner_autumn"] { background-image: url("../ui/pictures/banner_autumn.png"); }
+#pw-banner[data-banner="banner_winter"] { background-image: url("../ui/pictures/banner_winter.png"); }
+
+#pw-room-name[data-picture]::before {
+  content: "";
+  flex: none;
+  width: 96px;
+  height: 54px;
+  background-repeat: no-repeat;
+  background-size: 96px 54px;
+  image-rendering: pixelated;
+}
+
+#pw-room-name[data-picture="room_indoor"]::before { background-image: url("../ui/pictures/room_indoor.png"); }
+#pw-room-name[data-picture="room_outdoor"]::before { background-image: url("../ui/pictures/room_outdoor.png"); }
 
 .pw-room-list {
   margin: .25rem 0 0;
@@ -714,6 +762,10 @@ a.pw-room-exit {
 
   .pw-panel-button {
     display: none;
+  }
+
+  #pw-banner[data-banner] {
+    display: block;
   }
 
   #pw-panel-left, #pw-panel-left.pw-open,

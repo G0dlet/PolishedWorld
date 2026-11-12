@@ -22,6 +22,9 @@
  *               (lock 5), the tables drift from the server's words, or an
  *               icon is not set, not cleared indoors, or rewritten every
  *               second.
+ *   banner      (visual pass V3.4) the header's banner is not the season's,
+ *               shows for a season it does not know (lock 6), is rewritten
+ *               every second, or a page without it breaks the panel.
  */
 "use strict";
 
@@ -35,8 +38,12 @@ const FILE = path.join(__dirname, "..", "..", "web", "static", "polishedworld", 
 const TABLE = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "world_cases.json"), "utf8"));
 const {
     worldView, gameSecondsAt, showWeather, weatherIcon, seasonIcon,
-    WEATHER_KEYS, SEASON_KEYS, NIGHT_PERIODS,
+    WEATHER_KEYS, SEASON_KEYS, NIGHT_PERIODS, bannerName,
 } = require(FILE);
+
+// The banner sits in the header, outside the panel (V3.4); the same id is in
+// tests/test_webclient_template.py BANNER_ID.
+const BANNER = "pw-banner";
 
 // The ids the renderer writes. A literal list (W-z); the same list is in
 // tests/test_webclient_template.py WORLD_IDS for the page's side.
@@ -258,6 +265,37 @@ describe("icons", () => {
              seasonIcon("monsoon"), seasonIcon("")],
             [null, null, null, null, null]
         );
+    });
+});
+
+describe("banner", () => {
+    it("names a banner for every season and none for a season it does not know", () => {
+        assert.deepEqual([...SEASON_KEYS, "monsoon", ""].map(bannerName),
+            ["banner_spring", "banner_summer", "banner_autumn", "banner_winter", null, null]);
+    });
+
+    it("sets the season's banner on a frame and turns it with the season", () => {
+        const { elements, renderer } = load([...IDS, BANNER]);
+        renderer("world")(world(), null);
+        assert.equal(elements[BANNER].attrs["data-banner"], "banner_spring");
+        // Frostmelt 8 + 112 days: month 5, Sunpeak, summer.
+        renderer("world")(world({ game_seconds: 604800 + 112 * 86400 }), null);
+        assert.equal(elements[BANNER].attrs["data-banner"], "banner_summer");
+    });
+
+    it("does not rewrite the banner when the season has not changed", () => {
+        const { elements, timers, clock, renderer } = load([...IDS, BANNER]);
+        renderer("world")(world(), null);
+        clock.now = 1000;
+        timers[0][0]();
+        timers[0][0]();
+        assert.equal(elements[BANNER].attrWrites, 1);
+    });
+
+    it("draws the panel on a page without the banner", () => {
+        const { elements, renderer } = load(IDS);
+        renderer("world")(world(), null);
+        assert.equal(values(elements).season, "spring");
     });
 });
 
