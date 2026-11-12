@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 8 · 2026-11-12** — the webclient visual pass's weather, season and picture families (visual decomposition V3.3–V3.4, on `feature/webclient-visual`): §2 lists `world/` and `pictures/`; §5's Rev 7 note is closed, since `NATIVE_SIZES` now gives `room_` 96×54; §10 lists the tool's new rule that a banner or location picture carries no `#FF00FF`, and the publish command for any family.
 > **Rev 7 · 2026-11-12** — what the webclient visual pass's second briefs state (visual decomposition V2.2), written here because both assistants follow it (§1): §5's size table gives the location picture as 96×54, the size that fits the client's *Location* panel at ×1 (`assetpipe.py` still says 320×180 for `room_` and follows at V3.4); §5's file-name examples use the names the client will ask for; a new §5 subsection *Weather icons and pictures*; §8 tells pictures from motifs on a background.
 > **Rev 6 · 2026-11-12** — the webclient's first UI family exists (webclient visual decomposition V3.2, on `feature/webclient-visual`): §2 gains `art/ui/<family>/` and its published counterpart `web/static/polishedworld/ui/<family>/`, §10 the command that publishes the icons, and §10's *Tests* the family table in `TestPublishedUpToDate`.
 > **Rev 5 · 2026-11-11** — new §5 subsection *Frames and icons*: the edge-contrast property the webclient visual pass's first briefs state (visual decomposition V2.1), written here because both assistants follow it (§1). `validate` does not check it yet.
@@ -32,7 +33,7 @@ Pipeline:
 | `art/reference/` | Concept mockups showing visual direction (WebP) | No |
 | `art/body/` | Body masters: `body_base.png`, `body_zonemap.png` | No |
 | `art/tools/` | Asset pipeline, its tests and its `requirements.txt` (§10) | No |
-| `art/ui/<family>/` | Webclient UI masters, one folder per family: `icons/` (`icon_`, `status_`) since the visual pass's V3.2; `frames/` (`frame_`) from V3.1 | No |
+| `art/ui/<family>/` | Webclient UI masters, one folder per family: `icons/` (`icon_`, `status_`) since the visual pass's V3.2; `frames/` (`frame_`) from V3.1; `world/` (`weather_day_`, `weather_night_`, `season_`) from V3.3; `pictures/` (`banner_`, `room_`) from V3.4 | No |
 | `web/static/polishedworld/` | Pipeline output: cleaned PNG assets and zone masks, served at `/static/polishedworld/`. The body under `characters/body/`; each UI family under `ui/<family>/`, mirroring `art/ui/<family>/` | Yes |
 
 Source folders for other asset types under `art/` are created when their first master arrives.
@@ -130,7 +131,7 @@ These are never motif colours and must never appear in the client.
 - One asset per image. Overview sheets are style references only, never production assets.
 - Strict pixel grid: square logical pixels, no anti-aliasing, glow, blur or gradients.
 - Palette colours only (plus the reserved tool colours above where allowed).
-- *(Rev 7)* The location picture was 320×180 here until the webclient visual pass (V2.2 lock 1A): the *Location* panel is 224 px wide inside its frame, so that size could not be shown at a whole factor. `assetpipe.py`'s `NATIVE_SIZES` changes with the first delivery (visual decomposition V3.4); until then `validate` rejects a 96×54 `room_` file.
+- *(Rev 7)* The location picture was 320×180 here until the webclient visual pass (V2.2 lock 1A): the *Location* panel is 224 px wide inside its frame, so that size could not be shown at a whole factor. `assetpipe.py`'s `NATIVE_SIZES` changes with the first delivery (visual decomposition V3.4); until then `validate` rejects a 96×54 `room_` file. *(Rev 8)* Changed in V3.4's assets commit: `validate` takes 96×54.
 
 ### File names
 
@@ -230,6 +231,7 @@ What `validate` rejects:
 - any pixel that is not fully opaque (masters carry magenta, not alpha);
 - any colour that is not an exact palette colour or `#FF00FF` (one channel off by one fails); in `body_zonemap.png`, any colour that is not a zone key or `#FF00FF`, and a missing zone;
 - an image that is only `#FF00FF`;
+- *(Rev 8)* in a banner or location picture (`banner_`, `room_`), any `#FF00FF`: a picture is a full rectangle (§5), so magenta there is a mistake, and `clean` would turn it into a transparent hole;
 - in `body_base.png`, a figure pixel on the edge (sharing a side with `#FF00FF` or the image border) below 3:1 against Panel, and a Muted pixel that is not on the figure's edge (it touches neither `#FF00FF` nor the image border on any side or corner) — an inner fill in the outline colour would silently fall out of every zone mask. The outline colour is the tool's `OUTLINE_KEY`; the surface and the threshold are read from `palette.json` (`contrast_surfaces.panel`, `rules.status_min_contrast`), never restated.
 
 `split-body` additionally requires both masters to cover exactly the same pixels and every zone to keep at least one pixel inside the outline. Every file is validated and every mask built before the first write, so a failure never leaves a partial set in the output folder.
@@ -245,12 +247,14 @@ python art/tools/assetpipe.py split-body --out web/static/polishedworld/characte
 
 ### Publishing a UI family
 
-A family published by `clean` alone (the icons; the frames from V3.1) is regenerated whole after any master in it changes, so a removed master also leaves the published folder:
+A family published by `clean` alone (the icons; the frames from V3.1; `world` from V3.3; `pictures` from V3.4) is regenerated whole after any master in it changes, so a removed master also leaves the published folder. For the icons, and the same with the family's folder name for the others:
 
 ```
 rm -f web/static/polishedworld/ui/icons/*.png
 python art/tools/assetpipe.py clean art/ui/icons/*.png --out web/static/polishedworld/ui/icons
 ```
+
+*(Rev 8)* A picture has no magenta, so `clean` writes it with the same pixels, none transparent.
 
 ### Tests
 
