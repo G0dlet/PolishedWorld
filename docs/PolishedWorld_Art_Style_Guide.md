@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 6 · 2026-11-12** — the webclient's first UI family exists (webclient visual decomposition V3.2, on `feature/webclient-visual`): §2 gains `art/ui/<family>/` and its published counterpart `web/static/polishedworld/ui/<family>/`, §10 the command that publishes the icons, and §10's *Tests* the family table in `TestPublishedUpToDate`.
 > **Rev 5 · 2026-11-11** — new §5 subsection *Frames and icons*: the edge-contrast property the webclient visual pass's first briefs state (visual decomposition V2.1), written here because both assistants follow it (§1). `validate` does not check it yet.
 > **Rev 4 · 2026-11-11** — the outline rule after WC11 (webclient decomposition W2.3, shipped on `main` with the webclient merge `399e306`): §5's outline is Muted `#9D9B8C`, the edge-contrast rule is written as the property, and the Rev 3 open item is closed; §10 lists the body master's two edge checks in `validate`.
 > **Rev 3 · 2026-11-06** — the asset pipeline exists (`art/tools/assetpipe.py`, Tasks 2.1–2.2 on `feature/webclient-assets`): §1 and §2 lose "planned", §5 gains the outline rule and the zone masks, new §10 documents the tool. Open item: the outline's contrast against Panel.
@@ -30,7 +31,8 @@ Pipeline:
 | `art/reference/` | Concept mockups showing visual direction (WebP) | No |
 | `art/body/` | Body masters: `body_base.png`, `body_zonemap.png` | No |
 | `art/tools/` | Asset pipeline, its tests and its `requirements.txt` (§10) | No |
-| `web/static/polishedworld/` | Pipeline output: cleaned PNG assets and zone masks, served at `/static/polishedworld/` | Yes |
+| `art/ui/<family>/` | Webclient UI masters, one folder per family: `icons/` (`icon_`, `status_`) since the visual pass's V3.2; `frames/` (`frame_`) from V3.1 | No |
+| `web/static/polishedworld/` | Pipeline output: cleaned PNG assets and zone masks, served at `/static/polishedworld/`. The body under `characters/body/`; each UI family under `ui/<family>/`, mirroring `art/ui/<family>/` | Yes |
 
 Source folders for other asset types under `art/` are created when their first master arrives.
 
@@ -230,10 +232,19 @@ python art/tools/assetpipe.py clean art/body/body_base.png --out web/static/poli
 python art/tools/assetpipe.py split-body --out web/static/polishedworld/characters/body
 ```
 
+### Publishing a UI family
+
+A family published by `clean` alone (the icons; the frames from V3.1) is regenerated whole after any master in it changes, so a removed master also leaves the published folder:
+
+```
+rm -f web/static/polishedworld/ui/icons/*.png
+python art/tools/assetpipe.py clean art/ui/icons/*.png --out web/static/polishedworld/ui/icons
+```
+
 ### Tests
 
 ```
 python -m unittest discover -s art/tools
 ```
 
-`art/` is not a Python package, so `evennia test` never collects these tests and the game suite does not depend on Pillow. `TestPublishedUpToDate` regenerates the published body files and compares their pixels with the committed ones: a master committed without re-running the commands above fails the suite.
+`art/` is not a Python package, so `evennia test` never collects these tests and the game suite does not depend on Pillow. `TestPublishedUpToDate` regenerates the published body files and compares their pixels with the committed ones: a master committed without re-running the commands above fails the suite. Its family table (`FAMILIES`) does the same for every family published by `clean` alone, and also fails on a published file without a master or a master never published.
