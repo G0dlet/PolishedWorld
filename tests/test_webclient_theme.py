@@ -53,10 +53,25 @@ Each class names the bug it pressures:
     TestChrome             a box or control edge drops below 3:1 against
                            the surfaces (WCAG 1.4.11), a drawer turns
                            transparent over the text, the sections lose their
-                           own boxes, the selected tab is told by colour only,
-                           a heading loses its rule or outgrows the title, or
-                           the ALPHA mark becomes unreadable (visual pass V1.2,
-                           locks 1A-4A).
+                           own boxes, the selected tab is told by colour only
+                           (since V3.1 lock 5A: by weight and a list inside
+                           the frame, which must show against the tab's own
+                           surface), a heading loses its rule or outgrows the
+                           title, or the ALPHA mark becomes unreadable (visual
+                           pass V1.2, locks 1A-4A).
+    TestFrames             a frame points at a file that is not published, a
+                           published frame is used by nothing, an element
+                           outside lock 3A gets a frame, a frame is drawn at
+                           another scale than x1 or squeezed on one side,
+                           smoothed, or tiled instead of stretched, the
+                           fallback edge under a missing image is not the
+                           double Copper line, a later `border` shorthand
+                           silently resets the image, a framed box keeps
+                           rounded corners under square frame corners, the
+                           content moves from where it stood (the text area
+                           would lose columns), or the command field and the
+                           send button differ in height (visual pass V3.1,
+                           locks 1A-5A).
     TestIcons              an icon is missing, points at a file that is not
                            published, is drawn at a scale other than x1, is
                            smoothed instead of pixelated, carries content a
@@ -127,6 +142,31 @@ EDGE_SELECTORS = (
     "#inputfield", "#inputsend",
 )
 SELECTED_TAB = '#pw-tabs [role="tab"][aria-selected="true"]'
+# Visual pass V3.1. File under polishedworld/ui/frames/ -> the selectors that
+# wear it (lock 3A). The frames are 48x48 with 16 px corners, drawn at x1
+# (lock 1A), so the border is 16 px on every side.
+FRAMES = {
+    "frame_panel.png": (SECTION_SELECTOR, "#pw-panel-right > section", "#main"),
+    "frame_button.png": ('#pw-tabs [role="tab"]', ".pw-panel-button", "#inputsend"),
+}
+FRAME_DIR = "polishedworld/ui/frames/"
+FRAMED = tuple(selector for group in FRAMES.values() for selector in group)
+FRAME_PX = 16
+# Edged but not framed (lock 3A): the ALPHA mark is lower than two corners,
+# and the command field keeps its plain edge (V2.1 lock 1A).
+UNFRAMED = (".pw-alpha", "#inputfield")
+# Selector -> (vertical, horizontal) px from the box's outer edge to its
+# content, border plus padding. Before V3.1 the sections stood at 2 + 12 and
+# the text area at 2 + 12 / 2 + 16; the frame takes the padding's place (lock
+# 1A). The text area's 18 px is exact: its width is the 80-column budget.
+FRAME_INSETS = {
+    SECTION_SELECTOR: (16, 16),
+    "#pw-panel-right > section": (16, 16),
+    "#main": (16, 18),
+    '#pw-tabs [role="tab"]': (16, 16),
+    ".pw-panel-button": (16, 16),
+    "#inputsend": (16, 16),
+}
 # Visual pass V3.2: each icon sits on a ::before beside a word that already
 # says what it means (WC14), as a CSS background, so it is decoration by
 # construction. Selector -> file under polishedworld/ui/icons/.
@@ -302,6 +342,14 @@ class _ThemeTest(SimpleTestCase):
             for prop, value in rule.decls
             if prop.startswith("--pw-")
         ]
+
+    def merged(self, selector):
+        """Every declaration that applies to selector outside @media, last wins."""
+        out = {}
+        for rule in self.rules:
+            if rule.media is None and selector in rule.selectors:
+                out.update(dict(rule.decls))
+        return out
 
 
 # ---------------------------------------------------------------- tests
@@ -707,14 +755,21 @@ class TestChrome(_ThemeTest):
         self.assertEqual(seen - {SELECTED_TAB}, set(EDGE_SELECTORS))
 
     def test_selected_tab_is_marked_beyond_colour(self):
+        # Lock 5A (V3.1): the frame's image covers the border's colour, so
+        # the second marker is a list inside the frame, under the label. It
+        # must be thick enough to see and show against the tab's own surface
+        # (3:1, WCAG 1.4.11), where the old bottom edge was read against the
+        # page.
         self.assertEqual(self.decl(SELECTED_TAB, "font-weight"), "700")
-        width = self.decl(SELECTED_TAB, "border-bottom-width")
-        self.assertIsNotNone(width)
-        self.assertGreaterEqual(int(re.fullmatch(r"(\d+)px", width).group(1)), 3)
-        self.assertEqual(self.decl(SELECTED_TAB, "border-bottom-color"), "var(--pw-gold_link)")
-
-    def test_tabs_round_every_corner(self):
-        self.assertEqual(self.decl('#pw-tabs [role="tab"]', "border-radius"), ".25rem")
+        shadow = re.fullmatch(
+            r"inset 0 -(\d+)px 0 var\(--pw-([A-Za-z0-9_-]+)\)", self.decl(SELECTED_TAB, "box-shadow") or ""
+        )
+        self.assertIsNotNone(shadow, self.decl(SELECTED_TAB, "box-shadow"))
+        self.assertGreaterEqual(int(shadow.group(1)), 3)
+        surface = VAR.findall(self.decl(SELECTED_TAB, "background"))[0]
+        self.assertGreaterEqual(
+            contrast(self.palette[shadow.group(2)]["hex"], self.palette[surface]["hex"]), 3.0
+        )
 
     def test_headings_have_a_rule_and_the_title_leads(self):
         for selector in PANEL_HEADINGS:
@@ -729,15 +784,143 @@ class TestChrome(_ThemeTest):
         self.assertEqual(self.decl(".pw-alpha", "text-transform"), "uppercase")
 
 
-class TestIcons(_ThemeTest):
-    def merged(self, selector):
-        """Every declaration that applies to selector outside @media, last wins."""
-        out = {}
-        for rule in self.rules:
-            if rule.media is None and selector in rule.selectors:
-                out.update(dict(rule.decls))
-        return out
+def _px(length):
+    """A CSS length in px at a 16 px root: 0, Npx or Nrem."""
+    length = length.strip()
+    if length == "0":
+        return 0.0
+    match = re.fullmatch(r"([0-9.]+)(px|rem)", length)
+    if not match:
+        raise ValueError(length)
+    return float(match.group(1)) * (16 if match.group(2) == "rem" else 1)
 
+
+def _padding(value):
+    """(vertical, horizontal) px of a padding shorthand with equal opposite sides."""
+    parts = [_px(part) for part in value.split()]
+    top, right, bottom, left = {
+        1: parts * 4, 2: parts * 2, 3: parts + parts[1:2], 4: parts,
+    }[len(parts)]
+    if top != bottom or left != right:
+        raise ValueError(value)
+    return top, left
+
+
+def _is_state_of(selector, base):
+    """True for base[attr] and base:pseudo-class, not for base::pseudo-element."""
+    rest = selector[len(base):]
+    return selector.startswith(base) and (rest.startswith("[") or (rest.startswith(":") and not rest.startswith("::")))
+
+
+class TestFrames(_ThemeTest):
+    def cascade(self, selector):
+        """(property, value) for selector outside @media, in source order."""
+        return [
+            decl for rule in self.rules if rule.media is None and selector in rule.selectors
+            for decl in rule.decls
+        ]
+
+    def test_every_frame_points_at_its_published_file(self):
+        for name, selectors in FRAMES.items():
+            self.assertIsNotNone(finders.find(FRAME_DIR + name), name)
+            for selector in selectors:
+                with self.subTest(selector=selector):
+                    self.assertEqual(
+                        self.merged(selector).get("border-image-source"), 'url("../ui/frames/%s")' % name
+                    )
+
+    def test_every_published_frame_is_used(self):
+        folder = finders.find(FRAME_DIR.rstrip("/"))
+        self.assertIsNotNone(folder, FRAME_DIR)
+        self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), sorted(FRAMES))
+
+    def test_only_the_locked_elements_are_framed(self):
+        # Lock 3A. Read from every rule, @media included: no element outside
+        # the six gets a border image, the two edged exceptions least of all.
+        framed = {
+            selector
+            for rule in self.rules
+            if any(prop.startswith("border-image") for prop, _ in rule.decls)
+            for selector in rule.selectors
+        }
+        self.assertEqual(framed, set(FRAMED))
+        for selector in UNFRAMED:
+            self.assertNotIn(selector, framed)
+            self.assertEqual(self.merged(selector).get("border-radius"), ".25rem", selector)
+
+    def test_frames_are_drawn_at_x1_stretched_and_pixelated(self):
+        # x1: the border is as wide as the slice (WC10), on every side. The
+        # edge segments are one colour along their length, so stretching
+        # them is exact; pixelated keeps the corners sharp when the browser
+        # zooms.
+        for selector in FRAMED:
+            with self.subTest(selector=selector):
+                decls = self.merged(selector)
+                self.assertEqual(decls.get("border-image-slice"), str(FRAME_PX))
+                self.assertEqual((decls.get("border") or "").split()[:1], ["%dpx" % FRAME_PX])
+                self.assertEqual(decls.get("border-image-repeat"), "stretch")
+                self.assertEqual(decls.get("image-rendering"), "pixelated")
+                for prop in decls:
+                    self.assertFalse(
+                        prop.endswith("-width") and prop.startswith("border"), "%s declares %s" % (selector, prop)
+                    )
+                    self.assertNotIn(prop, ("border-image", "border-image-outset"))
+
+    def test_fallback_is_a_double_copper_edge(self):
+        # Lock 2A: if the image does not load, the border's own style shows.
+        # Two lines with a gap, in the edge colour of every other box.
+        for selector in FRAMED:
+            with self.subTest(selector=selector):
+                self.assertEqual(
+                    self.merged(selector).get("border"), "%dpx double var(--pw-copper)" % FRAME_PX
+                )
+
+    def test_no_border_shorthand_resets_the_image(self):
+        # `border` is a shorthand that also resets border-image, so one
+        # written after the image, or in a state of a framed element, would
+        # remove the frame without any test above noticing the base rule.
+        for selector in FRAMED:
+            with self.subTest(selector=selector):
+                props = [prop for prop, _ in self.cascade(selector)]
+                self.assertIn("border", props)
+                self.assertIn("border-image-source", props)
+                last_border = len(props) - 1 - props[::-1].index("border")
+                self.assertLess(last_border, props.index("border-image-source"))
+        for rule in self.rules:
+            for selector in rule.selectors:
+                if any(_is_state_of(selector, base) for base in FRAMED):
+                    borders = [prop for prop, _ in rule.decls if prop.startswith("border")]
+                    self.assertEqual(borders, [], "%s declares %s" % (selector, borders))
+
+    def test_framed_boxes_have_square_corners(self):
+        # The background reaches under the frame; a rounded one would show
+        # as a notch outside each square frame corner.
+        for selector in FRAMED:
+            with self.subTest(selector=selector):
+                self.assertEqual(self.merged(selector).get("border-radius"), "0")
+
+    def test_frame_takes_the_place_of_edge_and_padding(self):
+        self.assertEqual(set(FRAME_INSETS), set(FRAMED))
+        for selector, expected in FRAME_INSETS.items():
+            with self.subTest(selector=selector):
+                decls = self.merged(selector)
+                vertical, horizontal = _padding(decls.get("padding", ""))
+                border = _px((decls.get("border") or "0").split()[0])
+                self.assertEqual((border + vertical, border + horizontal), expected)
+
+    def test_command_field_is_as_tall_as_the_send_button(self):
+        # The button is one body line inside two frame edges; the field's
+        # height is written as that same sum, so the two agree at any root
+        # font size. The button keeps `height: auto`, so it also stretches
+        # with the row.
+        line = self.merged("body").get("line-height")
+        self.assertIsNotNone(line)
+        self.assertEqual(self.merged("#inputfield").get("height"), "calc(%srem + %dpx)" % (line, 2 * FRAME_PX))
+        self.assertEqual(self.merged("#inputsend").get("height"), "auto")
+        self.assertEqual(self.merged("#inputsend").get("font"), "inherit")
+
+
+class TestIcons(_ThemeTest):
     def test_every_icon_points_at_its_published_file(self):
         for selector, name in ICONS.items():
             with self.subTest(selector=selector):
@@ -813,13 +996,6 @@ class TestGaugesAndLists(_ThemeTest):
 
 
 class TestCommandLine(_ThemeTest):
-    def merged(self, selector):
-        out = {}
-        for rule in self.rules:
-            if rule.media is None and selector in rule.selectors:
-                out.update(dict(rule.decls))
-        return out
-
     def colour(self, selector, prop):
         return self.palette[VAR.findall(self.merged(selector)[prop])[0]]["hex"]
 

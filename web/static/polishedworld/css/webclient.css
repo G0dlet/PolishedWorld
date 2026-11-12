@@ -146,11 +146,9 @@ body {
 
 .pw-panel-button {
   min-height: 2.75rem;
-  padding: .375rem .75rem;
+  padding: 0;
   background: var(--pw-panel_light);
   color: var(--pw-text);
-  border: 2px solid var(--pw-copper);
-  border-radius: .25rem;
   font: inherit;
   cursor: pointer;
 }
@@ -171,8 +169,8 @@ body {
 /* Side panels: columns of boxes, one per section (visual pass V1.2, lock
    3A); below the breakpoint, closed drawers. A column keeps the page's
    surface, so an open drawer is never transparent over the text. Each
-   section is its own box, Copper-edged (4.51:1 against Panel, 5.16:1
-   against Background), where V3.1 later puts frame_panel. */
+   section is its own box in frame_panel (V3.1, the frames block below);
+   the frame's inner band stands where the padding stood. */
 #pw-panel-left, #pw-panel-right {
   display: none;
   box-sizing: border-box;
@@ -185,10 +183,8 @@ body {
 }
 
 #pw-panel-left > section, #pw-panel-right > section {
-  padding: .75rem;
+  padding: 0;
   background: var(--pw-panel);
-  border: 2px solid var(--pw-copper);
-  border-radius: .25rem;
 }
 
 #pw-panel-left > section + section, #pw-panel-right > section + section {
@@ -430,17 +426,18 @@ a.pw-room-exit {
 }
 
 /* The text area. <main> is the scroll container: Evennia's default_out
-   scrolls #messagewindow's grandparent, so #messagewindow itself must not. */
+   scrolls #messagewindow's grandparent, so #messagewindow itself must not.
+   It wears frame_panel (V3.1). The side padding makes 18 px with the
+   frame, what the edge and padding were before it, so the line keeps its
+   80 columns at the breakpoint. */
 #main {
   grid-area: text;
   box-sizing: border-box;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: .75rem 1rem;
+  padding: 0 .125rem;
   background: var(--pw-background);
-  border: 2px solid var(--pw-copper);
-  border-radius: .25rem;
   font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, "Courier New", monospace;
   font-size: .875rem;
   line-height: 1.4;
@@ -481,8 +478,10 @@ a.pw-room-exit {
    it routes its tab's class (pw-tab-channels, pw-tab-talk) or the class
    every tab shows (pw-tab-every: the client's err/sys lines, lock 7A). All
    has no rule; it shows every line. The selected tab is told by weight and
-   a thicker bottom edge, not by colour alone (WC14); the row scrolls
-   sideways in itself below the breakpoint if it must (8A). */
+   a Gold/Link list under its label, inside the frame, not by colour alone
+   (WC14; V3.1 lock 5A: the frame's image covers the border's own colour,
+   so the mark cannot be a border; 5.85:1 against Panel light); the row
+   scrolls sideways in itself below the breakpoint if it must (8A). */
 #pw-tabs {
   grid-area: tabs;
   display: flex;
@@ -492,11 +491,9 @@ a.pw-room-exit {
 
 #pw-tabs [role="tab"] {
   min-height: 2.75rem;
-  padding: .375rem .75rem;
+  padding: 0;
   background: var(--pw-panel);
   color: var(--pw-text);
-  border: 2px solid var(--pw-copper);
-  border-radius: .25rem;
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
@@ -506,8 +503,7 @@ a.pw-room-exit {
   background: var(--pw-panel_light);
   color: var(--pw-highlight);
   font-weight: 700;
-  border-bottom-width: 5px;
-  border-bottom-color: var(--pw-gold_link);
+  box-shadow: inset 0 -4px 0 var(--pw-gold_link);
 }
 
 #pw-tabs [hidden] { display: none; }
@@ -552,7 +548,7 @@ a.pw-room-exit {
   flex: 1 1 auto;
   box-sizing: border-box;
   min-width: 0;
-  height: 3rem;
+  height: calc(1.4rem + 32px);
   padding: .5rem .75rem;
   background: var(--pw-panel);
   color: var(--pw-text);
@@ -563,10 +559,12 @@ a.pw-room-exit {
   resize: none;
 }
 
-/* The command line (visual pass V1.4). The field's edge is Copper like
-   every box and turns Gold/Link with focus, beside the global outline
-   (lock 3A). The placeholder is Muted at full opacity, 5.78:1 on Panel;
-   Firefox would dim it otherwise. */
+/* The command line (visual pass V1.4). The field's edge is plain Copper
+   and turns Gold/Link with focus, beside the global outline (lock 3A).
+   The placeholder is Muted at full opacity, 5.78:1 on Panel; Firefox
+   would dim it otherwise. The field has no frame (V2.1 lock 1A); its
+   height is one body line plus two frame edges, the sum that makes the
+   framed send button beside it (V3.1 lock 1A). */
 #inputfield:focus { border-color: var(--pw-gold_link); }
 
 #inputfield::placeholder {
@@ -582,11 +580,9 @@ a.pw-room-exit {
 #inputsend {
   height: auto;
   min-width: 3rem;
-  padding: 0 1rem;
+  padding: 0;
   background: var(--pw-deep_green);
   color: var(--pw-highlight);
-  border: 2px solid var(--pw-copper);
-  border-radius: .25rem;
   font: inherit;
   cursor: pointer;
 }
@@ -607,6 +603,42 @@ a.pw-room-exit {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Frames (visual pass V3.1). Six boxes wear a 9-slice frame from
+   polishedworld/ui/frames/ (lock 3A): frame_panel on each panel section
+   and on the text area, frame_button on the tabs, the drawer buttons and
+   the send button. The ALPHA mark and the command field keep their plain
+   Copper edge.
+
+   The files are 48x48 with 16 px corners and are drawn at x1, so the
+   border is as wide as the slice (lock 1A). Only the outer 5 px of a slice
+   are drawn; the box's own background shows in the other 11. That is why
+   the corners are square (a rounded background would notch every frame
+   corner) and why these boxes have little or no padding: the frame's
+   inner band is the padding. Each edge is one colour along its length, so
+   `stretch` is exact (lock 4A); `pixelated` keeps the corners sharp when
+   the browser zooms.
+
+   If an image does not load, the border's own style shows: a double
+   Copper line (lock 2A). `border` is a shorthand that also resets
+   border-image, so it stands first here; no later rule for these boxes,
+   and no state of them, may declare a border. */
+#pw-panel-left > section, #pw-panel-right > section, #main,
+#pw-tabs [role="tab"], .pw-panel-button, #inputsend {
+  border: 16px double var(--pw-copper);
+  border-radius: 0;
+  border-image-slice: 16;
+  border-image-repeat: stretch;
+  image-rendering: pixelated;
+}
+
+#pw-panel-left > section, #pw-panel-right > section, #main {
+  border-image-source: url("../ui/frames/frame_panel.png");
+}
+
+#pw-tabs [role="tab"], .pw-panel-button, #inputsend {
+  border-image-source: url("../ui/frames/frame_button.png");
 }
 
 /* Three columns. The .pw-open selectors are repeated so a drawer left open
