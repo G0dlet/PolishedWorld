@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 7 · 2026-11-12** — what the webclient visual pass's second briefs state (visual decomposition V2.2), written here because both assistants follow it (§1): §5's size table gives the location picture as 96×54, the size that fits the client's *Location* panel at ×1 (`assetpipe.py` still says 320×180 for `room_` and follows at V3.4); §5's file-name examples use the names the client will ask for; a new §5 subsection *Weather icons and pictures*; §8 tells pictures from motifs on a background.
 > **Rev 6 · 2026-11-12** — the webclient's first UI family exists (webclient visual decomposition V3.2, on `feature/webclient-visual`): §2 gains `art/ui/<family>/` and its published counterpart `web/static/polishedworld/ui/<family>/`, §10 the command that publishes the icons, and §10's *Tests* the family table in `TestPublishedUpToDate`.
 > **Rev 5 · 2026-11-11** — new §5 subsection *Frames and icons*: the edge-contrast property the webclient visual pass's first briefs state (visual decomposition V2.1), written here because both assistants follow it (§1). `validate` does not check it yet.
 > **Rev 4 · 2026-11-11** — the outline rule after WC11 (webclient decomposition W2.3, shipped on `main` with the webclient merge `399e306`): §5's outline is Muted `#9D9B8C`, the edge-contrast rule is written as the property, and the Rev 3 open item is closed; §10 lists the body master's two edge checks in `validate`.
@@ -122,13 +123,14 @@ These are never motif colours and must never appear in the client.
 | Icons (panel, status, weather, item) | 32×32 | ×1 or ×2 |
 | Body silhouette and zone layers | 32×64 | ×2 or ×4 |
 | UI frames (9-slice, 16 px corners) | 48×48 | CSS `border-image` |
-| Location images | 320×180 | ×4 (1280×720) |
-| Header banners | 320×40 | ×4 (1280×160) |
+| Location pictures | 96×54 | ×1, beside the room's name |
+| Header banners | 320×40 | ×1 or ×2 |
 
 - Draw at native resolution. Scale only by whole-number factors, with nearest-neighbour, and render with `image-rendering: pixelated`.
 - One asset per image. Overview sheets are style references only, never production assets.
 - Strict pixel grid: square logical pixels, no anti-aliasing, glow, blur or gradients.
 - Palette colours only (plus the reserved tool colours above where allowed).
+- *(Rev 7)* The location picture was 320×180 here until the webclient visual pass (V2.2 lock 1A): the *Location* panel is 224 px wide inside its frame, so that size could not be shown at a whole factor. `assetpipe.py`'s `NATIVE_SIZES` changes with the first delivery (visual decomposition V3.4); until then `validate` rejects a 96×54 `room_` file.
 
 ### File names
 
@@ -136,7 +138,9 @@ English, `snake_case`, no spaces or non-ASCII characters, with a type prefix:
 
 `icon_`, `status_`, `weather_day_`, `weather_night_`, `season_`, `item_`, `body_`, `frame_`, `banner_`, `room_`
 
-Examples: `icon_inventory.png`, `status_thirst.png`, `weather_night_rain.png`, `body_left_arm.png`, `banner_summer_evening.png`, `room_smithy.png`.
+Examples: `icon_inventory.png`, `status_thirst.png`, `weather_night_raining.png`, `body_left_arm.png`, `banner_summer.png`, `room_indoor.png`.
+
+A file that the client picks by a game value is named by that value as the game writes it: the weather states are `clear`, `raining`, `snowing` and `foggy` (`world/weather.py`), the seasons `spring`, `summer`, `autumn` and `winter`, a room is `indoor` or `outdoor`.
 
 ### Body silhouette
 
@@ -153,6 +157,13 @@ Examples: `icon_inventory.png`, `status_thirst.png`, `weather_night_rain.png`, `
 - **Edge contrast:** every motif pixel that shares a side with `#FF00FF`, or with the image border, is a colour with **Status: Yes** in §3, so it reaches 3:1 against both Panel and Background. A frame drawn for buttons, whose surface is Panel light, also leaves Water off that edge (2.80:1 against Panel light). Border/Wood (2.62:1 against Panel), Dark wood, Deep green, the surfaces and Night blue may be used inside a motif but never on its edge. `validate` checks edge contrast only for `body_base.png` (§10); for frames and icons the delivery is checked in the browser (webclient visual decomposition V3.1–V3.2).
 - **Frames** are 9-slice at 48×48 with 16 px corners (CSS `border-image`). The centre 16×16 is never shown and is delivered as `#FF00FF`; each edge piece repeats along the box without a seam.
 - **Icons** always stand beside a word that says the same thing (§7). They are told apart in greyscale by shape, and carry no text.
+
+### Weather icons and pictures
+
+- **Night is told by shape** (§7): every `weather_night_` icon contains a moon or stars, and no `weather_day_` icon does. The day and night icons of one state share the same weather motif.
+- **Banners and location pictures are full rectangles.** Every pixel is painted, nothing is transparent and `#FF00FF` is not used; where a picture should melt into what is behind it, that colour is painted (Background behind a banner, Panel behind a location picture). The edge-contrast rule above is for motifs on a background and does not apply: all 27 colours may be used anywhere in a picture. No frame is drawn into a picture.
+- **A set of banners is one landscape:** terrain, buildings, trunks and paths stand on the same pixels in every file of the set, and only the season's dress changes. A banner shows no time of day and no falling weather, because it is shown at every hour and the weather has its own icon.
+- **A location picture says only what the game knows about the room** — today, indoors or outdoors. It shows no season, time of day, weather, lit fire, particular trade or creature. The mood of every picture is the tone guide's (`docs/PolishedWorld_Tone_Guide.md`).
 
 ## 6. Mongoose Legend UI rules
 
@@ -177,7 +188,7 @@ No state may be distinguished by colour alone. Shape, symbol or text always carr
 
 - [ ] Correct native dimensions and file name prefix.
 - [ ] Every motif pixel is an exact palette colour.
-- [ ] Background is exactly `#FF00FF` before cleaning, with no magenta inside the motif.
+- [ ] Background is exactly `#FF00FF` before cleaning, with no magenta inside the motif. A banner or location picture has no `#FF00FF` at all.
 - [ ] No semi-transparent edges, anti-aliasing or interpolated colours.
 - [ ] Readable at native size and without colour.
 - [ ] Body layers align exactly and follow the right/left convention.
