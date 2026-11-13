@@ -224,3 +224,103 @@ class TestTickHeals(HealingTestBase):
         self.assertEqual(self.health.current, start - survival_ticker.STARVE_DAMAGE)
         self.assertEqual(self.char1.db.heal_progress, self.interval - 2400)
         self.assertNotIn(healing.HEALED, lines)
+
+
+class TestTimeAway(HealingTestBase):
+    """
+    Pressures S2.2 (SL7): the stamp at the last unpuppet and the credit at the
+    next puppet. Mutations: SL-M18 (stamp before the multisession bail),
+    SL-M19 (stamp kept after crediting -- the next login credits it again),
+    SL-M20 (stamp while Starving), SL-M44 (credit after the panel push, so
+    the first snapshot shows the old health).
+    """
+
+    CLOCK = "world.gametime_utils.get_absolute_gametime"
+    T = 1_000_000
+
+    def _leave(self, at):
+        with mock.patch(self.CLOCK, return_value=at):
+            self.account.unpuppet_object(self.session)
+
+    def _return(self, at):
+        with mock.patch(self.CLOCK, return_value=at), \
+                mock.patch.object(self.char1, "msg") as msg:
+            self.char1.at_post_puppet()
+        return [c.args[0] for c in msg.call_args_list if c.args]
+
+    def test_two_intervals_away_grant_two_and_one_line(self):
+        start = self.health.current
+        self._leave(self.T)
+        self.assertEqual(self.char1.db.away_since, self.T)
+        lines = self._return(self.T + 2 * self.interval)
+        self.assertEqual(self.health.current, start + 2)
+        self.assertEqual(lines.count(healing.HEALED), 1)
+        self.assertIsNone(self.char1.db.away_since)
+
+    def test_the_credit_is_spent_once(self):
+        self._leave(self.T)
+        self._return(self.T + self.interval)
+        start = self.health.current
+        # A second puppet with no logout between (a reload, a second
+        # session): nothing left to credit.
+        lines = self._return(self.T + 3 * self.interval)
+        self.assertEqual(self.health.current, start)
+        self.assertNotIn(healing.HEALED, lines)
+
+    def test_logged_out_under_a_condition_stamps_nothing(self):
+        for buffclass in (Starving, Dehydrated):
+            with self.subTest(condition=buffclass.key):
+                self.char1.db.away_since = 123
+                self.char1.buffs.add(buffclass)
+                self._leave(self.T)
+                self.assertIsNone(self.char1.db.away_since)
+                self.char1.buffs.remove(buffclass.key)
+                start = self.health.current
+                self._return(self.T + 2 * self.interval)
+                self.assertEqual(self.health.current, start)
+                self.account.puppet_object(self.session, self.char1)
+
+    def test_a_session_leaving_while_another_remains_stamps_nothing(self):
+        self.char1.db.away_since = None
+        self.assertEqual(self.char1.sessions.count(), 1)
+        sessions = self.char1.sessions
+        with mock.patch.object(sessions, "count", wraps=sessions.count) as count, \
+                mock.patch(self.CLOCK, return_value=self.T):
+            self.char1.at_post_unpuppet(self.account, session=self.session)
+        self.assertTrue(count.called)  # receipt: the hook ran and read the sessions
+        self.assertIsNone(self.char1.db.away_since)
+
+    def test_no_stamp_credits_nothing(self):
+        self.char1.db.away_since = None
+        start = self.health.current
+        lines = self._return(self.T)
+        self.assertEqual(self.health.current, start)
+        self.assertNotIn(healing.HEALED, lines)
+
+    def test_the_tick_after_login_does_not_credit_the_span_again(self):
+        self._leave(self.T)
+        back = self.T + self.interval + 500
+        self._return(back)
+        progress, health = self.char1.db.heal_progress, self.health.current
+        self.assertEqual(progress, 500)
+        with mock.patch(self.CLOCK, return_value=back + 10):
+            survival_ticker._deplete_character(self.char1)
+        self.assertEqual(self.char1.db.heal_progress, progress)
+        self.assertEqual(self.health.current, health)
+
+    def test_the_credit_lands_before_the_panel_push(self):
+        self.char1.db.away_since = self.T
+        order = []
+        with mock.patch(self.CLOCK, return_value=self.T + self.interval), \
+                mock.patch.object(healing, "accrue",
+                                  side_effect=lambda c, s: order.append("accrue") or 0), \
+                mock.patch.object(client_state, "push",
+                                  side_effect=lambda obj, *d, **k: order.append(d)):
+            self.char1.at_post_puppet()
+        self.assertIn(tuple(client_state.DOMAINS), order)
+        self.assertLess(order.index("accrue"), order.index(tuple(client_state.DOMAINS)))
+
+    def test_a_statue_without_a_room_is_stamped(self):
+        self.char1.location = None
+        self._leave(self.T)
+        self.assertEqual(self.char1.db.away_since, self.T)
