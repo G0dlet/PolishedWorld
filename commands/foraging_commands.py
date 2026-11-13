@@ -19,6 +19,7 @@ from evennia.utils import logger
 # Assumes the game template's base command. Adjust if yours lives elsewhere.
 from commands.command import Command
 from world import activity_log
+from world import water
 
 FORAGE_COOLDOWN = 60  # real seconds between forage attempts, per character
 
@@ -194,13 +195,9 @@ class CmdRefill(Command):
     def func(self):
         caller = self.caller
 
-        # 1. Need a water source present in the room.
-        has_water = any(
-            o.is_water_source
-            for o in caller.location.contents
-            if o.is_typeclass("typeclasses.resources.ResourceNode", exact=False)
-        )
-        if not has_water:
+        # 1. Need a water source present in the room (world/water.py, the
+        #    scan `drink` shares).
+        if water.source_in(caller.location) is None:
             caller.msg("There is no water source here to refill from.")
             return
 

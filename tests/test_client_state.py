@@ -928,6 +928,8 @@ class TestPushCensus(EvenniaTest):
         # W7.1 lock 3: the worn state changes without a move
         ("typeclasses/clothing.py", "ClothingWithBuffs.wear", "push_soon"): 1,
         ("typeclasses/clothing.py", "ClothingWithBuffs.remove", "push_soon"): 1,
+        # Survival Loop S1.1: drinking at a water source
+        ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "push"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the
@@ -948,6 +950,7 @@ class TestPushCensus(EvenniaTest):
     GAUGE_WRITES = {
         ("commands/consumption_commands.py", "CmdEat.func", "caller.traits.hunger.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink.func", "caller.traits.thirst.current"): "survival",
+        ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "caller.traits.thirst.current"): "survival",
         ("typeclasses/characters.py", "Character.update_health_max", "self.traits.health.current"): "char",
         ("typeclasses/characters.py", "Character.apply_health_damage", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "health.current"): "char",

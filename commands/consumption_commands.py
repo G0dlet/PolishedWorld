@@ -13,6 +13,7 @@ from commands.command import Command
 from world import timed_actions
 from world import activity_log
 from world import client_state
+from world import water
 from typeclasses.consumables import Food, Drink
 
 
@@ -69,10 +70,17 @@ class CmdEat(Command):
 
 class CmdDrink(Command):
     """
-    Drink from a container to restore thirst.
+    Drink to restore thirst.
 
     Usage:
+      drink
+      drink <source>
       drink <container>
+
+    With no argument you drink at a spring or other water source here,
+    from cupped hands. Name a container you carry, a waterskin for
+    instance, to drink from it instead; a container is never chosen
+    for you.
     """
 
     key = "drink"
@@ -80,12 +88,23 @@ class CmdDrink(Command):
 
     def func(self):
         caller = self.caller
-        if not self.args.strip():
-            caller.msg("Drink from what?")
+        query = self.args.strip()
+        if not query:
+            # Survival Loop SL2: bare `drink` means the source, never a
+            # carried vessel -- its charges are the player's to spend.
+            source = water.source_in(caller.location)
+            if source is None:
+                caller.msg("Drink from what?")
+                return
+            self._drink_from_source(source)
             return
 
-        obj = caller.search(self.args.strip())
+        obj = caller.search(query)
         if not obj:
+            return
+
+        if water.is_source(obj):
+            self._drink_from_source(obj)
             return
 
         if not inherits_from(obj, Drink):
@@ -116,6 +135,46 @@ class CmdDrink(Command):
         if obj.is_empty():
             caller.msg(f"{obj.get_display_name(caller)} runs dry.")
         client_state.push(caller, "survival")   # W4.2
+
+    def _drink_from_source(self, source):
+        """
+        Drink at a water source: three draughts at once, free (SL2).
+
+        A character already at full thirst is told so and nothing is written:
+        the source costs nothing, so a line with no gain would only be noise
+        in the activity log (S1.1 lock C1). The line has no `charges_left`,
+        because a source has none.
+
+        Args:
+            source (ResourceNode): A water source in the caller's room.
+        """
+        caller = self.caller
+        thirst = caller.traits.thirst
+        if thirst.current >= thirst.max:
+            caller.msg("You aren't thirsty.")
+            return
+
+        thirst_before = thirst.current
+        caller.traits.thirst.current += water.SOURCE_RESTORE  # auto-clamps to max
+        # Launch Minimum L2.2: after the last write, before the first message.
+        activity_log.record(
+            "consume",
+            caller,
+            verb="drink",
+            item=source.key,
+            gauge="thirst",
+            delta=caller.traits.thirst.current - thirst_before,
+        )
+        caller.msg(
+            f"You kneel at the {source.get_display_name(caller)} and drink from "
+            "cupped hands. The water is cold enough to ache."
+        )
+        caller.location.msg_contents(
+            f"{caller.get_display_name()} kneels at the "
+            f"{source.get_display_name()} and drinks.",
+            exclude=caller,
+        )
+        client_state.push(caller, "survival")
 
 
 class CmdRest(Command):
