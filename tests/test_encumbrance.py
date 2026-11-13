@@ -1009,8 +1009,8 @@ class TestRollCensus(EvenniaTest):
 
 # --- W3.2 -- the fatigue cost per room ----------------------------------------
 
-MID = 50          # fatigue mid-bucket ("weary", 41-60): no clamp either way
-TIRED = "|yYou feel tired.|n"   # the warning at 40 (bucket 21-40)
+MID = 50          # fatigue mid-level (Tired, 41-60): no clamp either way
+WEARIED = "|yYou feel wearied.|n"   # the warning at 40 (Wearied, 21-40; S3.1)
 
 
 class _StepFixture(_PenaltyFixture):
@@ -1086,7 +1086,7 @@ class TestStepWarnings(_StepFixture, EvenniaTest):
 
     def test_crossing_into_a_worse_bucket_warns_once(self):
         self.baseline(41)
-        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [TIRED]))   # 41 -> 40
+        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [WEARIED]))   # 41 -> 40
 
     def test_a_step_inside_a_bucket_is_silent(self):
         self.baseline(40)
@@ -1094,4 +1094,4 @@ class TestStepWarnings(_StepFixture, EvenniaTest):
 
     def test_the_first_step_after_a_reload_warns(self):
         self.char1.ndb.survival_buckets = None   # what `evennia reload` leaves
-        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [TIRED]))
+        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [WEARIED]))

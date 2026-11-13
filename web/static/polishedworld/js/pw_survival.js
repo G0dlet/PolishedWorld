@@ -5,9 +5,9 @@
  * Shows the `survival` snapshot (world/client_state.py survival_snapshot):
  * hunger, thirst and fatigue, each as numbers, the gauge's own description
  * and a bar. All three count what the character has left, as health does:
- * fatigue is energy (100 energetic, 0 exhausted; typeclasses/characters.py
- * descs, and rest adds to it), so a full bar is always the good end and no
- * bar is drawn inverted.
+ * fatigue is energy (100 fresh, 0 debilitated; Legend's levels in
+ * world/fatigue.py, and rest adds to it), so a full bar is always the good
+ * end and no bar is drawn inverted.
  *
  * A renderer like pw_char.js, not an Evennia plugin: it registers with
  * pw_state.on("survival") only, so it has to load after pw_state.js and,

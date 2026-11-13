@@ -11,7 +11,7 @@ from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
-from world import client_state, gametime_utils, healing
+from world import client_state, fatigue, gametime_utils, healing
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
@@ -140,6 +140,10 @@ def _check_survival_warnings(char):
     """
     Message the character only when a gauge drops into a *worse* descs bucket.
 
+    Fatigue's bucket is Legend's level and its word `fatigue_desc()` (S3.1),
+    both from world/fatigue.py, never the gauge's stored `descs`: characters
+    made before S3.1 store the old table. Hunger and thirst keep their own.
+
     Previous bucket indices are tracked in non-persistent char.ndb, so this
     costs no DB writes and resets harmlessly on reload (baseline re-established
     silently on the next tick). Recovery messages are handled by the eat/drink/
@@ -153,13 +157,17 @@ def _check_survival_warnings(char):
         trait = char.traits.get(key)
         if trait is None:
             continue
-        idx = _bucket_index(trait)
+        if key == "fatigue":
+            idx = fatigue.level_for(trait.value)
+        else:
+            idx = _bucket_index(trait)
         if idx is None:
             continue
         prev = last.get(key)
         if prev is not None and idx < prev:
             # dropped into a worse bucket -> warn
-            char.msg(f"|yYou feel {trait.desc()}.|n")
+            word = char.fatigue_desc() if key == "fatigue" else trait.desc()
+            char.msg(f"|yYou feel {word}.|n")
         last[key] = idx
 
     char.ndb.survival_buckets = last

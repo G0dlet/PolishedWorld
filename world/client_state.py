@@ -10,7 +10,8 @@ so a panel cannot say something `status`, `inventory` or `look` does not
 
     char      name, health (status's numbers and health_desc()),
               encumbrance (inventory's one read of carried/limit/band)
-    survival  hunger, thirst, fatigue (status's numbers and trait.desc())
+    survival  hunger, thirst, fatigue (status's numbers; trait.desc(),
+              and fatigue_desc() for fatigue)
     world     absolute game seconds, TIME_FACTOR, server wall-clock ms,
               global weather, and the calendar tables the browser needs
               to advance and name the time itself (WC9)
@@ -142,11 +143,22 @@ def char_snapshot(char):
 
 
 def survival_snapshot(char):
-    """Hunger, thirst and fatigue, each with the gauge's own description."""
+    """
+    Hunger, thirst and fatigue, each with the word `status` prints.
+
+    Hunger and thirst carry the gauge's own `desc()`. Fatigue carries
+    `char.fatigue_desc()`, Legend's level (S3.1): a character made before
+    S3.1 still stores the old fatigue `descs`, so the gauge's own `desc()`
+    would put another word in the panel than `status` puts in the text.
+    """
     snap = {}
     for key in SURVIVAL_GAUGES:
         trait = _trait(char, key)
-        snap[key] = None if trait is None else _gauge(trait, trait.desc())
+        if trait is None:
+            snap[key] = None
+            continue
+        desc = char.fatigue_desc() if key == "fatigue" else trait.desc()
+        snap[key] = _gauge(trait, desc)
     return snap
 
 

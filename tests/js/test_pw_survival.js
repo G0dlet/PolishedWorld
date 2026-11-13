@@ -10,7 +10,7 @@
  *   missing     a character without one of the traits (snapshot value null,
  *               or the key absent) throws, or shows numbers it does not have.
  *   direction   the fatigue bar is drawn inverted: the server's gauge counts
- *               energy (100 energetic, 0 exhausted), as hunger and thirst do.
+ *               energy (100 fresh, 0 debilitated), as hunger and thirst do.
  *   writer      the renderer is not registered for "survival", writes into
  *               the wrong element, writes markup instead of text, or a row
  *               hidden once never shows again.
@@ -51,7 +51,7 @@ function snapshot(overrides) {
         {
             hunger: { current: 45, max: 100, desc: "hungry" },
             thirst: { current: 12, max: 100, desc: "dying of thirst" },
-            fatigue: { current: 81, max: 100, desc: "rested" },
+            fatigue: { current: 81, max: 100, desc: "fresh" },
         },
         overrides || {}
     );
@@ -62,7 +62,7 @@ describe("view", () => {
         const view = survivalView(snapshot());
         assert.deepEqual(
             ["hunger", "thirst", "fatigue"].map((k) => [view[k].numbers, view[k].desc]),
-            [["45/100", "hungry"], ["12/100", "dying of thirst"], ["81/100", "rested"]]
+            [["45/100", "hungry"], ["12/100", "dying of thirst"], ["81/100", "fresh"]]
         );
     });
 
@@ -91,9 +91,9 @@ describe("missing", () => {
 });
 
 describe("direction", () => {
-    it("draws fatigue full when rested and empty when exhausted", () => {
-        const full = survivalView(snapshot({ fatigue: { current: 100, max: 100, desc: "energetic" } }));
-        const empty = survivalView(snapshot({ fatigue: { current: 0, max: 100, desc: "exhausted" } }));
+    it("draws fatigue full when fresh and empty when debilitated", () => {
+        const full = survivalView(snapshot({ fatigue: { current: 100, max: 100, desc: "fresh" } }));
+        const empty = survivalView(snapshot({ fatigue: { current: 0, max: 100, desc: "debilitated" } }));
         assert.equal(full.fatigue.bar, "100%");
         assert.equal(empty.fatigue.bar, "0%");
     });
@@ -175,7 +175,7 @@ describe("writer", () => {
         assert.deepEqual(got, {
             hunger: [false, "45/100", "hungry", "45%"],
             thirst: [false, "12/100", "dying of thirst", "12%"],
-            fatigue: [false, "81/100", "rested", "81%"],
+            fatigue: [false, "81/100", "fresh", "81%"],
         });
     });
 

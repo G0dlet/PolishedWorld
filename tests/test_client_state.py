@@ -181,9 +181,11 @@ class TestSurvivalSnapshot(EvenniaTest):
         self.assertEqual(set(snap), {"hunger", "thirst", "fatigue"})
         for key in snap:
             trait = self.char1.traits.get(key)
+            # status's readers: fatigue's word is fatigue_desc() (S3.1)
+            desc = self.char1.fatigue_desc() if key == "fatigue" else trait.desc()
             self.assertEqual(snap[key], {"current": _whole(trait.value),
                                          "max": _whole(trait.max),
-                                         "desc": trait.desc()})
+                                         "desc": desc})
         self.assertEqual(snap["hunger"]["current"], 37)
         self.assertEqual(_json_roundtrip(snap), snap)
 

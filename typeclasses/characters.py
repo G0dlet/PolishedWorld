@@ -20,6 +20,7 @@ from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import encumbrance
+from world import fatigue as fatigue_rules
 from world import client_state
 from world import room_text
 from world import survival_ticker
@@ -111,7 +112,8 @@ class Character(ObjectParent, ClothedCharacter):
         
         - hunger: Food need (0=starving, 100=full)
         - thirst: Water need (0=dehydrated, 100=hydrated)
-        - fatigue: Rest need (0=exhausted, 100=well-rested)
+        - fatigue: Rest need (0=debilitated, 100=fresh; Legend's six levels,
+          world/fatigue.py)
         - health: Hit points (0=dead, max=CON-based)
         
         Supports .rate for automatic changes (e.g., gradual hunger increase).
@@ -325,14 +327,10 @@ class Character(ObjectParent, ClothedCharacter):
             mod=0,
             min=0,
             rate=0,
-            descs={
-                0: "exhausted",
-                20: "drained",
-                40: "tired",
-                60: "weary", 
-                80: "rested",
-                95: "energetic"
-            }
+            # Legend's six levels (S3.1, SL8), built from the one table
+            # fatigue_desc() reads; characters made before S3.1 keep their
+            # old descs, which nothing reads for fatigue any more.
+            descs=dict(fatigue_rules.DESCS),
         )
         
         self.traits.add(
@@ -764,6 +762,27 @@ class Character(ObjectParent, ClothedCharacter):
             if pct <= bound:
                 return label
         return label
+
+    def fatigue_desc(self):
+        """
+        The fatigue word: the level of Legend's six the gauge is in (S3.1, SL8).
+
+        Read from `world.fatigue.LEVELS`, never from the gauge's stored
+        `descs`: characters made before S3.1 carry the old table (keys
+        0/20/40/60/80/95, `exhausted` .. `energetic`), and reading the one
+        table here means none of them needs its data rewritten. New
+        characters store the same table (`fatigue.DESCS`), so their own
+        `trait.desc()` agrees for every whole value (tests/test_fatigue.py).
+        `status`, `sheet`, the client's `survival` snapshot and the tick's
+        warning all print this word, the `health_desc()` precedent.
+
+        Returns:
+            str: the level's word, or "" if the character has no fatigue gauge.
+        """
+        trait = self.traits.get("fatigue")
+        if trait is None:
+            return ""
+        return fatigue_rules.word_for(trait.value)
 
     def improve_skill_on_use(self, skill_key):
         """
