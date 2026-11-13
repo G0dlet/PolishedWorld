@@ -340,7 +340,7 @@ class Character(ObjectParent, ClothedCharacter):
             base=derive_health_max(self.stats.con.value),
             mod=0,
             min=0,
-            rate=0,  # Natural healing rate can be set later
+            rate=0,  # natural healing is world/healing.py, on the survival tick
             descs={
                 0: "dead",
                 10: "near death",
@@ -525,6 +525,10 @@ class Character(ObjectParent, ClothedCharacter):
 
         # C.3: the `progress` baseline is taken at every puppet.
         self.snapshot_skill_baseline()
+        # S2.1: the survival tick's clock starts again at this puppet. ndb
+        # survives an unpuppet on the cached object, so without this the
+        # first tick would credit the whole time spent as a statue.
+        self.ndb.survival_tick_at = None
         # W4.1: every webclient panel gets its state (WC5). OOB only, so
         # where it sits among the text below changes nothing on screen;
         # push never raises. Sent in chargen too -- chargen's end pushes

@@ -932,6 +932,8 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/clothing.py", "ClothingWithBuffs.remove", "push_soon"): 1,
         # Survival Loop S1.1: drinking at a water source
         ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "push"): 1,
+        # Survival Loop S2.1: natural healing lands a point
+        ("world/healing.py", "accrue", "push"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the
@@ -960,6 +962,7 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.at_post_move", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "_rest_tick", "fatigue.current"): "survival",
         ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
+        ("world/healing.py", "accrue", "health.current"): "char",
     }
 
     # Skill writes: no panel yet (inventory/skills is W7's); chargen's is

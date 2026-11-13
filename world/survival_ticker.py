@@ -3,7 +3,7 @@ Global survival ticker callback.
 
 Registered with Evennia's TICKER_HANDLER (see server/conf/at_server_startstop.py).
 A single module-level callable iterates all currently puppeted characters and
-applies survival depletion. Module-level (not a closure/lambda) so the callback
+applies survival depletion and natural healing (world/healing.py). Module-level (not a closure/lambda) so the callback
 is picklable, which TICKER_HANDLER requires for persistent tickers.
 """
 
@@ -11,7 +11,7 @@ from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
-from world import client_state
+from world import client_state, gametime_utils, healing
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
@@ -55,7 +55,16 @@ def deplete_all_survival_traits():
 
 
 def _deplete_character(char):
-    """Recompute thermal stress, deplete gauges, apply zero-conditions, warn."""
+    """
+    Recompute thermal stress, deplete gauges, apply zero-conditions, heal,
+    warn.
+
+    Healing runs after the conditions (S2.1), so a Starving or Dehydrated
+    condition applied this tick already stops it, and a character the
+    conditions just killed and respawned at full health only has their
+    counter zeroed.
+    """
+    elapsed = _tick_game_seconds(char)
     apply_thermal_stress(char)
     for key, base in BASE_RATES.items():
         trait = char.traits.get(key)
@@ -64,10 +73,34 @@ def _deplete_character(char):
         rate = char.buffs.check(base, f"{key}_rate")
         trait.current -= rate
     _apply_survival_conditions(char)
+    if healing.accrue(char, elapsed):
+        char.msg(healing.HEALED)
     _check_survival_warnings(char)
     # W4.2: after the warnings, so the text and the panel agree. `world`
     # rides along: Evennia's clock only runs while the server does (WC9).
     client_state.push(char, "survival", "world")
+
+
+def _tick_game_seconds(char):
+    """
+    Game seconds since this character's previous tick, then stamp now.
+
+    The stamp lives in ndb, so a reload loses it, and
+    `Character.at_post_puppet` clears it (Evennia keeps ndb on a cached
+    object through an unpuppet): the first tick after either returns 0.
+    At most one tick's time is lost, never a span gained -- time away is
+    S2.2's, credited at login. A clock that reads earlier than the stamp
+    returns 0 rather than a negative span.
+
+    Returns:
+        int: game seconds, 0 or more.
+    """
+    now = gametime_utils.get_absolute_gametime()
+    last = char.ndb.survival_tick_at
+    char.ndb.survival_tick_at = now
+    if last is None:
+        return 0
+    return max(0, now - last)
 
 
 def _apply_survival_conditions(char):
