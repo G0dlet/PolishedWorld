@@ -964,6 +964,8 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.at_post_move", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "_rest_tick", "fatigue.current"): "survival",
         ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
+        # Survival Loop S3.3 (lock B1): a failed awake test, written by the tick
+        ("world/survival_ticker.py", "_deplete_character", "gauge.current"): "survival",
         ("world/healing.py", "accrue", "health.current"): "char",
     }
 

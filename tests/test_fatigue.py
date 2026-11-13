@@ -26,6 +26,15 @@ Each class presses one bug:
                              replacing overload instead of adding (SL-M24),
                              or added with the wrong sign (SL-M25) -- S3.2
     TestPenaltyReachesCraft  the term computed but not reaching a real roll
+    TestAwakeClockRules      the day's length and the hours due: CON read
+                             wrong, an hour counted early or twice,
+                             `fatigue_rate` ignored (SL-M29) -- S3.3
+    TestAwakeTick            the tick still draining (SL-M26), rolling every
+                             tick past the threshold (SL-M27), the modifier
+                             read once for two rolls (SL-M48), training
+                             Athletics (SL-M30), the need penalty missing or
+                             read a tick late (lock D1), a line at 0
+    TestRestResetsClock      the reset on any rest tick (SL-M28) or none
 
 THE DISCRIMINATING STATE (lock F1, lesson 181)
 ----------------------------------------------
@@ -48,8 +57,10 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.character_commands import CmdSheet, CmdStatus
 from tests.test_encumbrance import LIMIT, _make, _PenaltyFixture
-from world import client_state, fatigue
+from typeclasses.characters import _rest_tick
+from world import client_state, fatigue, survival_ticker
 from world.encumbrance import carried_enc
+from world.survival_buffs import ColdStress, Dehydrated, Starving
 from world.survival_ticker import _check_survival_warnings
 
 # The fatigue `descs` every character made before S3.1 carries
@@ -313,3 +324,190 @@ class TestPenaltyReachesCraft(_PenaltyFixture, EvenniaCommandTest):
             lambda: craft(self.char1, "sling bullet", clay),
         )
         self.assertEqual(modifier, -30)
+
+
+# --- S3.3: the awake clock ---------------------------------------------------
+
+H = 3600
+DAY = (10 + 10) * H   # the threshold at CON 10, written out by hand
+CLOCK = "world.survival_ticker.gametime_utils.get_absolute_gametime"
+ROLL = "world.skillcheck.randint"
+PASS, FAIL = 5, 97    # 02-05 always succeed, 96-98 always fail (Athletics 25)
+
+
+class _AwakeFixture:
+    """char1 at CON 10 (a 20-hour day), Fresh, its clock at zero."""
+
+    def setUp(self):
+        super().setUp()
+        self.char1.stats.con.base = 10
+        self.fatigue = self.char1.traits.fatigue
+        self.fatigue.current = 100
+        fatigue.reset_clock(self.char1)
+
+
+class TestAwakeClockRules(_AwakeFixture, EvenniaTest):
+    """The clock's arithmetic, without the tick."""
+
+    def due_at(self, seconds, rolled=0):
+        self.char1.db.awake_seconds = seconds
+        self.char1.db.awake_tests = rolled
+        return fatigue.tests_due(self.char1)
+
+    def test_the_day_is_ten_plus_con_hours(self):
+        self.assertEqual(fatigue.threshold(self.char1), DAY)
+        self.char1.stats.con.base = 14
+        self.assertEqual(fatigue.threshold(self.char1), 24 * H)
+
+    def test_whole_hours_past_the_threshold(self):
+        self.assertEqual(self.due_at(DAY - 1), 0)
+        self.assertEqual(self.due_at(DAY + H - 1), 0)
+        self.assertEqual(self.due_at(DAY + H), 1)
+        self.assertEqual(self.due_at(DAY + 2 * H), 2)
+
+    def test_rolled_hours_are_not_due_again(self):
+        self.assertEqual(self.due_at(DAY + 2 * H, rolled=1), 1)
+        self.assertEqual(self.due_at(DAY + 2 * H, rolled=2), 0)
+
+    def test_a_character_made_before_s33_starts_at_zero(self):
+        # No backfill (A1): the attributes are absent, not zero.
+        self.char1.attributes.remove("awake_seconds")
+        self.char1.attributes.remove("awake_tests")
+        self.assertEqual(fatigue.tests_due(self.char1), 0)
+        fatigue.advance_clock(self.char1, 2400)
+        self.assertEqual(self.char1.db.awake_seconds, 2400)
+
+    def test_cold_stress_shortens_the_day(self):
+        self.char1.buffs.add(ColdStress, stacks=5)   # fatigue_rate x 1.40
+        fatigue.advance_clock(self.char1, 2400)
+        self.assertAlmostEqual(self.char1.db.awake_seconds, 3360)
+
+    def test_reset_zeroes_clock_and_count(self):
+        self.due_at(DAY + 3 * H, rolled=2)
+        fatigue.reset_clock(self.char1)
+        self.assertEqual((self.char1.db.awake_seconds, self.char1.db.awake_tests), (0, 0))
+
+    def test_need_keys_are_the_conditions_keys(self):
+        self.assertEqual(fatigue.NEEDS, (Starving.key, Dehydrated.key))
+
+
+class TestAwakeTick(_AwakeFixture, EvenniaTest):
+    """
+    The clock on a real tick: 2400 game seconds a tick, the die pinned.
+
+    `apply_thermal_stress` is patched out, so the room's weather cannot add a
+    ColdStress stack and stretch the seconds the boundaries are set against.
+    The roll is spied on through `world.fatigue.skill_check` (wraps the real
+    one), so each test reads how many rolls ran and with which modifier.
+    """
+
+    def tick(self, end, roll=PASS):
+        """Run one tick that leaves the clock at `end`; return (lines, modifiers)."""
+        self.char1.db.awake_seconds = end - 2400
+        self.char1.ndb.survival_tick_at = 100_000
+        with mock.patch(CLOCK, return_value=102_400), \
+                mock.patch("world.survival_ticker.apply_thermal_stress"), \
+                mock.patch(ROLL, return_value=roll), \
+                mock.patch.object(fatigue, "skill_check", wraps=fatigue.skill_check) as spy, \
+                mock.patch.object(self.char1, "msg") as msg:
+            survival_ticker._deplete_character(self.char1)
+        lines = [c.args[0] for c in msg.call_args_list if c.args]
+        return lines, [c.args[1] for c in spy.call_args_list]
+
+    def test_a_tick_does_not_drain_fatigue(self):
+        hunger = self.char1.traits.hunger.current
+        _lines, rolls = self.tick(2400)
+        self.assertEqual(self.char1.traits.hunger.current, hunger - 1)   # receipt: the tick ran
+        self.assertEqual(self.char1.db.awake_seconds, 2400)              # receipt: the clock ran
+        self.assertEqual(rolls, [])
+        self.assertEqual(self.fatigue.current, 100)
+
+    def test_no_roll_a_second_short_of_the_hour(self):
+        _lines, rolls = self.tick(DAY + H - 1)
+        self.assertEqual(rolls, [])
+
+    def test_one_roll_an_hour_past_the_threshold(self):
+        _lines, rolls = self.tick(DAY + H)
+        self.assertEqual(rolls, [0])
+        self.assertEqual(self.char1.db.awake_tests, 1)
+
+    def test_two_hours_in_one_tick_roll_twice(self):
+        _lines, rolls = self.tick(DAY + 2 * H)
+        self.assertEqual(len(rolls), 2)
+
+    def test_a_rolled_hour_is_not_rolled_on_the_next_tick(self):
+        self.tick(DAY + H)
+        _lines, rolls = self.tick(DAY + H + 2400)
+        self.assertEqual(rolls, [])
+
+    def test_a_failure_costs_one_level_and_says_so(self):
+        _check_survival_warnings(self.char1)   # the previous tick's baseline (Fresh)
+        lines, _rolls = self.tick(DAY + H, roll=FAIL)
+        self.assertEqual(self.fatigue.current, 80)
+        self.assertEqual(lines.count(fatigue.AWAKE_FAILED), 1)
+        self.assertIn("|yYou feel winded.|n", lines)   # the warning follows (G1)
+
+    def test_a_failure_at_ten_clamps_at_zero(self):
+        self.fatigue.current = 10
+        lines, _rolls = self.tick(DAY + H, roll=FAIL)
+        self.assertEqual(self.fatigue.current, 0)
+        self.assertIn(fatigue.AWAKE_FAILED, lines)
+
+    def test_a_failure_at_zero_says_nothing(self):
+        self.fatigue.current = 0
+        lines, rolls = self.tick(DAY + H, roll=FAIL)
+        self.assertEqual(len(rolls), 1)   # receipt: the test was rolled
+        self.assertEqual(self.fatigue.current, 0)
+        self.assertNotIn(fatigue.AWAKE_FAILED, lines)
+
+    def test_the_second_roll_reads_the_new_level(self):
+        _lines, rolls = self.tick(DAY + 2 * H, roll=FAIL)
+        self.assertEqual(rolls, [0, -10])   # Fresh, then Winded
+        self.assertEqual(self.fatigue.current, 60)
+
+    def test_a_success_keeps_the_gauge_and_trains_nothing(self):
+        self.assertTrue(self.char1.cooldowns.ready("improve_athletics"))
+        with mock.patch.object(type(self.char1), "attempt_skill_improvement") as improve:
+            _lines, rolls = self.tick(DAY + H, roll=PASS)
+        self.assertEqual(len(rolls), 1)   # receipt: the test was rolled
+        improve.assert_not_called()
+        self.assertTrue(self.char1.cooldowns.ready("improve_athletics"))
+        self.assertEqual(self.fatigue.current, 100)
+
+    def test_the_tick_that_starves_adds_minus_twenty(self):
+        # Hunger at 0 with no condition yet: this tick applies Starving, and
+        # the roll after it already reads it (D1).
+        self.char1.traits.hunger.current = 0
+        self.assertFalse(self.char1.buffs.has(Starving))
+        _lines, rolls = self.tick(DAY + H)
+        self.assertTrue(self.char1.buffs.has(Starving))   # receipt
+        self.assertEqual(rolls, [-20])
+
+    def test_the_tick_that_dehydrates_adds_minus_twenty(self):
+        self.char1.traits.thirst.current = 0
+        _lines, rolls = self.tick(DAY + H)
+        self.assertTrue(self.char1.buffs.has(Dehydrated))   # receipt
+        self.assertEqual(rolls, [-20])
+
+
+class TestRestResetsClock(_AwakeFixture, EvenniaTest):
+    """A rest tick that reaches full starts the day again; one short of it does not."""
+
+    def rest_tick_from(self, value):
+        self.fatigue.current = value
+        self.char1.db.awake_seconds = DAY + 3 * H
+        self.char1.db.awake_tests = 3
+        with mock.patch("typeclasses.characters.timed_actions.is_current", return_value=True), \
+                mock.patch("typeclasses.characters.timed_actions.claim"), \
+                mock.patch("typeclasses.characters.delay"):
+            _rest_tick(self.char1, object())
+
+    def test_rest_to_full_zeroes_clock_and_count(self):
+        self.rest_tick_from(95)
+        self.assertEqual(self.fatigue.current, 100)   # receipt
+        self.assertEqual((self.char1.db.awake_seconds, self.char1.db.awake_tests), (0, 0))
+
+    def test_a_rest_stopped_at_95_keeps_the_clock(self):
+        self.rest_tick_from(90)
+        self.assertEqual(self.fatigue.current, 95)   # receipt: a real rest tick
+        self.assertEqual((self.char1.db.awake_seconds, self.char1.db.awake_tests), (DAY + 3 * H, 3))

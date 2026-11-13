@@ -53,8 +53,8 @@ class ColdStress(BaseBuff):
     Silent thermal marker: the wearer is underdressed for the cold.
 
     Stacks = cold_stress from world.thermal.thermal_stress, set fresh each tick
-    by apply_thermal_stress(). Drives faster hunger/fatigue depletion via mult
-    mods. Silent on purpose: it is reset (remove+add) every tick, so an onset or
+    by apply_thermal_stress(). Drives faster hunger depletion and a shorter
+    waking day (the awake clock counts `fatigue_rate`, S3.3) via mult mods. Silent on purpose: it is reset (remove+add) every tick, so an onset or
     relief message in its hooks would fire every tick. No message, command or
     `status` line names the stress yet; the worded state with a direction is
     roadmap *Temperature & exposure* (docs/system_designs/
@@ -77,7 +77,8 @@ class HeatStress(BaseBuff):
     Silent thermal marker: overdressed for the heat (or a hot climate).
 
     Stacks = heat_stress from world.thermal.thermal_stress. Drives faster thirst
-    and mild fatigue depletion. Silent for the same reason as ColdStress.
+    depletion and a mildly shorter waking day (S3.3). Silent for the same
+    reason as ColdStress.
     """
     key = "heat_stress"
     name = "Overheated"

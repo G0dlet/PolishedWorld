@@ -691,9 +691,10 @@ class Character(ObjectParent, ClothedCharacter):
         modifier follows the load and the gauge (a timed craft reads it when
         it completes, not when it starts).
 
-        The six physical rolls add this to their own modifiers: craft
+        The seven physical rolls add this to their own modifiers: craft
         (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
-        `hunt` (as `attacker_mod`) and `harvest`. A new skill test decides
+        `hunt` (as `attacker_mod`), `harvest` and the awake test
+        (`world.fatigue.awake_test`, S3.3). A new skill test decides
         whether it is physical (the census in tests/test_encumbrance.py).
         A later penalty of the same kind is added here too, so the call sites
         never change.
@@ -1846,7 +1847,10 @@ def _rest_tick(char, marker):
       the branch: before any message, so a `msg()` that raises cannot leave the
       character resting forever. `claim()` cannot be refused at that point --
       `is_current()` said yes in this same synchronous call, and the reactor is
-      single-threaded -- so its return value is not consulted.
+      single-threaded -- so its return value is not consulted. A rest that
+      reaches full then starts the day again (`fatigue_rules.reset_clock`,
+      S3.3, SL10), also before any message; a rest that ends short of full
+      leaves the awake clock as it is.
     - **Otherwise** -- reschedule with `delay(..., marker)` directly. Not via
       `start()`: the slot is occupied by this very rest, so `start()` would
       refuse it.
@@ -1865,6 +1869,7 @@ def _rest_tick(char, marker):
     client_state.push(char, "survival")   # W4.2
     if fatigue.current >= fatigue.max:
         timed_actions.claim(char, marker)
+        fatigue_rules.reset_clock(char)   # S3.3: a full rest starts the day again
         char.msg("You feel fully rested.")
         if char.location:
             char.location.msg_contents(

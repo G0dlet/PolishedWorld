@@ -87,7 +87,8 @@ before `enc` is set (objects.py:1975), so it is not the move under test.
                           by signature, not guessed
     TestRollCensus        a new skill test that nobody decided about: the
                           count of `skill_check(` / `opposed_check(` calls per
-                          production module must stay the six W3.1 classified
+                          production module must stay the seven classified:
+                          W3.1's six and S3.3's awake test
 
   W3.2 -- the fatigue cost per room (Legend core p.86, Movement halved):
 
@@ -966,7 +967,9 @@ class TestPenaltyReachesHarvest(_PenaltyFixture, EvenniaCommandTest):
         self.assertEqual(mods, (difficulty, difficulty - 20))
 
 
-# The six physical rolls W3.1 classified (Rev 5, Q1-Q3), counted per module.
+# The physical rolls, counted per module: the six W3.1 classified (Rev 5,
+# Q1-Q3) and the awake test (Survival Loop S3.3), which adds the physical
+# modifier and is physical too.
 # forage rolls nothing; world/skillcheck.py is the roll itself (opposed_check
 # calls skill_check twice) and is not a call site.
 ROLL_SITES = {
@@ -974,6 +977,7 @@ ROLL_SITES = {
     "commands/hunting_commands.py": 2,    # hunt (opposed), harvest
     "commands/repair_commands.py": 1,     # repair
     "world/crafting_base.py": 1,          # craft (do_craft)
+    "world/fatigue.py": 1,                # the awake test (awake_test, S3.3)
 }
 ROLL_NAMES = ("skill_check", "opposed_check")
 REPO = Path(__file__).resolve().parents[1]
@@ -1001,7 +1005,7 @@ def _roll_census():
 class TestRollCensus(EvenniaTest):
     """Every skill test in production code is one W3.1 decided about."""
 
-    def test_the_six_sites_and_no_others(self):
+    def test_the_classified_sites_and_no_others(self):
         counts = _roll_census()
         changed = sorted(
             f"{module}: {counts.get(module, 0)}, expected {ROLL_SITES.get(module, 0)}"

@@ -3,8 +3,10 @@ Global survival ticker callback.
 
 Registered with Evennia's TICKER_HANDLER (see server/conf/at_server_startstop.py).
 A single module-level callable iterates all currently puppeted characters and
-applies survival depletion and natural healing (world/healing.py). Module-level (not a closure/lambda) so the callback
-is picklable, which TICKER_HANDLER requires for persistent tickers.
+applies survival depletion (hunger and thirst), the awake clock that tires a
+body (world/fatigue.py, S3.3) and natural healing (world/healing.py).
+Module-level (not a closure/lambda) so the callback is picklable, which
+TICKER_HANDLER requires for persistent tickers.
 """
 
 from evennia import SESSION_HANDLER
@@ -15,9 +17,14 @@ from world import client_state, fatigue, gametime_utils, healing
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
-# starvation in days). Fatigue slowest — most of its pressure comes later
-# from activity, not idle time.
-BASE_RATES = {"hunger": 1, "thirst": 2, "fatigue": 1}
+# starvation in days). Fatigue is not drained (S3.3, SL9): time awake tires a
+# body through the awake clock in world/fatigue.py, and an overloaded step
+# through Character.at_post_move.
+BASE_RATES = {"hunger": 1, "thirst": 2}
+
+# The gauges whose fall into a worse bucket the tick warns about (lock G1):
+# the drained two and fatigue, which the awake test lowers.
+WARNED = ("hunger", "thirst", "fatigue")
 
 # HP lost per tick while a starvation/dehydration condition is active.
 # Integer on purpose: health.base is an int (con*2), so a fractional value
@@ -56,8 +63,14 @@ def deplete_all_survival_traits():
 
 def _deplete_character(char):
     """
-    Recompute thermal stress, deplete gauges, apply zero-conditions, heal,
-    warn.
+    Recompute thermal stress, deplete hunger and thirst, apply
+    zero-conditions, run the awake clock, heal, warn.
+
+    The awake clock (S3.3) runs after the conditions (lock D1), so a
+    Starving or Dehydrated condition applied this tick already adds its -20
+    to the test. The tick writes the gauge (lock B1): one test at a time, so
+    a second test in the same tick reads the level the first one left. A
+    failure at 0 changes nothing and says nothing (lock E1).
 
     Healing runs after the conditions (S2.1), so a Starving or Dehydrated
     condition applied this tick already stops it, and a character the
@@ -73,6 +86,15 @@ def _deplete_character(char):
         rate = char.buffs.check(base, f"{key}_rate")
         trait.current -= rate
     _apply_survival_conditions(char)
+    gauge = char.traits.get("fatigue")
+    if gauge is not None:
+        fatigue.advance_clock(char, elapsed)
+        for _ in range(fatigue.tests_due(char)):
+            result = fatigue.awake_test(char)
+            if result is None or result["success"] or gauge.current <= gauge.min:
+                continue
+            gauge.current -= fatigue.LEVEL_POINTS   # clamps at min
+            char.msg(fatigue.AWAKE_FAILED)
     if healing.accrue(char, elapsed):
         char.msg(healing.HEALED)
     _check_survival_warnings(char)
@@ -153,7 +175,7 @@ def _check_survival_warnings(char):
     if last is None:
         last = {}
 
-    for key in BASE_RATES:
+    for key in WARNED:
         trait = char.traits.get(key)
         if trait is None:
             continue

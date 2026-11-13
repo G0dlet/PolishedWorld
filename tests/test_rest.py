@@ -35,10 +35,11 @@ make every "stale tick is refused" test pass with the identity check deleted.
 
 ⚠️ FATIGUE IS LOWERED BY HAND IN setUp
 ---------------------------------------
-In play only the survival ticker lowers fatigue; `_rest_tick` raises it. The
-setUp write bypasses the ticker. No ticker runs in the test database, so
-nothing races or repairs the value -- the invariant being suspended is "fatigue
-only falls through the ticker", and it is suspended for the length of one test.
+In play fatigue falls only through a failed awake test on the survival tick
+(S3.3) and an overloaded step (`at_post_move`); `_rest_tick` raises it. The
+setUp write bypasses both. No ticker runs in the test database, so nothing
+races or repairs the value -- the invariant being suspended is "fatigue only
+falls through those two", and it is suspended for the length of one test.
 
 ⚠️ ROOM MESSAGES
 -----------------
