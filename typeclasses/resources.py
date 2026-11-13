@@ -46,6 +46,7 @@ class ResourceNode(Object):
     regen_interval = AttributeProperty(3600, autocreate=False)   # game-seconds / unit
     yield_prototype = AttributeProperty(None, autocreate=False)  # prototype spawned on harvest
     is_water_source = AttributeProperty(False, autocreate=False)
+    water_kind = AttributeProperty("fresh", autocreate=False)    # SL3; read on sources only
     required_tool = AttributeProperty(None, autocreate=False)    # crafting_tool tag-key, or None
 
     # --- mutable state ---

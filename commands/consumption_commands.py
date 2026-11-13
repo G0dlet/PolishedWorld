@@ -121,6 +121,8 @@ class CmdDrink(Command):
         thirst_before = caller.traits.thirst.current
         caller.traits.thirst.current += obj.restore_amount  # auto-clamps to max
         obj.charges -= 1
+        if obj.is_empty():
+            obj.pour_out()  # SL3: the kind goes with the last draught
         # Launch Minimum L2.2: after the last write, before the first message.
         activity_log.record(
             "consume",
@@ -175,6 +177,50 @@ class CmdDrink(Command):
             exclude=caller,
         )
         client_state.push(caller, "survival")
+
+
+class CmdEmpty(Command):
+    """
+    Empty a container.
+
+    Usage:
+      empty <container>
+
+    Pour out what a container you carry holds, so it can be filled
+    with something else. Emptying does not wear it.
+    """
+
+    key = "empty"
+    help_category = "survival"
+
+    def func(self):
+        caller = self.caller
+        query = self.args.strip()
+        if not query:
+            caller.msg("Empty what?")
+            return
+
+        obj = caller.search(query, candidates=caller.contents)
+        if not obj:
+            return
+
+        name = obj.get_display_name(caller)
+        if not inherits_from(obj, Drink) or not obj.refillable:
+            caller.msg(f"You can't empty the {name}.")
+            return
+        if obj.is_empty():
+            caller.msg(f"The {name} is already empty.")
+            return
+
+        # Survival Loop SL3 / S1.2 lock D: no wear, no log line (water from
+        # a source is free), no push (no panel shows what a vessel holds).
+        obj.pour_out()
+        caller.msg(f"You upend the {name} and let it run out.")
+        caller.location.msg_contents(
+            f"{caller.get_display_name()} upends the {obj.get_display_name()} "
+            "and lets it run out.",
+            exclude=caller,
+        )
 
 
 class CmdRest(Command):

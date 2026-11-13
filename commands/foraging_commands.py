@@ -185,6 +185,7 @@ class CmdRefill(Command):
 
     If you are at a spring, stream or other source of water, tops up a
     refillable container you are carrying (a waterskin, for instance) to full.
+    If it holds other water, empty it first.
     """
 
     key = "refill"
@@ -197,7 +198,8 @@ class CmdRefill(Command):
 
         # 1. Need a water source present in the room (world/water.py, the
         #    scan `drink` shares).
-        if water.source_in(caller.location) is None:
+        source = water.source_in(caller.location)
+        if source is None:
             caller.msg("There is no water source here to refill from.")
             return
 
@@ -218,7 +220,18 @@ class CmdRefill(Command):
             caller.msg(f"The {container.get_display_name(caller)} can't be refilled.")
             return
 
-        # 4. A spent container gives out when you dip it again. Checked BEFORE
+        # 4. Survival Loop SL3: a vessel holding another kind of water is not
+        #    dipped at all -- before the split below, so it cannot break here
+        #    (S1.2 lock B1).
+        held = container.held_kind()
+        if held is not None and held != source.water_kind:
+            caller.msg(
+                f"The {container.get_display_name(caller)} holds "
+                f"{water.kind_word(held)}. Empty it first."
+            )
+            return
+
+        # 5. A spent container gives out when you dip it again. Checked BEFORE
         #    filling, so the player got the use out of its last fill. Capture
         #    the name first — we must not touch a deleted object afterwards.
         if container.is_worn_out():
@@ -231,9 +244,10 @@ class CmdRefill(Command):
             container.delete()
             return
 
-        # 5. Refill. refill() returns False if already full; it also wears the
-        #    container by one point if it tracks durability (opt-in).
-        if not container.refill():
+        # 6. Refill with the source's kind. refill() returns False if already
+        #    full; it also wears the container by one point if it tracks
+        #    durability (opt-in).
+        if not container.refill(source.water_kind):
             caller.msg(f"The {container.get_display_name(caller)} is already full.")
             return
 

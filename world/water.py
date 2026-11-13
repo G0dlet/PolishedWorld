@@ -22,6 +22,23 @@ SOURCE_RESTORE = SOURCE_DRAUGHTS * DRAUGHT
 
 _NODE = "typeclasses.resources.ResourceNode"
 
+# What a kind is called in a line (SL3). Only "fresh" exists in the world;
+# a kind without an entry is named by its stored word ("brine").
+_KIND_WORDS = {"fresh": "fresh water"}
+
+
+def kind_word(kind):
+    """
+    The words for a kind of water in a message.
+
+    Args:
+        kind (str): A `water_kind`.
+
+    Returns:
+        str: "fresh water" for "fresh"; otherwise the kind itself.
+    """
+    return _KIND_WORDS.get(kind, kind)
+
 
 def is_source(obj):
     """

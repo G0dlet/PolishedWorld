@@ -20,7 +20,7 @@ from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
 from commands import character_commands
 from commands.admin_commands import CmdWeather
 from commands.world_commands import CmdRoomLook, CmdTime
-from commands.consumption_commands import CmdEat, CmdDrink, CmdRest
+from commands.consumption_commands import CmdEat, CmdDrink, CmdEmpty, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHunt, CmdHarvest
 from commands.repair_commands import CmdRepair
@@ -83,6 +83,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
 
         self.add(CmdEat())
         self.add(CmdDrink())
+        self.add(CmdEmpty())
         self.add(CmdRest())
 
         self.add(CmdForage())

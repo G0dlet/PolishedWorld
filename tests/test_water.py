@@ -1,5 +1,6 @@
 """
 Survival Loop S1.1: drinking at a water source (decomposition SL2).
+S1.2: the kind of water on sources and in vessels, and `empty` (SL3).
 
 `world/water.py` holds the room scan that `drink` and `refill` share. Bare
 `drink`, or `drink <source>`, gives three draughts at once and never touches
@@ -16,7 +17,7 @@ from evennia import create_object
 from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
-from commands.consumption_commands import CmdDrink
+from commands.consumption_commands import CmdDrink, CmdEmpty
 from commands.foraging_commands import CmdRefill
 from tests.test_activity_log import ActivityLogMixin
 from world import activity_log, activity_report, water
@@ -186,3 +187,146 @@ class TestRefillAsksTheHelper(EvenniaCommandTest):
         with mock.patch("commands.foraging_commands.water.source_in", return_value=None):
             self.call(CmdRefill(), "skin", "There is no water source here", caller=self.char1)
         self.assertEqual(self.skin.charges, 0)
+
+
+class TestKinds(EvenniaCommandTest):
+    """Water has a kind; only fresh is in the world (SL3, S1.2)."""
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def setUp(self):
+        super().setUp()
+        self.spring = _spring(self.room1)
+        self.skin = spawn("waterskin")[0]
+        self.skin.location = self.char1
+
+    def _fill(self):
+        self.call(CmdRefill(), "skin", "You fill the", caller=self.char1)
+
+    def test_the_spring_is_fresh_without_a_stored_kind(self):
+        self.assertEqual(self.spring.water_kind, "fresh")
+        self.assertFalse(self.spring.attributes.has("water_kind"))
+
+    def test_a_fill_stamps_the_kind(self):
+        self._fill()
+        self.assertEqual(self.skin.attributes.get("water_kind"), "fresh")
+        self.assertEqual(self.skin.held_kind(), "fresh")
+
+    def test_an_empty_vessel_holds_no_kind(self):
+        self.assertIsNone(self.skin.held_kind())
+
+    def test_an_empty_vessel_with_a_stale_kind_holds_none_and_fills(self):
+        # A kind left on an empty vessel (an @set, or state from before
+        # pour_out) is not what it holds: the spring fills it (SL-M7).
+        self.skin.charges = 0
+        self.skin.water_kind = "brine"
+        self.assertIsNone(self.skin.held_kind())
+        self._fill()
+        self.assertEqual(self.skin.water_kind, "fresh")
+
+    def test_a_vessel_filled_before_kinds_reads_fresh_and_refills(self):
+        self.skin.charges = 3
+        self.assertFalse(self.skin.attributes.has("water_kind"))
+        self.assertEqual(self.skin.held_kind(), "fresh")
+        self._fill()
+        self.assertEqual(self.skin.charges, self.skin.max_charges)
+
+    def test_another_kind_is_refused_and_untouched(self):
+        self.skin.charges = 2
+        self.skin.water_kind = "brine"
+        self.call(
+            CmdRefill(), "skin", "The waterskin holds brine. Empty it first.",
+            caller=self.char1,
+        )
+        self.assertEqual((self.skin.charges, self.skin.water_kind), (2, "brine"))
+
+    def test_another_kind_is_refused_before_the_split(self):
+        self.skin.charges = 2
+        self.skin.water_kind = "brine"
+        self.skin.db.durability = 0
+        self.call(CmdRefill(), "skin", "The waterskin holds brine.", caller=self.char1)
+        self.assertTrue(self.skin.pk)
+
+    def test_after_empty_the_spring_fills_it(self):
+        self.skin.charges = 2
+        self.skin.water_kind = "brine"
+        self.call(CmdEmpty(), "skin", "You upend the waterskin", caller=self.char1)
+        self._fill()
+        self.assertEqual(self.skin.water_kind, "fresh")
+        self.assertEqual(self.skin.charges, self.skin.max_charges)
+
+    def test_the_last_draught_clears_the_kind(self):
+        self.skin.charges = 1
+        self.skin.water_kind = "fresh"
+        self.call(CmdDrink(), "skin", caller=self.char1)
+        self.assertEqual(self.skin.charges, 0)
+        self.assertIsNone(self.skin.water_kind)
+
+    def test_a_draught_that_leaves_some_keeps_the_kind(self):
+        self.skin.charges = 2
+        self.skin.water_kind = "fresh"
+        self.call(CmdDrink(), "skin", caller=self.char1)
+        self.assertEqual(self.skin.water_kind, "fresh")
+
+    def test_the_words_for_a_kind(self):
+        self.assertEqual(water.kind_word("fresh"), "fresh water")
+        self.assertEqual(water.kind_word("brine"), "brine")
+
+
+class TestEmpty(EvenniaCommandTest):
+    """`empty <vessel>` pours it out: no wear, the room told (S1.2 lock D)."""
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def setUp(self):
+        super().setUp()
+        self.skin = spawn("waterskin")[0]
+        self.skin.location = self.char1
+        self.skin.charges = 4
+        self.skin.water_kind = "fresh"
+
+    def test_empties_and_clears_the_kind(self):
+        self.call(CmdEmpty(), "skin", "You upend the waterskin and let it run out.",
+                  caller=self.char1)
+        self.assertEqual(self.skin.charges, 0)
+        self.assertIsNone(self.skin.water_kind)
+
+    def test_wears_nothing(self):
+        self.skin.db.durability = 5
+        self.call(CmdEmpty(), "skin", caller=self.char1)
+        self.assertEqual(self.skin.db.durability, 5)
+
+    def test_an_empty_vessel_says_so(self):
+        self.skin.charges = 0
+        self.call(CmdEmpty(), "skin", "The waterskin is already empty.", caller=self.char1)
+
+    def test_a_non_vessel_is_refused(self):
+        rock = create_object(OBJ, key="testrock", location=self.char1)
+        self.call(CmdEmpty(), "testrock", "You can't empty the testrock.", caller=self.char1)
+        self.assertTrue(rock.pk)
+
+    def test_a_vessel_that_cannot_be_refilled_is_refused(self):
+        self.skin.refillable = False
+        self.call(CmdEmpty(), "skin", "You can't empty the waterskin.", caller=self.char1)
+        self.assertEqual(self.skin.charges, 4)
+
+    def test_only_a_carried_vessel(self):
+        self.skin.location = self.room1
+        self.call(CmdEmpty(), "skin", "Could not find 'skin'.", caller=self.char1)
+        self.assertEqual(self.skin.charges, 4)
+
+    def test_no_argument_asks_what(self):
+        self.call(CmdEmpty(), "", "Empty what?", caller=self.char1)
+
+    def test_the_room_is_told(self):
+        with mock.patch.object(self.char2, "msg") as heard:
+            self.call(CmdEmpty(), "skin", caller=self.char1)
+        said = " ".join(str(call) for call in heard.call_args_list)
+        self.assertIn("upends the waterskin and lets it run out.", said)
+
+    def test_writes_no_activity_line_and_pushes_nothing(self):
+        with mock.patch("world.activity_log.record") as record, \
+                mock.patch("world.client_state.push") as push:
+            self.call(CmdEmpty(), "skin", caller=self.char1)
+        record.assert_not_called()
+        push.assert_not_called()
