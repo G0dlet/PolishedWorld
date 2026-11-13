@@ -199,6 +199,9 @@ class TestKinds(EvenniaCommandTest):
         self.spring = _spring(self.room1)
         self.skin = spawn("waterskin")[0]
         self.skin.location = self.char1
+        # S1.2b: a vessel is not drunk at full thirst, so the draught tests
+        # start thirsty (unlowered, "keeps the kind" passed on a refusal).
+        self.char1.traits.thirst.current = 10
 
     def _fill(self):
         self.call(CmdRefill(), "skin", "You fill the", caller=self.char1)

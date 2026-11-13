@@ -824,12 +824,14 @@ class TestCommandSites(EvenniaCommandTest):
 
     def test_eat_pushes_survival_and_char(self):
         create_object("typeclasses.consumables.Food", key="w42bread", location=self.char1)
+        self.char1.traits.hunger.current = 50  # S1.2b: no eating at full hunger
         with mock.patch.object(client_state, "push") as push:
             self.call(CmdEat(), "w42bread", caller=self.char1)
         self.assertIn(mock.call(self.char1, "survival", "char"), push.call_args_list)
 
     def test_drink_pushes_survival(self):
         create_object("typeclasses.consumables.Drink", key="w42skin", location=self.char1)
+        self.char1.traits.thirst.current = 50  # S1.2b: no drinking at full thirst
         with mock.patch.object(client_state, "push") as push:
             self.call(CmdDrink(), "w42skin", caller=self.char1)
         self.assertIn(mock.call(self.char1, "survival"), push.call_args_list)

@@ -45,6 +45,13 @@ class CmdEat(Command):
         if not obj.pk:
             return  # already consumed (defensive; see notes)
 
+        # Survival Loop S1.2b (OQ-S6, lock G1): food is not eaten into a full
+        # gauge -- it would be deleted for nothing.
+        hunger = caller.traits.hunger
+        if hunger.current >= hunger.max:
+            caller.msg("You aren't hungry.")
+            return
+
         item_key = obj.key  # read before delete(), for the event line
         hunger_before = caller.traits.hunger.current
         caller.traits.hunger.current += obj.restore_amount  # auto-clamps to max
@@ -116,6 +123,13 @@ class CmdDrink(Command):
 
         if obj.is_empty():
             caller.msg(f"{obj.get_display_name(caller)} is empty.")
+            return
+
+        # Survival Loop S1.2b (OQ-S6, lock F1): as at the source, a draught is
+        # not spent into a full gauge.
+        thirst = caller.traits.thirst
+        if thirst.current >= thirst.max:
+            caller.msg("You aren't thirsty.")
             return
 
         thirst_before = caller.traits.thirst.current
