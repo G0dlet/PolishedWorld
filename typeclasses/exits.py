@@ -23,4 +23,14 @@ class Exit(ObjectParent, DefaultExit):
 
     """
 
-    pass
+    def at_failed_traverse(self, traversing_object, **kwargs):
+        """
+        Say nothing to a collapsed body (Survival Loop S3.4, lock B1).
+
+        `Character.at_pre_move` refused its walk and already said why (*Your
+        legs will not carry you.*); Evennia's *You cannot go there.* after it
+        would be a second, wrong reason. Every other failure keeps it.
+        """
+        if traversing_object.attributes.get("collapsed"):
+            return
+        super().at_failed_traverse(traversing_object, **kwargs)

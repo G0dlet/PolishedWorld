@@ -936,6 +936,8 @@ class TestPushCensus(EvenniaTest):
         ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "push"): 1,
         # Survival Loop S2.1: natural healing lands a point
         ("world/healing.py", "accrue", "push"): 1,
+        # Survival Loop S3.4: a collapse's recovery step
+        ("typeclasses/characters.py", "_collapse_tick", "push"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the
@@ -963,6 +965,7 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
         ("typeclasses/characters.py", "Character.at_post_move", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "_rest_tick", "fatigue.current"): "survival",
+        ("typeclasses/characters.py", "_collapse_tick", "fatigue.current"): "survival",
         ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
         # Survival Loop S3.3 (lock B1): a failed awake test, written by the tick
         ("world/survival_ticker.py", "_deplete_character", "gauge.current"): "survival",

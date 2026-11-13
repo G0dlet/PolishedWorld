@@ -210,3 +210,46 @@ def reset_clock(char):
     """Start the day again: clock and count to zero (a rest to full, SL10)."""
     char.db.awake_seconds = 0
     char.db.awake_tests = 0
+
+
+# --- Collapse at Debilitated (S3.4) ---------------------------------------------
+
+# A Difficult test (-20, SL11) on top of the level's -50 and any overload,
+# rolled on each tick that finds the gauge at 0 (lock D1).
+DIFFICULT = -20
+
+# The forced rest ends when the gauge reaches this (Tired). A placeholder:
+# Rest slice 2 replaces it with NP14's "out of Debilitated, at the place's
+# row" (OQ-S3).
+COLLAPSE_WAKE_AT = 41
+
+# The timed-action slot's key and label (`timed_actions.start`): the label
+# is what `rest`, `craft` and `work` answer with -- "You are already lying
+# where you fell." (lock I1).
+COLLAPSE_KEY = "collapse"
+COLLAPSE_LABEL = "lying where you fell"
+
+# The lines (OQ-S4, lock I1). Room lines take the character's key.
+FALL = "Your legs fold, and the ground comes up to meet you."
+FALL_ROOM = "{name} sways and goes down where they stand."
+WAKE = "You stir, and get slowly to your feet."
+WAKE_ROOM = "{name} stirs and gets slowly up."
+CANNOT_MOVE = "Your legs will not carry you."
+CANNOT_HANDLE = "Your hands will not obey you."
+
+
+def collapse_test(char):
+    """
+    Roll the Difficult Athletics test a Debilitated body makes each tick.
+
+    The modifier is the physical modifier (the level's -50, overload's -20)
+    plus `DIFFICULT` (lock D1: no need penalty -- SL11 names none). Like the
+    awake test it never calls `attempt_skill_improvement`.
+
+    Returns:
+        dict or None: `skill_check`'s result; None without Athletics.
+    """
+    athletics = char.skills.get("athletics")
+    if athletics is None:
+        return None
+    return skill_check(athletics.value, char.physical_modifier() + DIFFICULT)

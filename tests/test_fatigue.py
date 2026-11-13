@@ -35,6 +35,16 @@ Each class presses one bug:
                              Athletics (SL-M30), the need penalty missing or
                              read a tick late (lock D1), a line at 0
     TestRestResetsClock      the reset on any rest tick (SL-M28) or none
+    TestCollapseRoll         the roll at 0 only, without its -20 (SL-M34),
+                             or while resting (SL-M51); the fall interrupts
+                             the slot and tells the room -- S3.4
+    TestCollapsedRefusals    the refusal after the interrupt (SL-M31), the
+                             exit's second line (lock B1), a teleport
+                             refused, food or water spent, a wiped slot left
+                             unarmed by a refusal (lock H1)
+    TestCollapseRecovery     the wake at 1 (SL-M32), the flag only in ndb
+                             (SL-M33), no re-arm at puppet (SL-M50), death
+                             keeping the flag (SL-M35)
 
 THE DISCRIMINATING STATE (lock F1, lesson 181)
 ----------------------------------------------
@@ -55,10 +65,13 @@ from evennia.contrib.game_systems.crafting import craft
 from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
+from evennia.utils.create import create_object
+
 from commands.character_commands import CmdSheet, CmdStatus
+from commands.consumption_commands import CmdDrink, CmdEat, CmdEmpty, CmdRest
 from tests.test_encumbrance import LIMIT, _make, _PenaltyFixture
-from typeclasses.characters import _rest_tick
-from world import client_state, fatigue, survival_ticker
+from typeclasses.characters import _collapse_tick, _rest_tick
+from world import client_state, fatigue, survival_ticker, timed_actions
 from world.encumbrance import carried_enc
 from world.survival_buffs import ColdStress, Dehydrated, Starving
 from world.survival_ticker import _check_survival_warnings
@@ -391,7 +404,7 @@ class TestAwakeClockRules(_AwakeFixture, EvenniaTest):
         self.assertEqual(fatigue.NEEDS, (Starving.key, Dehydrated.key))
 
 
-class TestAwakeTick(_AwakeFixture, EvenniaTest):
+class _TickDriver:
     """
     The clock on a real tick: 2400 game seconds a tick, the die pinned.
 
@@ -413,6 +426,10 @@ class TestAwakeTick(_AwakeFixture, EvenniaTest):
             survival_ticker._deplete_character(self.char1)
         lines = [c.args[0] for c in msg.call_args_list if c.args]
         return lines, [c.args[1] for c in spy.call_args_list]
+
+
+class TestAwakeTick(_TickDriver, _AwakeFixture, EvenniaTest):
+    """The awake tests on a real tick (see `_TickDriver`)."""
 
     def test_a_tick_does_not_drain_fatigue(self):
         hunger = self.char1.traits.hunger.current
@@ -456,7 +473,9 @@ class TestAwakeTick(_AwakeFixture, EvenniaTest):
     def test_a_failure_at_zero_says_nothing(self):
         self.fatigue.current = 0
         lines, rolls = self.tick(DAY + H, roll=FAIL)
-        self.assertEqual(len(rolls), 1)   # receipt: the test was rolled
+        # Receipt: the awake test was rolled (-50, the level's); since S3.4
+        # the collapse test follows it at 0 (-70), and its fall is its own line.
+        self.assertEqual(rolls, [-50, -70])
         self.assertEqual(self.fatigue.current, 0)
         self.assertNotIn(fatigue.AWAKE_FAILED, lines)
 
@@ -511,3 +530,184 @@ class TestRestResetsClock(_AwakeFixture, EvenniaTest):
         self.rest_tick_from(90)
         self.assertEqual(self.fatigue.current, 95)   # receipt: a real rest tick
         self.assertEqual((self.char1.db.awake_seconds, self.char1.db.awake_tests), (DAY + 3 * H, 3))
+
+
+# --- S3.4: collapse at Debilitated -------------------------------------------
+
+FOOD = "typeclasses.consumables.Food"
+
+
+def _said(msg_mock):
+    """What a patched `msg` received, as plain strings (a room line is a tuple)."""
+    return [str(c.args[0]) if c.args else str(c.kwargs.get("text"))
+            for c in msg_mock.call_args_list]
+
+
+class _CollapseFixture(_AwakeFixture):
+    """
+    char1 Debilitated (fatigue 0); `timed_actions.delay` patched, so a started
+    action schedules nothing and each `_collapse_tick` is called by hand.
+    """
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("world.timed_actions.delay")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.fatigue.current = 0
+
+    def slot(self):
+        return timed_actions.is_busy(self.char1)
+
+    def fall(self):
+        """char1 collapses; return (char1's lines, char2's lines)."""
+        with mock.patch.object(self.char1, "msg") as mine, \
+                mock.patch.object(self.char2, "msg") as theirs:
+            self.char1.collapse()
+        return _said(mine), _said(theirs)
+
+
+class TestCollapseRoll(_TickDriver, _CollapseFixture, EvenniaTest):
+    """The tick's Difficult roll at 0 (SL11)."""
+
+    def test_a_failure_at_zero_collapses(self):
+        lines, rolls = self.tick(2400, roll=FAIL)
+        self.assertEqual(rolls, [-70])   # the level's -50 and Difficult's -20
+        self.assertTrue(self.char1.db.collapsed)
+        self.assertEqual(self.slot().key, fatigue.COLLAPSE_KEY)
+        self.assertEqual(lines.count(fatigue.FALL), 1)
+
+    def test_a_success_at_zero_stays_up(self):
+        _lines, rolls = self.tick(2400, roll=PASS)
+        self.assertEqual(rolls, [-70])   # receipt: the roll ran
+        self.assertFalse(self.char1.db.collapsed)
+        self.assertIsNone(self.slot())
+
+    def test_at_one_no_roll(self):
+        self.fatigue.current = 1
+        _lines, rolls = self.tick(2400, roll=FAIL)
+        self.assertEqual(rolls, [])
+        self.assertFalse(self.char1.db.collapsed)
+
+    def test_no_roll_while_resting(self):
+        timed_actions.start(self.char1, "rest", 10, _rest_tick, label="resting")
+        _lines, rolls = self.tick(2400, roll=FAIL)
+        self.assertEqual(rolls, [])
+        self.assertFalse(self.char1.db.collapsed)
+        self.assertEqual(self.slot().key, "rest")   # receipt: still resting
+
+    def test_the_fall_interrupts_a_chore_and_tells_the_room(self):
+        timed_actions.start(self.char1, "work", 60, lambda *a: None, label="working",
+                            interrupt_msg="You break off what you were doing.")
+        mine, theirs = self.fall()
+        self.assertEqual(mine, ["You break off what you were doing.", fatigue.FALL])
+        self.assertIn(fatigue.FALL_ROOM.format(name=self.char1.key), "\n".join(theirs))
+        self.assertEqual(self.slot().key, fatigue.COLLAPSE_KEY)
+
+
+class TestCollapsedRefusals(_CollapseFixture, EvenniaCommandTest):
+    """What a collapsed body cannot do, and what it still can (SL11, A1, B1, H1)."""
+
+    def setUp(self):
+        super().setUp()
+        self.fall()
+        self.marker = self.slot().marker
+
+    def test_walking_is_refused_once_and_quietly(self):
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.exit.at_traverse(self.char1, self.room2)
+        self.assertEqual(self.char1.location, self.room1)
+        self.assertEqual(_said(msg), [fatigue.CANNOT_MOVE])
+        self.assertIs(self.slot().marker, self.marker)   # the collapse was not interrupted
+
+    def test_a_teleport_is_not_refused(self):
+        self.assertTrue(self.char1.move_to(self.room2, move_type="teleport", quiet=True))
+        self.assertEqual(self.char1.location, self.room2)
+
+    def test_a_refusal_rearms_a_wiped_slot(self):
+        self.char1.ndb.timed_action = None   # what a reload leaves
+        self.exit.at_traverse(self.char1, self.room2)
+        self.assertEqual(self.slot().key, fatigue.COLLAPSE_KEY)
+
+    def test_eating_is_refused_and_the_food_kept(self):
+        bread = create_object(FOOD, key="collapsebread", location=self.char1)
+        self.char1.traits.hunger.current = 50
+        self.call(CmdEat(), "collapsebread", fatigue.CANNOT_HANDLE, caller=self.char1)
+        self.assertTrue(bread.pk)
+        self.assertEqual(self.char1.traits.hunger.current, 50)
+
+    def test_drinking_at_the_source_is_refused(self):
+        spring = spawn("spring")[0]
+        spring.location = self.room1
+        self.char1.traits.thirst.current = 50
+        self.call(CmdDrink(), "", fatigue.CANNOT_HANDLE, caller=self.char1)
+        self.assertEqual(self.char1.traits.thirst.current, 50)
+
+    def test_emptying_is_refused_and_the_water_kept(self):
+        skin = spawn("waterskin")[0]
+        skin.location = self.char1
+        skin.charges = charges = 3   # a crafted waterskin starts empty
+        self.assertFalse(skin.is_empty())   # receipt: there is water to pour out
+        self.call(CmdEmpty(), "waterskin", fatigue.CANNOT_HANDLE, caller=self.char1)
+        self.assertEqual(skin.charges, charges)
+
+    def test_rest_is_answered_by_the_slot(self):
+        self.call(CmdRest(), "", "You are already lying where you fell.", caller=self.char1)
+        self.assertIs(self.slot().marker, self.marker)
+
+
+class TestCollapseRecovery(_TickDriver, _CollapseFixture, EvenniaTest):
+    """The forced rest: up at `COLLAPSE_WAKE_AT`, and kept across a reload, a relog and a death."""
+
+    def setUp(self):
+        super().setUp()
+        self.fall()
+        self.marker = self.slot().marker
+
+    def step(self, start):
+        """One recovery tick from `start`; return (char1's lines, char2's lines)."""
+        self.fatigue.current = start
+        with mock.patch.object(self.char1, "msg") as mine, \
+                mock.patch.object(self.char2, "msg") as theirs:
+            _collapse_tick(self.char1, self.marker)
+        return _said(mine), _said(theirs)
+
+    def test_one_step_from_zero_stays_down(self):
+        self.step(0)
+        self.assertEqual(self.fatigue.current, 5)   # receipt: the rest gain landed
+        self.assertTrue(self.char1.db.collapsed)
+        self.assertIs(self.slot().marker, self.marker)
+
+    def test_36_stays_down_until_41(self):
+        self.step(31)
+        self.assertTrue(self.char1.db.collapsed)
+        mine, theirs = self.step(36)
+        self.assertEqual(self.fatigue.current, 41)
+        self.assertFalse(self.char1.db.collapsed)
+        self.assertIsNone(self.slot())
+        self.assertIn(fatigue.WAKE, mine)
+        self.assertIn(fatigue.WAKE_ROOM.format(name=self.char1.key), "\n".join(theirs))
+
+    def test_awake_again_the_body_can_walk(self):
+        self.step(36)
+        self.exit.at_traverse(self.char1, self.room2)
+        self.assertEqual(self.char1.location, self.room2)
+
+    def test_a_reload_keeps_the_flag_and_the_tick_rearms(self):
+        self.char1.nattributes.clear()   # a reload empties ndb, the slot with it
+        self.assertIsNone(self.slot())
+        _lines, rolls = self.tick(2400, roll=PASS)
+        self.assertEqual(rolls, [])   # a collapsed body is not rolled for again
+        self.assertEqual(self.slot().key, fatigue.COLLAPSE_KEY)
+
+    def test_a_puppet_rearms(self):
+        self.char1.ndb.timed_action = None   # the slot a statue logout cleared
+        with mock.patch.object(self.char1, "msg"):
+            self.char1.at_post_puppet()
+        self.assertEqual(self.slot().key, fatigue.COLLAPSE_KEY)
+
+    def test_death_clears_the_flag(self):
+        with mock.patch.object(self.char1, "msg"):
+            self.char1.at_character_death()
+        self.assertFalse(self.char1.db.collapsed)
+        self.assertIsNone(self.slot())

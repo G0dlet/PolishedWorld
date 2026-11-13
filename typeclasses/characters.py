@@ -548,6 +548,10 @@ class Character(ObjectParent, ClothedCharacter):
         # survives an unpuppet on the cached object, so without this the
         # first tick would credit the whole time spent as a statue.
         self.ndb.survival_tick_at = None
+        # S3.4: a body that logged out collapsed is still down; the statue
+        # logout cleared its slot, so the recovery starts again here.
+        if self.db.collapsed:
+            self.arm_collapse()
         # W4.1: every webclient panel gets its state (WC5). OOB only, so
         # where it sits among the text below changes nothing on screen;
         # push never raises. Sent in chargen too -- chargen's end pushes
@@ -691,10 +695,11 @@ class Character(ObjectParent, ClothedCharacter):
         modifier follows the load and the gauge (a timed craft reads it when
         it completes, not when it starts).
 
-        The seven physical rolls add this to their own modifiers: craft
+        The eight physical rolls add this to their own modifiers: craft
         (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
-        `hunt` (as `attacker_mod`), `harvest` and the awake test
-        (`world.fatigue.awake_test`, S3.3). A new skill test decides
+        `hunt` (as `attacker_mod`), `harvest`, the awake test
+        (`world.fatigue.awake_test`, S3.3) and the collapse test
+        (`world.fatigue.collapse_test`, S3.4). A new skill test decides
         whether it is physical (the census in tests/test_encumbrance.py).
         A later penalty of the same kind is added here too, so the call sites
         never change.
@@ -1461,6 +1466,9 @@ class Character(ObjectParent, ClothedCharacter):
             # anyway once the gauge reads above min; this just avoids the lag).
             for condition_key in ("starving", "dehydrated"):
                 self.buffs.remove(condition_key)
+            # S3.4 (SL11): death ends a collapse; the interrupt above already
+            # emptied its slot.
+            self.attributes.remove("collapsed")
 
             # The contract line names the room the corpse is in, read from the
             # corpse itself, so it is never claimed when no corpse was made.
@@ -1562,9 +1570,70 @@ class Character(ObjectParent, ClothedCharacter):
             return False
         return timed_actions.interrupt(self, reason)
 
+    def collapse(self):
+        """
+        Fall where you stand (S3.4, SL11): the survival tick calls this when a
+        Debilitated body fails its Difficult test.
+
+        Whatever the slot held is interrupted (its own line first), the flag
+        `db.collapsed` is set -- in `db`, so a reload or a relog does not wake
+        anyone -- the body and the room are told, and the recovery starts.
+        """
+        timed_actions.interrupt(self)
+        self.db.collapsed = True
+        self.msg(fatigue_rules.FALL)
+        if self.location:
+            self.location.msg_contents(
+                fatigue_rules.FALL_ROOM.format(name=self.key), exclude=self
+            )
+        self.arm_collapse()
+
+    def arm_collapse(self):
+        """
+        Start a collapse's recovery unless it already runs (S3.4, lock H1).
+
+        Called by `collapse()`, and to re-arm a flagged body whose slot is
+        gone -- a reload empties `ndb`, a statue logout clears the slot -- by
+        the survival tick, `at_post_puppet` and every refusal. Anything else in
+        the slot (a rest or a chore started while the slot stood empty) is
+        interrupted first.
+        """
+        record = timed_actions.is_busy(self)
+        if record is not None and record.key == fatigue_rules.COLLAPSE_KEY:
+            return
+        if record is not None:
+            timed_actions.interrupt(self)
+        timed_actions.start(
+            self,
+            fatigue_rules.COLLAPSE_KEY,
+            self.rest_interval,
+            _collapse_tick,
+            label=fatigue_rules.COLLAPSE_LABEL,
+        )
+
+    def refuse_if_collapsed(self, line):
+        """
+        Refuse an action a collapsed body cannot take (S3.4, SL11).
+
+        Says `line` and re-arms the recovery if a reload left the slot empty
+        (lock H1). The commands call it first, before parsing anything.
+
+        Args:
+            line (str): what the body is told.
+
+        Returns:
+            bool: True when refused (the caller returns), False otherwise.
+        """
+        if not self.db.collapsed:
+            return False
+        self.msg(line)
+        self.arm_collapse()
+        return True
+
     def at_pre_move(self, destination, move_type="move", **kwargs):
         """
-        Interrupt whatever timed action is in progress, but allow the move.
+        Refuse a collapsed body's walk (S3.4); otherwise interrupt whatever
+        timed action is in progress, and allow the move.
 
         One line for every timed action there is or will be (Epic A, D1). The
         hook knows that something was interrupted, never what: the sentence the
@@ -1584,7 +1653,17 @@ class Character(ObjectParent, ClothedCharacter):
         This hook does not run for `move_to(..., move_hooks=False)` or a direct
         `location =` assignment. Death relocates with `move_hooks=False`, which
         is why `at_character_death()` calls `interrupt()` itself (D7).
+
+        A collapsed body cannot walk (S3.4, SL11): an exit's move
+        (`move_type="traverse"`) is refused BEFORE the interrupt, so the
+        collapse's own recovery in the slot runs on. Only the walk is refused
+        (lock A1, OQ-S2): `teleport` (staff `@tel`, `home`, a deleted room),
+        a bare `move` and `move_hooks=False` paths go through. The exit's own
+        *You cannot go there.* is silenced for a collapsed body
+        (`Exit.at_failed_traverse`, lock B1).
         """
+        if move_type == "traverse" and self.refuse_if_collapsed(fatigue_rules.CANNOT_MOVE):
+            return False
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
 
@@ -1610,8 +1689,8 @@ class Character(ObjectParent, ClothedCharacter):
         script's bare `move_to` defaults to `"move"` -- neither pays. Death
         relocates with `move_hooks=False`, so this hook never runs for it.
 
-        The gauge clamps at its `min` (Q5): a step at 0 leaves 0, and fatigue
-        at 0 has no consequence until *Fatigue-exhaustion consequence* ships.
+        The gauge clamps at its `min` (Q5): a step at 0 leaves 0; the
+        consequence of 0 is the tick's collapse test (S3.4).
 
         The survival warning is checked on both sides of the drain. The check
         before sets the baseline in `ndb.survival_buckets` -- empty after a
@@ -1877,6 +1956,42 @@ def _rest_tick(char, marker):
             )
         return
     delay(char.rest_interval, _rest_tick, char, marker)   # reschedule
+
+
+def _collapse_tick(char, marker):
+    """
+    One recovery step of a collapse (S3.4, SL11): the rest gain, until the
+    gauge reaches `fatigue_rules.COLLAPSE_WAKE_AT`.
+
+    The rest's shape (`_rest_tick`): `is_current()` refuses a stale marker and
+    clears the slot of an unpuppeted body -- the flag stays in `db`, so the
+    next puppet re-arms the recovery (`Character.arm_collapse`). Waking empties
+    the slot with `claim()` and clears the flag before any message, so a
+    `msg()` that raises cannot leave a body down for good.
+
+    Args:
+        char (Character): the collapsed character.
+        marker (object): the token `timed_actions.start()` minted.
+    """
+    if not timed_actions.is_current(char, marker):
+        return
+    fatigue = char.traits.get("fatigue")
+    if fatigue is None:
+        timed_actions.claim(char, marker)
+        char.attributes.remove("collapsed")
+        return
+    fatigue.current += char.rest_recovery   # auto-clamps to max
+    client_state.push(char, "survival")
+    if fatigue.current >= fatigue_rules.COLLAPSE_WAKE_AT:
+        timed_actions.claim(char, marker)
+        char.attributes.remove("collapsed")
+        char.msg(fatigue_rules.WAKE)
+        if char.location:
+            char.location.msg_contents(
+                fatigue_rules.WAKE_ROOM.format(name=char.key), exclude=char
+            )
+        return
+    delay(char.rest_interval, _collapse_tick, char, marker)   # reschedule
 
 
 def _announce_getting_up(char):

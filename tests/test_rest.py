@@ -481,7 +481,11 @@ class TestOneSlotOneBranch(RestTestBase):
         for module in (characters, consumption_commands):
             self.assertNotIn("ndb.resting", inspect.getsource(module), module.__name__)
 
-    def test_at_pre_move_has_no_branches(self):
+    def test_at_pre_move_branches_only_on_the_collapse(self):
+        # D1: no branch on WHICH action holds the slot -- `interrupt()` is
+        # called unconditionally. The one branch allowed is Survival Loop
+        # S3.4's gate, which refuses a collapsed body's walk before the
+        # interrupt; it is not about the slot's contents (lock J1).
         source = inspect.getsource(characters.Character.at_pre_move)
         tree = ast.parse(textwrap.dedent(source))
         branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
@@ -492,4 +496,8 @@ class TestOneSlotOneBranch(RestTestBase):
             and node.func.attr == "interrupt"
         ]
         self.assertTrue(calls, "at_pre_move no longer calls interrupt()")
-        self.assertEqual(branches, [])
+        self.assertEqual(len(branches), 1)
+        self.assertIn("refuse_if_collapsed", ast.unparse(branches[0].test))
+        inside = {id(n) for n in ast.walk(branches[0])}
+        self.assertTrue(all(id(call) not in inside for call in calls),
+                        "interrupt() is called inside the collapse branch")

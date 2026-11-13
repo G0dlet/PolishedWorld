@@ -87,8 +87,8 @@ before `enc` is set (objects.py:1975), so it is not the move under test.
                           by signature, not guessed
     TestRollCensus        a new skill test that nobody decided about: the
                           count of `skill_check(` / `opposed_check(` calls per
-                          production module must stay the seven classified:
-                          W3.1's six and S3.3's awake test
+                          production module must stay the eight classified:
+                          W3.1's six, S3.3's awake test and S3.4's collapse
 
   W3.2 -- the fatigue cost per room (Legend core p.86, Movement halved):
 
@@ -968,8 +968,8 @@ class TestPenaltyReachesHarvest(_PenaltyFixture, EvenniaCommandTest):
 
 
 # The physical rolls, counted per module: the six W3.1 classified (Rev 5,
-# Q1-Q3) and the awake test (Survival Loop S3.3), which adds the physical
-# modifier and is physical too.
+# Q1-Q3), the awake test (Survival Loop S3.3) and the collapse test (S3.4),
+# which add the physical modifier and are physical too.
 # forage rolls nothing; world/skillcheck.py is the roll itself (opposed_check
 # calls skill_check twice) and is not a call site.
 ROLL_SITES = {
@@ -977,7 +977,7 @@ ROLL_SITES = {
     "commands/hunting_commands.py": 2,    # hunt (opposed), harvest
     "commands/repair_commands.py": 1,     # repair
     "world/crafting_base.py": 1,          # craft (do_craft)
-    "world/fatigue.py": 1,                # the awake test (awake_test, S3.3)
+    "world/fatigue.py": 2,                # awake_test (S3.3), collapse_test (S3.4)
 }
 ROLL_NAMES = ("skill_check", "opposed_check")
 REPO = Path(__file__).resolve().parents[1]

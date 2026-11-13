@@ -13,7 +13,7 @@ from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
-from world import client_state, fatigue, gametime_utils, healing
+from world import client_state, fatigue, gametime_utils, healing, timed_actions
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
@@ -32,9 +32,10 @@ WARNED = ("hunger", "thirst", "fatigue")
 STARVE_DAMAGE = 1
 
 # (gauge key, condition buff) pairs that damage health at zero.
-# Fatigue is deliberately absent: in Legend, exhaustion is unconsciousness /
-# skill penalties, not location damage. Fatigue consequences are deferred to
-# the skill-check resolver.
+# Fatigue is deliberately absent: in Legend, exhaustion is skill penalties
+# and collapse, not location damage -- the level's penalty is
+# Character.physical_modifier()'s (S3.2) and the collapse is the tick's
+# test at 0 (S3.4).
 HEALTH_CONDITIONS = (
     ("hunger", Starving),
     ("thirst", Dehydrated),
@@ -72,6 +73,11 @@ def _deplete_character(char):
     a second test in the same tick reads the level the first one left. A
     failure at 0 changes nothing and says nothing (lock E1).
 
+    Then the collapse (S3.4, SL11): a collapsed body has its recovery
+    re-armed if a reload wiped the slot, and is not rolled for again; a body
+    at 0 that is not resting (lock E1) rolls the Difficult test and falls on
+    a failure.
+
     Healing runs after the conditions (S2.1), so a Starving or Dehydrated
     condition applied this tick already stops it, and a character the
     conditions just killed and respawned at full health only has their
@@ -95,12 +101,24 @@ def _deplete_character(char):
                 continue
             gauge.current -= fatigue.LEVEL_POINTS   # clamps at min
             char.msg(fatigue.AWAKE_FAILED)
+        if char.db.collapsed:
+            char.arm_collapse()
+        elif gauge.current <= gauge.min and not _resting(char):
+            result = fatigue.collapse_test(char)
+            if result is not None and not result["success"]:
+                char.collapse()
     if healing.accrue(char, elapsed):
         char.msg(healing.HEALED)
     _check_survival_warnings(char)
     # W4.2: after the warnings, so the text and the panel agree. `world`
     # rides along: Evennia's clock only runs while the server does (WC9).
     client_state.push(char, "survival", "world")
+
+
+def _resting(char):
+    """True while the timed-action slot holds a rest (S3.4, lock E1)."""
+    record = timed_actions.is_busy(char)
+    return record is not None and record.key == "rest"
 
 
 def _tick_game_seconds(char):

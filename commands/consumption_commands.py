@@ -13,6 +13,7 @@ from commands.command import Command
 from world import timed_actions
 from world import activity_log
 from world import client_state
+from world import fatigue
 from world import water
 from typeclasses.consumables import Food, Drink
 
@@ -30,6 +31,8 @@ class CmdEat(Command):
 
     def func(self):
         caller = self.caller
+        if caller.refuse_if_collapsed(fatigue.CANNOT_HANDLE):   # S3.4
+            return
         if not self.args.strip():
             caller.msg("Eat what?")
             return
@@ -95,6 +98,8 @@ class CmdDrink(Command):
 
     def func(self):
         caller = self.caller
+        if caller.refuse_if_collapsed(fatigue.CANNOT_HANDLE):   # S3.4
+            return
         query = self.args.strip()
         if not query:
             # Survival Loop SL2: bare `drink` means the source, never a
@@ -209,6 +214,8 @@ class CmdEmpty(Command):
 
     def func(self):
         caller = self.caller
+        if caller.refuse_if_collapsed(fatigue.CANNOT_HANDLE):   # S3.4
+            return
         query = self.args.strip()
         if not query:
             caller.msg("Empty what?")
