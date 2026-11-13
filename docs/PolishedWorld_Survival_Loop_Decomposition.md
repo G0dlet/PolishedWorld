@@ -1,10 +1,11 @@
 # PolishedWorld — Survival Loop Decomposition
 
+> **Rev 2 · 2026-11-13** — **the branch is cut**, docs only, on `main`: `feature/survival-loop` from `main` at `3ceffdf` (tree `3de55f3`) with `--no-track` (lesson 64), published to origin, where its tree reads `3de55f3`. *Status* reads In progress and §9 gains a *(branch)* row. In the same commit the dev board moves *Healing over time, real tiredness and drinking at the spring* from Planned to In progress, as S1.1's approach says it does when the branch is cut. Records stay on `main` and the branch carries code, as the webclient visual pass did, so the merge meets no edit to this file.
 > **Rev 1 · 2026-11-12** — first version. Decomposes roadmap **Stage 4.6 — Survival loop** (three first slices: Water, Foraging's natural healing, Rest's fatigue levels) into four components and eleven tasks, against live source read the same day (`main` at `0be751e`, tree `14c79e0`; Evennia 6.1.0; *Legend* core pp. 86–90). Four premises of the design notes did not survive the read and are answered by locks here: Rest slice 1 has no way back up without slice 2's `sleep` (SL10); natural healing on the tick alone is one hit point per twelve real hours *online* (SL7); `DeathWeakness` on `fatigue_rate` is near-inert once that rate scales a clock instead of a drain (SL12); and a waterskin on `condition` becomes mendable by `repair` and loses its sink (SL5).
 > **Canonical:** `docs/PolishedWorld_Survival_Loop_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
 **Design sources:** `docs/system_designs/PolishedWorld_Water_Design.md` (VP1, VP3, VQ6, VQ8, VQ9; departures N1, N2), `PolishedWorld_Foraging_Design.md` (RP8, RP-L4; departure R1), `PolishedWorld_Rest_Design.md` (NP1–NP3, NP14, NP15, NQ14; departures O1, O2, O5, O6); `docs/roadmap.md` *Stage 4.6*; BACKLOG *Fatigue-exhaustion consequence*, *`DeathWeakness` debuff → `fatigue_rate`*, *Waterskin `durability` → `condition` migration*, *Webclient: players and NPCs apart, and active conditions*. The notes' leanings were inputs; the locks below are the decisions.
-**Status:** DECOMPOSED. Code follows on `feature/survival-loop`, cut from `main` with `--no-track`.
+**Status:** In progress. `feature/survival-loop` cut from `main` at `3ceffdf` with `--no-track` (Rev 2); S1.1 next.
 **Feature branch:** `feature/survival-loop` (one branch, one merge).
 **Rough scope:** 11 tasks, ~4–5 sessions at 5 h/week (S1 1–1.5 · S2 1 · S3 2 · S4 0.5).
 **Philosophy:** skynda långsamt — no new item, no new skill, no new ticker. One new command (`empty`), one new module (`world/fatigue.py`), one helper for water (`world/water.py`), and the survival tick doing two more things with the time it already has.
@@ -200,6 +201,7 @@ S4.1 merge → S4.2 docs close-out
 | Task | Commit | Tree | Date | Suite after |
 | --- | --- | --- | --- | --- |
 | (base) | `0be751e` | `14c79e0` | 2026-11-12 | 1447 (`def test_`), catalogue loop 57/0 |
+| (branch) | `3ceffdf` | `3de55f3` | 2026-11-13 | 1447 (`def test_`), catalogue loop 58/0 |
 
 ## 10. Open questions (each with the task that closes it)
 
