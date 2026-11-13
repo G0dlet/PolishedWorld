@@ -13,6 +13,7 @@ command responsibilities separated.
 """
 
 from evennia import AttributeProperty
+from typeclasses.durable import DurableObject
 from typeclasses.objects import Object
 
 
@@ -25,8 +26,14 @@ class Food(Object):
     consume_message = AttributeProperty("You eat {key}.", autocreate=True)
 
 
-class Drink(Object):
+class Drink(DurableObject, Object):
     """A charge-based, refillable drink container that restores thirst."""
+
+    # Survival Loop SL4/SL5. Wear per refill on DurableObject's 0-100 axis: a
+    # crafted skin starts at 96/80/48/24 by band (world/recipes.py), which is
+    # 12/10/6/3 refills. A vessel is replaced, not mended.
+    REFILL_WEAR = 8
+    mendable = False
 
     # How much thirst one sip restores.
     restore_amount = AttributeProperty(15, autocreate=True)
@@ -79,12 +86,8 @@ class Drink(Object):
             return False
         self.charges = self.max_charges
         self.water_kind = kind
-        # Durability is opt-in: only containers crafted with a durability value
-        # wear with use. Plain/found drinks (no durability attr) refill forever.
-        if self.db.durability is not None:
-            self.db.durability -= 1
+        # Survival Loop SL4: every fill wears the vessel on the shared axis.
+        # `refill` splits it on the dip after condition reaches 0 (is_broken),
+        # so the last fill is still drunk.
+        self.apply_wear(self.REFILL_WEAR)
         return True
-
-    def is_worn_out(self):
-        """True if this container has a durability value that has reached zero."""
-        return self.db.durability is not None and self.db.durability <= 0

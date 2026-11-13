@@ -99,8 +99,9 @@ class CmdRepair(Command):
         # Only objects on the shared durability axis carry a condition to repair.
         # Garments (ClothingWithBuffs) and tools (Tool) both inherit DurableObject,
         # so this one check covers both -- broadened from the garment-only gate in
-        # Task D.4.
-        if not isinstance(target, DurableObject):
+        # Task D.4. A durable host that is replaced rather than mended says no
+        # here too, before materials are read (`mendable`; a vessel, SL5).
+        if not isinstance(target, DurableObject) or not target.mendable:
             caller.msg(f"You can't mend {target.get_display_name(caller)}.")
             return
 

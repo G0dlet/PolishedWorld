@@ -54,11 +54,14 @@ from world.crafting_quality import (
 # number. Each table says what a band MEANS for one item type; the band
 # classification itself lives in crafting_quality (single source of truth).
 
-_WATERSKIN_STATS_BY_BAND = {   # band -> (max_charges, durability-in-refills)
-    SUPERIOR: (6, 12),
-    SERVICEABLE: (5, 10),
-    POOR: (4, 6),
-    SHODDY: (3, 3),
+_WATERSKIN_STATS_BY_BAND = {   # band -> (max_charges, start condition)
+    # Start condition on DurableObject's axis; at Drink.REFILL_WEAR (8) a fill
+    # these are 12 / 10 / 6 / 3 refills, the lifespans the durability counter
+    # had before Survival Loop SL4 (tests/test_water.py pins the division).
+    SUPERIOR: (6, 96),
+    SERVICEABLE: (5, 80),
+    POOR: (4, 48),
+    SHODDY: (3, 24),
 }
 
 
@@ -135,7 +138,8 @@ class WaterskinRecipe(MongooseCraftRecipe):
     min_skill = 0                          # E.1 rung 0: survival bootstrap, never floored (AC5.1)
 
     def _finalize_item(self, obj, outcome):
-        # Quality -> capacity (draughts) + durability (lifespan in refills),
+        # Quality -> capacity (draughts) + start condition (its lifespan in
+        # refills at Drink.REFILL_WEAR a fill, SL4),
         # classified through the shared band helper so this recipe never
         # hard-codes a raw threshold. This replaces the old >=125 branch.
         #
@@ -151,7 +155,7 @@ class WaterskinRecipe(MongooseCraftRecipe):
         # a mechanism changing underneath it, and the first caught before it went
         # false rather than after.
         band = quality_band(obj.db.quality)
-        obj.db.max_charges, obj.db.durability = _WATERSKIN_STATS_BY_BAND[band]
+        obj.db.max_charges, obj.condition = _WATERSKIN_STATS_BY_BAND[band]
         obj.db.charges = 0                              # crafted empty regardless
         alias = band_alias(band, obj.key)              # "superior waterskin" only
         if alias:

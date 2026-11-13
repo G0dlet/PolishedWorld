@@ -234,7 +234,7 @@ class CmdRefill(Command):
         # 5. A spent container gives out when you dip it again. Checked BEFORE
         #    filling, so the player got the use out of its last fill. Capture
         #    the name first — we must not touch a deleted object afterwards.
-        if container.is_worn_out():
+        if container.is_broken:
             name = container.get_display_name(caller)
             caller.msg(f"You dip the {name} in, but the worn vessel splits apart, ruined beyond use.")
             caller.location.msg_contents(
@@ -245,8 +245,8 @@ class CmdRefill(Command):
             return
 
         # 6. Refill with the source's kind. refill() returns False if already
-        #    full; it also wears the container by one point if it tracks
-        #    durability (opt-in).
+        #    full; a fill wears the container Drink.REFILL_WEAR on `condition`
+        #    (SL4).
         if not container.refill(source.water_kind):
             caller.msg(f"The {container.get_display_name(caller)} is already full.")
             return

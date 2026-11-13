@@ -1,6 +1,7 @@
 """
 Survival Loop S1.1: drinking at a water source (decomposition SL2).
 S1.2: the kind of water on sources and in vessels, and `empty` (SL3).
+S1.3: the vessel wears on `condition` and is not mended (SL4, SL5).
 
 `world/water.py` holds the room scan that `drink` and `refill` share. Bare
 `drink`, or `drink <source>`, gives three draughts at once and never touches
@@ -19,6 +20,12 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.consumption_commands import CmdDrink, CmdEmpty
 from commands.foraging_commands import CmdRefill
+from commands.repair_commands import CmdRepair
+from commands.world_commands import CmdRoomLook
+from typeclasses.consumables import Drink
+from typeclasses.durable import DurableObject
+from world.crafting_quality import POOR_FLOOR, POOR, SERVICEABLE, SHODDY, SUPERIOR
+from world.recipes import WaterskinRecipe, _WATERSKIN_STATS_BY_BAND
 from tests.test_activity_log import ActivityLogMixin
 from world import activity_log, activity_report, water
 
@@ -246,7 +253,7 @@ class TestKinds(EvenniaCommandTest):
     def test_another_kind_is_refused_before_the_split(self):
         self.skin.charges = 2
         self.skin.water_kind = "brine"
-        self.skin.db.durability = 0
+        self.skin.condition = 0  # broken: the next dip would split it (S1.3)
         self.call(CmdRefill(), "skin", "The waterskin holds brine.", caller=self.char1)
         self.assertTrue(self.skin.pk)
 
@@ -295,9 +302,9 @@ class TestEmpty(EvenniaCommandTest):
         self.assertIsNone(self.skin.water_kind)
 
     def test_wears_nothing(self):
-        self.skin.db.durability = 5
+        self.skin.condition = 40
         self.call(CmdEmpty(), "skin", caller=self.char1)
-        self.assertEqual(self.skin.db.durability, 5)
+        self.assertEqual(self.skin.condition, 40)
 
     def test_an_empty_vessel_says_so(self):
         self.skin.charges = 0
@@ -333,3 +340,84 @@ class TestEmpty(EvenniaCommandTest):
             self.call(CmdEmpty(), "skin", caller=self.char1)
         record.assert_not_called()
         push.assert_not_called()
+
+
+class TestVesselWear(EvenniaCommandTest):
+    """S1.3: the vessel wears on `condition` (SL4) and is not mended (SL5)."""
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def setUp(self):
+        super().setUp()
+        _spring(self.room1)
+        self.skin = spawn("waterskin")[0]
+        self.skin.location = self.char1
+
+    def _dip(self):
+        self.skin.charges = 0  # drunk dry between fills
+        return self.call(CmdRefill(), "skin", caller=self.char1)
+
+    def test_band_starts_are_todays_refill_counts(self):
+        counts = {
+            band: start // Drink.REFILL_WEAR
+            for band, (_charges, start) in _WATERSKIN_STATS_BY_BAND.items()
+        }
+        self.assertEqual(
+            counts, {SUPERIOR: 12, SERVICEABLE: 10, POOR: 6, SHODDY: 3}
+        )
+
+    def test_the_recipe_writes_the_start_condition(self):
+        for quality, start in ((105, 96), (100, 80), (POOR_FLOOR, 48), (0, 24)):
+            with self.subTest(quality=quality):
+                skin = spawn("waterskin")[0]
+                skin.db.quality = quality
+                WaterskinRecipe._finalize_item(mock.Mock(), skin, None)
+                self.assertEqual(skin.condition, start)
+                self.assertFalse(skin.attributes.has("durability"))
+
+    def test_a_serviceable_skin_fills_ten_times_and_splits_on_the_eleventh(self):
+        self.skin.condition = 80
+        for fill in range(10):
+            with self.subTest(fill=fill):
+                out = self._dip()
+                self.assertTrue(out.startswith("You fill the"), out)
+        self.assertEqual(self.skin.condition, 0)
+        self.assertTrue(self.skin.pk)  # the last fill is still drunk
+        out = self._dip()
+        self.assertTrue(out.startswith("You dip the waterskin in, but"), out)
+        self.assertFalse(self.skin.pk)
+
+    def test_a_full_skin_is_not_worn(self):
+        self.skin.charges = self.skin.max_charges
+        self.call(CmdRefill(), "skin", "The waterskin is already full.", caller=self.char1)
+        self.assertEqual(self.skin.condition, 100)
+
+    def test_drinking_wears_nothing(self):
+        self.skin.charges = 3
+        self.char1.traits.thirst.current = 10
+        self.call(CmdDrink(), "skin", caller=self.char1)
+        self.assertEqual(self.skin.condition, 100)
+
+    def test_a_stale_durability_is_not_read(self):
+        self.skin.db.durability = 0
+        out = self._dip()
+        self.assertTrue(out.startswith("You fill the"), out)
+        self.assertEqual(self.skin.condition, 100 - Drink.REFILL_WEAR)
+
+    def test_look_shows_the_condition(self):
+        self.skin.condition = 72
+        out = self.call(CmdRoomLook(), "skin", caller=self.char1)
+        self.assertIn("Condition: 72%", out)
+
+    def test_repair_refuses_and_keeps_the_materials(self):
+        self.skin.condition = 40
+        cloth, twine = spawn("cloth", "twine")
+        cloth.location = twine.location = self.char1
+        self.call(CmdRepair(), "skin", "You can't mend waterskin.", caller=self.char1)
+        self.assertTrue(cloth.pk and twine.pk)
+        self.assertEqual(self.skin.condition, 40)
+        self.assertTrue(self.char1.cooldowns.ready("repair"))
+
+    def test_other_durables_stay_mendable(self):
+        self.assertTrue(DurableObject.mendable)
+        self.assertFalse(Drink.mendable)

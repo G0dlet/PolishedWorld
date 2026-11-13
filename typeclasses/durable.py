@@ -40,6 +40,12 @@ class DurableObject:
 
     condition = AttributeProperty(default=100, autocreate=True)
 
+    # Whether `repair` may restore this object's condition. Garments, tools and
+    # books are mended; a host that must be replaced instead sets False (a
+    # vessel: Survival Loop SL5 -- a patched gourd would close its sink).
+    # A class flag, not an Attribute: it is a property of the kind of thing.
+    mendable = True
+
     def apply_wear(self, amount):
         """
         Wear this object down by `amount`, flooring condition at 0.
