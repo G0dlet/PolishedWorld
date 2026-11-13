@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 108 · 2026-11-13** — one entry **added**, docs only, with survival loop decomposition Rev 5 (S1.2b shipped, OQ-S6 closed). **Added** (*Survival*): ***Eating and drinking past full*** — Adam's question after S1.2b's protocol: an overfull buff behind Cooking CP14's insisting form, with spoiled food and unclean water pointed at the homes they already have (CP14 and Foraging RP11; Water VP-L3); BLOCKED on CP14.
 > **Rev 107 · 2026-11-12** — four entries **annotated**, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 1 (roadmap Stage 4.6, locks SL1–SL13), roadmap Rev 75 and README Rev 55. ***Waterskin `durability` → `condition` migration*** (*Crafting*) is task S1.3, and the vessel is not mended (SL5); ***`DeathWeakness` debuff → `fatigue_rate`*** BLOCKED → SCHEDULED (S3.5, SL12); ***Fatigue-exhaustion consequence*** OPEN → SCHEDULED, its 2026-10-18 open questions closed by SL8–SL11; ***Webclient: players and NPCs apart, and active conditions*** — trigger (2) fired and is answered narrowly (SL13), the entry stays OPEN on its other triggers. No entry added.
 > **Rev 106 · 2026-11-12** — one entry **added** and four **annotated**, docs only, with webclient visual decomposition Rev 11 (DONE) and roadmap Rev 74. **Added** (*UX & Item Identity*): ***Webclient art: possible later revisions*** — the frames' band and corners, the spring and summer icons' silhouettes, and richer banners and header toward `webclient_03`, which ChatGPT's reviews named and the closed decomposition can no longer hold; OPEN, triggered by a second visual pass or a visible problem with an acceptance criterion (art style guide §5, Rev 9). **Annotated**, the triggers that named the visual pass's merge (read before writing, lesson 182): *Persistent alpha instance* (L6.1 deploys `alpha-20261112`); *Waterskin `durability` → `condition` migration* and *Fatigue-exhaustion consequence* (Stage 4.6 is next); *Webclient: mockup elements without server data* (parts 1–2 wait only on someone asking).
 > **Rev 105 · 2026-11-12** — one entry **added**, docs only, with webclient visual decomposition Rev 10. **Added** (*UX & Item Identity*): ***Webclient: players and NPCs apart, and active conditions (V4.1, V4.2, cut)*** — the visual pass's Component 4, cut by Adam after V3.4 (WV5) because both tasks start with server text; OPEN. Before the entry was written, BACKLOG was read for triggers that name the visual pass (lesson 182): *Webclient: mockup elements without server data* (parts 1–2) and *Persistent alpha instance* (the tag) fire at its merge, and the two Stage 4.6 annotations at its close-out; the cut changes none of them.
@@ -1947,6 +1948,37 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   have a consumer; the design leaves that choice open (CQ5). The Trigger, the
   rule that (1)–(3) ship with one recipe from (4), and the status are
   unchanged.
+
+---
+
+### Eating and drinking past full
+- **What:** Since S1.2b (`docs/PolishedWorld_Survival_Loop_Decomposition.md`,
+  OQ-S6) `eat` and `drink` refuse at a full gauge — *You aren't hungry.*,
+  *You aren't thirsty.* — and nothing is spent. Adam asks whether a character
+  should be able to eat or drink too much and feel it. The shape that fits what
+  is already designed: the refusal stays the default, and Cooking Design
+  CP14's insisting form (`eat <food> anyway`, and the same for `drink`) lets
+  the character go past full. The gain clamps as today, and a short
+  **overfull** buff follows through the Buffs contrib, as
+  `world/survival_buffs.py` already adds `DeathWeakness`.
+  Two related asks already have homes: spoiled food is Cooking CP14 (refused
+  unless forced; forced, a short queasy buff, CQ4) and Foraging RP11's flux,
+  which *Food spoilage* (above) points at; unclean water is Water Design
+  VP-L3 (still water becomes an Ingested exposure once *Disease system*,
+  `roadmap.md`, exists).
+  **Open choices, for the decomposition:** what overfull does (a penalty to
+  physical skills, a step on S3's fatigue levels, or slower movement); how
+  long it lasts; whether it stacks with queasy; whether going on past
+  overfull becomes the flux's Nausea or stays mild. Legend's core has no rule
+  for overeating (its *Exposure, Starvation and Thirst* covers only going
+  without), so this is a departure and is written down as one.
+- **Why deferred:** Stage 4.6 refuses rather than penalises (S1.2b); the
+  insisting form is Cooking CP14's to define once, for off food and a full
+  stomach alike.
+- **Trigger:** Cooking Design's CP14 decomposition — the `anyway` form and
+  its buff land there, and this rides on them.
+- **Origin:** Session 2026-11-13, Adam, after S1.2b's in-game protocol.
+- **Status:** BLOCKED (Cooking CP14's `anyway` form)
 
 ---
 
