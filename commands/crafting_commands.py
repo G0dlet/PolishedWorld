@@ -801,7 +801,8 @@ class CmdDisassemble(Command):
         min_skill = getattr(cls, "min_skill", 0) or 0
         trait = caller.skills.get("craft")
         skill_value = trait.value if trait else 0     # counter .value = current + mod
-        # Plus the overload penalty (W3.1): taking a piece apart is physical work.
+        # Plus the physical modifier (overload W3.1, fatigue S3.2): taking a
+        # piece apart is physical work.
         outcome = skill_check(skill_value, modifier=-min_skill + caller.physical_modifier())
 
         # Committed: the item is destroyed on every outcome and the cooldown set.
@@ -826,8 +827,8 @@ class CmdDisassemble(Command):
             # Trivial-work gate (E.2, Trivial Work TD5): a recipe that is routine
             # for the caller still teaches the recipe above, but not the skill.
             # routine_for reads the permanent skill (.current), never the
-            # skill_value this roll used (.value) -- a buff or the overload
-            # penalty shifts the roll, not what the piece can teach. Nearly
+            # skill_value this roll used (.value) -- a buff or the physical
+            # modifier shifts the roll, not what the piece can teach. Nearly
             # inert today: only an unknown, gated recipe reaches this line, so
             # it fires once per recipe. It is here for the salvage mode BACKLOG
             # *Disassemble yields parts and raw materials* describes, so that
@@ -1086,8 +1087,9 @@ class CmdScribe(Command):
         # (.value = current + mod), mirroring do_craft: a tool/situational buff can
         # lift the binding's QUALITY even though the .current gate above governs
         # PERMISSION. No tool modifier -- there is no scribing implement in the MVP
-        # (a quill/pen tool is a future addition). The one modifier is the overload
-        # penalty (W3.1): binding is a Craft roll, and Craft is DEX+INT.
+        # (a quill/pen tool is a future addition). The one modifier is the physical
+        # modifier (overload W3.1, fatigue S3.2): binding is a Craft roll, and
+        # Craft is DEX+INT.
         skill_value = trait.value if trait else 0
         outcome = skill_check(skill_value, caller.physical_modifier())
         tier = outcome["result"]
@@ -1146,7 +1148,7 @@ class CmdScribe(Command):
         # nothing. Placed after the result message so the feedback line reads as
         # the next beat, exactly as in CmdDisassemble.
         # No difficulty datum comparable to `min_skill` here (a book has no
-        # floor; the roll carries only the overload term); meaningful=True is
+        # floor; the roll carries only the physical term); meaningful=True is
         # deliberate (Skill Progression decomp section 7 E.3, Trivial Work TD5),
         # not an omission -- BACKLOG carries scribe's own entry.
         imp = caller.attempt_skill_improvement("craft", outcome)

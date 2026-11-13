@@ -22,6 +22,10 @@ Each class presses one bug:
     TestWarning              the tick's warning on the old path: its index
                              from `_bucket_index`, its word from
                              `trait.desc()` (SL-M47)
+    TestPhysicalModifier     the level's penalty missing from the roll term,
+                             replacing overload instead of adding (SL-M24),
+                             or added with the wrong sign (SL-M25) -- S3.2
+    TestPenaltyReachesCraft  the term computed but not reaching a real roll
 
 THE DISCRIMINATING STATE (lock F1, lesson 181)
 ----------------------------------------------
@@ -38,10 +42,14 @@ Words and penalties are written out by hand, never read back from LEVELS.
 from unittest import mock
 
 from django.test import SimpleTestCase
+from evennia.contrib.game_systems.crafting import craft
+from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.character_commands import CmdSheet, CmdStatus
+from tests.test_encumbrance import LIMIT, _make, _PenaltyFixture
 from world import client_state, fatigue
+from world.encumbrance import carried_enc
 from world.survival_ticker import _check_survival_warnings
 
 # The fatigue `descs` every character made before S3.1 carries
@@ -251,3 +259,57 @@ class TestWarning(_OldDescsMixin, EvenniaTest):
             _check_survival_warnings(self.char1)
         self.assertEqual([c.args[0] for c in msg.call_args_list],
                          ["|yYou feel could drink.|n"])
+
+
+# --- S3.2: the penalty on physical tests -------------------------------------
+
+
+class TestPhysicalModifier(EvenniaTest):
+    """`physical_modifier()`: overload's term plus minus the level's penalty."""
+
+    def at(self, value, overloaded=False):
+        self.char1.traits.fatigue.current = value
+        if overloaded:
+            _make(self.char1, key="load", enc=LIMIT + 1)
+            self.assertGreater(carried_enc(self.char1), LIMIT)   # receipt
+        return self.char1.physical_modifier()
+
+    def test_fresh_is_zero(self):
+        self.assertEqual(self.at(100), 0)
+        self.assertEqual(self.at(81), 0)
+
+    def test_winded_at_its_top_is_minus_ten(self):
+        self.assertEqual(self.at(80), -10)
+
+    def test_wearied_at_forty_is_minus_thirty(self):
+        self.assertEqual(self.at(40), -30)
+
+    def test_debilitated_is_minus_fifty(self):
+        self.assertEqual(self.at(0), -50)
+
+    def test_overloaded_and_debilitated_sum_to_minus_seventy(self):
+        # Rest NP2: the two penalties add.
+        self.assertEqual(self.at(0, overloaded=True), -70)
+
+    def test_overloaded_and_fresh_is_overload_alone(self):
+        self.assertEqual(self.at(100, overloaded=True), -20)
+
+    def test_no_fatigue_gauge_leaves_overload_alone(self):
+        self.char1.traits.remove("fatigue")
+        _make(self.char1, key="load", enc=LIMIT + 1)
+        self.assertEqual(self.char1.physical_modifier(), -20)
+
+
+class TestPenaltyReachesCraft(_PenaltyFixture, EvenniaCommandTest):
+    """A real craft at fatigue 40 rolls with -30 (the spy reads the roll's modifier)."""
+
+    def test_craft_at_forty(self):
+        clay = spawn("clay")[0]
+        clay.move_to(self.char1, quiet=True)
+        self.load_to(LIMIT)   # at the limit: no overload term
+        self.char1.traits.fatigue.current = 40
+        modifier = self.rolled(
+            "world.crafting_base.skill_check",
+            lambda: craft(self.char1, "sling bullet", clay),
+        )
+        self.assertEqual(modifier, -30)

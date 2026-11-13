@@ -751,6 +751,12 @@ class TestPhysicalModifier(EvenniaTest):
 
     character_typeclass = CHARACTER
 
+    def setUp(self):
+        super().setUp()
+        # Fresh: the fatigue term of physical_modifier() is 0 (S3.2), so
+        # every modifier asserted here is overload's alone.
+        self.char1.traits.fatigue.current = 100
+
     def test_the_penalty_is_legends_twenty(self):
         self.assertEqual(OVERLOAD_PENALTY, -20)   # Legend core p.86
 
@@ -780,6 +786,13 @@ class _PenaltyFixture:
 
     character_typeclass = CHARACTER
     room_typeclass = ROOM
+
+    def setUp(self):
+        super().setUp()
+        # Fresh: the fatigue term of physical_modifier() is 0 (S3.2), so the
+        # modifiers the rolls record are overload's alone. A test that wants
+        # the fatigue term sets the gauge after this.
+        self.char1.traits.fatigue.current = 100
 
     def load_to(self, total):
         """Top char1 up to exactly `total` ENC with one load item (earlier loads go)."""

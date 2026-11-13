@@ -674,27 +674,42 @@ class Character(ObjectParent, ClothedCharacter):
 
     def physical_modifier(self):
         """
-        The modifier on this character's physical skill tests (W3.1).
+        The modifier on this character's physical skill tests (W3.1, S3.2).
 
-        Legend core p.86: an overloaded character takes -20% on every test
-        that requires a physical action. Past the limit means OVERLOADED or
-        CEILING; at or under it the modifier is 0. Read live at the moment of
-        each roll and never stored, so the penalty follows the load (a timed
-        craft reads it when it completes, not when it starts).
+        Two terms, summed:
+
+        - Overload (W3.1). Legend core p.86: an overloaded character takes
+          -20% on every test that requires a physical action. Past the limit
+          means OVERLOADED or CEILING; at or under it the term is 0.
+        - The fatigue level (S3.2, SL8). Legend core p.90: each level below
+          Fresh costs 10% more, down to -50% at Debilitated
+          (`world.fatigue.penalty_for`, read on the gauge's value, which is
+          what `status` prints). No fatigue gauge, no term.
+
+        The two add (Rest NP2), so an overloaded, debilitated character rolls
+        at -70. Read live at the moment of each roll and never stored, so the
+        modifier follows the load and the gauge (a timed craft reads it when
+        it completes, not when it starts).
 
         The six physical rolls add this to their own modifiers: craft
         (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
         `hunt` (as `attacker_mod`) and `harvest`. A new skill test decides
         whether it is physical (the census in tests/test_encumbrance.py).
-        Later penalties of the same kind (the fatigue levels, BACKLOG) are
-        added here, so the call sites never change again.
+        A later penalty of the same kind is added here too, so the call sites
+        never change.
 
         Returns:
-            int: 0 when FREE, `encumbrance.OVERLOAD_PENALTY` otherwise.
+            int: 0 when free and Fresh; otherwise the sum of
+                `encumbrance.OVERLOAD_PENALTY` (if past the limit) and minus
+                the fatigue level's penalty.
         """
+        modifier = 0
         if self.encumbrance_state != encumbrance.FREE:
-            return encumbrance.OVERLOAD_PENALTY
-        return 0
+            modifier += encumbrance.OVERLOAD_PENALTY
+        fatigue = self.traits.get("fatigue")
+        if fatigue is not None:
+            modifier -= fatigue_rules.penalty_for(fatigue.value)
+        return modifier
 
     def snapshot_skill_baseline(self):
         """

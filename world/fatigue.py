@@ -7,7 +7,7 @@ lock SL8; Rest design NP1; Legend core p.90).
 One table, read by everything a player sees: `Character.fatigue_desc()`
 (the word `status`, `sheet`, the client's `survival` snapshot and the
 tick's warning print) and `penalty_for()` (the level's penalty on physical
-tests, which S3.2 adds in `Character.physical_modifier()`).
+tests, which `Character.physical_modifier()` subtracts, S3.2).
 
     level         gauge      penalty
     Debilitated   0          50
@@ -88,7 +88,7 @@ def penalty_for(value):
     """
     The level's penalty for `value`, as a positive number of percent.
 
-    The caller subtracts it: `physical_modifier()` (S3.2) adds
-    `-penalty_for(current)` beside overload's term.
+    The caller subtracts it: `Character.physical_modifier()` (S3.2) adds
+    `-penalty_for(value)` beside overload's term.
     """
     return LEVELS[level_for(value)].penalty

@@ -134,7 +134,8 @@ class MongooseCraftRecipe(CraftingRecipe):
 
     def _physical_modifier(self):
         """
-        The crafter's physical-test modifier (W3.1), 0 without the seam.
+        The crafter's physical-test modifier (overload W3.1, fatigue S3.2),
+        0 without the seam.
 
         getattr-guarded like `_skill_value`: a crafter that is not a
         Character (no `physical_modifier`) rolls without the penalty instead
@@ -301,7 +302,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         # (_skill_value() = counter .value = current + mod), so a temporary buff can
         # lift someone over the bar -- intended: the gate asks "are you good enough
         # to *attempt* this right now". Deliberately does NOT apply the tool modifier
-        # (nor the overload penalty, W3.1 -- same reasoning):
+        # (nor the physical modifier, W3.1/S3.2 -- same reasoning):
         # that penalty shifts the ROLL in do_craft ("how well"), not the gate ("may
         # you try"), so a skilled but tool-less crafter passes here and then rolls at
         # -20. Orthogonal to Stage 3's knowledge-gate. min_skill defaults to 0
@@ -315,7 +316,8 @@ class MongooseCraftRecipe(CraftingRecipe):
         # A real attempt is happening.
         self.rolled = True
         # Three modifiers, all read here at the roll -- for a timed craft, when
-        # the timer completes: the tool, the crafter's overload penalty (W3.1)
+        # the timer completes: the tool, the crafter's physical modifier
+        # (overload W3.1, fatigue level S3.2)
         # and the recipe's mastery (M2.2, MD3). Mastery is a MODIFIER, never
         # part of the skill value: the skill stays the crafter's, and nothing
         # about improvement (which reads skill.current) sees it (MD7).

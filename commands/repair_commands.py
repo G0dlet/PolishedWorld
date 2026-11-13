@@ -10,7 +10,7 @@ multimatch issue, since we target a single object, not a bag of ingredient token
 
 Model: roll the crafter's Craft skill (world/skillcheck.py), modified by whether
 a needle is carried (baseline 0) or improvised (-20), mirroring the tailoring recipes'
-optional-tool handling, and by the overload penalty (W3.1, Character.physical_modifier). The result tier decides the condition change; a fumble
+optional-tool handling, and by the physical modifier (Character.physical_modifier: overload, W3.1, and the fatigue level, S3.2). The result tier decides the condition change; a fumble
 damages the garment further. Cloth and twine are consumed on *any* resolved
 attempt -- including a plain failure -- so low-skill spam carries a real cost.
 """
@@ -135,7 +135,7 @@ class CmdRepair(Command):
         # collect-roll-consume sequence atomic against any concurrent repair.
         trait = caller.skills.get("craft")
         skill_value = trait.value if trait else 0     # counter .value = current + mod
-        # Tool modifier plus the overload penalty (W3.1).
+        # Tool modifier plus the physical modifier (overload W3.1, fatigue S3.2).
         outcome = skill_check(
             skill_value,
             self._tool_modifier(caller, target) + caller.physical_modifier(),
@@ -181,7 +181,7 @@ class CmdRepair(Command):
         # "craft" skill as crafting. Placed after the outcome message so a later
         # "your Crafting improves" line (C.1) reads after the repair result.
         # No difficulty datum comparable to `min_skill` here (the roll carries
-        # only the tool and overload terms); meaningful=True is deliberate
+        # only the tool and physical terms); meaningful=True is deliberate
         # (Skill Progression decomp section 7 E.3, Trivial Work TD5), not an
         # omission.
         imp = caller.attempt_skill_improvement("craft", outcome)
