@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 111 · 2026-11-14** — two entries **annotated**, docs only, with `docs/PolishedWorld_Arrival_Decomposition.md` Rev 2 (DONE; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). ***Faucet task-table tuning*** — its Newcomer annotation's Z2, the chore that walked to a well, is shipped: `work water` names the spring; the copper question it carries is unchanged. The entry on the two known `TREASURY_DBREF` failures — *TestAccount already exists* in a parallel worker recurred, this time with the line set, in the sandbox's full suite at 1635 tests; the runs with the line stashed were green. Nothing is added, closed or reordered.
 > **Rev 110 · 2026-11-14** — three entries **annotated**, docs only, with `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1 (the newcomer's economy design note), roadmap Rev 77, README Rev 56 and the series handoff Rev 14. ***First-steps hints*** (*UX & Item Identity*) gains the note's mechanism and candidate events and stays BLOCKED on alpha reports; ***An NPC guide driven by a language model — `rpg/llm`***, whose trigger the note was, gains its leaning — no rules guide from a model — and what is left for Adam to decide; ***Faucet task-table tuning (`TEMPLE_TASKS`)*** gains two findings, the chore that names a well and coin with nothing to buy. No entry closed and no Status changed.
 > **Rev 109 · 2026-11-14** — the survival loop's close-out, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 14 (DONE; merged as `98fa60e`, PR #29, tagged `alpha-20261114`) and roadmap Rev 76. **Closed:** ***Waterskin `durability` → `condition` migration*** (S1.3), ***`DeathWeakness` debuff → `fatigue_rate`*** (S3.5) and ***Fatigue-exhaustion consequence*** (S3.1–S3.4) → DONE. **Added** (*Survival*): ***Survival loop tuning*** — OQ-S3's four values, OPEN until the alpha's close-out; ***A `rate` multiplier below ×1.5 is lost to the gauges' rounding*** — found at S3.1, OPEN until a decomposition adds or tunes a hunger or thirst rate; ***A collapsed body's instant commands*** — S3.4's C1, OPEN until Rest slice 2 or a combat consequence of a collapse. **Annotated:** *Webclient: players and NPCs apart, and active conditions* (SL13 shipped; part (2) stays on its second trigger) and *Persistent alpha instance* (L6.1 deploys `alpha-20261114`). Read before writing, for triggers that name Stage 4.6 (lesson 182): *An NPC guide driven by a language model — `rpg/llm`* and *Strangers by description — `rpg/rpsystem`* wait on the newcomer's economy note and the Names note, not on the stage's merge, and are left.
 > **Rev 108 · 2026-11-13** — one entry **added**, docs only, with survival loop decomposition Rev 5 (S1.2b shipped, OQ-S6 closed). **Added** (*Survival*): ***Eating and drinking past full*** — Adam's question after S1.2b's protocol: an overfull buff behind Cooking CP14's insisting form, with spoiled food and unclean water pointed at the homes they already have (CP14 and Foraging RP11; Water VP-L3); BLOCKED on CP14.
@@ -3839,6 +3840,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `!!GitHub_Desktop<feature/ingame-reports>` in `git stash list` (Testing Ref §13). An earlier run that day ended
   in `TestAccount already exists` inside a worker; it did not recur with the line
   set, and is recorded here only so a recurrence has somewhere to point.
+- **Annotation (2026-11-14, Arrival close-out):** it recurred. The sandbox ran
+  the full suite on `b21cfaf` (1635 tests, `ForkTestRunner --parallel auto`)
+  with `TREASURY_DBREF = "#10"` appended, and the run stopped in a worker on
+  *An Account with the name 'TestAccount' already exists*
+  (`test_encumbrance.TestCeilingHook`), a traceback the parallel runner could
+  not pickle. The sandbox's run of the same tree without the line was green,
+  and so was the work machine's run on the merge result with the line stashed.
+  Whether the line is the cause is not shown.
 - **Status:** OPEN
 
 ### `Idmapper flush called more than once` — probably a timing artifact, not memory
@@ -4404,6 +4413,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   and buys nothing from the game (NCP14): with a cohort of one to three it
   teaches that coin exists and little else, which is this entry's *Why
   deferred* seen from the newcomer's side. No number is proposed.
+- **Annotation (2026-11-14, Arrival close-out):** Z2 is shipped — the chore's
+  two opening lines name the spring (`185a47a`, PR #30; Arrival AV-T3). The
+  copper question above is unchanged.
 - **Status:** OPEN
 
 ---

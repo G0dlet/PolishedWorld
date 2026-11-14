@@ -1,5 +1,6 @@
 # PolishedWorld — Alpha Runbook
 
+> **Rev 10 · 2026-11-14** — §7 names the tag L6.1 deploys: **`alpha-20261114-2`** on `185a47a` (PR #30, the arrival merge; annotated). The arrival slice landed before L6.1 ran; `alpha-20261114` is not deployed. That day's name was taken, so §7 gains the rule that a day's second tag carries `-2`. What the slice changes for the operator: a finished character arrives in the Old Temple and the temple becomes its `home` (§1), and `DEFAULT_RESPAWN_DBREF` becomes an override — without it, a made character respawns at the temple through `home` (§7). No ticker, no migration, no setting is added, and characters made before the deploy keep their `home` (no backfill; the alpha database is created fresh).
 > **Rev 9 · 2026-11-14** — §7 names the tag L6.1 deploys: **`alpha-20261114`** on `98fa60e` (PR #29, the survival loop merge; annotated). The survival loop landed before L6.1 ran, as Rev 8's *later `alpha-YYYYMMDD`* allows; `alpha-20261112` is not deployed. Nothing else in the deploy changes: the loop adds no ticker (§7's receipt still reads `[(600, 'survival'), (10800, 'garment_wear')]`) and no migration, and every attribute it adds is read with a default, so no character needs a backfill.
 > **Rev 8 · 2026-11-12** — §7 names the tag L6.1 deploys: **`alpha-20261112`** on `ea41a0f` (PR #28, the webclient visual pass merge; annotated). The pass landed before L6.1 ran, as Rev 7 allowed; `alpha-20261111` is not deployed. Nothing else in the deploy changes: the pass adds static files only, which the deploy's start collects as before.
 > **Rev 7 · 2026-11-11** — §7 names the tag L6.1 deploys: **`alpha-20261111`** on `399e306` (PR #27, the webclient merge), or a later tag if the webclient visual pass lands first (roadmap Rev 71); `alpha-20261107` predates the webclient. §7 gains *The webclient behind TLS*: `WEBSOCKET_CLIENT_URL = "wss://…"` in `secret_settings.py` before the first https visit, `evennia reboot`, and the browser's receipt (webclient decomposition W8.2, lock 3A).
@@ -44,6 +45,7 @@ A weak password is refused and nothing is created:
 What `Account.create` does, seen live:
 
 - the character is created at once, with the account's name, and stands as a **stone statue** in Limbo until the first login;
+- when chargen is done the character stands in the **Old Temple**, which is now its `home`: it reads the closing line, then the temple once, and a death respawns it there (*Rev 10*; Arrival AV1, AV3 — seen on the work dev DB with `arrivaltest3`, 2026-11-14). On a database without the seed it stays where it is and `server.log` gets one `arrival:` line;
 - the first login runs chargen (*"Your character is made. You follow the weaver's trade; the world is yours to make something of."*);
 - the account is on *Public*: `pub hello` → `[Public] tester: hello`.
 
@@ -388,7 +390,7 @@ python -c "import sqlite3,os; s=sqlite3.connect('server/evennia.db3'); d=sqlite3
 
 ## 7. Deploy
 
-**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261114`** (on `98fa60e`, the survival loop merge, PR #29; tree `2271ab3`; annotated). *(Rev 9)* `alpha-20261112` (on `ea41a0f`, the webclient visual pass merge, PR #28) predates the survival loop and is not deployed. *(Rev 8)* `alpha-20261111` (on `399e306`, the webclient merge, PR #27) predates the visual pass and is not deployed. *(Rev 7)* `alpha-20261107` (on `d19cfd4`, PR #26) predates the webclient and is not deployed. *(Rev 6)* `alpha-20261105` (on `fbbe222`) and `alpha-20261104` (on `df0dc4e`) are not deployed either: both tick garment wear every 30 s instead of every 10800 s. After the first start, `@py from evennia import TICKER_HANDLER; self.msg(str(sorted(k[3:5] for k in TICKER_HANDLER.all_display())))` prints `[(600, 'survival'), (10800, 'garment_wear')]` — the deploy's receipt that the right intervals run. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
+**Not yet run — L6.1.** The tag L6.1 deploys is **`alpha-20261114-2`** (on `185a47a`, the arrival merge, PR #30; tree `b21cfaf`; annotated). *(Rev 10)* `alpha-20261114` (on `98fa60e`, the survival loop merge, PR #29; tree `2271ab3`) predates the arrival slice and is not deployed; a day's second tag carries `-2`, because a pushed tag is never moved. *(Rev 9)* `alpha-20261112` (on `ea41a0f`, the webclient visual pass merge, PR #28) predates the survival loop and is not deployed. *(Rev 8)* `alpha-20261111` (on `399e306`, the webclient merge, PR #27) predates the visual pass and is not deployed. *(Rev 7)* `alpha-20261107` (on `d19cfd4`, PR #26) predates the webclient and is not deployed. *(Rev 6)* `alpha-20261105` (on `fbbe222`) and `alpha-20261104` (on `df0dc4e`) are not deployed either: both tick garment wear every 30 s instead of every 10800 s. After the first start, `@py from evennia import TICKER_HANDLER; self.msg(str(sorted(k[3:5] for k in TICKER_HANDLER.all_display())))` prints `[(600, 'survival'), (10800, 'garment_wear')]` — the deploy's receipt that the right intervals run. Later deploys use a later `alpha-YYYYMMDD` on `main`. The sequence, in the game directory as the `evennia` user:
 
 ```
 git fetch --prune
@@ -408,6 +410,8 @@ WEBSOCKET_CLIENT_URL = "wss://<host>"
 ```
 
 The value is chosen with the proxy in L6. Then `evennia reboot` from the shell, which stops and starts Portal and Server, so both read the setting. Receipt: in the browser, DevTools → *Network → WS* shows the socket at that address with status 101, and `look` answers in the text area.
+
+**Respawn without a setting** *(Rev 10)*. Since `alpha-20261114-2`, `DEFAULT_RESPAWN_DBREF` in `secret_settings.py` is an override, not a requirement: `_get_respawn_location()` reads the character's own override, then the setting, then `home`, and a made character's `home` is the Old Temple (Arrival AV3). An instance without the line respawns its dead in the temple; an instance with it set to another room still obeys it. Receipt after a first character is made: `@py from evennia import search_object; c = search_object("<name>")[0]; self.msg(f"{c.location} {c.home} {c._get_respawn_location()}")` → the temple three times.
 
 **The dev board** (`/board/`) is `docs/board.md`, read on every request: a deploy whose tag moves a card shows it at once, with no `evennia reload`. A missing or unreadable file shows *Board unavailable*, never an error page. Cards move on `main` at epic start and close-out, with the roadmap (seen on the work dev DB, 2026-11-05; Testing Ref §20).
 

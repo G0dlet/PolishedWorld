@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 25 · 2026-11-14** — **arrival** (Arrival decomposition AV-T4; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). New **§24: arrival** — the neighbours each task ran and the census row AV-T1 added, a seeded database in a menu test and the shipped closing `look` through `_MenuFixture.on_exit`, the two-client protocol for AV-T2 as run (with `arrivaltest3`, and why), AV-T3's in-game check in the room where the dev Treasury stands, and the merge suite with `"#10"` stashed.
 > **Rev 24 · 2026-11-14** — **the survival loop** (survival loop decomposition S4.2; merged as `98fa60e`, PR #29, tagged `alpha-20261114`). New **§23: the survival loop** — the three census tests in every neighbour run, the command with its runner written out, what the tests pin (the new modules, the readers on old `descs`, pinned rolls, the clock), how a protocol is built for this loop (a start where the opposite would show, a fill with a margin, a tick after a reload, its own starting state, every value it claims printed, staff logged out), and §23.3, the protocols as run, S1.1–S3.5 and S4.1. The suite is 1607 at the merge; Node 142 and the art tools' 46 are unchanged.
 > **Rev 23 · 2026-11-12** — **the webclient visual pass** (visual decomposition V5.2; merged as `ea41a0f`, PR #28, tagged `alpha-20261112`). §21.1 gives the pipeline's count after the pass (46); new **§21.4 *Receiving a picture or icon family***, as run at V3.1–V3.4 and V2.2.1 (hash, `validate` in the repo, master byte for byte, `rm` and `clean` the whole family, the family test red before green, approval in the client); §22.1 gives the Node count (142); new **§22.5 *The visual pass's tests and the static render*** and **§22.6 *its protocols, as run***.
 > **Rev 22 · 2026-11-11** — **the webclient (webclient decomposition W8.2; merged as `399e306`, tagged `alpha-20261111`).** **New §22: the webclient** — running the Node tests (`node --test tests/js/*.js`, 122 in nine files) and how they load browser files (`module.exports` for `pw_state`, otherwise a `vm` context, several files in page order); the four fakes (markup sinks that throw, `pw_state`, `window` with `matchMedia` and `localStorage`, a page with focus and key counters); registration tested by its call form; the parity table both layers read; on the Python side `ReactorMixin`, the push census, phantom values for a shared helper, the second-session test with its receipt, and the red receipt against a no-op renderer; how a browser protocol is run (two browsers, the `server/.static` receipt, one-value console receipts, `innerWidth`, `reboot` for a disconnect, the storage trap, the screen-reader control page); and an index of the protocols as run, W3.1–W8.1.
@@ -1455,6 +1456,42 @@ Each task's protocol is written out in its *Shipped* line in the decomposition; 
 | S3.4 | a pinned fall → the line and `tester` hearing it; walk, drink and empty refused, `say` heard; the wake at 45; a reload kept the collapse; `rest` to full → `(100, 0, 0)` |
 | S3.5 | a death → the line with *Rest mends the weariness that comes with it.*, no *You feel*; respawn at 40, clock 0, `fatigue_rate` 125; `help death` with the sentence; after the buff, still 40 |
 | S4.1 | the full suite on the local merge result, tree `2271ab3`: 1607 OK in 681 s; Node 142 |
+
+## 24. Arrival
+
+*(Arrival decomposition AV-T1–AV-T5, 2026-11-14; merged as `185a47a` (PR #30, tagged `alpha-20261114-2`). Tests `tests/test_arrival.py`, the arrival classes at the end of `tests/test_chargen_menu.py`, two tests in `tests/test_work_command.py::TestTaskTable`, and one census row in `tests/test_client_state.py`. What the code does is Evennia Ref §21 and the decomposition.)*
+
+### 24.1 Running the neighbours
+
+- **AV-T1:** `tests.test_arrival tests.test_client_state tests.test_seeding tests.test_chargen_menu tests.test_death_contract tests.test_rest` — 206 OK. The census (`TestPushCensus`, §23.1) is why `test_client_state` is there: `arrive()`'s two `push_room_soon` calls are a row in `SITES`, and mutation AVM4b (the pushes removed) is killed by the census as well as by the push test.
+- **AV-T2:** those six plus `tests.test_chargen tests.test_chargen_help tests.test_chargen_launch tests.test_professions` — 281 OK.
+- **AV-T3:** `tests.test_work_command` — 79 OK.
+- **The merge:** 1635 `def test_` under `tests/`; `Ran 1635 tests`, `OK` on the local merge result, `"#10"` stashed (§13). In the sandbox, the same suite with `"#10"` appended stopped in a worker on *An Account with the name 'TestAccount' already exists* (BACKLOG, the dbref-failures entry). Node and art not run: nothing under `web/` or `art/` changed.
+
+### 24.2 What the tests pin
+
+- **A seeded database in a test:** `seed_world(limbo=self.room1)`, as `tests/test_seeding.py` does, then `find_seeded(seed_data.ARRIVAL_ROOM)`. `room1` stands in for Limbo and is every fixture character's `home`, so "`home` untouched" reads `room1`.
+- **The shipped closing `look`.** `_MenuFixture` builds its menu with `cmd_on_exit=self.on_exit`, `None` unless a class sets it; `TestArrivalFirstScreen` sets `"look"` and asserts the temple's key appears once, after *Your character is made*. With hooks on the move it would appear twice.
+- **Order inside `node_done`:** `client_state.push` patched with a side effect that records `obj.location` at call time; the last call must see the temple (AVM6).
+- **A miss that is caught must say which way it was caught.** `arrive()` turns any exception into `None`, so a mutation that raises on a miss also returns `None`; the unseeded test reads that `log_warn` was called once and `log_trace` not at all (AVM3).
+- **"well" as a word.** The Brook's own text has the spring *wells up*, so the chore test matches `\bwell\b`, not a substring.
+
+### 24.3 The protocols, as run (work machine, 2026-11-14)
+
+**AV-T2, two clients.** S = staff (G0dlet) in the webclient; N = the newcomer's client.
+
+1. S: `@py from typeclasses.accounts import Account; a, e = Account.create(username="arrivaltest3", password="…"); self.msg(str((a, e)))` → `(arrivaltest3(account#9), [])`.
+2. S: `@py from evennia import search_object; c = search_object("arrivaltest3")[0]; self.msg(f"{c.location} {c.home} {c.db.chargen_complete}")` → `Limbo Limbo False`.
+3. S: to the Old Temple (`#120`); the look lists no awake character (`arrivaltest2`'s statue is among the things).
+4. N: log in, the menu as a tanner. After *Your character is made.*: *Old Temple*, its description, exits and contents, once; no Limbo text.
+5. S, typing nothing: the room panel lists `arrivaltest3`; no line in S's text (AV8).
+6. S: step 2's line with `{c._get_respawn_location()}` → `Old Temple Old Temple Old Temple`.
+7. S: the same for `arrivaltest`, made before the slice → `Limbo Limbo Limbo` (AV7).
+8. Terminal: `grep -c "arrival:" server/logs/server.log` → `0`.
+
+The first run used `arrivaltest2`, which finished the menu before S had read step 2, so the protocol began again with a new account; `arrivaltest2`'s statue stands in the temple. N played from a text client, so the Location panel on arrival (AV5) was not seen; `test_the_push_already_sees_the_temple` carries it (Adam's ruling).
+
+**AV-T3.** `work` is gated on the Treasury's room, not on a room named temple: on the work dev database the Treasury `#10` stands in the hand-built `temple` `#4`, and the seeded Old Temple answers *There is no work to be had here.* In `#4`: `work water` → *You shoulder the yoke and set off for the spring.*, the closing line, 35 Copper.
 
 ## Domain quick-refs
 

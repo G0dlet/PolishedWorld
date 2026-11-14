@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 17 · 2026-11-14** — two passages **changed**, docs only, in the commit that closes the arrival slice (`docs/PolishedWorld_Arrival_Decomposition.md` Rev 2; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`): the session note says the slice is shipped, and the gotcha on a new character's first room says where it stands now — Limbo until creation is done, then the Old Temple, which is its `home`.
 > **Rev 16 · 2026-11-14** — one sentence **changed**, docs only, with the Newcomer note Rev 2 and README Rev 58: NCQ5 is answered — the Limbo start was confirmed on the dev instance and is decomposed as `docs/PolishedWorld_Arrival_Decomposition.md` — so *This session* no longer asks for it. No queue entry, prefix or tie-in changed.
 > **Rev 15 · 2026-11-14** — seven systems **added** to the queue, docs only, with README Rev 57: after the newcomer note Adam was asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — grown from the newcomer note's open edges, the first hour as a source of systems. They are marked *, ahead of the bracket line: arrival & first impressions; the help system & the game's own voice; how knowledge spreads; porters & errand runners; the temple's chores as real objects; a veteran's second character; the welcome. The Newcomer note is on origin as `c31650b`, tree `fac932a`. No document, prefix or tie-in changed.
 > **Rev 14 · 2026-11-14** — a twenty-first note, docs only, with roadmap Rev 77, BACKLOG Rev 110 and README Rev 56: `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1, the queue's *the newcomer's economy\**, written after Stage 4.6 (Survival loop) shipped, as decided in Rev 2, with Adam's question whether PolishedWorld wants a newbie school. The prior art supported the chat's earlier leaning — the school's function, not its form — and gave it its lesson, A Tale in the Desert's Welcoming Island debate. Adam answered the proposal with a bare "kör", so its questions are NCQ1–NCQ4 with the chat's leanings; NCQ5–NCQ11 were found while writing, among them that a new character's first room is Evennia's Limbo (Z1). *Where we are*, *This session* (Adam picks from the queue; the roadmap's next step is Stage 5's design session), the prefixes (stem NC; departure rows Z), the queue (the newcomer's entry leaves; pointers on two others), the tie-ins and the gotchas are updated.
@@ -122,6 +123,7 @@ names a well, Z2) is any small session's; its hints wait for the alpha's reports
 its first-goods questions wait for the economy milestone. Z1 was confirmed on
 the dev instance (NCQ5, Newcomer Rev 2) and the slice is decomposed:
 `docs/PolishedWorld_Arrival_Decomposition.md` (locks AV1–AV8, tasks AV-T1–AV-T5).
+*(Rev 17: shipped — merged as `185a47a`, PR #30, tagged `alpha-20261114-2`.)*
 
 **The roadmap's next step is not a series note:** Stage 5's design and
 source-verification session (roadmap *Nuläge* → *Next*, Rev 77; decision log
@@ -1360,6 +1362,10 @@ storage own no raw material.
   world is one one-way exit `temple` away (`world/seed_data.py:160–161`); the
   runbook has the statue in Limbo (`docs/PolishedWorld_Alpha_Runbook.md:46`).
   Read in source on 2026-11-14, not seen live (Newcomer Z1, NCQ5).
+  *(Rev 17: still true until creation is done; then `node_done` calls
+  `world.arrival.arrive`, which stands the character in the Old Temple, found by
+  seed tag, and makes it the character's `home` — Arrival, `185a47a`; Evennia
+  Ref §21.)*
 - Onboarding text today: four project help entries — `alpha`
   (`world/alpha_contract.py:75`), `chargen` (`world/chargen.py:391`), `death`
   (`world/death_contract.py:149`), `evennia` (`world/help_entries.py:39`) — and

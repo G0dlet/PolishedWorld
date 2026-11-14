@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 59 · 2026-11-14** — one row changed, docs only, in the commit that closes the arrival slice (`docs/PolishedWorld_Arrival_Decomposition.md` Rev 2, DONE; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`), with the Newcomer note Rev 3, roadmap Rev 79, runbook Rev 10, Evennia Ref Rev 34, Testing Ref Rev 25, Lessons Rev 8, BACKLOG Rev 111 and the series handoff Rev 17. The Lessons register's row reads *1–341*; it had read *1–296* since Rev 5 of the register. No document added or removed; the directory-vs-list loop was run (60/0).
 > **Rev 58 · 2026-11-14** — index `PolishedWorld_Arrival_Decomposition.md` (the Newcomer note's small slice: a finished character arrives in the Old Temple and it becomes home, and the water chore names the spring). Added in the same commit as the document, with roadmap Rev 78, the Newcomer note Rev 2 and the series handoff Rev 16 (one sentence: NCQ5 is answered); the directory-vs-list loop was run after the file existed in the tree (60/0).
 > **Rev 57 · 2026-11-14** — no row changed, docs only: the series handoff `docs/system_designs/HANDOFF.md` moves to Rev 15 — seven systems added to its queue at Adam's request, after the newcomer note. The directory-vs-list loop was run (59/0).
 > **Rev 56 · 2026-11-14** — index `PolishedWorld_Newcomer_Design.md` (the newcomer's economy design notes from a design chat: prior art with A Tale in the Desert's Welcoming Island debate as the lesson, Legend alignment, a first hour as the loop, two departures from shipped behaviour, no school zone and the settlement as the school, first-steps hints as a mechanism, the first hour's ledger, first goods and their buyer, the scrolls and the teacher, the guide, open questions). The twenty-first *design (feature, pre-decomposition)* row; the series handoff `docs/system_designs/HANDOFF.md` moves to Rev 14 in the same commit, with roadmap Rev 77 and BACKLOG Rev 110. The directory-vs-list loop was run after the file existed in the tree (59/0).
@@ -110,7 +111,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–296) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–341) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
