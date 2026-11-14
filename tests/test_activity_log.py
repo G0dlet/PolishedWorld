@@ -180,7 +180,7 @@ PRODUCTION = ("commands", "server", "typeclasses", "web", "world")
 # Every activity_log.record( call in production code, per file: sixteen.
 # L2.2a landed the ten production sites, L2.2b the six circulation sites.
 SITES = {
-    "commands/consumption_commands.py": 2,  # eat, drink
+    "commands/consumption_commands.py": 3,  # eat, drink, drink at a source (Survival Loop S1.1)
     "commands/crafting_commands.py": 6,     # dismantle, inscribe, scribe, learn x3
     "commands/foraging_commands.py": 1,     # forage
     "commands/hunting_commands.py": 1,      # harvest

@@ -87,7 +87,8 @@ before `enc` is set (objects.py:1975), so it is not the move under test.
                           by signature, not guessed
     TestRollCensus        a new skill test that nobody decided about: the
                           count of `skill_check(` / `opposed_check(` calls per
-                          production module must stay the six W3.1 classified
+                          production module must stay the eight classified:
+                          W3.1's six, S3.3's awake test and S3.4's collapse
 
   W3.2 -- the fatigue cost per room (Legend core p.86, Movement halved):
 
@@ -751,6 +752,12 @@ class TestPhysicalModifier(EvenniaTest):
 
     character_typeclass = CHARACTER
 
+    def setUp(self):
+        super().setUp()
+        # Fresh: the fatigue term of physical_modifier() is 0 (S3.2), so
+        # every modifier asserted here is overload's alone.
+        self.char1.traits.fatigue.current = 100
+
     def test_the_penalty_is_legends_twenty(self):
         self.assertEqual(OVERLOAD_PENALTY, -20)   # Legend core p.86
 
@@ -780,6 +787,13 @@ class _PenaltyFixture:
 
     character_typeclass = CHARACTER
     room_typeclass = ROOM
+
+    def setUp(self):
+        super().setUp()
+        # Fresh: the fatigue term of physical_modifier() is 0 (S3.2), so the
+        # modifiers the rolls record are overload's alone. A test that wants
+        # the fatigue term sets the gauge after this.
+        self.char1.traits.fatigue.current = 100
 
     def load_to(self, total):
         """Top char1 up to exactly `total` ENC with one load item (earlier loads go)."""
@@ -953,7 +967,9 @@ class TestPenaltyReachesHarvest(_PenaltyFixture, EvenniaCommandTest):
         self.assertEqual(mods, (difficulty, difficulty - 20))
 
 
-# The six physical rolls W3.1 classified (Rev 5, Q1-Q3), counted per module.
+# The physical rolls, counted per module: the six W3.1 classified (Rev 5,
+# Q1-Q3), the awake test (Survival Loop S3.3) and the collapse test (S3.4),
+# which add the physical modifier and are physical too.
 # forage rolls nothing; world/skillcheck.py is the roll itself (opposed_check
 # calls skill_check twice) and is not a call site.
 ROLL_SITES = {
@@ -961,6 +977,7 @@ ROLL_SITES = {
     "commands/hunting_commands.py": 2,    # hunt (opposed), harvest
     "commands/repair_commands.py": 1,     # repair
     "world/crafting_base.py": 1,          # craft (do_craft)
+    "world/fatigue.py": 2,                # awake_test (S3.3), collapse_test (S3.4)
 }
 ROLL_NAMES = ("skill_check", "opposed_check")
 REPO = Path(__file__).resolve().parents[1]
@@ -988,7 +1005,7 @@ def _roll_census():
 class TestRollCensus(EvenniaTest):
     """Every skill test in production code is one W3.1 decided about."""
 
-    def test_the_six_sites_and_no_others(self):
+    def test_the_classified_sites_and_no_others(self):
         counts = _roll_census()
         changed = sorted(
             f"{module}: {counts.get(module, 0)}, expected {ROLL_SITES.get(module, 0)}"
@@ -1009,8 +1026,8 @@ class TestRollCensus(EvenniaTest):
 
 # --- W3.2 -- the fatigue cost per room ----------------------------------------
 
-MID = 50          # fatigue mid-bucket ("weary", 41-60): no clamp either way
-TIRED = "|yYou feel tired.|n"   # the warning at 40 (bucket 21-40)
+MID = 50          # fatigue mid-level (Tired, 41-60): no clamp either way
+WEARIED = "|yYou feel wearied.|n"   # the warning at 40 (Wearied, 21-40; S3.1)
 
 
 class _StepFixture(_PenaltyFixture):
@@ -1086,7 +1103,7 @@ class TestStepWarnings(_StepFixture, EvenniaTest):
 
     def test_crossing_into_a_worse_bucket_warns_once(self):
         self.baseline(41)
-        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [TIRED]))   # 41 -> 40
+        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [WEARIED]))   # 41 -> 40
 
     def test_a_step_inside_a_bucket_is_silent(self):
         self.baseline(40)
@@ -1094,4 +1111,4 @@ class TestStepWarnings(_StepFixture, EvenniaTest):
 
     def test_the_first_step_after_a_reload_warns(self):
         self.char1.ndb.survival_buckets = None   # what `evennia reload` leaves
-        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [TIRED]))
+        self.assertEqual(self.step(LIMIT + 1, start=41), (1, [WEARIED]))

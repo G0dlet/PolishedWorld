@@ -13,6 +13,7 @@ command responsibilities separated.
 """
 
 from evennia import AttributeProperty
+from typeclasses.durable import DurableObject
 from typeclasses.objects import Object
 
 
@@ -25,8 +26,14 @@ class Food(Object):
     consume_message = AttributeProperty("You eat {key}.", autocreate=True)
 
 
-class Drink(Object):
+class Drink(DurableObject, Object):
     """A charge-based, refillable drink container that restores thirst."""
+
+    # Survival Loop SL4/SL5. Wear per refill on DurableObject's 0-100 axis: a
+    # crafted skin starts at 96/80/48/24 by band (world/recipes.py), which is
+    # 12/10/6/3 refills. A vessel is replaced, not mended.
+    REFILL_WEAR = 8
+    mendable = False
 
     # How much thirst one sip restores.
     restore_amount = AttributeProperty(15, autocreate=True)
@@ -36,22 +43,51 @@ class Drink(Object):
     # Whether this container can be refilled at a water source.
     refillable = AttributeProperty(True, autocreate=True)
     consume_message = AttributeProperty("You drink from {key}.", autocreate=True)
+    # Survival Loop SL3: the kind of water inside ("fresh"; brine is Water
+    # slice 3). None on a vessel filled before kinds existed reads as fresh
+    # through held_kind() -- no backfill.
+    water_kind = AttributeProperty(None, autocreate=False)
 
     def is_empty(self):
         """Return True if no sips remain."""
         return self.charges <= 0
 
-    def refill(self):
-        """Refill to capacity. Returns True if anything was added."""
+    def held_kind(self):
+        """
+        The kind of water this vessel holds.
+
+        Returns:
+            str or None: None when empty; otherwise the stored kind, or
+            "fresh" for a vessel filled before kinds were stored (SL3).
+        """
+        if self.is_empty():
+            return None
+        return self.water_kind or "fresh"
+
+    def pour_out(self):
+        """Empty the vessel: no sips left and no kind. Wears nothing (SL3)."""
+        self.charges = 0
+        self.water_kind = None
+
+    def refill(self, kind="fresh"):
+        """
+        Refill to capacity with water of `kind`.
+
+        The caller has already refused a vessel holding another kind
+        (`refill`, SL3), so the kind is stamped, not compared.
+
+        Args:
+            kind (str): The source's `water_kind`.
+
+        Returns:
+            bool: True if anything was added; False if already full.
+        """
         if self.charges >= self.max_charges:
             return False
         self.charges = self.max_charges
-        # Durability is opt-in: only containers crafted with a durability value
-        # wear with use. Plain/found drinks (no durability attr) refill forever.
-        if self.db.durability is not None:
-            self.db.durability -= 1
+        self.water_kind = kind
+        # Survival Loop SL4: every fill wears the vessel on the shared axis.
+        # `refill` splits it on the dip after condition reaches 0 (is_broken),
+        # so the last fill is still drunk.
+        self.apply_wear(self.REFILL_WEAR)
         return True
-
-    def is_worn_out(self):
-        """True if this container has a durability value that has reached zero."""
-        return self.db.durability is not None and self.db.durability <= 0

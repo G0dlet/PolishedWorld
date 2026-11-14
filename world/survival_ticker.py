@@ -3,21 +3,28 @@ Global survival ticker callback.
 
 Registered with Evennia's TICKER_HANDLER (see server/conf/at_server_startstop.py).
 A single module-level callable iterates all currently puppeted characters and
-applies survival depletion. Module-level (not a closure/lambda) so the callback
-is picklable, which TICKER_HANDLER requires for persistent tickers.
+applies survival depletion (hunger and thirst), the awake clock that tires a
+body (world/fatigue.py, S3.3) and natural healing (world/healing.py).
+Module-level (not a closure/lambda) so the callback is picklable, which
+TICKER_HANDLER requires for persistent tickers.
 """
 
 from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
-from world import client_state
+from world import client_state, fatigue, gametime_utils, healing, timed_actions
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
-# starvation in days). Fatigue slowest — most of its pressure comes later
-# from activity, not idle time.
-BASE_RATES = {"hunger": 1, "thirst": 2, "fatigue": 1}
+# starvation in days). Fatigue is not drained (S3.3, SL9): time awake tires a
+# body through the awake clock in world/fatigue.py, and an overloaded step
+# through Character.at_post_move.
+BASE_RATES = {"hunger": 1, "thirst": 2}
+
+# The gauges whose fall into a worse bucket the tick warns about (lock G1):
+# the drained two and fatigue, which the awake test lowers.
+WARNED = ("hunger", "thirst", "fatigue")
 
 # HP lost per tick while a starvation/dehydration condition is active.
 # Integer on purpose: health.base is an int (con*2), so a fractional value
@@ -25,9 +32,10 @@ BASE_RATES = {"hunger": 1, "thirst": 2, "fatigue": 1}
 STARVE_DAMAGE = 1
 
 # (gauge key, condition buff) pairs that damage health at zero.
-# Fatigue is deliberately absent: in Legend, exhaustion is unconsciousness /
-# skill penalties, not location damage. Fatigue consequences are deferred to
-# the skill-check resolver.
+# Fatigue is deliberately absent: in Legend, exhaustion is skill penalties
+# and collapse, not location damage -- the level's penalty is
+# Character.physical_modifier()'s (S3.2) and the collapse is the tick's
+# test at 0 (S3.4).
 HEALTH_CONDITIONS = (
     ("hunger", Starving),
     ("thirst", Dehydrated),
@@ -55,7 +63,27 @@ def deplete_all_survival_traits():
 
 
 def _deplete_character(char):
-    """Recompute thermal stress, deplete gauges, apply zero-conditions, warn."""
+    """
+    Recompute thermal stress, deplete hunger and thirst, apply
+    zero-conditions, run the awake clock, heal, warn.
+
+    The awake clock (S3.3) runs after the conditions (lock D1), so a
+    Starving or Dehydrated condition applied this tick already adds its -20
+    to the test. The tick writes the gauge (lock B1): one test at a time, so
+    a second test in the same tick reads the level the first one left. A
+    failure at 0 changes nothing and says nothing (lock E1).
+
+    Then the collapse (S3.4, SL11): a collapsed body has its recovery
+    re-armed if a reload wiped the slot, and is not rolled for again; a body
+    at 0 that is not resting (lock E1) rolls the Difficult test and falls on
+    a failure.
+
+    Healing runs after the conditions (S2.1), so a Starving or Dehydrated
+    condition applied this tick already stops it, and a character the
+    conditions just killed and respawned at full health only has their
+    counter zeroed.
+    """
+    elapsed = _tick_game_seconds(char)
     apply_thermal_stress(char)
     for key, base in BASE_RATES.items():
         trait = char.traits.get(key)
@@ -64,10 +92,55 @@ def _deplete_character(char):
         rate = char.buffs.check(base, f"{key}_rate")
         trait.current -= rate
     _apply_survival_conditions(char)
+    gauge = char.traits.get("fatigue")
+    if gauge is not None:
+        fatigue.advance_clock(char, elapsed)
+        for _ in range(fatigue.tests_due(char)):
+            result = fatigue.awake_test(char)
+            if result is None or result["success"] or gauge.current <= gauge.min:
+                continue
+            gauge.current -= fatigue.LEVEL_POINTS   # clamps at min
+            char.msg(fatigue.AWAKE_FAILED)
+        if char.db.collapsed:
+            char.arm_collapse()
+        elif gauge.current <= gauge.min and not _resting(char):
+            result = fatigue.collapse_test(char)
+            if result is not None and not result["success"]:
+                char.collapse()
+    if healing.accrue(char, elapsed):
+        char.msg(healing.HEALED)
     _check_survival_warnings(char)
     # W4.2: after the warnings, so the text and the panel agree. `world`
     # rides along: Evennia's clock only runs while the server does (WC9).
     client_state.push(char, "survival", "world")
+
+
+def _resting(char):
+    """True while the timed-action slot holds a rest (S3.4, lock E1)."""
+    record = timed_actions.is_busy(char)
+    return record is not None and record.key == "rest"
+
+
+def _tick_game_seconds(char):
+    """
+    Game seconds since this character's previous tick, then stamp now.
+
+    The stamp lives in ndb, so a reload loses it, and
+    `Character.at_post_puppet` clears it (Evennia keeps ndb on a cached
+    object through an unpuppet): the first tick after either returns 0.
+    At most one tick's time is lost, never a span gained -- time away is
+    S2.2's, credited at login. A clock that reads earlier than the stamp
+    returns 0 rather than a negative span.
+
+    Returns:
+        int: game seconds, 0 or more.
+    """
+    now = gametime_utils.get_absolute_gametime()
+    last = char.ndb.survival_tick_at
+    char.ndb.survival_tick_at = now
+    if last is None:
+        return 0
+    return max(0, now - last)
 
 
 def _apply_survival_conditions(char):
@@ -107,6 +180,10 @@ def _check_survival_warnings(char):
     """
     Message the character only when a gauge drops into a *worse* descs bucket.
 
+    Fatigue's bucket is Legend's level and its word `fatigue_desc()` (S3.1),
+    both from world/fatigue.py, never the gauge's stored `descs`: characters
+    made before S3.1 store the old table. Hunger and thirst keep their own.
+
     Previous bucket indices are tracked in non-persistent char.ndb, so this
     costs no DB writes and resets harmlessly on reload (baseline re-established
     silently on the next tick). Recovery messages are handled by the eat/drink/
@@ -116,17 +193,21 @@ def _check_survival_warnings(char):
     if last is None:
         last = {}
 
-    for key in BASE_RATES:
+    for key in WARNED:
         trait = char.traits.get(key)
         if trait is None:
             continue
-        idx = _bucket_index(trait)
+        if key == "fatigue":
+            idx = fatigue.level_for(trait.value)
+        else:
+            idx = _bucket_index(trait)
         if idx is None:
             continue
         prev = last.get(key)
         if prev is not None and idx < prev:
             # dropped into a worse bucket -> warn
-            char.msg(f"|yYou feel {trait.desc()}.|n")
+            word = char.fatigue_desc() if key == "fatigue" else trait.desc()
+            char.msg(f"|yYou feel {word}.|n")
         last[key] = idx
 
     char.ndb.survival_buckets = last

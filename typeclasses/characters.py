@@ -20,11 +20,14 @@ from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import encumbrance
+from world import fatigue as fatigue_rules
 from world import client_state
 from world import room_text
 from world import survival_ticker
 from world import timed_actions
 from world import activity_log
+from world import gametime_utils
+from world import healing
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -109,7 +112,8 @@ class Character(ObjectParent, ClothedCharacter):
         
         - hunger: Food need (0=starving, 100=full)
         - thirst: Water need (0=dehydrated, 100=hydrated)
-        - fatigue: Rest need (0=exhausted, 100=well-rested)
+        - fatigue: Rest need (0=debilitated, 100=fresh; Legend's six levels,
+          world/fatigue.py)
         - health: Hit points (0=dead, max=CON-based)
         
         Supports .rate for automatic changes (e.g., gradual hunger increase).
@@ -323,14 +327,10 @@ class Character(ObjectParent, ClothedCharacter):
             mod=0,
             min=0,
             rate=0,
-            descs={
-                0: "exhausted",
-                20: "drained",
-                40: "tired",
-                60: "weary", 
-                80: "rested",
-                95: "energetic"
-            }
+            # Legend's six levels (S3.1, SL8), built from the one table
+            # fatigue_desc() reads; characters made before S3.1 keep their
+            # old descs, which nothing reads for fatigue any more.
+            descs=dict(fatigue_rules.DESCS),
         )
         
         self.traits.add(
@@ -340,7 +340,7 @@ class Character(ObjectParent, ClothedCharacter):
             base=derive_health_max(self.stats.con.value),
             mod=0,
             min=0,
-            rate=0,  # Natural healing rate can be set later
+            rate=0,  # natural healing is world/healing.py, on the survival tick
             descs={
                 0: "dead",
                 10: "near death",
@@ -477,10 +477,22 @@ class Character(ObjectParent, ClothedCharacter):
         Override default: keep character in room as statue instead
         of removing them from the world. The visual statue presentation
         is handled by get_display_name and return_appearance overrides.
+        The last session out also stamps `db.away_since` for the healing
+        credited at the next puppet (S2.2).
         """
         # Bail if any sessions are still puppeting (multisession scenarios)
         if self.sessions.count():
             return
+        # S2.2 (SL7): stamp when the character went away, for the healing
+        # credited at the next puppet -- or None while a condition stops
+        # healing: the gauges are frozen while away, so the state at logout
+        # is the state throughout. Before the location check, so a character
+        # without a room is stamped too. A cold `evennia stop` reaches this
+        # through `unpuppet_all()`; after a crash, the server's maintenance
+        # runs it for link-dead puppets (OQ-S1).
+        self.db.away_since = (
+            None if healing.is_blocked(self) else gametime_utils.get_absolute_gametime()
+        )
     
         # Note: we deliberately do NOT call super() here.
         # Default behavior would set self.location = None, which would
@@ -509,7 +521,9 @@ class Character(ObjectParent, ClothedCharacter):
         called: DefaultCharacter's version would send the one-message look,
         and it never calls its own parent, so nothing else is skipped
         (tests/test_room_look.py TestHookMro). Without a location the look
-        and the arrival line are left out instead of raising.
+        and the arrival line are left out instead of raising. The time spent
+        away is credited to natural healing before the panels are pushed
+        (S2.2, `_credit_time_away`).
         """
         self.msg(_("\nYou become |c{name}|n.\n").format(name=self.key))
         if self.location is not None:
@@ -523,8 +537,21 @@ class Character(ObjectParent, ClothedCharacter):
 
             self.location.for_contents(message, exclude=[self], from_obj=self)
 
+        # S2.2 (SL7): the game time spent away is credited to healing, once.
+        # Before the panel push below, so its first snapshot already shows
+        # the healed health. The clock stood still while the server was down,
+        # so downtime heals nobody.
+        self._credit_time_away()
         # C.3: the `progress` baseline is taken at every puppet.
         self.snapshot_skill_baseline()
+        # S2.1: the survival tick's clock starts again at this puppet. ndb
+        # survives an unpuppet on the cached object, so without this the
+        # first tick would credit the whole time spent as a statue.
+        self.ndb.survival_tick_at = None
+        # S3.4: a body that logged out collapsed is still down; the statue
+        # logout cleared its slot, so the recovery starts again here.
+        if self.db.collapsed:
+            self.arm_collapse()
         # W4.1: every webclient panel gets its state (WC5). OOB only, so
         # where it sits among the text below changes nothing on screen;
         # push never raises. Sent in chargen too -- chargen's end pushes
@@ -543,6 +570,24 @@ class Character(ObjectParent, ClothedCharacter):
         # CC3.2: last, so the menu is the final thing on the screen. Its
         # cmdset replaces the character's until node_done -- that is the gate.
         start_or_resume_chargen(self)
+
+    def _credit_time_away(self):
+        """
+        Credit the game seconds since `db.away_since` to natural healing,
+        clear the stamp, and say `healing.HEALED` once if a point landed.
+
+        No stamp (never logged out since S2.2, or away Starving or
+        Dehydrated) credits nothing. The tick after this puppet starts from
+        zero (S2.1's cleared `ndb.survival_tick_at`), so the same span is
+        never credited twice.
+        """
+        since = self.db.away_since
+        self.db.away_since = None
+        if since is None:
+            return
+        elapsed = gametime_utils.get_absolute_gametime() - since
+        if healing.accrue(self, elapsed):
+            self.msg(healing.HEALED)
       
     # === Display & Appearance ===
 
@@ -633,27 +678,44 @@ class Character(ObjectParent, ClothedCharacter):
 
     def physical_modifier(self):
         """
-        The modifier on this character's physical skill tests (W3.1).
+        The modifier on this character's physical skill tests (W3.1, S3.2).
 
-        Legend core p.86: an overloaded character takes -20% on every test
-        that requires a physical action. Past the limit means OVERLOADED or
-        CEILING; at or under it the modifier is 0. Read live at the moment of
-        each roll and never stored, so the penalty follows the load (a timed
-        craft reads it when it completes, not when it starts).
+        Two terms, summed:
 
-        The six physical rolls add this to their own modifiers: craft
+        - Overload (W3.1). Legend core p.86: an overloaded character takes
+          -20% on every test that requires a physical action. Past the limit
+          means OVERLOADED or CEILING; at or under it the term is 0.
+        - The fatigue level (S3.2, SL8). Legend core p.90: each level below
+          Fresh costs 10% more, down to -50% at Debilitated
+          (`world.fatigue.penalty_for`, read on the gauge's value, which is
+          what `status` prints). No fatigue gauge, no term.
+
+        The two add (Rest NP2), so an overloaded, debilitated character rolls
+        at -70. Read live at the moment of each roll and never stored, so the
+        modifier follows the load and the gauge (a timed craft reads it when
+        it completes, not when it starts).
+
+        The eight physical rolls add this to their own modifiers: craft
         (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
-        `hunt` (as `attacker_mod`) and `harvest`. A new skill test decides
+        `hunt` (as `attacker_mod`), `harvest`, the awake test
+        (`world.fatigue.awake_test`, S3.3) and the collapse test
+        (`world.fatigue.collapse_test`, S3.4). A new skill test decides
         whether it is physical (the census in tests/test_encumbrance.py).
-        Later penalties of the same kind (the fatigue levels, BACKLOG) are
-        added here, so the call sites never change again.
+        A later penalty of the same kind is added here too, so the call sites
+        never change.
 
         Returns:
-            int: 0 when FREE, `encumbrance.OVERLOAD_PENALTY` otherwise.
+            int: 0 when free and Fresh; otherwise the sum of
+                `encumbrance.OVERLOAD_PENALTY` (if past the limit) and minus
+                the fatigue level's penalty.
         """
+        modifier = 0
         if self.encumbrance_state != encumbrance.FREE:
-            return encumbrance.OVERLOAD_PENALTY
-        return 0
+            modifier += encumbrance.OVERLOAD_PENALTY
+        fatigue = self.traits.get("fatigue")
+        if fatigue is not None:
+            modifier -= fatigue_rules.penalty_for(fatigue.value)
+        return modifier
 
     def snapshot_skill_baseline(self):
         """
@@ -721,6 +783,27 @@ class Character(ObjectParent, ClothedCharacter):
             if pct <= bound:
                 return label
         return label
+
+    def fatigue_desc(self):
+        """
+        The fatigue word: the level of Legend's six the gauge is in (S3.1, SL8).
+
+        Read from `world.fatigue.LEVELS`, never from the gauge's stored
+        `descs`: characters made before S3.1 carry the old table (keys
+        0/20/40/60/80/95, `exhausted` .. `energetic`), and reading the one
+        table here means none of them needs its data rewritten. New
+        characters store the same table (`fatigue.DESCS`), so their own
+        `trait.desc()` agrees for every whole value (tests/test_fatigue.py).
+        `status`, `sheet`, the client's `survival` snapshot and the tick's
+        warning all print this word, the `health_desc()` precedent.
+
+        Returns:
+            str: the level's word, or "" if the character has no fatigue gauge.
+        """
+        trait = self.traits.get("fatigue")
+        if trait is None:
+            return ""
+        return fatigue_rules.word_for(trait.value)
 
     def improve_skill_on_use(self, skill_key):
         """
@@ -1277,10 +1360,12 @@ class Character(ObjectParent, ClothedCharacter):
 
         Spawns a PlayerCorpse where the character fell, moves all non-soulbound
         inventory (worn items stripped first) into it, relocates the character to
-        their respawn point, restores health/hunger/thirst, clears survival
-        conditions, applies a timed post-death weakness, and tells the player
-        the contract: where the body lies, how long it keeps their belongings
-        (owner-first for a grace window), and that the weakness passes.
+        their respawn point, restores health/hunger/thirst, sets fatigue to
+        Wearied with the awake clock at zero (S3.5), clears survival conditions
+        and a collapse, applies a timed post-death weakness, and tells the
+        player the contract: where the body lies, how long it keeps their
+        belongings (owner-first for a grace window), that the weakness passes,
+        and that rest mends the weariness.
 
         This is the single consequence chokepoint (H7.1). In normal play H7.2's
         apply_health_damage is the only caller; the reentrancy guard below is
@@ -1369,7 +1454,7 @@ class Character(ObjectParent, ClothedCharacter):
             if destination:
                 self.move_to(destination, quiet=True, move_hooks=False)
 
-            # Restore vitals (decision 2: reset hunger/thirst -- respawned "fresh").
+            # Restore vitals (decision 2: reset hunger/thirst -- fed and watered).
             health = self.traits.get("health")
             if health:
                 health.current = health.max
@@ -1377,12 +1462,23 @@ class Character(ObjectParent, ClothedCharacter):
                 gauge = self.traits.get(gauge_key)
                 if gauge:
                     gauge.current = gauge.max
+            # S3.5 (SL12): not fresh, though -- death's chill is tiredness. The
+            # body comes back Wearied whatever it died at, and its day starts
+            # again, so the awake clock cannot roll on the tick after respawn.
+            # Rest mends it; the death message says so.
+            fatigue = self.traits.get("fatigue")
+            if fatigue:
+                fatigue.current = fatigue_rules.RESPAWN_AT
+            fatigue_rules.reset_clock(self)
 
             # Clear survival conditions now so the next tick doesn't flash
             # "Starving" on a freshly-fed character (the ticker would clear them
             # anyway once the gauge reads above min; this just avoids the lag).
             for condition_key in ("starving", "dehydrated"):
                 self.buffs.remove(condition_key)
+            # S3.4 (SL11): death ends a collapse; the interrupt above already
+            # emptied its slot.
+            self.attributes.remove("collapsed")
 
             # The contract line names the room the corpse is in, read from the
             # corpse itself, so it is never claimed when no corpse was made.
@@ -1399,8 +1495,9 @@ class Character(ObjectParent, ClothedCharacter):
             # W4.2: the relocation above runs with move_hooks=False, so no
             # room hook pushed: the room where they fell (the body gone, the
             # corpse there) and the respawn room are pushed here, and the
-            # character gets all four (health and gauges refilled, inventory
-            # emptied) -- on the next reactor turn, like every hook site.
+            # character gets all four (health, hunger and thirst refilled,
+            # fatigue set to Wearied, inventory emptied) -- on the next reactor
+            # turn, like every hook site.
             client_state.push_soon(self, *client_state.DOMAINS)
             client_state.push_room_soon(location)
             client_state.push_room_soon(self.location)
@@ -1484,9 +1581,70 @@ class Character(ObjectParent, ClothedCharacter):
             return False
         return timed_actions.interrupt(self, reason)
 
+    def collapse(self):
+        """
+        Fall where you stand (S3.4, SL11): the survival tick calls this when a
+        Debilitated body fails its Difficult test.
+
+        Whatever the slot held is interrupted (its own line first), the flag
+        `db.collapsed` is set -- in `db`, so a reload or a relog does not wake
+        anyone -- the body and the room are told, and the recovery starts.
+        """
+        timed_actions.interrupt(self)
+        self.db.collapsed = True
+        self.msg(fatigue_rules.FALL)
+        if self.location:
+            self.location.msg_contents(
+                fatigue_rules.FALL_ROOM.format(name=self.key), exclude=self
+            )
+        self.arm_collapse()
+
+    def arm_collapse(self):
+        """
+        Start a collapse's recovery unless it already runs (S3.4, lock H1).
+
+        Called by `collapse()`, and to re-arm a flagged body whose slot is
+        gone -- a reload empties `ndb`, a statue logout clears the slot -- by
+        the survival tick, `at_post_puppet` and every refusal. Anything else in
+        the slot (a rest or a chore started while the slot stood empty) is
+        interrupted first.
+        """
+        record = timed_actions.is_busy(self)
+        if record is not None and record.key == fatigue_rules.COLLAPSE_KEY:
+            return
+        if record is not None:
+            timed_actions.interrupt(self)
+        timed_actions.start(
+            self,
+            fatigue_rules.COLLAPSE_KEY,
+            self.rest_interval,
+            _collapse_tick,
+            label=fatigue_rules.COLLAPSE_LABEL,
+        )
+
+    def refuse_if_collapsed(self, line):
+        """
+        Refuse an action a collapsed body cannot take (S3.4, SL11).
+
+        Says `line` and re-arms the recovery if a reload left the slot empty
+        (lock H1). The commands call it first, before parsing anything.
+
+        Args:
+            line (str): what the body is told.
+
+        Returns:
+            bool: True when refused (the caller returns), False otherwise.
+        """
+        if not self.db.collapsed:
+            return False
+        self.msg(line)
+        self.arm_collapse()
+        return True
+
     def at_pre_move(self, destination, move_type="move", **kwargs):
         """
-        Interrupt whatever timed action is in progress, but allow the move.
+        Refuse a collapsed body's walk (S3.4); otherwise interrupt whatever
+        timed action is in progress, and allow the move.
 
         One line for every timed action there is or will be (Epic A, D1). The
         hook knows that something was interrupted, never what: the sentence the
@@ -1506,7 +1664,17 @@ class Character(ObjectParent, ClothedCharacter):
         This hook does not run for `move_to(..., move_hooks=False)` or a direct
         `location =` assignment. Death relocates with `move_hooks=False`, which
         is why `at_character_death()` calls `interrupt()` itself (D7).
+
+        A collapsed body cannot walk (S3.4, SL11): an exit's move
+        (`move_type="traverse"`) is refused BEFORE the interrupt, so the
+        collapse's own recovery in the slot runs on. Only the walk is refused
+        (lock A1, OQ-S2): `teleport` (staff `@tel`, `home`, a deleted room),
+        a bare `move` and `move_hooks=False` paths go through. The exit's own
+        *You cannot go there.* is silenced for a collapsed body
+        (`Exit.at_failed_traverse`, lock B1).
         """
+        if move_type == "traverse" and self.refuse_if_collapsed(fatigue_rules.CANNOT_MOVE):
+            return False
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
 
@@ -1532,8 +1700,8 @@ class Character(ObjectParent, ClothedCharacter):
         script's bare `move_to` defaults to `"move"` -- neither pays. Death
         relocates with `move_hooks=False`, so this hook never runs for it.
 
-        The gauge clamps at its `min` (Q5): a step at 0 leaves 0, and fatigue
-        at 0 has no consequence until *Fatigue-exhaustion consequence* ships.
+        The gauge clamps at its `min` (Q5): a step at 0 leaves 0; the
+        consequence of 0 is the tick's collapse test (S3.4).
 
         The survival warning is checked on both sides of the drain. The check
         before sets the baseline in `ndb.survival_buckets` -- empty after a
@@ -1769,7 +1937,10 @@ def _rest_tick(char, marker):
       the branch: before any message, so a `msg()` that raises cannot leave the
       character resting forever. `claim()` cannot be refused at that point --
       `is_current()` said yes in this same synchronous call, and the reactor is
-      single-threaded -- so its return value is not consulted.
+      single-threaded -- so its return value is not consulted. A rest that
+      reaches full then starts the day again (`fatigue_rules.reset_clock`,
+      S3.3, SL10), also before any message; a rest that ends short of full
+      leaves the awake clock as it is.
     - **Otherwise** -- reschedule with `delay(..., marker)` directly. Not via
       `start()`: the slot is occupied by this very rest, so `start()` would
       refuse it.
@@ -1788,6 +1959,7 @@ def _rest_tick(char, marker):
     client_state.push(char, "survival")   # W4.2
     if fatigue.current >= fatigue.max:
         timed_actions.claim(char, marker)
+        fatigue_rules.reset_clock(char)   # S3.3: a full rest starts the day again
         char.msg("You feel fully rested.")
         if char.location:
             char.location.msg_contents(
@@ -1795,6 +1967,42 @@ def _rest_tick(char, marker):
             )
         return
     delay(char.rest_interval, _rest_tick, char, marker)   # reschedule
+
+
+def _collapse_tick(char, marker):
+    """
+    One recovery step of a collapse (S3.4, SL11): the rest gain, until the
+    gauge reaches `fatigue_rules.COLLAPSE_WAKE_AT`.
+
+    The rest's shape (`_rest_tick`): `is_current()` refuses a stale marker and
+    clears the slot of an unpuppeted body -- the flag stays in `db`, so the
+    next puppet re-arms the recovery (`Character.arm_collapse`). Waking empties
+    the slot with `claim()` and clears the flag before any message, so a
+    `msg()` that raises cannot leave a body down for good.
+
+    Args:
+        char (Character): the collapsed character.
+        marker (object): the token `timed_actions.start()` minted.
+    """
+    if not timed_actions.is_current(char, marker):
+        return
+    fatigue = char.traits.get("fatigue")
+    if fatigue is None:
+        timed_actions.claim(char, marker)
+        char.attributes.remove("collapsed")
+        return
+    fatigue.current += char.rest_recovery   # auto-clamps to max
+    client_state.push(char, "survival")
+    if fatigue.current >= fatigue_rules.COLLAPSE_WAKE_AT:
+        timed_actions.claim(char, marker)
+        char.attributes.remove("collapsed")
+        char.msg(fatigue_rules.WAKE)
+        if char.location:
+            char.location.msg_contents(
+                fatigue_rules.WAKE_ROOM.format(name=char.key), exclude=char
+            )
+        return
+    delay(char.rest_interval, _collapse_tick, char, marker)   # reschedule
 
 
 def _announce_getting_up(char):

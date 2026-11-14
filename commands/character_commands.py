@@ -6,6 +6,7 @@ Commands for viewing character stats, skills, and vital status.
 
 from evennia import Command
 
+from world import fatigue as fatigue_rules
 from world.progression import progress_within_level, render_progress_bar
 
 
@@ -70,10 +71,15 @@ class CmdStatus(Command):
         msg += f"  |yThirst:|n  {_whole(thirst.value):>3}/{_whole(thirst.max):<3} "
         msg += f"({thirst.percent():>6}) - {thirst.desc()}\n"
         
-        # Fatigue
+        # Fatigue: Legend's level (fatigue_desc(), S3.1) and, below Fresh,
+        # what the level costs on physical tests (S3.2 adds it to the rolls).
         fatigue = char.traits.fatigue
         msg += f"  |yFatigue:|n {_whole(fatigue.value):>3}/{_whole(fatigue.max):<3} "
-        msg += f"({fatigue.percent():>6}) - {fatigue.desc()}\n"
+        msg += f"({fatigue.percent():>6}) - {char.fatigue_desc()}"
+        penalty = fatigue_rules.penalty_for(fatigue.value)
+        if penalty:
+            msg += f" (-{penalty}% to physical tests)"
+        msg += "\n"
         
         msg += "|g" + "=" * 40 + "|n"
         
@@ -346,9 +352,15 @@ class CmdSheet(Command):
             for trait_key in ['health', 'hunger', 'thirst', 'fatigue']:
                 trait = getattr(char.traits, trait_key)
                 msg += f"  |y{trait.name:14}|n {_whole(trait.value):>3}/{_whole(trait.max):<3} "
-                # Health only: its max is CON x 2, so its label must follow
-                # percent(); the other gauges keep the trait's own desc().
-                label = char.health_desc() if trait_key == "health" else trait.desc()
+                # Health's max is CON x 2, so its label follows percent();
+                # fatigue's is Legend's level, read from the one table
+                # (S3.1); hunger and thirst keep the trait's own desc().
+                if trait_key == "health":
+                    label = char.health_desc()
+                elif trait_key == "fatigue":
+                    label = char.fatigue_desc()
+                else:
+                    label = trait.desc()
                 msg += f"({trait.percent():>6}) - {label}\n"
         
         # === SKILLS ===

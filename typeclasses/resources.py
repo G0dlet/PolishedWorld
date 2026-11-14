@@ -18,8 +18,9 @@ Design: lazy simulation.
         naming "axe"); `forage` then refuses anyone not carrying a usable
         tool with that tag, and wears the tool on each successful forage.
       * Water source (e.g. spring): `is_water_source=True`. Effectively
-        infinite; never depletes or regenerates. Recognised by the
-        `refill` command to top up refillable Drink containers.
+        infinite; never depletes or regenerates. Found by
+        `world/water.py`, which `drink` (at the source) and `refill` (a
+        refillable Drink container) both ask.
 
 Persistence:
     Attributes use AttributeProperty(autocreate=False). Verified against
@@ -45,6 +46,7 @@ class ResourceNode(Object):
     regen_interval = AttributeProperty(3600, autocreate=False)   # game-seconds / unit
     yield_prototype = AttributeProperty(None, autocreate=False)  # prototype spawned on harvest
     is_water_source = AttributeProperty(False, autocreate=False)
+    water_kind = AttributeProperty("fresh", autocreate=False)    # SL3; read on sources only
     required_tool = AttributeProperty(None, autocreate=False)    # crafting_tool tag-key, or None
 
     # --- mutable state ---

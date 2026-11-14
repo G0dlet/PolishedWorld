@@ -181,9 +181,11 @@ class TestSurvivalSnapshot(EvenniaTest):
         self.assertEqual(set(snap), {"hunger", "thirst", "fatigue"})
         for key in snap:
             trait = self.char1.traits.get(key)
+            # status's readers: fatigue's word is fatigue_desc() (S3.1)
+            desc = self.char1.fatigue_desc() if key == "fatigue" else trait.desc()
             self.assertEqual(snap[key], {"current": _whole(trait.value),
                                          "max": _whole(trait.max),
-                                         "desc": trait.desc()})
+                                         "desc": desc})
         self.assertEqual(snap["hunger"]["current"], 37)
         self.assertEqual(_json_roundtrip(snap), snap)
 
@@ -824,12 +826,14 @@ class TestCommandSites(EvenniaCommandTest):
 
     def test_eat_pushes_survival_and_char(self):
         create_object("typeclasses.consumables.Food", key="w42bread", location=self.char1)
+        self.char1.traits.hunger.current = 50  # S1.2b: no eating at full hunger
         with mock.patch.object(client_state, "push") as push:
             self.call(CmdEat(), "w42bread", caller=self.char1)
         self.assertIn(mock.call(self.char1, "survival", "char"), push.call_args_list)
 
     def test_drink_pushes_survival(self):
         create_object("typeclasses.consumables.Drink", key="w42skin", location=self.char1)
+        self.char1.traits.thirst.current = 50  # S1.2b: no drinking at full thirst
         with mock.patch.object(client_state, "push") as push:
             self.call(CmdDrink(), "w42skin", caller=self.char1)
         self.assertIn(mock.call(self.char1, "survival"), push.call_args_list)
@@ -928,6 +932,12 @@ class TestPushCensus(EvenniaTest):
         # W7.1 lock 3: the worn state changes without a move
         ("typeclasses/clothing.py", "ClothingWithBuffs.wear", "push_soon"): 1,
         ("typeclasses/clothing.py", "ClothingWithBuffs.remove", "push_soon"): 1,
+        # Survival Loop S1.1: drinking at a water source
+        ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "push"): 1,
+        # Survival Loop S2.1: natural healing lands a point
+        ("world/healing.py", "accrue", "push"): 1,
+        # Survival Loop S3.4: a collapse's recovery step
+        ("typeclasses/characters.py", "_collapse_tick", "push"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the
@@ -948,13 +958,20 @@ class TestPushCensus(EvenniaTest):
     GAUGE_WRITES = {
         ("commands/consumption_commands.py", "CmdEat.func", "caller.traits.hunger.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink.func", "caller.traits.thirst.current"): "survival",
+        ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "caller.traits.thirst.current"): "survival",
         ("typeclasses/characters.py", "Character.update_health_max", "self.traits.health.current"): "char",
         ("typeclasses/characters.py", "Character.apply_health_damage", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
+        # Survival Loop S3.5 (lock A1): respawn sets fatigue to Wearied
+        ("typeclasses/characters.py", "Character.at_character_death", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "Character.at_post_move", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "_rest_tick", "fatigue.current"): "survival",
+        ("typeclasses/characters.py", "_collapse_tick", "fatigue.current"): "survival",
         ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
+        # Survival Loop S3.3 (lock B1): a failed awake test, written by the tick
+        ("world/survival_ticker.py", "_deplete_character", "gauge.current"): "survival",
+        ("world/healing.py", "accrue", "health.current"): "char",
     }
 
     # Skill writes: no panel yet (inventory/skills is W7's); chargen's is

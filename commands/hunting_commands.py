@@ -94,7 +94,8 @@ class CmdHunt(Command):
             hunting_value = hunting.value if hunting else 0  # counter .value = current + mod
             flee = target.db.flee_skill or 0
 
-            # The hunter's overload penalty (W3.1); the quarry's side is unmodified.
+            # The hunter's physical modifier (overload W3.1, fatigue S3.2); the
+            # quarry's side is unmodified.
             result = opposed_check(
                 hunting_value, flee, attacker_mod=caller.physical_modifier()
             )

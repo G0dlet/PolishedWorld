@@ -134,8 +134,8 @@ def routine_for(crafter, recipe_cls):
         Why `.current` and nothing else (TD2). Progression reads `.current`,
         resolution reads `.value` (Evennia Ref section 3.5). A tool's bonus
         shifts the roll, not the crafter; a buff must not make a task harder,
-        and so more instructive, than it is, and overload must not make it
-        easier; mastery's +20 is a roll term. None of them is read here, so
+        and so more instructive, than it is, and overload or tiredness must
+        not make it easier; mastery's +20 is a roll term. None of them is read here, so
         none of them can move a recipe across the line.
 
         Why the top rung always teaches (TD3). Without the exemption a crafter
@@ -179,7 +179,8 @@ def meets_floor(crafter, recipe):
         refuses. It reads `.value`, unlike `routine_for` beside it: the gate
         asks "may you try right now", so a buff or penalty on the trait moves
         a recipe across the floor while it lasts. The tool modifier and the
-        overload penalty are roll terms, not trait mods, and never reach it.
+        physical modifier (overload, fatigue level) are roll terms, not trait
+        mods, and never reach it.
     """
     floor = getattr(recipe, "min_skill", 0) or 0
     skills = getattr(crafter, "skills", None)

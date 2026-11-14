@@ -35,10 +35,11 @@ make every "stale tick is refused" test pass with the identity check deleted.
 
 ⚠️ FATIGUE IS LOWERED BY HAND IN setUp
 ---------------------------------------
-In play only the survival ticker lowers fatigue; `_rest_tick` raises it. The
-setUp write bypasses the ticker. No ticker runs in the test database, so
-nothing races or repairs the value -- the invariant being suspended is "fatigue
-only falls through the ticker", and it is suspended for the length of one test.
+In play fatigue falls only through a failed awake test on the survival tick
+(S3.3) and an overloaded step (`at_post_move`); `_rest_tick` raises it. The
+setUp write bypasses both. No ticker runs in the test database, so nothing
+races or repairs the value -- the invariant being suspended is "fatigue only
+falls through those two", and it is suspended for the length of one test.
 
 ⚠️ ROOM MESSAGES
 -----------------
@@ -66,6 +67,7 @@ from commands.consumption_commands import CmdRest
 from commands.work_commands import CmdWork, _cooldown_key, _finish_task
 from typeclasses import characters
 from typeclasses.characters import _announce_getting_up, _rest_tick
+from world import fatigue as fatigue_rules
 from world import timed_actions
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
@@ -374,12 +376,12 @@ class TestDeathEndsTheRest(RestTestBase):
         with captured_messages(self.char1) as seen:
             self.char1.at_character_death()
         self.assertIn("You have died.", _joined(seen))  # receipt: death ran
-        # Death restores health, hunger and thirst -- not fatigue -- so the
-        # gauge is still TIRED and a live tick would move it.
-        self.assertEqual(self.fatigue.current, TIRED)
+        # Death sets fatigue to Wearied (S3.5), below full, so a live tick
+        # would still move it.
+        self.assertEqual(self.fatigue.current, fatigue_rules.RESPAWN_AT)
         with mock.patch("typeclasses.characters.delay") as rescheduled:
             _rest_tick(self.char1, marker)
-        self.assertEqual(self.fatigue.current, TIRED)
+        self.assertEqual(self.fatigue.current, fatigue_rules.RESPAWN_AT)
         rescheduled.assert_not_called()
 
     def test_the_rester_hears_the_interrupt_before_dying(self):
@@ -480,7 +482,11 @@ class TestOneSlotOneBranch(RestTestBase):
         for module in (characters, consumption_commands):
             self.assertNotIn("ndb.resting", inspect.getsource(module), module.__name__)
 
-    def test_at_pre_move_has_no_branches(self):
+    def test_at_pre_move_branches_only_on_the_collapse(self):
+        # D1: no branch on WHICH action holds the slot -- `interrupt()` is
+        # called unconditionally. The one branch allowed is Survival Loop
+        # S3.4's gate, which refuses a collapsed body's walk before the
+        # interrupt; it is not about the slot's contents (lock J1).
         source = inspect.getsource(characters.Character.at_pre_move)
         tree = ast.parse(textwrap.dedent(source))
         branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
@@ -491,4 +497,8 @@ class TestOneSlotOneBranch(RestTestBase):
             and node.func.attr == "interrupt"
         ]
         self.assertTrue(calls, "at_pre_move no longer calls interrupt()")
-        self.assertEqual(branches, [])
+        self.assertEqual(len(branches), 1)
+        self.assertIn("refuse_if_collapsed", ast.unparse(branches[0].test))
+        inside = {id(n) for n in ast.walk(branches[0])}
+        self.assertTrue(all(id(call) not in inside for call in calls),
+                        "interrupt() is called inside the collapse branch")
