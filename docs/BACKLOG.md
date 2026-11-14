@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 112 · 2026-11-14** — Stage 5's design and source-verification session, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80. **Closed:** ***Read EvAdventure's twitch combat before Stage 5's design*** → DONE (read; the document's §2). **Decided:** ***Hero Points in a persistent world*** (HP1–HP4) and ***`opposed_check` lets an automatic success win on a roll outside the skill range*** (OC1–OC3) — the code for both waits for Stage 5. **Annotated:** *A collapsed body's instant commands* (its combat trigger is named: HB2) and *Character panel: Legend combat state* (its rule check is answered: WO1).
 > **Rev 111 · 2026-11-14** — two entries **annotated**, docs only, with `docs/PolishedWorld_Arrival_Decomposition.md` Rev 2 (DONE; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). ***Faucet task-table tuning*** — its Newcomer annotation's Z2, the chore that walked to a well, is shipped: `work water` names the spring; the copper question it carries is unchanged. The entry on the two known `TREASURY_DBREF` failures — *TestAccount already exists* in a parallel worker recurred, this time with the line set, in the sandbox's full suite at 1635 tests; the runs with the line stashed were green. Nothing is added, closed or reordered.
 > **Rev 110 · 2026-11-14** — three entries **annotated**, docs only, with `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1 (the newcomer's economy design note), roadmap Rev 77, README Rev 56 and the series handoff Rev 14. ***First-steps hints*** (*UX & Item Identity*) gains the note's mechanism and candidate events and stays BLOCKED on alpha reports; ***An NPC guide driven by a language model — `rpg/llm`***, whose trigger the note was, gains its leaning — no rules guide from a model — and what is left for Adam to decide; ***Faucet task-table tuning (`TEMPLE_TASKS`)*** gains two findings, the chore that names a well and coin with nothing to buy. No entry closed and no Status changed.
 > **Rev 109 · 2026-11-14** — the survival loop's close-out, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 14 (DONE; merged as `98fa60e`, PR #29, tagged `alpha-20261114`) and roadmap Rev 76. **Closed:** ***Waterskin `durability` → `condition` migration*** (S1.3), ***`DeathWeakness` debuff → `fatigue_rate`*** (S3.5) and ***Fatigue-exhaustion consequence*** (S3.1–S3.4) → DONE. **Added** (*Survival*): ***Survival loop tuning*** — OQ-S3's four values, OPEN until the alpha's close-out; ***A `rate` multiplier below ×1.5 is lost to the gauges' rounding*** — found at S3.1, OPEN until a decomposition adds or tunes a hunger or thirst rate; ***A collapsed body's instant commands*** — S3.4's C1, OPEN until Rest slice 2 or a combat consequence of a collapse. **Annotated:** *Webclient: players and NPCs apart, and active conditions* (SL13 shipped; part (2) stays on its second trigger) and *Persistent alpha instance* (L6.1 deploys `alpha-20261114`). Read before writing, for triggers that name Stage 4.6 (lesson 182): *An NPC guide driven by a language model — `rpg/llm`* and *Strangers by description — `rpg/rpsystem`* wait on the newcomer's economy note and the Names note, not on the stage's merge, and are left.
@@ -1171,7 +1172,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The next caller of `opposed_check` (combat, Stage 5) or the next
   change to hunt's resolution.
 - **Origin:** Recipe mastery M5.1 (2026-10-31), filed at M6.1.
-- **Status:** OPEN
+- **Decision (2026-11-14, Stage 5 design session —
+  `docs/PolishedWorld_Combat_Design.md` §4.14):** an automatic success
+  outside the skill value ranks lowest in the tie — it loses to every
+  success within the value, and between two such the higher skill wins
+  (OC1; *Legend* core p. 45). The over-100 % rule is built with Stage 5
+  (OC2). Combat also needs two forms the function does not have: a
+  comparison of level of success alone, for attack against parry, and an
+  opposed test against a roll already made, for the wound tests (OC3).
+- **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5, the next caller)
 
 ---
 
@@ -1758,6 +1767,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   unconsciousness instead. Either *disabled* follows that, or it is a
   deliberate simplification and the roadmap stops calling it RAW. The style
   guide §6 already follows the book.
+- **Rule check answered (2026-11-14, Stage 5 design session):** *disabled*
+  follows the book — a limb is useless only on a lost Resilience test, and
+  head, chest and abdomen risk unconsciousness
+  (`docs/PolishedWorld_Combat_Design.md` WO1; roadmap Rev 80).
 - **Trigger:** Stage 5's locational Hit Points shipped and in-game verified.
 - **Origin:** Webclient decomposition Rev 1, 2026-11-06 (D5).
 - **Status:** BLOCKED (Stage 5 locational HP)
@@ -1777,7 +1790,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The Stage 5 design session.
 - **Origin:** Webclient decomposition Rev 1, 2026-11-06 (handoff open
   question 3).
-- **Status:** BLOCKED (Stage 5 design session)
+- **Decision (2026-11-14, Stage 5 design session —
+  `docs/PolishedWorld_Combat_Design.md` §4.13):** two at creation (HP1); one
+  use in Stage 5, *Glancing Blow*, applied automatically unless the player
+  has switched it off (HP2); the other uses wait (HP3); points are earned
+  slowly by time played, with a cap of 4, the rate a calibration constant
+  (HP4). The cap and the earning rule are the project's, since the book has
+  neither in a form a MUD can cite.
+- **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5)
 
 ---
 
@@ -2078,6 +2098,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The Rest slice 2 decomposition, or the first combat
   consequence of a collapse, whichever comes first.
 - **Origin:** Survival loop decomposition S3.4, lock C1 and §11 (Rev 12).
+- **Annotation (2026-11-14, Stage 5 design session):** the combat
+  consequence is decided — a collapsed body is helpless, and `attack` and
+  `hunt` are refused (`docs/PolishedWorld_Combat_Design.md` HB1, HB2). The
+  rest of the list stays with Rest slice 2.
 - **Status:** OPEN
 
 ---
@@ -4358,7 +4382,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   is no distance, no loading and no recovery. Read it for queues and cooldowns
   as planned; ranged combat — range per encounter, bundles, spend at release —
   is project code either way.
-- **Status:** SCHEDULED (Stage 5 design session)
+- **Read (2026-11-14, Stage 5 design session):** `combat_twitch.py` and
+  `combat_base.py` in full, `combat_turnbased.py` in its handler. Twitch keeps
+  its state in `db` on a persistent Script with a pooled persistent ticker,
+  has no cooldowns, and cleans up only from the combatant's own tick, so a
+  target that never acts keeps its handler. The findings, and what they mean
+  against `ndb.timed_action`, are `docs/PolishedWorld_Combat_Design.md` §2.
+- **Status:** DONE (read 2026-11-14; `docs/PolishedWorld_Combat_Design.md` §2)
 
 ---
 

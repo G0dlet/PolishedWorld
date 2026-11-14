@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 18 · 2026-11-14** — one passage **changed**, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80: Stage 5's design session is held, and it hands one question to *lodging & safe logout* — whether a creature may attack a statue (PV; not in Stage 5's first slice). No queue entry, prefix or tie-in changed.
 > **Rev 17 · 2026-11-14** — two passages **changed**, docs only, in the commit that closes the arrival slice (`docs/PolishedWorld_Arrival_Decomposition.md` Rev 2; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`): the session note says the slice is shipped, and the gotcha on a new character's first room says where it stands now — Limbo until creation is done, then the Old Temple, which is its `home`.
 > **Rev 16 · 2026-11-14** — one sentence **changed**, docs only, with the Newcomer note Rev 2 and README Rev 58: NCQ5 is answered — the Limbo start was confirmed on the dev instance and is decomposed as `docs/PolishedWorld_Arrival_Decomposition.md` — so *This session* no longer asks for it. No queue entry, prefix or tie-in changed.
 > **Rev 15 · 2026-11-14** — seven systems **added** to the queue, docs only, with README Rev 57: after the newcomer note Adam was asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — grown from the newcomer note's open edges, the first hour as a source of systems. They are marked *, ahead of the bracket line: arrival & first impressions; the help system & the game's own voice; how knowledge spreads; porters & errand runners; the temple's chores as real objects; a veteran's second character; the welcome. The Newcomer note is on origin as `c31650b`, tree `fac932a`. No document, prefix or tie-in changed.
@@ -131,7 +132,10 @@ source-verification session (roadmap *Nuläge* → *Next*, Rev 77; decision log
 one, and he picks the system.
 
 The previous leaning stands: lodging & safe logout — best beside Stage 5's
-design session, since the statue's safety becomes a combat question. Rest NQ18 leans
+design session, since the statue's safety becomes a combat question. That session
+is held (2026-11-14, `docs/PolishedWorld_Combat_Design.md` §4.2): PvE first, a
+haven flag where no attack begins, and one question left for this note — whether
+a creature may attack a statue in the wild; it does not in Stage 5's first slice. Rest NQ18 leans
 that it owns inns, beds for rent and the statue's safety (Rest NP13/NP19); Storage
 DP16/DQ2 adds the statue as a stasis larder (Cooking CP9), bounded by one body's load
 — decide there whether it merges into markets & taverns. Runner-up: carpentry &
