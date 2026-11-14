@@ -25,9 +25,12 @@ bug:
   the modifier tables, not typed.
 - TestDeathMessage -- a death line that claims a body that was never made, names
   the wrong room, hard-codes a number, or loses "You have died." (T13 ordering);
-  or arrives after Death's Chill announces the comeback (seen in-game).
+  or arrives after Death's Chill announces the comeback (seen in-game); or,
+  since Survival Loop S3.5, the rest line missing from the no-body branch
+  (SL-M53) or reworded away from the sentence SL12 ratified.
 - TestHelpDeath -- `help death` missing (a failed import silently skips the
-  whole help module) or saying different numbers from the death line.
+  whole help module) or saying different numbers from the death line; or the
+  rest line dropped from the help text only (SL-M38).
 - TestLookShowsTheClaim -- the time-left line shown after the grace, or worded
   for the wrong reader.
 - TestFormatGameSpan -- rounding up. Every span is a promise, so it floors.
@@ -53,6 +56,9 @@ from world.survival_buffs import DeathWeakness
 PLAYER_CORPSE = "typeclasses.corpse.PlayerCorpse"
 CHARACTER = "typeclasses.characters.Character"
 OBJECT = "typeclasses.objects.Object"
+
+# Survival Loop S3.5 (SL12): the sentence the decision log ratified.
+REST_SENTENCE = "Rest mends the weariness that comes with it."
 
 NOW = 10_000_000          # absolute game seconds; any value far from 0 works
 HOUR = 3600
@@ -295,6 +301,26 @@ class TestDeathMessage(EvenniaTest):
         lines = self._die(self.char1)
         self.assertEqual(lines[0], death_contract.death_message(self.room1))
 
+    def test_the_death_line_says_rest_mends(self):
+        # S3.5 (SL12): the sentence as ratified, written out by hand, so a
+        # change to REST_LINE is a decision and not a drift.
+        lines = self._die(self.char1)
+        self.assertIn(REST_SENTENCE, lines[0])
+        self.assertEqual(death_contract.REST_LINE, REST_SENTENCE)
+
+    def test_no_body_still_says_rest_mends(self):
+        # The second branch (SL-M53): a body that leaves no corpse is just as
+        # Wearied.
+        with mock.patch("typeclasses.characters.create_object", side_effect=RuntimeError):
+            lines = self._die(self.char1)
+        self.assertIn("still with you", lines[0])   # receipt: the no-body branch
+        self.assertIn(REST_SENTENCE, lines[0])
+
+    def test_the_rest_line_follows_the_chill(self):
+        # "it" in the sentence is Death's Chill, so it comes after it.
+        line = death_contract.death_message(self.room1)
+        self.assertLess(line.index(DeathWeakness.name), line.index(REST_SENTENCE))
+
 
 class TestHelpDeath(EvenniaCommandTest):
     def test_help_death_answers(self):
@@ -319,6 +345,15 @@ class TestHelpDeath(EvenniaCommandTest):
             self.assertIn(span, text)
             self.assertIn(span, line)
         self.assertIn(DeathWeakness.name, text)
+
+    def test_help_says_rest_mends(self):
+        # SL-M38: the help topic carries the sentence too, after the chill's
+        # own paragraph heading.
+        from world.help_entries import HELP_ENTRY_DICTS
+
+        text = [d for d in HELP_ENTRY_DICTS if d["key"] == "death"][0]["text"]
+        self.assertIn(REST_SENTENCE, text)
+        self.assertLess(text.index(f"|w{DeathWeakness.name}|n"), text.index(REST_SENTENCE))
 
 
 class TestLookShowsTheClaim(GraceTestBase):

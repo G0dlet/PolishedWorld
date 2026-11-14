@@ -45,6 +45,10 @@ Each class presses one bug:
     TestCollapseRecovery     the wake at 1 (SL-M32), the flag only in ndb
                              (SL-M33), no re-arm at puppet (SL-M50), death
                              keeping the flag (SL-M35)
+    TestRespawnWearied       death leaving fatigue where it fell (SL-M36) or
+                             the clock running (SL-M52), Death's Chill still
+                             on hunger (SL-M37) or not on the clock's rate;
+                             the warning's word after a death -- S3.5
 
 THE DISCRIMINATING STATE (lock F1, lesson 181)
 ----------------------------------------------
@@ -73,7 +77,7 @@ from tests.test_encumbrance import LIMIT, _make, _PenaltyFixture
 from typeclasses.characters import _collapse_tick, _rest_tick
 from world import client_state, fatigue, survival_ticker, timed_actions
 from world.encumbrance import carried_enc
-from world.survival_buffs import ColdStress, Dehydrated, Starving
+from world.survival_buffs import ColdStress, DeathWeakness, Dehydrated, Starving
 from world.survival_ticker import _check_survival_warnings
 
 # The fatigue `descs` every character made before S3.1 carries
@@ -711,3 +715,80 @@ class TestCollapseRecovery(_TickDriver, _CollapseFixture, EvenniaTest):
             self.char1.at_character_death()
         self.assertFalse(self.char1.db.collapsed)
         self.assertIsNone(self.slot())
+
+
+class TestRespawnWearied(_AwakeFixture, EvenniaTest):
+    """
+    S3.5 (SL12): a respawned body is Wearied, its day starts again, and
+    Death's Chill spends that day faster -- hunger and thirst untouched.
+    """
+
+    def die(self):
+        """char1 dies; return the lines it received."""
+        with mock.patch.object(self.char1, "msg") as msg:
+            self.char1.at_character_death()
+        return _said(msg)
+
+    def test_respawn_from_fresh_is_wearied(self):
+        self.assertEqual(self.fatigue.current, 100)   # receipt: the fixture's Fresh
+        self.die()
+        self.assertEqual(self.fatigue.current, 40)
+        self.assertEqual(self.char1.fatigue_desc(), "wearied")
+
+    def test_respawn_from_debilitated_is_wearied(self):
+        self.fatigue.current = 0
+        self.die()
+        self.assertEqual(self.fatigue.current, 40)
+
+    def test_forty_is_the_top_of_wearied(self):
+        self.assertEqual(fatigue.RESPAWN_AT, 40)
+        self.assertEqual(fatigue.LEVELS[fatigue.level_for(40)].word, "wearied")
+        self.assertEqual(fatigue.LEVELS[fatigue.level_for(41)].word, "tired")
+
+    def test_the_clock_starts_again(self):
+        self.char1.db.awake_seconds = DAY + 5 * H
+        self.char1.db.awake_tests = 2
+        self.assertEqual(fatigue.tests_due(self.char1), 3)   # receipt: hours were due
+        self.die()
+        self.assertEqual((self.char1.db.awake_seconds, self.char1.db.awake_tests), (0, 0))
+
+    def test_the_chill_is_on_the_clock_not_on_appetite(self):
+        self.die()
+        self.assertTrue(self.char1.buffs.has(DeathWeakness.key))   # receipt: it applied
+        self.assertEqual(self.char1.buffs.check(100, "fatigue_rate"), 125)
+        self.assertEqual(self.char1.buffs.check(100, "hunger_rate"), 100)
+        self.assertEqual(self.char1.buffs.check(100, "thirst_rate"), 100)
+
+    def test_the_chill_has_one_mod(self):
+        self.assertEqual(
+            [(m.stat, m.modifier, m.value, m.perstack) for m in DeathWeakness.mods],
+            [("fatigue_rate", "mult", 0, 0.25)],
+        )
+
+    def test_the_first_tick_after_respawn_rolls_nothing_and_runs_fast(self):
+        # Five hours were due before death; afterwards the tick finds a new
+        # day, and the chill makes its 2400 game seconds count as 3000.
+        self.char1.db.awake_seconds = DAY + 5 * H
+        self.die()
+        self.char1.ndb.survival_tick_at = 100_000
+        with mock.patch(CLOCK, return_value=102_400), \
+                mock.patch("world.survival_ticker.apply_thermal_stress"), \
+                mock.patch(ROLL, return_value=FAIL), \
+                mock.patch.object(fatigue, "skill_check", wraps=fatigue.skill_check) as spy, \
+                mock.patch.object(self.char1, "msg"):
+            survival_ticker._deplete_character(self.char1)
+        self.assertEqual(spy.call_args_list, [])
+        self.assertEqual(self.fatigue.current, 40)
+        self.assertAlmostEqual(self.char1.db.awake_seconds, 3000)
+
+    def test_the_word_waits_for_the_next_warning_check(self):
+        # Lock H1: death itself says no "You feel"; the next warning check
+        # (a tick or a step) names the level, because its baseline was Fresh.
+        with mock.patch.object(self.char1, "msg"):
+            _check_survival_warnings(self.char1)   # baseline at Fresh
+        lines = self.die()
+        self.assertTrue(any("You have died." in line for line in lines))   # receipt
+        self.assertFalse(any("You feel" in line for line in lines), lines)
+        with mock.patch.object(self.char1, "msg") as msg:
+            _check_survival_warnings(self.char1)
+        self.assertEqual(_said(msg), ["|yYou feel wearied.|n"])

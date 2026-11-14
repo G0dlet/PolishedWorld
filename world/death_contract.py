@@ -4,8 +4,10 @@ The death contract, in player words (BACKLOG: Death contract surfaces).
 The death-consequence policy (roadmap decision log, Death-consequence policy)
 promises a dead player three things: the body lies where they fell, it keeps
 their belongings for days -- owner-first for a while -- and Death's Chill
-passes. Two surfaces say so: the line `at_character_death()` sends, and the
-`help death` topic. Both are built HERE, from the live constants, so they cannot
+passes. Since Survival Loop S3.5 (SL12) it says a fourth: the body comes back
+Wearied, and rest -- not the chill's timer -- mends that (`REST_LINE`). Two
+surfaces say so: the line `at_character_death()` sends, and the `help death`
+topic. Both are built HERE, from the live constants, so they cannot
 drift apart or drift from the code: change `_PLAYER_GRACE_HOURS`, the expiry
 window, the decay tables or `DeathWeakness` and both texts follow on the next
 reload.
@@ -32,6 +34,10 @@ from typeclasses.corpse import PlayerCorpse
 from world.survival_buffs import DeathWeakness
 
 HOURS_PER_GAME_DAY = 24
+
+# S3.5 (SL12): a respawned body is Wearied (`world.fatigue.RESPAWN_AT`), which
+# Death's Chill passing does not lift. Both surfaces carry this sentence.
+REST_LINE = "Rest mends the weariness that comes with it."
 
 
 def fastest_decay_modifier():
@@ -101,12 +107,12 @@ def death_message(body_room=None):
             f"Your body lies at {body_room.key}. It keeps your belongings for at "
             f"least {format_game_span(shortest_keep_game_hours())}, and for the "
             f"first {format_game_span(grace_game_hours())} only you may take "
-            f"from it. {chill} will pass. See |whelp death|n."
+            f"from it. {chill} will pass. {REST_LINE} See |whelp death|n."
         )
     else:
         contract = (
             f"You leave no body behind; what you carried is still with you. "
-            f"{chill} will pass. See |whelp death|n."
+            f"{chill} will pass. {REST_LINE} See |whelp death|n."
         )
     return f"|RYou have died.|n\n{contract}"
 
@@ -130,7 +136,7 @@ def help_text():
         "that, anyone who finds it may. Looking at the body shows how long "
         "your claim has left.\n\n"
         f"|w{DeathWeakness.name}|n: a weakness that passes on its own after "
-        f"about {_plural(chill_minutes, 'real minute')}.\n\n"
+        f"about {_plural(chill_minutes, 'real minute')}. {REST_LINE}\n\n"
         "The world's clock stands still while the server is down, so downtime "
         "does not shorten either window.\n\n"
         "To take something back: |wget <item> from corpse of <your name>|n"

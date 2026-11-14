@@ -39,14 +39,15 @@ moves in whole levels.
 THE AWAKE CLOCK (S3.3, SL9; Rest NP3, NP-L1)
 --------------------------------------------
 The survival tick no longer drains fatigue. It adds its game seconds, times
-`fatigue_rate` (ColdStress and HeatStress spend the hours faster), to
-`db.awake_seconds` (`advance_clock`). Past `threshold()` -- (10 + CON) game
-hours -- each further whole hour is one Athletics test (`tests_due`, counted
-in `db.awake_tests`), rolled by `awake_test` with the physical modifier and
-`need_penalty()`. The tick writes the gauge: a failure costs `LEVEL_POINTS`
-(lock B1). A rest that reaches full calls `reset_clock` (SL10). Both
-attributes are read with a default of 0, so characters made before S3.3
-need no backfill (lock A1).
+`fatigue_rate` (ColdStress, HeatStress and Death's Chill spend the hours
+faster), to `db.awake_seconds` (`advance_clock`). Past `threshold()` --
+(10 + CON) game hours -- each further whole hour is one Athletics test
+(`tests_due`, counted in `db.awake_tests`), rolled by `awake_test` with the
+physical modifier and `need_penalty()`. The tick writes the gauge: a failure
+costs `LEVEL_POINTS` (lock B1). A rest that reaches full calls `reset_clock`
+(SL10), and so does a death, which sets the gauge to `RESPAWN_AT` (S3.5,
+SL12). Both attributes are read with a default of 0, so characters made
+before S3.3 need no backfill (lock A1).
 
 The tests are involuntary: `awake_test` calls `skill_check` and never
 `attempt_skill_improvement` -- standing still must not train Athletics.
@@ -210,6 +211,14 @@ def reset_clock(char):
     """Start the day again: clock and count to zero (a rest to full, SL10)."""
     char.db.awake_seconds = 0
     char.db.awake_tests = 0
+
+
+# --- Respawn at Wearied (S3.5) --------------------------------------------------
+
+# A respawned body is set to this, the top of Wearied (SL12, Rest Design NQ14):
+# -30% to physical tests until rest mends it. `Character.at_character_death`
+# writes it and calls `reset_clock` (locks A1, B1).
+RESPAWN_AT = 40
 
 
 # --- Collapse at Debilitated (S3.4) ---------------------------------------------

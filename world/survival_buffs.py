@@ -94,8 +94,8 @@ class HeatStress(BaseBuff):
 
 class DeathWeakness(BaseBuff):
     """
-    Timed post-death debuff: a body clawing back from death burns through food
-    and water faster while it recovers.
+    Timed post-death debuff, Death's Chill: a body clawing back from death
+    tires sooner while it recovers.
 
     Unlike the survival *conditions* (Starving/Dehydrated, duration=-1, cleared
     by the ticker when the gauge recovers), this is SELF-expiring: duration > 0
@@ -103,38 +103,34 @@ class DeathWeakness(BaseBuff):
     utils.delay(duration, cleanup, persistent=True) and fire at_expire when it
     lapses -- verified in evennia/contrib/rpg/buffs/buff.py. No ticker involved.
 
-    The mult mods on 'hunger_rate'/'thirst_rate' are consumed by the exact same
-    buffs.check(base, "<key>_rate") calls the survival ticker already makes in
-    _deplete_character, so a just-respawned character grows hungry and thirsty
-    ~25% faster for the duration. No new integration point is introduced, and
-    because respawn resets hunger/thirst to max, this is felt pressure -- not a
-    death spiral.
+    Its one mod is a mult on 'fatigue_rate' (Survival Loop S3.5, SL12; Rest
+    Design NQ14). Since S3.3 that rate scales the awake clock, not a drain:
+    `world.fatigue.advance_clock` adds a tick's game seconds times
+    `buffs.check(seconds, "fatigue_rate")` to `db.awake_seconds`, so the
+    waking day runs 25% faster while the chill lasts. Hunger and thirst are
+    untouched: before S3.5 the chill's two mods sat on 'hunger_rate' and
+    'thirst_rate'.
 
-    Design note: this deliberately targets hunger/thirst rather than fatigue,
-    because fatigue currently has no consequence when it bottoms out (deferred
-    to the future skill-check resolver). Once fatigue exhaustion carries a real
-    penalty, switch these mods back to 'fatigue_rate' -- thematically "weak and
-    shaken" fits fatigue better than appetite.
+    Read plainly, the mod is small: the buff lasts 300 real seconds and the
+    survival tick runs every 600, so at most one tick falls inside it. The
+    consequence is the level -- `at_character_death` sets fatigue to Wearied
+    (`fatigue.RESPAWN_AT`) and zeroes the clock -- and this buff is its name
+    and timer until Rest slice 2 or Temperature give 'fatigue_rate' more to
+    do. Rest, not the timer, lifts Wearied; the death message says so.
     """
 
     key = "death_weakness"
     name = "Death's Chill"
-    flavor = "The chill of near-death lingers; hunger and thirst gnaw as you mend."
+    flavor = "The chill of near-death sits in your bones; the day tires you sooner."
     duration = 300          # real seconds; self-expiring. H7.3 will tune this.
     tickrate = 0            # passive mod only; no self-tick
     unique = True
     maxstacks = 1           # re-death refreshes (via remove-then-add), never stacks
     mods = [
-        # A body clawing back from death burns through food and water faster
-        # while it recovers. These hit hunger_rate/thirst_rate -- the exact
-        # checks the survival ticker already makes -- so the penalty is FELT now
-        # via the death chokepoint (hungrier/thirstier -> starve -> the same
-        # apply_health_damage path we built in H7.2). We avoid fatigue_rate:
-        # fatigue has no zero-consequence yet, so that mod would be inert.
-        # Modest +25%; hunger/thirst reset to max on respawn, so this is real
-        # pressure -- not a death spiral. Dial after playtesting.
-        Mod("hunger_rate", "mult", 0, perstack=0.25),
-        Mod("thirst_rate", "mult", 0, perstack=0.25),
+        # "Weak and shaken" is tiredness (SL12): the awake clock's own rate,
+        # the check `advance_clock` already makes, so no new integration point.
+        # +25%; the respawn level, not this mod, is what the player feels.
+        Mod("fatigue_rate", "mult", 0, perstack=0.25),
     ]
 
     def at_apply(self, *args, **kwargs):

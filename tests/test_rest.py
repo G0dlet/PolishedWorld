@@ -67,6 +67,7 @@ from commands.consumption_commands import CmdRest
 from commands.work_commands import CmdWork, _cooldown_key, _finish_task
 from typeclasses import characters
 from typeclasses.characters import _announce_getting_up, _rest_tick
+from world import fatigue as fatigue_rules
 from world import timed_actions
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
@@ -375,12 +376,12 @@ class TestDeathEndsTheRest(RestTestBase):
         with captured_messages(self.char1) as seen:
             self.char1.at_character_death()
         self.assertIn("You have died.", _joined(seen))  # receipt: death ran
-        # Death restores health, hunger and thirst -- not fatigue -- so the
-        # gauge is still TIRED and a live tick would move it.
-        self.assertEqual(self.fatigue.current, TIRED)
+        # Death sets fatigue to Wearied (S3.5), below full, so a live tick
+        # would still move it.
+        self.assertEqual(self.fatigue.current, fatigue_rules.RESPAWN_AT)
         with mock.patch("typeclasses.characters.delay") as rescheduled:
             _rest_tick(self.char1, marker)
-        self.assertEqual(self.fatigue.current, TIRED)
+        self.assertEqual(self.fatigue.current, fatigue_rules.RESPAWN_AT)
         rescheduled.assert_not_called()
 
     def test_the_rester_hears_the_interrupt_before_dying(self):

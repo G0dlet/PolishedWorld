@@ -1360,10 +1360,12 @@ class Character(ObjectParent, ClothedCharacter):
 
         Spawns a PlayerCorpse where the character fell, moves all non-soulbound
         inventory (worn items stripped first) into it, relocates the character to
-        their respawn point, restores health/hunger/thirst, clears survival
-        conditions, applies a timed post-death weakness, and tells the player
-        the contract: where the body lies, how long it keeps their belongings
-        (owner-first for a grace window), and that the weakness passes.
+        their respawn point, restores health/hunger/thirst, sets fatigue to
+        Wearied with the awake clock at zero (S3.5), clears survival conditions
+        and a collapse, applies a timed post-death weakness, and tells the
+        player the contract: where the body lies, how long it keeps their
+        belongings (owner-first for a grace window), that the weakness passes,
+        and that rest mends the weariness.
 
         This is the single consequence chokepoint (H7.1). In normal play H7.2's
         apply_health_damage is the only caller; the reentrancy guard below is
@@ -1452,7 +1454,7 @@ class Character(ObjectParent, ClothedCharacter):
             if destination:
                 self.move_to(destination, quiet=True, move_hooks=False)
 
-            # Restore vitals (decision 2: reset hunger/thirst -- respawned "fresh").
+            # Restore vitals (decision 2: reset hunger/thirst -- fed and watered).
             health = self.traits.get("health")
             if health:
                 health.current = health.max
@@ -1460,6 +1462,14 @@ class Character(ObjectParent, ClothedCharacter):
                 gauge = self.traits.get(gauge_key)
                 if gauge:
                     gauge.current = gauge.max
+            # S3.5 (SL12): not fresh, though -- death's chill is tiredness. The
+            # body comes back Wearied whatever it died at, and its day starts
+            # again, so the awake clock cannot roll on the tick after respawn.
+            # Rest mends it; the death message says so.
+            fatigue = self.traits.get("fatigue")
+            if fatigue:
+                fatigue.current = fatigue_rules.RESPAWN_AT
+            fatigue_rules.reset_clock(self)
 
             # Clear survival conditions now so the next tick doesn't flash
             # "Starving" on a freshly-fed character (the ticker would clear them
@@ -1485,8 +1495,9 @@ class Character(ObjectParent, ClothedCharacter):
             # W4.2: the relocation above runs with move_hooks=False, so no
             # room hook pushed: the room where they fell (the body gone, the
             # corpse there) and the respawn room are pushed here, and the
-            # character gets all four (health and gauges refilled, inventory
-            # emptied) -- on the next reactor turn, like every hook site.
+            # character gets all four (health, hunger and thirst refilled,
+            # fatigue set to Wearied, inventory emptied) -- on the next reactor
+            # turn, like every hook site.
             client_state.push_soon(self, *client_state.DOMAINS)
             client_state.push_room_soon(location)
             client_state.push_room_soon(self.location)

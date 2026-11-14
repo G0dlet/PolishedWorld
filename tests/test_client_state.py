@@ -963,6 +963,8 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.apply_health_damage", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
+        # Survival Loop S3.5 (lock A1): respawn sets fatigue to Wearied
+        ("typeclasses/characters.py", "Character.at_character_death", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "Character.at_post_move", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "_rest_tick", "fatigue.current"): "survival",
         ("typeclasses/characters.py", "_collapse_tick", "fatigue.current"): "survival",
