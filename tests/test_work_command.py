@@ -215,6 +215,21 @@ class TestTaskTable(EvenniaTestCase):
         with self.assertRaises(ValueError):
             _validate_task_table({"broken": dict(TEMPLE_TASKS["sweep"], copper=True)})
 
+    def test_no_chore_walks_to_a_well(self):
+        # Arrival AV-T3 (Newcomer Z2): the world's one water source is the
+        # spring at the Brook (world/seed_data.py), and no room has a well.
+        # "well" as a word only: the Brook's own text says the spring "wells up".
+        for key, task in TEMPLE_TASKS.items():
+            for field, line in task.items():
+                if isinstance(line, str):
+                    with self.subTest(chore=key, field=field):
+                        self.assertNotRegex(line, r"(?i)\bwell\b")
+
+    def test_the_water_chore_sets_off_for_the_spring(self):
+        for field in ("begin_actor", "begin_room"):
+            with self.subTest(field=field):
+                self.assertIn("spring", TEMPLE_TASKS["water"][field])
+
 
 def _called_attributes(module):
     """

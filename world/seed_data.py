@@ -3,8 +3,9 @@ The alpha's authored area, as data. Alpha content epic, Task AC3.1.
 
 This module is pure data: no Evennia imports, no logic. `world/seeding.py`
 builds it into a database with `seed_world()` (and one scroll at a time with
-`reseed_scroll()`); the only other reader is `tests/test_recipe_sources.py`,
-which counts `SCROLLS` as a source for knowledge-gated recipes.
+`reseed_scroll()`); the only other readers are `tests/test_recipe_sources.py`,
+which counts `SCROLLS` as a source for knowledge-gated recipes, and
+`world/arrival.py`, which reads `ARRIVAL_ROOM` when a character is made.
 
 WHY THE WORLD IS DATA IN GIT
 ----------------------------
@@ -153,6 +154,13 @@ ROOMS = (
         "spawn_creatures": None,
     },
 )
+
+# Where a finished character arrives and what becomes its home (Arrival AV2):
+# `world.arrival` finds the room by this seed tag at runtime, so it must be a
+# seed_id in ROOMS above. Renaming that seed_id without re-tagging the live room
+# sends newcomers nowhere -- they are still made, in Limbo, with a log line
+# (AV6). To move the arrival, change this one line.
+ARRIVAL_ROOM = "alpha.room.temple"
 
 # "from" and "to" are seed_ids (or LIMBO). Every passage inside the area is two
 # exits, one each way; the Limbo exit is one-way -- Limbo is admin space.
