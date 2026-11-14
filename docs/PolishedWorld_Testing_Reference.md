@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 24 · 2026-11-14** — **the survival loop** (survival loop decomposition S4.2; merged as `98fa60e`, PR #29, tagged `alpha-20261114`). New **§23: the survival loop** — the three census tests in every neighbour run, the command with its runner written out, what the tests pin (the new modules, the readers on old `descs`, pinned rolls, the clock), how a protocol is built for this loop (a start where the opposite would show, a fill with a margin, a tick after a reload, its own starting state, every value it claims printed, staff logged out), and §23.3, the protocols as run, S1.1–S3.5 and S4.1. The suite is 1607 at the merge; Node 142 and the art tools' 46 are unchanged.
 > **Rev 23 · 2026-11-12** — **the webclient visual pass** (visual decomposition V5.2; merged as `ea41a0f`, PR #28, tagged `alpha-20261112`). §21.1 gives the pipeline's count after the pass (46); new **§21.4 *Receiving a picture or icon family***, as run at V3.1–V3.4 and V2.2.1 (hash, `validate` in the repo, master byte for byte, `rm` and `clean` the whole family, the family test red before green, approval in the client); §22.1 gives the Node count (142); new **§22.5 *The visual pass's tests and the static render*** and **§22.6 *its protocols, as run***.
 > **Rev 22 · 2026-11-11** — **the webclient (webclient decomposition W8.2; merged as `399e306`, tagged `alpha-20261111`).** **New §22: the webclient** — running the Node tests (`node --test tests/js/*.js`, 122 in nine files) and how they load browser files (`module.exports` for `pw_state`, otherwise a `vm` context, several files in page order); the four fakes (markup sinks that throw, `pw_state`, `window` with `matchMedia` and `localStorage`, a page with focus and key counters); registration tested by its call form; the parity table both layers read; on the Python side `ReactorMixin`, the push census, phantom values for a shared helper, the second-session test with its receipt, and the red receipt against a no-op renderer; how a browser protocol is run (two browsers, the `server/.static` receipt, one-value console receipts, `innerWidth`, `reboot` for a disconnect, the storage trap, the screen-reader control page); and an index of the protocols as run, W3.1–W8.1.
 > **Rev 21 · 2026-11-06** — **the asset pipeline (Webclient decomposition W2.1–W2.4; merged as `37844da`).** **New §21: the asset pipeline** — running its tests outside `evennia test`, the three publishing commands and the shell `evennia reload` the browser check needs, what the tests read (the contrast formula pinned by the palette's own figures, three edge-rule fixtures that each reach one case, a mutation that survived on a fixture gap), and how a master from ChatGPT is received. **§13** gains one rule: read the parallel runner's result with `grep`, never `tail` — its teardown lines come after the result, one per worker.
@@ -1405,6 +1406,55 @@ Each task's protocol is written out in its *Shipped* line in the visual decompos
 | V3.4 | banner by season at the header's right end, the location picture by `indoor`, the other seasons set by hand; none at 900 px, the picture in the drawer |
 | V2.2.1 | `["room_indoor","Old Temple"]`, `["room_outdoor","Temple Clearing"]`, the drawer at 900, both sharp at 200 %, the outdoor picture beside the winter banner set by hand |
 | V5.1 | the full suite on the local merge result, tree `43de079`: 1447 OK in 751 s; Node 142; art tools 46 |
+
+## 23. The survival loop
+
+*(Survival loop decomposition S1.1–S4.1, 2026-11-13 → 2026-11-14; merged as `98fa60e` (PR #29, tagged `alpha-20261114`). Tests `tests/test_water.py`, `tests/test_full_gauges.py`, `tests/test_healing.py`, `tests/test_fatigue.py`, and the census rows in `tests/test_client_state.py`, `tests/test_activity_log.py` and `tests/test_encumbrance.py`. What the code does is Evennia Ref §20 and the decomposition's locks.)*
+
+### 23.1 Running the neighbours
+
+- **The three census tests run with every task**, whatever the task's own file imports: `TestPushCensus` (`tests/test_client_state.py`; every push, every gauge write and every `.location =`), `TestSiteCensus` (`tests/test_activity_log.py`; every activity-log call site) and `TestRollCensus` (`tests/test_encumbrance.py`; every physical roll). A new call breaks a census its own module never touches: S1.1's `TestSiteCensus` was red from `4f35175` until S1.3's run found it (`625c9eb`).
+- **The command spells out its runner:** `evennia test --settings settings.py --testrunner server.test_runner.ForkTestRunner --parallel auto tests.test_fatigue …`. `--parallel auto` without the runner does not run (§13). The `pwtest` alias (§13) was not defined at work during the survival loop's sessions, and a `grep` on its output printed nothing at all: an empty filtered output is not a result (lesson 28).
+- **A default changed for everyone is counted against the tests that start there.** New characters have 100 in every gauge, so S1.2b's refusal at a full gauge met four tests, one of which would have passed on the refusal. Count them before the lock, and give each fixture the value its test needs.
+- **The suite at the merge:** 1607 `def test_` under `tests/`, `Ran 1607 tests in 681.073s`, `OK` on the merge result at work; Node 142, unchanged since the visual pass (§22.1; S3.1 changed `tests/js/test_pw_survival.js`'s words, not its count); the art tools' 46 (§21.1) not run, since nothing under `art/` changed.
+
+### 23.2 What the tests pin
+
+- **Readers on old characters.** Characters made before S3.1 keep their stored fatigue `descs` (keys 0/20/40/60/80/95), and `fatigue_desc()` reads the level table instead. The reader tests run on the old `descs` and first assert that the old path says another word there (S3.1, lock F1), so a reader that fell back to `trait.desc()` fails.
+- **Rolls are pinned at `randint`.** The awake tests and the collapse roll are driven with a pinned d100 (`97` fails, `1` passes), and a protocol pins the same way from `@py` and ends with `mock.patch.stopall()`, read back as the bound method (S3.3).
+- **Clamps and returns.** A gauge's write clamps silently (Evennia Ref §20), so a mutation past max is killed on `accrue()`'s return value, not on the trait (SL-M17).
+- **The clock is read by its two fields.** `db.awake_seconds` and `db.awake_tests` are asserted together: a rolled hour is not rolled again (SL-M27, five unit tests).
+- **A mock is read from the mock.** A helper that reads `char.method.call_args_list` after the `with` has closed reads the real method; keep the patcher's object and read `call_args_list` from it (S3.3–S3.4).
+- **A pure constant goes green against a stub with the same value.** `RESPAWN_AT`'s pin is not a red-before-green receipt; the rule it guards is (S3.5).
+
+### 23.3 Building a protocol for the loop
+
+- **A "nothing happens" step starts where the opposite would show.** At full health `accrue` zeroes either way, so S2.2's first logout under *Dehydrated* proved nothing; it was run again from 18/20, and the receipt was the counter standing still to the second.
+- **Fill with a margin.** The tick's game seconds are 2399 or 2400 (Evennia Ref §20), so a counter is set to its interval − 1 or − 60, not to the unit test's − 2400.
+- **A reload takes the warnings' baseline with it.** After a `reload` the first check only takes a baseline; a step that predicts *You feel …* runs one tick first (S3.4).
+- **Predict from the protocol's own start.** The wake read 45, not 41: the protocol started at 0 and rose by `rest`'s fives, the unit test at 36 (S3.4).
+- **A step that says "X should be Y" prints X.** S3.3's repeat printed the clock but not `awake_tests`, so *a rolled hour is not rolled again* has no in-game receipt.
+- **Log staff out.** The survival tick runs on every puppeted character: G0dlet died between sessions, and `tester`, left logged in overnight, ran the whole loop unpinned (S3.4). Runbook §10 has the same rule for the instance.
+- **Order with the suite.** A protocol that reads the activity log runs with no suite running (§18, lesson 215): S1.1's log carried one fixture line from a parallel run.
+
+### 23.4 The protocols, as run (work machine, 2026-11-13 → 2026-11-14)
+
+Each task's protocol is written out in its *Shipped* line in the decomposition; the table is the index. G0dlet at Brook (`#123`) unless a row says otherwise.
+
+| Task | What the protocol showed |
+| --- | --- |
+| S1.1 | thirst 10 → 55 → 100 at the spring, then *You aren't thirsty.*; `drink water` and `drink spring` both drank; *Drink from what?* in Temple Clearing; `consume` lines with delta 45 and no `charges_left` |
+| S1.2 | a skin filled `fresh`; `@set` to `brine`, refused at the spring; `empty`, then *already empty*; five draughts to *runs dry*, the kind gone; found: the skin drank at thirst 100 (OQ-S6) |
+| S1.2b | at 100 *You aren't thirsty.* and *You aren't hungry.*, nothing spent; at 99 one draught, one meal |
+| S1.3 | a skin from before read 100 %; a fill, 92 %; at 8 and filled, 0 % in red, still a draught; the next dip split it; `repair` → *You can't mend waterskin.*, cloth and twine kept |
+| S2.1 | 18/20 and the counter at the interval − 1; the first tick only stamped; the second healed once, *Your wounds ache a little less.*, 19/20 in the panel, 2399 game seconds between ticks |
+| S2.2 | about 46 s away → the line once at login, 19/20; away under *Dehydrated* from 18/20 → no line and the same read to the second |
+| S3.1 | fatigue 0 → *debilitated (-50% to physical tests)* in `status`, `sheet` and the panel; 35 → *wearied*; 100 → *fresh*; the warning at 60, silent at 61 and 59 |
+| S3.2 | `physical_modifier()` −50, −30, 0; overloaded at 0 → −70; a craft at 40 went through |
+| S3.3 | the tick no longer lowers fatigue; `rest` to full → `(100, 0, 0)`; an hour past the day → one real roll; a pinned 97 → the line, *You feel winded.*, `(80, 2)` |
+| S3.4 | a pinned fall → the line and `tester` hearing it; walk, drink and empty refused, `say` heard; the wake at 45; a reload kept the collapse; `rest` to full → `(100, 0, 0)` |
+| S3.5 | a death → the line with *Rest mends the weariness that comes with it.*, no *You feel*; respawn at 40, clock 0, `fatigue_rate` 125; `help death` with the sentence; after the buff, still 40 |
+| S4.1 | the full suite on the local merge result, tree `2271ab3`: 1607 OK in 681 s; Node 142 |
 
 ## Domain quick-refs
 
