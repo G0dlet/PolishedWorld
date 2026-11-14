@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 113 · 2026-11-14** — one entry **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 1 (Stage 5's slice map and the Names slice's tasks), roadmap Rev 81 and README Rev 61. ***Strangers by description — `rpg/rpsystem`*** gains what the decomposition's source reading found beyond the design note. The decomposition also places the entries whose trigger is Stage 5's kickoff — *`CoinPile` vs the corpse's atomic content delete* and *`copper` is both a material and a denomination* in slice DL, *Runnable seam checker for the System Map* in the stage's close-out — and names the slices the blocked entries wait for; those entries are not edited. No entry closed and no Status changed.
 > **Rev 112 · 2026-11-14** — Stage 5's design and source-verification session, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80. **Closed:** ***Read EvAdventure's twitch combat before Stage 5's design*** → DONE (read; the document's §2). **Decided:** ***Hero Points in a persistent world*** (HP1–HP4) and ***`opposed_check` lets an automatic success win on a roll outside the skill range*** (OC1–OC3) — the code for both waits for Stage 5. **Annotated:** *A collapsed body's instant commands* (its combat trigger is named: HB2) and *Character panel: Legend combat state* (its rule check is answered: WO1).
 > **Rev 111 · 2026-11-14** — two entries **annotated**, docs only, with `docs/PolishedWorld_Arrival_Decomposition.md` Rev 2 (DONE; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). ***Faucet task-table tuning*** — its Newcomer annotation's Z2, the chore that walked to a well, is shipped: `work water` names the spring; the copper question it carries is unchanged. The entry on the two known `TREASURY_DBREF` failures — *TestAccount already exists* in a parallel worker recurred, this time with the line set, in the sandbox's full suite at 1635 tests; the runs with the line stashed were green. Nothing is added, closed or reordered.
 > **Rev 110 · 2026-11-14** — three entries **annotated**, docs only, with `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1 (the newcomer's economy design note), roadmap Rev 77, README Rev 56 and the series handoff Rev 14. ***First-steps hints*** (*UX & Item Identity*) gains the note's mechanism and candidate events and stays BLOCKED on alpha reports; ***An NPC guide driven by a language model — `rpg/llm`***, whose trigger the note was, gains its leaning — no rules guide from a model — and what is left for Adam to decide; ***Faucet task-table tuning (`TEMPLE_TASKS`)*** gains two findings, the chore that names a well and coin with nothing to buy. No entry closed and no Status changed.
@@ -3255,6 +3256,21 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (UP12); `N-name` multimatch (UP17); and `recog`, `forget` or `introduce`
   pushes `room` to the recogniser, a changed description or pose to the
   room (UP22).
+- **Annotation (2026-11-14, Combat decomposition):** decomposed as Stage 5's
+  first slice — `docs/PolishedWorld_Combat_Decomposition.md` Rev 1, locks
+  NM1–NM15, tasks NM-T1–NM-T19 on `feature/names`. Its source reading found
+  five things beyond the design note: the contrib adds its whole command
+  set, `sdesc` and `mask` included, to every new character
+  (`rpsystem.py:1565`), so the project removes it (NM3); the contrib's
+  search matches the start of any word, so an exact name no longer wins
+  over a longer one — `get leather` with a *leather strap* in the pack
+  (NM10; run in the sandbox); the room messages that name a character are
+  twenty, not sixteen (NM12); the contrib's `recog` takes any object in the
+  room and lets one error through uncaught, so `recog`, `forget` and
+  `introduce` are the project's commands (NM4); and `trade` names the other
+  party by key throughout (NM15). The whole suite with only the class line
+  changed: 17 of 1635 tests break. The first-steps hint (UP23) is left to
+  *First-steps hints*; no hint mechanism exists in code.
 - **Status:** SCHEDULED (design note before the newcomer's; code before
   Stage 5's combat code)
 
