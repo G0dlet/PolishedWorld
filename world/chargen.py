@@ -314,7 +314,10 @@ def start_or_resume_chargen(character):
     the draft is lost, the gate is not.
 
     `auto_quit=False` leaves no way out but `node_done`; `look` and `help`
-    stay as menu commands. Multiplayer: the menu and its saved state are the
+    stay as menu commands. `cmd_on_exit="look"` shows the room the character
+    stands in when the menu closes: for a character just made, the arrival
+    room, since `node_done` moves it there without hooks and this look is the
+    only one (Arrival AV-T2, AV4). Multiplayer: the menu and its saved state are the
     character's own, so ten first logins at once share nothing.
     """
     if character.db.chargen_complete is not False:

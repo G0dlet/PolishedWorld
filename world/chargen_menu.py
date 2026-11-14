@@ -43,6 +43,7 @@ import re
 
 from evennia.utils import logger
 
+from world import arrival
 from world import chargen
 from world import client_state
 from world import professions
@@ -342,15 +343,20 @@ def node_done(caller, raw_string, **kwargs):
     Order: refuse a finished character (this node writes the flag, so the
     guard lives here -- the helpers' own refusals key on other stamps);
     refuse an unknown profession; `apply_allocation` (refuses before its first
-    write); `grant_profession`; the flag; the `progress` baseline. A refusal
-    by `apply_allocation` changes nothing. A refusal by `grant_profession`
-    after the stats landed leaves the flag not set: the character has no
-    profession and no banked XP, so going `back` and confirming again may
-    apply again.
+    write); `grant_profession`; the flag; the `progress` baseline; arrival
+    (`arrival.arrive`: the arrival room becomes location and home, Arrival
+    AV-T2); the push of all four panels, after the move so the Location panel
+    shows where the character now stands (AV5). A refusal by
+    `apply_allocation` changes nothing. A refusal by `grant_profession` after
+    the stats landed leaves the flag not set: the character has no profession
+    and no banked XP, so going `back` and confirming again may apply again.
     Returning no options closes the menu, and `cmd_on_exit` shows the room:
     that happens on success and for a character already made. Every other
     refusal keeps the menu open with one option, `back` to the allocation
     (CC3.2 -- a closed menu would let an unmade character into the world).
+    Arrival never blocks the flag: on a database without the arrival room,
+    or if the move fails, `arrive` logs and the character is made where it
+    stands (AV6).
     """
     draft = kwargs.get("draft")
     key = kwargs.get("profession")
@@ -377,6 +383,8 @@ def node_done(caller, raw_string, **kwargs):
 
     caller.db.chargen_complete = True
     caller.snapshot_skill_baseline()
+    # Arrival AV-T2: after every refusal, before the push (AV5). Never raises.
+    arrival.arrive(caller)
     # W4.2: at_post_puppet pushed the placeholder values; these are final.
     client_state.push(caller, *client_state.DOMAINS)
     return (

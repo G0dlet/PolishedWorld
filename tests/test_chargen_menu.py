@@ -18,7 +18,9 @@ from evennia.utils.ansi import strip_ansi
 from evennia.utils.evmenu import EvMenu
 from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
+from world import chargen_menu, client_state, seed_data
 from world.chargen_menu import _parse_line
+from world.seeding import find_seeded, seed_world
 
 MENU = "world.chargen_menu"
 
@@ -81,13 +83,17 @@ class TestParseLine(EvenniaTestCase):
 class _MenuFixture(EvenniaTest):
     """Start the menu on char1 and capture what it says, ANSI stripped."""
 
+    # What the menu runs when it closes; the shipped menu runs "look"
+    # (world/chargen.py), which only Arrival's first-screen test needs.
+    on_exit = None
+
     def setUp(self):
         super().setUp()
         self.out = []
         patcher = mock.patch.object(self.char1, "msg", side_effect=self._capture)
         patcher.start()
         self.addCleanup(patcher.stop)
-        EvMenu(self.char1, MENU, startnode="node_allocate", cmd_on_exit=None)
+        EvMenu(self.char1, MENU, startnode="node_allocate", cmd_on_exit=self.on_exit)
 
     def _capture(self, text=None, *args, **kwargs):
         if isinstance(text, (tuple, list)):
@@ -299,3 +305,111 @@ class TestDoneRefuses(_MenuFixture):
         self.assertIs(self.char1.db.chargen_complete, True)
         self.assertEqual(self.state()["profession"], "tanner")
         self.assertEqual(self.state()["skills"]["craft"], (31, 31))
+
+
+# ---------------------------------------------------------------------------
+# Arrival (Arrival Decomposition, Task AV-T2; Newcomer Design Z1)
+# ---------------------------------------------------------------------------
+
+TEMPLE_KEY = "Old Temple"   # seed_data's key for alpha.room.temple, by hand
+
+
+class _SeededMenu(_MenuFixture):
+    """The menu on a seeded database: room1 stands in for Limbo, as in
+    tests/test_seeding.py, and char1's home is room1 until it is made."""
+
+    def setUp(self):
+        super().setUp()
+        seed_world(limbo=self.room1)
+        self.temple = find_seeded(seed_data.ARRIVAL_ROOM)
+        self.assertEqual(self.char1.home, self.room1)   # receipt: Limbo's stand-in
+
+    def where(self):
+        return self.char1.location, self.char1.home
+
+
+class TestDoneArrives(_SeededMenu):
+    """
+    Pressures AV-T2's placement: arrival after the last refusal (AVM5), before
+    the push (AVM6), and never for a character already made (AVM7).
+    """
+
+    def test_a_made_character_stands_in_the_temple_and_calls_it_home(self):
+        self.walk_to_last_confirm()
+        self.send("yes")
+        self.assertIs(self.char1.db.chargen_complete, True)
+        self.assertEqual(self.where(), (self.temple, self.temple))
+
+    def test_the_push_already_sees_the_temple(self):
+        # AV5: the Location panel's first real content is the temple.
+        seen = []
+        with mock.patch.object(
+            client_state, "push",
+            side_effect=lambda obj, *domains, **kw: seen.append((obj.location, domains)),
+        ):
+            self.walk_to_last_confirm()
+            self.send("yes")
+        self.assertIs(self.char1.db.chargen_complete, True)   # receipt: node_done ran
+        self.assertEqual(seen[-1], (self.temple, client_state.DOMAINS))
+
+    def test_an_unknown_profession_moves_nothing(self):
+        # Not reachable through the menu's options; node_done guards it anyway.
+        chargen_menu.node_done(self.char1, "", draft=dict(FIXTURE), profession="nobody")
+        self.assertFalse(self.char1.db.chargen_complete)
+        self.assertEqual(self.where(), (self.room1, self.room1))
+
+    def test_an_apply_refusal_moves_nothing(self):
+        self.char1.attributes.add("skill_xp", {"craft": 1})
+        self.walk_to_last_confirm()
+        self.assertIn("Nothing was changed", self.send("yes"))
+        self.assertEqual(self.where(), (self.room1, self.room1))
+
+    def test_a_grant_error_moves_nothing(self):
+        self.walk_to_last_confirm()
+        with mock.patch(
+            "world.professions.grant_profession", side_effect=ValueError("boom")
+        ):
+            self.send("yes")
+        self.assertFalse(self.char1.db.chargen_complete)
+        self.assertEqual(self.where(), (self.room1, self.room1))
+
+    def test_a_silent_grant_refusal_moves_nothing(self):
+        self.walk_to_last_confirm()
+        with mock.patch("world.professions.grant_profession", return_value=[]):
+            self.send("yes")
+        self.assertFalse(self.char1.db.chargen_complete)
+        self.assertEqual(self.where(), (self.room1, self.room1))
+
+    def test_a_character_already_made_is_not_moved(self):
+        self.char1.move_to(self.room2, quiet=True, move_hooks=False)
+        self.char1.db.chargen_complete = True
+        self.walk_to_last_confirm()
+        self.assertIn("already made", self.send("yes"))
+        self.assertEqual(self.where(), (self.room2, self.room1))
+
+
+class TestArrivalFirstScreen(_SeededMenu):
+    """
+    The shipped menu closes with `look`. With the move's hooks the temple
+    would be read twice (AV4); with no move it would be the stand-in Limbo.
+    """
+
+    on_exit = "look"
+
+    def test_the_temple_is_read_once_after_the_closing_line(self):
+        self.walk_to_last_confirm()
+        text = self.send("yes")
+        self.assertIn("Your character is made", text)
+        self.assertEqual(text.count(TEMPLE_KEY), 1)
+        self.assertIn("Weathered stone pillars", text)
+        self.assertLess(text.index("Your character is made"), text.index(TEMPLE_KEY))
+
+
+class TestDoneUnseeded(_MenuFixture):
+    """AV6: no arrival room, and the character is still made, where it stands."""
+
+    def test_made_where_it_stands(self):
+        self.walk_to_last_confirm()
+        self.assertIn("Your character is made", self.send("yes"))
+        self.assertIs(self.char1.db.chargen_complete, True)
+        self.assertEqual((self.char1.location, self.char1.home), (self.room1, self.room1))
