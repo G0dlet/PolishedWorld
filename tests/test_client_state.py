@@ -938,6 +938,8 @@ class TestPushCensus(EvenniaTest):
         ("world/healing.py", "accrue", "push"): 1,
         # Survival Loop S3.4: a collapse's recovery step
         ("typeclasses/characters.py", "_collapse_tick", "push"): 1,
+        # Arrival AV-T1: a hookless move (AV4) pushes both rooms, as death's does
+        ("world/arrival.py", "arrive", "push_room_soon"): 2,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the
