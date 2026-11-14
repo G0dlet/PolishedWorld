@@ -18,7 +18,6 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## In progress
 
-- Healing over time, real tiredness and drinking at the spring
 - The closed alpha
 
 ## Done
@@ -35,3 +34,4 @@ a top-level bullet under one of them, and anything else is ignored.
 - Death and recovering your body
 - A webclient with panels beside the text
 - A better-looking webclient: frames, icons and pictures
+- Healing over time, real tiredness and drinking at the spring

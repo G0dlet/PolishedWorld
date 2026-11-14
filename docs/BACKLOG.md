@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 109 · 2026-11-14** — the survival loop's close-out, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 14 (DONE; merged as `98fa60e`, PR #29, tagged `alpha-20261114`) and roadmap Rev 76. **Closed:** ***Waterskin `durability` → `condition` migration*** (S1.3), ***`DeathWeakness` debuff → `fatigue_rate`*** (S3.5) and ***Fatigue-exhaustion consequence*** (S3.1–S3.4) → DONE. **Added** (*Survival*): ***Survival loop tuning*** — OQ-S3's four values, OPEN until the alpha's close-out; ***A `rate` multiplier below ×1.5 is lost to the gauges' rounding*** — found at S3.1, OPEN until a decomposition adds or tunes a hunger or thirst rate; ***A collapsed body's instant commands*** — S3.4's C1, OPEN until Rest slice 2 or a combat consequence of a collapse. **Annotated:** *Webclient: players and NPCs apart, and active conditions* (SL13 shipped; part (2) stays on its second trigger) and *Persistent alpha instance* (L6.1 deploys `alpha-20261114`). Read before writing, for triggers that name Stage 4.6 (lesson 182): *An NPC guide driven by a language model — `rpg/llm`* and *Strangers by description — `rpg/rpsystem`* wait on the newcomer's economy note and the Names note, not on the stage's merge, and are left.
 > **Rev 108 · 2026-11-13** — one entry **added**, docs only, with survival loop decomposition Rev 5 (S1.2b shipped, OQ-S6 closed). **Added** (*Survival*): ***Eating and drinking past full*** — Adam's question after S1.2b's protocol: an overfull buff behind Cooking CP14's insisting form, with spoiled food and unclean water pointed at the homes they already have (CP14 and Foraging RP11; Water VP-L3); BLOCKED on CP14.
 > **Rev 107 · 2026-11-12** — four entries **annotated**, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 1 (roadmap Stage 4.6, locks SL1–SL13), roadmap Rev 75 and README Rev 55. ***Waterskin `durability` → `condition` migration*** (*Crafting*) is task S1.3, and the vessel is not mended (SL5); ***`DeathWeakness` debuff → `fatigue_rate`*** BLOCKED → SCHEDULED (S3.5, SL12); ***Fatigue-exhaustion consequence*** OPEN → SCHEDULED, its 2026-10-18 open questions closed by SL8–SL11; ***Webclient: players and NPCs apart, and active conditions*** — trigger (2) fired and is answered narrowly (SL13), the entry stays OPEN on its other triggers. No entry added.
 > **Rev 106 · 2026-11-12** — one entry **added** and four **annotated**, docs only, with webclient visual decomposition Rev 11 (DONE) and roadmap Rev 74. **Added** (*UX & Item Identity*): ***Webclient art: possible later revisions*** — the frames' band and corners, the spring and summer icons' silhouettes, and richer banners and header toward `webclient_03`, which ChatGPT's reviews named and the closed decomposition can no longer hold; OPEN, triggered by a second visual pass or a visible problem with an acceptance criterion (art style guide §5, Rev 9). **Annotated**, the triggers that named the visual pass's merge (read before writing, lesson 182): *Persistent alpha instance* (L6.1 deploys `alpha-20261112`); *Waterskin `durability` → `condition` migration* and *Fatigue-exhaustion consequence* (Stage 4.6 is next); *Webclient: mockup elements without server data* (parts 1–2 wait only on someone asking).
@@ -413,7 +414,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (`commands/repair_commands.py:103`, `:121`), so the migration alone would
   make the gourd mendable and close its sink — a vessel refuses `repair`.
   `db.durability` is not migrated (no backfill; no instance is deployed).
-- **Status:** OPEN
+- **Annotation (2026-11-14, closed — survival loop decomposition Rev 14):**
+  shipped as S1.3, `0350ac0`, merged in `98fa60e` (PR #29). `Drink` is a
+  `DurableObject`: a fill wears `REFILL_WEAR = 8`, a crafted skin starts at
+  96/80/48/24 by band (`world/recipes.py`, `_WATERSKIN_STATS_BY_BAND`), and
+  the split on the dip after the last fill reads `is_broken`. `repair`
+  refuses a vessel through `mendable = False`, with its existing *You can't
+  mend …* line (SL5). `db.durability` is no longer read, and a skin made
+  before reads 100 (SL4). The wear of 8 is filed in *Survival loop tuning*.
+- **Status:** DONE (`0350ac0`, merged in `98fa60e`; survival loop S1.3, decomposition Rev 6)
 
 ### Hunt-independent needle primitive
 - **What:** A gatherable needle primitive (e.g. a `thorn`/`stick` needle) so the
@@ -1671,7 +1680,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   awake clock after S3.3, so over the buff's 300 s the mod is worth about 75
   seconds of a day measured in hours — the level is the consequence, and the
   mod gains weight with Rest slice 2 or Temperature's *Exposed*.
-- **Status:** SCHEDULED (survival loop decomposition, S3.5)
+- **Annotation (2026-11-14, closed — survival loop decomposition Rev 14):**
+  shipped as S3.5, `91a3401`, merged in `98fa60e` (PR #29). `DeathWeakness`
+  keeps its name, lines and 300 s with one mod, `fatigue_rate` mult 0.25
+  (`world/survival_buffs.py`); respawn writes fatigue 40
+  (`world.fatigue.RESPAWN_AT`, the top of Wearied) and resets the awake
+  clock; the death message and `help death` say *Rest mends the weariness
+  that comes with it.* (`death_contract.REST_LINE`). The *about 75 seconds*
+  above holds as an average, not per death: the survival tick runs every
+  600 real seconds and the buff lasts 300, so zero or one tick falls inside
+  it, and that tick's 2400 game seconds count as 3000.
+- **Status:** DONE (`91a3401`, merged in `98fa60e`; survival loop S3.5, decomposition Rev 13)
 
 ---
 
@@ -1846,7 +1865,22 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   slice 1 has no `sleep`, so `rest` stays as shipped and a full rest resets
   the awake clock (SL10) — in this slice a level costs minutes. The awake
   clock's Athletics tests do not train the skill (SL9).
-- **Status:** SCHEDULED (survival loop decomposition, S3.1–S3.4)
+- **Annotation (2026-11-14, closed — survival loop decomposition Rev 14):**
+  shipped as S3.1–S3.4 (`60ed70f`, `07a42ca`, `af98f8d`, `f522581`), merged
+  in `98fa60e` (PR #29). `world/fatigue.py` holds the six levels
+  (Debilitated 0 … Fresh 81–100) and their penalties, read through
+  `fatigue_desc()` by `status`, `sheet`, the client and the warning; the
+  penalty adds in `physical_modifier()` beside overload's. The tick no
+  longer drains the gauge: it advances `db.awake_seconds` by `fatigue_rate`,
+  and past (10 + CON) game hours each hour rolls Athletics, a failure
+  costing twenty points; a rest to full resets the clock. At Debilitated
+  each tick rolls a Difficult test, and a failure is a collapse:
+  `db.collapsed`, a forced rest to `COLLAPSE_WAKE_AT = 41` that refuses a
+  walk through an exit, eating, drinking, `empty` and timed actions,
+  survives a reload and a relog, and ends on death. What it leaves open is
+  filed as its own entries: *A collapsed body's instant commands* and
+  *Survival loop tuning*.
+- **Status:** DONE (`60ed70f`, `07a42ca`, `af98f8d`, `f522581`, merged in `98fa60e`; survival loop S3.1–S3.4, decomposition Revs 9–12)
 
 ---
 
@@ -1979,6 +2013,70 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   its buff land there, and this rides on them.
 - **Origin:** Session 2026-11-13, Adam, after S1.2b's in-game protocol.
 - **Status:** BLOCKED (Cooking CP14's `anyway` form)
+
+### Survival loop tuning
+- **What:** The values Stage 4.6 set by reasoning, none of them by play
+  (survival loop decomposition OQ-S3): **45 at the source** —
+  `world/water.py` `SOURCE_DRAUGHTS = 3` of `DRAUGHT = 15` (Water VQ8); a
+  waterskin's **wear of 8 a fill** — `Drink.REFILL_WEAR`
+  (`typeclasses/consumables.py`), with crafted skins starting at
+  96/80/48/24 by band (`world/recipes.py`, `_WATERSKIN_STATS_BY_BAND`),
+  which keeps the old 12/10/6/3 fills; the **collapse's end** —
+  `world/fatigue.py` `COLLAPSE_WAKE_AT = 41`, about ninety real seconds of
+  the shipped `rest`, a placeholder Rest slice 2 replaces with the place's
+  row; and the **healing rows** — `world/healing.py` `ROWS` and
+  `FASTEST_HOURS`, Legend's table (core p. 86) at the 4× clock, with time
+  away credited at login (SL7).
+- **Why deferred:** Balance-tuning, not a mechanic gap; the alpha is the
+  first play to tune against.
+- **Trigger:** The alpha's close-out (Launch Minimum LM10): the testers'
+  reports, and the activity log's `consume` lines for drinking at the
+  spring.
+- **Origin:** `docs/PolishedWorld_Survival_Loop_Decomposition.md` OQ-S3,
+  archived at S4.2 (2026-11-14).
+- **Status:** OPEN
+
+### A `rate` multiplier below ×1.5 is lost to the gauges' rounding
+- **What:** Evennia's `GaugeTrait.current` rounds on read when the trait's
+  `base` is an int (`traits.py`, `_update_current`), so each write drops
+  the fraction, and the survival tick's drain (`world/survival_ticker.py`,
+  `BASE_RATES` times `buffs.check(base, "<gauge>_rate")`) moves a gauge
+  by the drain rounded. Hunger's base is 1 a tick, so a multiplier below
+  ×1.5 changes nothing: one `ColdStress` stack (×1.08) took hunger
+  60 → 59 → 58 → 57 → 56 → 55, as with none. By the same arithmetic, not
+  observed: `ColdStress` does nothing to hunger below seven stacks
+  (×1.56), where the step doubles; thirst's base of 2 is rounded the same
+  way (one `HeatStress` stack, ×1.1, still drains 2). The thermal buffs'
+  hunger and thirst mods act in steps, not by degrees. Fatigue is outside
+  it since S3.3: the awake clock counts seconds in `db`, not in a trait.
+- **Why deferred:** Found at S3.1 (survival loop decomposition, lock B3)
+  while reading how the gauges round; no task tunes these mods yet, and a
+  fix — a remainder carried per gauge, as `db.heal_progress` carries
+  healing's — touches every gauge write and the push census
+  (`tests/test_client_state.py`).
+- **Trigger:** The first decomposition that adds or tunes a `hunger_rate`
+  or `thirst_rate` mod — Temperature slice 1 or Cooking's well-fed buff —
+  or *Survival loop tuning*, whichever comes first.
+- **Origin:** Survival loop decomposition S3.1 (Rev 9), at Adam's request,
+  2026-11-13.
+- **Status:** OPEN
+
+### A collapsed body's instant commands
+- **What:** A collapse (survival loop SL11) refuses a walk through an exit,
+  `eat`, `drink`, `empty` and every timed action
+  (`Character.refuse_if_collapsed()`, `typeclasses/characters.py`). The
+  instant commands go through — `hunt`, `harvest`, `forage`, `repair`,
+  `disassemble`, `scribe`, `refill` and `get` — for the ninety-odd seconds
+  a collapse lasts: a body that cannot carry itself can still strike at a
+  rabbit or mend a tool.
+- **Why deferred:** S3.4 locked SL11's list as written (C1). Which of these
+  a collapse should stop depends on what it becomes — a sleep-like state
+  in Rest slice 2, a defenceless body once combat reads it — and ninety
+  seconds is short enough to wait.
+- **Trigger:** The Rest slice 2 decomposition, or the first combat
+  consequence of a collapse, whichever comes first.
+- **Origin:** Survival loop decomposition S3.4, lock C1 and §11 (Rev 12).
+- **Status:** OPEN
 
 ---
 
@@ -3342,6 +3440,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   active buffs — a text home, `conditions` in `char`, the pushes — is not
   built; part (2) stays on its second trigger (*an alpha player asks what is
   affecting them*), part (1) is unchanged.
+- **Annotation (2026-11-14, survival loop close-out):** SL13 shipped as
+  S3.1 (`60ed70f`, merged in `98fa60e`): `status` prints the level with its
+  penalty (*- wearied (-30% to physical tests)*), and `sheet` and the
+  survival panel show the level's word. Part (2) stays OPEN on its second
+  trigger; part (1) is unchanged.
 - **Status:** OPEN
 
 ### Webclient art: possible later revisions
@@ -3669,6 +3772,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   L6.1 checks out **`alpha-20261112`** (annotated, on `ea41a0f`, PR #28, tree
   `43de079`), which ships the webclient and its visual pass; runbook §7, Rev 8.
   The pass adds static files only; the TLS note above stands.
+- **Annotation (2026-11-14, survival loop close-out):** the survival loop
+  landed first, so L6.1 checks out **`alpha-20261114`** (annotated, on
+  `98fa60e`, PR #29, tree `2271ab3`), which ships the survival loop on top
+  of the webclient and its visual pass; runbook §7, Rev 9. The loop adds no
+  ticker and no migration; the TLS note above stands.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones
