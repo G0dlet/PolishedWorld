@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 15 · 2026-11-14** — seven systems **added** to the queue, docs only, with README Rev 57: after the newcomer note Adam was asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — grown from the newcomer note's open edges, the first hour as a source of systems. They are marked *, ahead of the bracket line: arrival & first impressions; the help system & the game's own voice; how knowledge spreads; porters & errand runners; the temple's chores as real objects; a veteran's second character; the welcome. The Newcomer note is on origin as `c31650b`, tree `fac932a`. No document, prefix or tie-in changed.
 > **Rev 14 · 2026-11-14** — a twenty-first note, docs only, with roadmap Rev 77, BACKLOG Rev 110 and README Rev 56: `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1, the queue's *the newcomer's economy\**, written after Stage 4.6 (Survival loop) shipped, as decided in Rev 2, with Adam's question whether PolishedWorld wants a newbie school. The prior art supported the chat's earlier leaning — the school's function, not its form — and gave it its lesson, A Tale in the Desert's Welcoming Island debate. Adam answered the proposal with a bare "kör", so its questions are NCQ1–NCQ4 with the chat's leanings; NCQ5–NCQ11 were found while writing, among them that a new character's first room is Evennia's Limbo (Z1). *Where we are*, *This session* (Adam picks from the queue; the roadmap's next step is Stage 5's design session), the prefixes (stem NC; departure rows Z), the queue (the newcomer's entry leaves; pointers on two others), the tie-ins and the gotchas are updated.
 > **Rev 13 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 50: after the projectile note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the projectile note's open edges, the hunt and the bow as a source of systems. They are marked *, ahead of the bracket line: falconry & hawking; nets & netting; hides, blinds & tree stands; traps, pits & deadfalls; practice yards & training dummies; shields & bucklers; game seasons & hunting rights. No document, prefix or tie-in changed.
 > **Rev 12 · 2026-11-10** — a twentieth note, docs only, with roadmap Rev 70, BACKLOG Rev 97 and README Rev 49: `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1, written off the queue at Adam's request — how PolishedWorld should handle projectiles. It takes the mechanic half of the queue's *bowyery & fletching\**, which keeps the crafts. The chat drafted the design first, outside the method, and Adam asked whether this file had been followed; it had not — prior art and STOPP 1 were skipped. The prior art read afterwards changed four proposals, and the draft's claims about wind and light were wrong (neither exists in code). The method gains a gotcha for it. New prefix stem RW (RWP/RWQ/RWG), because no single letter is left; departure rows Y.
@@ -90,8 +91,8 @@ nothing locked. One docs patch for `main` per session.
   *Next* names Stage 5's design session), BACKLOG Rev 110 (annotations on
   *First-steps hints*, *An NPC guide driven by a language model* and *Faucet
   task-table tuning*), README Rev 56 and this file Rev 14. Code read at `main`
-  `c4f8d0b`; Evennia at `v6.1.0`. Confirm with a fresh clone that Adam pushed
-  it; the tree is the receipt.
+  `c4f8d0b`; Evennia at `v6.1.0`. On origin as `c31650b`, tree `fac932a`
+  (confirmed in a fresh clone, 2026-11-14).
 - Catalogue loop 59/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
@@ -786,12 +787,44 @@ Claude's additions*:
 - game seasons & hunting rights* (who may hunt where and when: closed seasons,
   overhunting, keeping game, players' own rules with no NPC wardens; Hunting
   TP9–TP10, stock and pressure; settlements & commons; law/crime/bounties)
+- arrival & first impressions* (character creation's last step as a scene: where
+  a new character wakes and what the room says first, Newcomer Z1/NCP3; the
+  arrival line others read, Newcomer §15, per reader, Names UP10; the description
+  step, Names UP1; what a newcomer wears, Newcomer NCQ7; temples & faith)
+- the help system & the game's own voice* (`help` as the game speaking: four
+  project entries today, HANDOFF gotchas; hints listed by `hints`, Newcomer
+  NCP7/NCQ10; one marked style for what is not the world's text, NCP8; what a
+  help entry may state when hints state no numbers, NCP6; a screen-reader pass,
+  BACKLOG; channels, tells & the out-of-character line*)
+- how knowledge spreads* (scrolls placed once and consumed, Newcomer NCP21/NCQ3;
+  copies by `inscribe` and `scribe`; what happens when a recipe's only knower
+  leaves — a lost craft, or a staff reseed; overlaps books, libraries & lore
+  keeping* and apprenticeship & skill teaching — decide whether they merge)
+- porters & errand runners* (carrying for others as a trade a newcomer can take
+  on day one, Newcomer NCP17; payment on delivery and the trust it needs; overlaps
+  carts, wheelbarrows & hauling* and letters, couriers & notice boards — decide
+  whether they merge)
+- the temple's chores as real objects* (the broom, the basin, the candle racks:
+  today five chores are text and coin, `commands/work_commands.py:173`; a filled
+  basin as water, lit candles as light, Light LQ13; the chore that names a well,
+  Newcomer Z2; whether the faucet's work should make anything, Newcomer NCP18;
+  temples & faith)
+- a veteran's second character* (what carries over between a player's
+  characters and what must not: hints off, Newcomer NCQ9; knowledge and coin
+  passed between one's own characters as a second faucet, Character Creation
+  CC3; `MAX_NR_CHARACTERS`, Launch Minimum LM7; households, kin & family names*)
+- the welcome* (what the players already there see and can do when a stranger
+  arrives: the first lesson and the first name, Newcomer NCP20/NCP24; no flag
+  marks the new, Newcomer NCP1; the retention finding that invited friends stay,
+  Newcomer §2.5; overlaps hospitality & guest-right* — decide whether they merge)
 - [Adam approved the seventeen above on 2026-11-09 and likes systems that make the
   world feel immersive and alive; seven were added after the homunculus note the
   same day, at his request (Rev 6), seven after the names note on 2026-11-10
   (Rev 9), seven after the atlas note the same day (Rev 11), the land itself as
-  a source of systems, and the seven before this line after the projectile note
-  the same day (Rev 13), the hunt and the bow as a source of systems; ask again "more systems for the queue?" at the end of
+  a source of systems, seven after the projectile note the same day (Rev 13),
+  the hunt and the bow as a source of systems, and the seven before this line
+  after the newcomer note on 2026-11-14 (Rev 15), the first hour as a source of
+  systems; ask again "more systems for the queue?" at the end of
   the next session]
 
 Last:
