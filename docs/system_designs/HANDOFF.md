@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 14 · 2026-11-14** — a twenty-first note, docs only, with roadmap Rev 77, BACKLOG Rev 110 and README Rev 56: `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1, the queue's *the newcomer's economy\**, written after Stage 4.6 (Survival loop) shipped, as decided in Rev 2, with Adam's question whether PolishedWorld wants a newbie school. The prior art supported the chat's earlier leaning — the school's function, not its form — and gave it its lesson, A Tale in the Desert's Welcoming Island debate. Adam answered the proposal with a bare "kör", so its questions are NCQ1–NCQ4 with the chat's leanings; NCQ5–NCQ11 were found while writing, among them that a new character's first room is Evennia's Limbo (Z1). *Where we are*, *This session* (Adam picks from the queue; the roadmap's next step is Stage 5's design session), the prefixes (stem NC; departure rows Z), the queue (the newcomer's entry leaves; pointers on two others), the tie-ins and the gotchas are updated.
 > **Rev 13 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 50: after the projectile note Adam asked, as after every design note, for more systems for the queue, and approved all seven Claude suggested — most grown from the projectile note's open edges, the hunt and the bow as a source of systems. They are marked *, ahead of the bracket line: falconry & hawking; nets & netting; hides, blinds & tree stands; traps, pits & deadfalls; practice yards & training dummies; shields & bucklers; game seasons & hunting rights. No document, prefix or tie-in changed.
 > **Rev 12 · 2026-11-10** — a twentieth note, docs only, with roadmap Rev 70, BACKLOG Rev 97 and README Rev 49: `docs/system_designs/PolishedWorld_Projectile_Design.md` Rev 1, written off the queue at Adam's request — how PolishedWorld should handle projectiles. It takes the mechanic half of the queue's *bowyery & fletching\**, which keeps the crafts. The chat drafted the design first, outside the method, and Adam asked whether this file had been followed; it had not — prior art and STOPP 1 were skipped. The prior art read afterwards changed four proposals, and the draft's claims about wind and light were wrong (neither exists in code). The method gains a gotcha for it. New prefix stem RW (RWP/RWQ/RWG), because no single letter is left; departure rows Y.
 > **Rev 11 · 2026-11-10** — seven systems **added** to the queue, docs only, with README Rev 48: after the atlas note Adam asked, as after every design note, for more systems for the queue, and asked for them to be added in the same breath. They are Claude's suggestions, most grown from the atlas note's open edges — the land itself as a source of systems — marked *, ahead of the bracket line: caves, overhangs & natural shelter; mountains, passes & the high ground; bogs, fens & peat; shore, strand & beachcombing; wildlife ranges & seasonal movement; expeditions & the opening frontier; haunted places & sacred sites. No document, prefix or tie-in changed.
@@ -24,8 +25,10 @@ nothing locked. One docs patch for `main` per session.
   and a seventeenth, Homunculi, were written off the queue at Adam's request
   (2026-11-09); an eighteenth, Names, was written next by decision
   (2026-11-10); a nineteenth, Atlas, off the queue at Adam's request the same
-  day, and a twentieth, Projectiles, the same way. To resume, paste this
-  file as the first message of a new design chat.
+  day, and a twentieth, Projectiles, the same way; a twenty-first, the
+  newcomer's economy, in the order the roadmap set, after Stage 4.6
+  (2026-11-14). To resume, paste this file as the first message of a new
+  design chat.
 - Fifteen documents: Fishing, Housing, Hunting, Cooking, Temperature, Farming,
   Textiles, Water, Foraging, Light, Forest, Rendering, Pottery, Rest, Storage, in
   `docs/system_designs/PolishedWorld_*_Design.md` (all Rev 2 — Rev 1 plus the move;
@@ -79,48 +82,50 @@ nothing locked. One docs patch for `main` per session.
   `v6.1.0`. Drafted first as a Claude Doc outside the method; the repo note is
   the canonical one. Confirm with a fresh clone that Adam pushed it; the tree is
   the receipt.
-- Catalogue loop 55/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Twenty-first: Newcomer (the newcomer's economy — no school zone, the six
+  seeded rooms as the school, first-steps hints as a mechanism, the first
+  hour's ledger, first goods and their buyer, the scrolls, the guide) as
+  `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1, with roadmap
+  Rev 77 (new parallel-backlog entry *The newcomer's economy*; *Nuläge* →
+  *Next* names Stage 5's design session), BACKLOG Rev 110 (annotations on
+  *First-steps hints*, *An NPC guide driven by a language model* and *Faucet
+  task-table tuning*), README Rev 56 and this file Rev 14. Code read at `main`
+  `c4f8d0b`; Evennia at `v6.1.0`. Confirm with a fresh clone that Adam pushed
+  it; the tree is the receipt.
+- Catalogue loop 59/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
   VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
-  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG, RWP/RWQ/RWG (+ RWP-L1–L7, WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG, RWP/RWQ/RWG, NCP/NCQ/NCG (+ NCP-L1–L5, RWP-L1–L7, WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
   NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7, UP-L1–L3, QP-L1–L4…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
   temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
-  X1–X2 comfort, K1–K9 names, Y1–Y6 projectiles; Rendering, Pottery, Storage, Homunculi and Atlas have none). OQ is taken. HP
+  X1–X2 comfort, K1–K9 names, Y1–Y6 projectiles, Z1–Z2 newcomer; Rendering, Pottery, Storage, Homunculi and Atlas have none). OQ is taken. HP
   avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
   webclient tasks are W1.1-style. No single letter is left for a prefix family:
   every free one reads as a Legend or engine word (AP, HP, MP — Legend's Magic
   Points — SP, XP) or is taken (IP, OQ); Projectiles used the two-letter stem RW
-  (RWQ16), and the next note takes a two-letter stem too. Free single letters for
-  departure rows: V (reads as Water), P and Z (0 hits on 2026-11-10) — K went to
-  Names, Y to Projectiles; regrep a new one. Checked free before Names:
+  (RWQ16), Newcomer took NC, and the next note takes a two-letter stem too —
+  NW, FH, AR, FS and NE had 0 hits on 2026-11-14. Free single letters for
+  departure rows: V (reads as Water) and P (0 hits on 2026-11-14; the Trivial
+  Work decomposition's P-3 and P-7 are hyphenated) — K went to Names, Y to
+  Projectiles, Z to Newcomer; regrep a new one. Checked free before Names:
   QP/QQ/QG (0 hits; Q went to Atlas); IP is taken by the runbook's IP-ban — regrep before use. For a new prefix, grep `\b<XX>[0-9-]` across docs/ world/ commands/
   typeclasses/ server/.
 
 ## This session: Adam picks from the queue
-Names is done (Rev 8): `docs/system_designs/PolishedWorld_Names_Design.md`. Its
-code is Stage 5's first slice, after that stage's design session — not beside
-the webclient, not in the alpha.
+Newcomer is done (Rev 1): `docs/system_designs/PolishedWorld_Newcomer_Design.md`.
+Nothing in it is decided. Its small slice (the first room, Z1; the chore that
+names a well, Z2) is any small session's; its hints wait for the alpha's reports;
+its first-goods questions wait for the economy milestone. Ask Adam whether Z1
+was confirmed on a running instance (NCQ5): it was read in source only.
 
-**Next, decided 2026-11-09 (roadmap Rev 61, decision log *Order after the
-webclient*): the newcomer's economy\*** — written after roadmap Stage 4.6 (Survival loop) ships, so
-its first steps can read drinking at the spring and natural healing as live code.
-Adam's question goes with it: should PolishedWorld have a newbie school, as many
-MUDs have had? Claude's leaning from that chat, nothing decided: keep the school's
-function, not its classic form — no separate zone and no handouts (chargen gives no
-money or gear, pillar 1; a separate zone keeps newcomers from the few players
-there are; its script rots with every system change), but the starter settlement
-as the school: a short path of real rooms with the free nodes, one verb learned by
-doing it for real, hints that fire once (BACKLOG *First-steps hints*). Read the
-prior art on mud schools and tutorial areas before weighing that leaning. Read
-Comfort Design first: the temple is the first haven and its threshold the first a
-newcomer crosses (EP9, EP14), and EP2's three questions apply to a first hour too.
-Read Names Design too: a newcomer sees everyone as a description and is seen as
-one; one first-steps hint teaches `introduce` and `recog` (UP23); the description
-is composed at character creation (UP1), a step the first hour passes through.
+**The roadmap's next step is not a series note:** Stage 5's design and
+source-verification session (roadmap *Nuläge* → *Next*, Rev 77; decision log
+*Order after the webclient*, step (4)). A series chat happens when Adam asks for
+one, and he picks the system.
 
-After it, the previous leaning: lodging & safe logout — best beside Stage 5's
+The previous leaning stands: lodging & safe logout — best beside Stage 5's
 design session, since the statue's safety becomes a combat question. Rest NQ18 leans
 that it owns inns, beds for rent and the statue's safety (Rest NP13/NP19); Storage
 DP16/DQ2 adds the statue as a stasis larder (Cooking CP9), bounded by one body's load
@@ -143,7 +148,8 @@ Queue:
 - temples & faith (+ burial and graves*, beside the shipped death contract; AoL
   great font :268; the temple's candles as real objects, Light LQ13 — tallow from
   Rendering ZP5; the temple's straw pallets, Rest NP12; the temple as the first
-  haven, Comfort EP9)
+  haven, Comfort EP9; the temple as a newcomer's first room and its description
+  showing what `learn` and `work` act on, Newcomer Z1/NCP3–NCP4)
 - guilds
 - law/crime/bounties (player justice, no NPC guards; Foraging §2.1; charcoal taken
   from another's clamp, Forest YQ3; ash or fat taken from another's fire, Rendering
@@ -174,7 +180,9 @@ From the suggestion files:
 - apprenticeship & skill teaching (core pp. 71–72; Craft only from a teacher, p. 73;
   a collier profession or scroll for the clamp, Forest YQ16; candle, pemmican and
   lye recipe sources, Rendering ZQ17; pottery recipe sources, Pottery PQ12; the
-  bedroll's recipe source, Rest NQ10; bin and trap recipe sources, Storage DQ15)
+  bedroll's recipe source, Rest NQ10; bin and trap recipe sources, Storage DQ15;
+  a lesson as a newcomer's first purchase and the seeded scrolls that run out,
+  Newcomer NCP14/NCP20–NCP21/NCQ3; Legend's 20 % rule left to this note, NCP-L5)
 - predators (the reverse hunt; Stage 5 for teeth; bear SIZ 3D6+15, MoL p. 104, as a
   big fat and hide source — the deer is fat's first, Rendering ZP1; what a night
   watch guards against, Rest NP18)
@@ -313,12 +321,6 @@ Claude's additions*:
   weight makes distance cost, roadmap (E); a place in the next kiln load, Pottery
   §13, or a neighbour's cellar, Storage §13; overlaps contracts, seals &
   reputation — decide which doc owns it)
-- the newcomer's economy* (what a character with nothing can make and sell on
-  day one, and to whom; the alpha measures onboarding, roadmap (G1); BACKLOG
-  *First-steps hints*; the free nodes as the floor — deadfall, Forest YG4,
-  Foraging RG3, clay, Pottery PP14, the temple's pallets, Rest NP12; the
-  trivial-work band so a veteran does not undercut the newcomer's first goods;
-  ties apprenticeship & skill teaching)
 - orchards, nut trees & grafting* (perennial standards that bear fruit rather
   than wood, after Forest YP4's stands; years to first crop on Farming GP2's
   growing index; grafting as a skill and a service; fruit dried on Cooking
@@ -802,6 +804,27 @@ Last:
 
 After the doc, ask whether there are more systems to add to the queue.
 
+Tie-ins already written. Newcomer (NCP…): lesson slot = A Tale in the Desert's
+Welcoming Island debate (the Bastet chat on `atitd.wiki`) — an island isolates
+newcomers from the community that keeps them, what is built there is torn down,
+one new player an hour is too few to wait for; the tutorial moved to popups
+during the real first tasks. Aardwolf: an optional academy inside the world,
+rewards forfeited by skipping. Discworld and Achaea: places apart, rewritten
+with the game. Wurm: veterans let in; leaving the starter place unsolved.
+Armageddon: no school; invited friends stay. UO: the Young flag, not taken.
+NCG1 the first hour is the game; NCG3 a newcomer starts among the players there
+are; NCG4 nothing handed out (CC3); NCG5 nothing here rots. NCP1 no school
+zone; NCP2 the stone axe's three rooms are the curriculum; NCP3 the first room
+is the temple; NCP4 rooms say where, hints say what a verb does; NCP5–NCP11
+hints as a mechanism — one line, once, a verb and never a place or number,
+`hints`/`hints off`, logged; NCP10 nine candidate events, the list is the
+alpha's; NCP12 the ledger — thirst empties in 8 h 20 min of play, hunger in
+16 h 40 min, 170 copper in two minutes; NCP16 the trivial-work band makes the
+veteran the first customer; NCP18 the temple buys nothing; NCP21 the fifteen
+scrolls are placed once; NCP22 no rules guide from a language model. Z1–Z2
+departures; NCQ5 the Limbo start unconfirmed live; NCQ6 hints and the alpha's
+fifth criterion.
+
 Tie-ins already written. Projectiles (RWP…): lesson slot = MUME's `recover`
 (Achaea has none: archery is class skills and artefact bows) — recover from
 floor and corpse, `recover all` takes anyone's, missiles break more on the
@@ -1069,7 +1092,7 @@ storage own no raw material.
 9. End by presenting the updated `docs/system_designs/HANDOFF.md` from the patch;
    it is the next chat's prompt.
 
-## Gotchas (all twenty sessions)
+## Gotchas (all twenty-one sessions)
 - Follow the method from step 1 even when a chat starts as a plain request for a
   document: the projectile note was drafted before prior art and STOPP 1, and the
   prior art then changed four proposals (Projectile Rev 1). A draft written
@@ -1295,3 +1318,34 @@ storage own no raw material.
   fetch of the old `modules/io/export-json.js` path returns nothing. `git clone --depth 1` from github.com works in
   the sandbox. The legacy `pack.cells` field names (`h`, `r`, `fl`, `g`) are
   unchanged in the JSON export.
+- A new character's first room: `START_LOCATION` and `DEFAULT_HOME` are not set
+  in `server/conf/settings.py`, so Evennia's `"#2"` holds
+  (`evennia/settings_default.py:623`, `:625` at 6.1.0) — Limbo, whose description
+  is Evennia's stock welcome (`evennia/server/initial_setup.py:29`, `:115`). The
+  world is one one-way exit `temple` away (`world/seed_data.py:160–161`); the
+  runbook has the statue in Limbo (`docs/PolishedWorld_Alpha_Runbook.md:46`).
+  Read in source on 2026-11-14, not seen live (Newcomer Z1, NCQ5).
+- Onboarding text today: four project help entries — `alpha`
+  (`world/alpha_contract.py:75`), `chargen` (`world/chargen.py:391`), `death`
+  (`world/death_contract.py:149`), `evennia` (`world/help_entries.py:39`) — and
+  each command's own help. No hint mechanism anywhere in code.
+- A first hour in numbers: gauges start at 100
+  (`typeclasses/characters.py:288–320`); `BASE_RATES` hunger 1, thirst 2 a tick
+  (`world/survival_ticker.py:23`), `SURVIVAL_TICK_INTERVAL = 600`
+  (`server/conf/at_server_startstop.py:27`); the five chores pay 170 copper for
+  110 s of work on 3600/7200 s cooldowns (`commands/work_commands.py:173–225`).
+  Twelve ungated recipes, six at floor 0; from the free nodes without a tool:
+  twine, waterskin, stone knife, stone axe, sling bullet, milling stones (floor
+  20). The bone needle needs bone, the sling leather (gated). `teach` is free:
+  `TEACH_TIMEOUT = 60`, `TEACH_COOLDOWN = 120`
+  (`commands/crafting_commands.py:133`, `:147`). `pay` is
+  `commands/currency_commands.py:173`; trading is `world/barter.py`.
+- `/mnt/project/Legend.pdf` is UTF-8 text, not a PDF: `pdftotext` fails on it
+  (no xref table). Read it by lines in Python, as step 3 says. Legend refs added
+  by Newcomer: starting Equipment p. 35 (clothes, mementoes, a week's food, one
+  weapon), Teachers and Mentors p. 72 (20 % more in the skill), Odd Jobs
+  pp. 84–85.
+- Prior-art fetches that worked on 2026-11-14: `atitd.wiki` chat archives,
+  `achaea.com/game/helpview?id=1014`, `aardwolf.com/wiki` help pages (search
+  snippets were enough), Wurm's *State of Wurm* through a Steam-news mirror.
+- A session-start question answered without the word "kör" is not a go: ask.

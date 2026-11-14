@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 110 · 2026-11-14** — three entries **annotated**, docs only, with `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1 (the newcomer's economy design note), roadmap Rev 77, README Rev 56 and the series handoff Rev 14. ***First-steps hints*** (*UX & Item Identity*) gains the note's mechanism and candidate events and stays BLOCKED on alpha reports; ***An NPC guide driven by a language model — `rpg/llm`***, whose trigger the note was, gains its leaning — no rules guide from a model — and what is left for Adam to decide; ***Faucet task-table tuning (`TEMPLE_TASKS`)*** gains two findings, the chore that names a well and coin with nothing to buy. No entry closed and no Status changed.
 > **Rev 109 · 2026-11-14** — the survival loop's close-out, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 14 (DONE; merged as `98fa60e`, PR #29, tagged `alpha-20261114`) and roadmap Rev 76. **Closed:** ***Waterskin `durability` → `condition` migration*** (S1.3), ***`DeathWeakness` debuff → `fatigue_rate`*** (S3.5) and ***Fatigue-exhaustion consequence*** (S3.1–S3.4) → DONE. **Added** (*Survival*): ***Survival loop tuning*** — OQ-S3's four values, OPEN until the alpha's close-out; ***A `rate` multiplier below ×1.5 is lost to the gauges' rounding*** — found at S3.1, OPEN until a decomposition adds or tunes a hunger or thirst rate; ***A collapsed body's instant commands*** — S3.4's C1, OPEN until Rest slice 2 or a combat consequence of a collapse. **Annotated:** *Webclient: players and NPCs apart, and active conditions* (SL13 shipped; part (2) stays on its second trigger) and *Persistent alpha instance* (L6.1 deploys `alpha-20261114`). Read before writing, for triggers that name Stage 4.6 (lesson 182): *An NPC guide driven by a language model — `rpg/llm`* and *Strangers by description — `rpg/rpsystem`* wait on the newcomer's economy note and the Names note, not on the stage's merge, and are left.
 > **Rev 108 · 2026-11-13** — one entry **added**, docs only, with survival loop decomposition Rev 5 (S1.2b shipped, OQ-S6 closed). **Added** (*Survival*): ***Eating and drinking past full*** — Adam's question after S1.2b's protocol: an overfull buff behind Cooking CP14's insisting form, with spoiled food and unclean water pointed at the homes they already have (CP14 and Foraging RP11; Water VP-L3); BLOCKED on CP14.
 > **Rev 107 · 2026-11-12** — four entries **annotated**, docs only, with `docs/PolishedWorld_Survival_Loop_Decomposition.md` Rev 1 (roadmap Stage 4.6, locks SL1–SL13), roadmap Rev 75 and README Rev 55. ***Waterskin `durability` → `condition` migration*** (*Crafting*) is task S1.3, and the vessel is not mended (SL5); ***`DeathWeakness` debuff → `fatigue_rate`*** BLOCKED → SCHEDULED (S3.5, SL12); ***Fatigue-exhaustion consequence*** OPEN → SCHEDULED, its 2026-10-18 open questions closed by SL8–SL11; ***Webclient: players and NPCs apart, and active conditions*** — trigger (2) fired and is answered narrowly (SL13), the entry stays OPEN on its other triggers. No entry added.
@@ -3085,6 +3086,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   data showing where testers got stuck — or a decision to open beyond an
   invited cohort, whichever first.
 - **Origin:** Adam, gap review 2026-11-04.
+- **Annotation (2026-11-14, Newcomer Design):** the newcomer's economy note is
+  written — `docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1, §8. It
+  proposes the mechanism, not the list: one line per hint, raised from the seam
+  where its event already happens, a per-character set of keys, `hints` to read
+  them again and `hints off` (NCP5–NCP9); a hint names a verb and never a place
+  or a number (NCP4, NCP6); each hint shown is logged (NCP11). Nine candidate
+  events are tabled with their seams (NCP10). Which hints exist is still the
+  alpha's answer, so the Status stands — and the alpha runs without hints, as the
+  baseline they are judged against (NCQ6). Nothing is decided.
 - **Status:** BLOCKED (alpha reports)
 
 ### An NPC guide driven by a language model — `rpg/llm`
@@ -3127,6 +3137,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   guides would talk forever), `at_char_entered` is not an Evennia hook, the
   key is hard-coded, and its endpoint and pricing differ from Vultr's own
   docs (`api.vultrinference.com/v1/chat/completions`, own inference key).
+- **Annotation (2026-11-14, Newcomer Design):** the trigger has fired — the
+  newcomer's economy note is written
+  (`docs/system_designs/PolishedWorld_Newcomer_Design.md` Rev 1, §12). It
+  proposes no newbie school (NCP1) and no guide that states rules from a model
+  (NCP22), for this entry's own constraint (2); the sweeper stays a figure at
+  ease (NCP23), and `talking_npc` with fixed answers is the first guide only if
+  the alpha's reports show questions the hints cannot answer. Adam answered the
+  proposal with a bare "kör", so this is a leaning (NCQ4), not a decision: what
+  this entry now waits on is Adam's word on a flavour NPC, not a document. The
+  Status line is left as written until he gives it.
 - **Status:** BLOCKED (newcomer's economy design note)
 
 ### Strangers by description — `rpg/rpsystem`
@@ -4375,6 +4395,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** First playtest with real player-to-player pricing, or Stage 8
   when Gold acquires an external exchange rate.
 - **Origin:** Stage 4 D.1 (decomposition §6/D asks for the constant explicitly).
+- **Annotation (2026-11-14, Newcomer Design):** two findings from the
+  newcomer's economy note (`docs/system_designs/PolishedWorld_Newcomer_Design.md`
+  Rev 1). The chore `water` sends the worker to *the well*
+  (`commands/work_commands.py:189–190`), and no room has one — the world's
+  source is the spring at the Brook; the note proposes that the lines name the
+  spring (Z2). And the full chain's 170 copper takes about two minutes of work
+  and buys nothing from the game (NCP14): with a cohort of one to three it
+  teaches that coin exists and little else, which is this entry's *Why
+  deferred* seen from the newcomer's side. No number is proposed.
 - **Status:** OPEN
 
 ---
