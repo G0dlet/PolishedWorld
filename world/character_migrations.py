@@ -20,6 +20,9 @@ Run from a stopped server's shell:
     >>> print(backfill_hunting())
 """
 
+from evennia.contrib.rpg.rpsystem import RPSystemCmdSet
+from evennia.utils import logger
+
 from typeclasses.characters import Character
 
 
@@ -81,4 +84,85 @@ def backfill_hunting():
     return (
         f"backfill_hunting: granted to {len(granted)} character(s) {granted}; "
         f"skipped {len(skipped)} {skipped}."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Names (Stage 5, NM-T4): the rpsystem contrib's data on older characters
+# ---------------------------------------------------------------------------
+
+# OQ-NM6: one placeholder for every character made before the short
+# description had a source. Lower case, because the contrib and $You() add
+# the capital where a sentence starts.
+NAMES_PLACEHOLDER_SDESC = "a quiet traveller"
+
+# The contrib's own default (rpsystem.py:1567). Nobody chose it, so a character
+# that has it is treated as one that has none.
+CONTRIB_DEFAULT_SDESC = "A normal person"
+
+# What ContribRPObject / ContribRPCharacter.at_object_creation write
+# (rpsystem.py:1322-1324, :1560-1562), with the values they write.
+_NAMES_ATTRIBUTE_DEFAULTS = (
+    ("_recog_ref2recog", dict),
+    ("_recog_obj2recog", dict),
+    ("pose", lambda: ""),
+    ("pose_default", lambda: "is here."),
+)
+
+
+def backfill_names():
+    """
+    Give every existing character what the rpsystem contrib writes at creation.
+
+    Names NM-T4 (Combat Decomposition NM8, OQ-NM6, Names UQ7). For each
+    character in `Character.objects.all_family()`:
+
+    * the two recog dictionaries, when missing. This is the one that matters:
+      `RecogHandler.add` (rpsystem.py:836-837) writes into
+      `attributes.get(name, default={})`, and with no Attribute that default
+      is never saved -- a recog would last until the next reload;
+    * `pose` and `pose_default`, when missing;
+    * the placeholder short description, when `_sdesc` is missing, empty or
+      the contrib's own *A normal person*;
+    * no persistent `RPSystemCmdSet` (NM-T2 takes it off new characters).
+
+    Idempotent: nothing a character already has is touched, and a second run
+    reports `changed 0`. One broken character does not stop the batch.
+
+    Returns:
+        str: a summary for `@py ...; self.msg(backfill_names())`.
+    """
+    changed, unchanged, errors = [], 0, []
+
+    for char in Character.objects.all_family():
+        try:
+            done = []
+            for name, default in _NAMES_ATTRIBUTE_DEFAULTS:
+                if not char.attributes.has(name):
+                    char.attributes.add(name, default())
+                    done.append(name)
+
+            if char.attributes.get("_sdesc") in (None, "", CONTRIB_DEFAULT_SDESC):
+                # Through the handler, so a loaded character's cache follows.
+                char.sdesc.add(NAMES_PLACEHOLDER_SDESC)
+                done.append("_sdesc")
+
+            if char.cmdset.has(RPSystemCmdSet):
+                char.cmdset.remove(RPSystemCmdSet)
+                done.append("rpsystem_cmdset")
+
+            if done:
+                # A loaded character's handler may hold the unsaved dicts the
+                # default gave it; read the stored ones back.
+                char.recog._cache()
+                changed.append(f"{char.key} ({', '.join(done)})")
+            else:
+                unchanged += 1
+        except Exception as err:
+            logger.log_trace(f"backfill_names: {getattr(char, 'key', char)!r}")
+            errors.append(f"{getattr(char, 'key', char)} (ERROR: {err})")
+
+    return (
+        f"backfill_names: changed {len(changed)} {changed}; "
+        f"unchanged {unchanged}; errors {len(errors)} {errors}."
     )
