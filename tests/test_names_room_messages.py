@@ -34,7 +34,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils import ansi
 from evennia.utils.test_resources import EvenniaCommandTest
 
-from commands.consumption_commands import CmdDrink, CmdEat, CmdEmpty
+from commands.consumption_commands import CmdDrink, CmdEat, CmdEmpty, CmdRest
 from commands.currency_commands import CmdPay
 from commands.foraging_commands import CmdForage, CmdRefill
 from commands.hunting_commands import CmdHarvest
@@ -44,6 +44,8 @@ from tests.test_craft_command import CraftFixtureMixin
 from tests.test_currency import LedgerIsolationMixin
 from tests.test_currency_commands import SecondSessionMixin
 from tests.test_work_command import WorkTestBase, _marker_of
+from typeclasses.characters import _collapse_tick, _rest_tick
+from world import fatigue as fatigue_rules
 
 CHARACTER = "typeclasses.characters.Character"
 LABEL = "mia of the Ford"      # char4's recog of the actor, char1
@@ -203,3 +205,89 @@ class TestPay(_Readers, SecondSessionMixin, LedgerIsolationMixin, EvenniaCommand
             stranger=f"A weathered woman hands {shown(self.char2)} some coin.",
             recogniser=f"{SEEN_BY_LABEL} hands {PAYEE_LABEL} some coin.",
         )
+
+
+# ---------------------------------------------------------------------------
+# NM-T10: the typeclasses' room messages
+# ---------------------------------------------------------------------------
+
+
+class _Timers:
+    """No timer is scheduled: each tick is called by hand."""
+
+    def setUp(self):
+        super().setUp()
+        for target in ("world.timed_actions.delay", "typeclasses.characters.delay"):
+            patcher = mock.patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+
+class TestRest(_Timers, _Readers, EvenniaCommandTest):
+    def setUp(self):
+        super().setUp()
+        self.char1.traits.fatigue.current = 50
+
+    def test_settles_down(self):  # Character.start_resting
+        self.call(CmdRest(), "", "You settle down to rest.", caller=self.char1)
+        self.assert_read("settles down to rest.")
+
+    def test_gets_up_refreshed(self):  # _rest_tick
+        self.call(CmdRest(), "", caller=self.char1)
+        fatigue = self.char1.traits.fatigue
+        fatigue.current = fatigue.max
+        _rest_tick(self.char1, _marker_of(self.char1))
+        self.assert_read("gets up, looking refreshed.")
+
+    def test_gets_up(self):  # _announce_getting_up, through the toggle
+        self.call(CmdRest(), "", caller=self.char1)
+        self.call(CmdRest(), "", "You stop resting.", caller=self.char1)
+        self.assert_read("gets up.")
+
+
+class TestCollapse(_Timers, _Readers, EvenniaCommandTest):
+    def test_falls(self):  # Character.collapse, fatigue.FALL_ROOM
+        self.char1.collapse()
+        self.assertTrue(self.char1.db.collapsed)  # receipt: the fall ran
+        self.assert_read("sways and goes down where they stand.")
+
+    def test_wakes(self):  # _collapse_tick, fatigue.WAKE_ROOM
+        self.char1.collapse()
+        marker = _marker_of(self.char1)
+        self.char1.traits.fatigue.current = fatigue_rules.COLLAPSE_WAKE_AT
+        _collapse_tick(self.char1, marker)
+        self.assertFalse(self.char1.db.collapsed)  # receipt: the wake ran
+        self.assert_read("stirs and gets slowly up.")
+
+
+class TestCreatureFelled(_Readers, EvenniaCommandTest):
+    def test_the_killer(self):  # Creature.at_death
+        hare = create_object("typeclasses.creatures.Creature", key="testhare",
+                             location=self.room1)
+        hare.at_death(killer=self.char1)
+        self.assert_read("fells testhare.")
+
+
+class TestMoveLines(_Readers, EvenniaCommandTest):
+    """Evennia's move lines through `$You()` (NM-T10 lock 1 A)."""
+
+    def _read_starting(self, fragment):
+        for reader, name in ((self.char3, "A weathered woman"), (self.char4, SEEN_BY_LABEL)):
+            with self.subTest(reader=reader.key):
+                read = [line for line in self.lines(reader) if fragment in line]
+                self.assertEqual(len(read), 1, read)
+                self.assertTrue(read[0].startswith(f"{name} {fragment}"), read[0])
+                self.assertNotIn("Char", read[0])
+
+    def test_leaving(self):  # Character.announce_move_from
+        self.assertTrue(self.char1.move_to(self.room2))
+        self._read_starting("is leaving ")
+
+    def test_arriving(self):  # Character.announce_move_to
+        self.char1.move_to(self.room2, quiet=True)
+        self.assertTrue(self.char1.move_to(self.room1))
+        self._read_starting("arrives to ")
+
+    def test_a_message_given_is_kept(self):
+        self.char1.announce_move_from(self.room2, msg="$You() slips out.")
+        self._read_starting("slips out.")

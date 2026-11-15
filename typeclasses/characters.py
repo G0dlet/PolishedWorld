@@ -55,6 +55,14 @@ def capital(name):
     return name[:1].upper() + name[1:]
 
 
+# Evennia's move lines (objects.py:2293, :2349), with the mover through
+# `$You()`: per reader and with a capital, where Evennia's `{object}` gives
+# the reader's name but leaves it lower-case (Names NM-T10 lock 1 A). The
+# wording is Evennia's; `{origin}` and `{destination}` are its mapping.
+MOVE_FROM = "$You() is leaving {origin}, heading for {destination}."
+MOVE_TO = "$You() arrives to {destination} from {origin}."
+
+
 # Tag category under which a Character's learned (known) crafting recipes live.
 # Stage 3 / Component A. The known-recipe set is TAG-based, NOT an
 # AttributeProperty set (§2 lock), for three reasons:
@@ -1807,7 +1815,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         self.msg("You settle down to rest.")
         if self.location:
             self.location.msg_contents(
-                f"{self.key} settles down to rest.", exclude=self
+                "$You() settles down to rest.", from_obj=self, exclude=self
             )
 
     def stop_resting(self, reason="You stop resting."):
@@ -1851,7 +1859,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         self.msg(fatigue_rules.FALL)
         if self.location:
             self.location.msg_contents(
-                fatigue_rules.FALL_ROOM.format(name=self.key), exclude=self
+                fatigue_rules.FALL_ROOM, from_obj=self, exclude=self
             )
         self.arm_collapse()
 
@@ -1933,6 +1941,31 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             return False
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
+
+    def announce_move_from(self, destination, msg=None, mapping=None, move_type="move", **kwargs):
+        """
+        Tell the room left behind, naming the mover as each reader knows them
+        (Names NM-T10 lock 1 A): Evennia's line with `$You()` for `{object}`.
+
+        A `msg` given by the caller is kept as given.
+        """
+        super().announce_move_from(
+            destination, msg=msg or MOVE_FROM, mapping=mapping, move_type=move_type, **kwargs
+        )
+
+    def announce_move_to(self, source_location, msg=None, mapping=None, move_type="move", **kwargs):
+        """
+        Tell the room entered, naming the mover as each reader knows them
+        (Names NM-T10 lock 1 A).
+
+        Evennia ignores `msg` when there is no `source_location`
+        (objects.py:2388-2394) and says *{object} arrives to {destination}.*
+        A character comes from nowhere only by `quiet=True` moves (arrival,
+        death), which send no line, so that branch is not reached here.
+        """
+        super().announce_move_to(
+            source_location, msg=msg or MOVE_TO, mapping=mapping, move_type=move_type, **kwargs
+        )
 
     def at_post_move(self, source_location, move_type="move", **kwargs):
         """
@@ -2222,7 +2255,7 @@ def _rest_tick(char, marker):
         char.msg("You feel fully rested.")
         if char.location:
             char.location.msg_contents(
-                f"{char.key} gets up, looking refreshed.", exclude=char
+                "$You() gets up, looking refreshed.", from_obj=char, exclude=char
             )
         return
     delay(char.rest_interval, _rest_tick, char, marker)   # reschedule
@@ -2258,7 +2291,7 @@ def _collapse_tick(char, marker):
         char.msg(fatigue_rules.WAKE)
         if char.location:
             char.location.msg_contents(
-                fatigue_rules.WAKE_ROOM.format(name=char.key), exclude=char
+                fatigue_rules.WAKE_ROOM, from_obj=char, exclude=char
             )
         return
     delay(char.rest_interval, _collapse_tick, char, marker)   # reschedule
@@ -2274,4 +2307,4 @@ def _announce_getting_up(char):
     a test can assert identity on it and a traceback names it.
     """
     if char.location:
-        char.location.msg_contents(f"{char.key} gets up.", exclude=char)
+        char.location.msg_contents("$You() gets up.", from_obj=char, exclude=char)

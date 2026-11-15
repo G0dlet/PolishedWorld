@@ -70,10 +70,12 @@ from typeclasses.characters import _announce_getting_up, _rest_tick
 from world import fatigue as fatigue_rules
 from world import timed_actions
 
+from tests.names_fixture import describe
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
 
 
 TIRED = 50  # well below full, well above zero: several ticks from either edge
+SEEN = "A weathered woman"  # char1 as char2 reads it at the start of a line (NM-T10)
 
 
 def _joined(seen):
@@ -87,6 +89,7 @@ class RestTestBase(EvenniaCommandTest):
 
     def setUp(self):
         super().setUp()
+        describe(self.char1, self.char2)
         self.fatigue = self.char1.traits.get("fatigue")
         self.fatigue.current = TIRED  # bypasses the survival ticker; see module docstring
 
@@ -174,7 +177,7 @@ class TestRestTicks(RestTestBase):
         # Every tick but the last rescheduled; the last did not.
         self.assertEqual(rescheduled.call_count, needed - 1)
         self.assertIn("You feel fully rested.", _joined(seen))
-        self.assertIn(f"{self.char1.key} gets up, looking refreshed.", _joined(room))
+        self.assertIn(f"{SEEN} gets up, looking refreshed.", _joined(room))
 
     def test_a_missing_gauge_ends_the_rest_and_empties_the_slot(self):
         marker = self.start_rest()
@@ -193,7 +196,7 @@ class TestRestToggle(RestTestBase):
         with captured_messages(self.char2) as room:
             self.call(CmdRest(), "", "You stop resting.", caller=self.char1)
         self.assertIsNone(timed_actions.is_busy(self.char1))
-        self.assertIn(f"{self.char1.key} gets up.", _joined(room))
+        self.assertIn(f"{SEEN} gets up.", _joined(room))
 
     def test_the_tick_after_a_toggle_off_changes_nothing(self):
         marker = self.start_rest()
@@ -234,7 +237,7 @@ class TestMovementInterruptsRest(RestTestBase):
         with captured_messages(self.char2) as room:
             allowed = self.char1.at_pre_move(self.room2)
         self.assertTrue(allowed)
-        self.assertIn(f"{self.char1.key} gets up.", _joined(room))
+        self.assertIn(f"{SEEN} gets up.", _joined(room))
 
     def test_the_tick_after_a_move_changes_nothing(self):
         marker = self.start_rest()
@@ -404,7 +407,7 @@ class TestDeathEndsTheRest(RestTestBase):
         with captured_messages(self.char2) as room:
             self.char1.at_character_death()
         self.assertEqual(self.char1.location, self.room2)  # receipt: they did move
-        self.assertIn(f"{self.char1.key} gets up.", _joined(room))
+        self.assertIn(f"{SEEN} gets up.", _joined(room))
 
     def test_an_idle_death_says_nothing_about_actions(self):
         # The no-op path through the new line. Death sends other lines of its
