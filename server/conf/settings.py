@@ -218,6 +218,27 @@ CLOTHING_TYPE_LIMIT = {
 # (top->undershirt, bottom->underpants, fullbody->undershirt+underpants,
 # shoes->socks) is already what we want. CLOTHING_OVERALL_LIMIT stays at its default (20).
 
+# ============================================================
+# MULTIMATCH FORM (Names, NM9)
+# ============================================================
+# `1-fiber`, `2-fiber`: the number goes FIRST. Evennia's default is the suffix
+# `fiber-1` (settings_default.py:417, :425); the rpsystem contrib's emote parser
+# reads `/2-tall` itself (rpsystem.py:207, :423-428), and these two lines are
+# its README's (README.md:80-81), so the game has one form everywhere.
+#
+# The pair must change together (settings_default.py:415-416): the REGEX is
+# what the search reads, the TEMPLATE is what the multimatch error prints, and
+# a template that disagrees teaches players a form the search ignores.
+# tests/test_multimatch.py holds the pair to each other.
+#
+# Read elsewhere: world/barter.py's `offer` asks this regex whether a
+# digit-led segment is a numbered item before it reads it as coin.
+#
+# Known limit: the name group stops at the first hyphen, so `1-half-cloak`
+# is found through the fuzzy fallback on `half`, not by its full key.
+SEARCH_MULTIMATCH_REGEX = r"(?P<number>[0-9]+)-(?P<name>[^-]*)(?P<args>.*)"
+SEARCH_MULTIMATCH_TEMPLATE = " {number}-{name}{aliases}{info}\n"
+
 ######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################

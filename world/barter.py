@@ -22,6 +22,9 @@ Stage 4 Component E.1: the currency clause on `offer`
     forced teardown needs no refund path: there was never anything to refund.
 """
 
+import re
+
+from django.conf import settings
 from evennia.contrib.game_systems.barter import barter as barter_module
 from evennia.contrib.game_systems.barter.barter import (
     CmdTrade as CmdBaseTrade,
@@ -40,6 +43,12 @@ from world import client_state
 
 from world import encumbrance
 from world.currency import format_copper, parse_amount
+
+# The search's own multimatch regex, compiled the way evennia/objects/manager.py
+# compiles it (:28): once, at import. `offer` asks it whether a digit-led
+# segment is a numbered item (`2-fiber`) before reading it as coin. Reading the
+# setting rather than copying the pattern keeps the two from drifting apart.
+_MULTIMATCH_REGEX = re.compile(settings.SEARCH_MULTIMATCH_REGEX, re.I + re.U)
 
 
 def _all_offers_in_hand(handler):
@@ -269,16 +278,25 @@ class CmdPWOffer(CmdBaseOffer):
     ------------------------------------------------------------------------
     HOW A SEGMENT IS CLASSIFIED (decomposition E.1, option A)
     ------------------------------------------------------------------------
-    A comma-separated segment is COIN if its first character is an ASCII digit.
-    Otherwise it is an item name and goes to `caller.search()` untouched.
+    A comma-separated segment is COIN if its first character is an ASCII digit
+    AND it is not a numbered item -- that is, SEARCH_MULTIMATCH_REGEX does not
+    match it. Otherwise it is an item name and goes to `caller.search()`
+    untouched.
 
-    That rule is total, not heuristic, and it is worth writing down why:
-    Evennia's disambiguation syntax is a SUFFIX -- SEARCH_MULTIMATCH_REGEX is
-    `^(?P<name>.*?)-(?P<number>[0-9]+)...`, i.e. `copper-2`, never `2 copper`.
-    So no valid way of naming an object begins with a digit, and the material
-    registry's `copper` ingot (a future smelting product) cannot collide with
-    the denomination: `offer copper` is the ingot, `offer 5 copper` is money,
-    and no input could reasonably mean the other one.
+    That rule is total, not heuristic, and it is worth writing down why. The
+    game's disambiguation form is a PREFIX, `2-copper` (Names NM9; settings.py,
+    MULTIMATCH FORM), and the multimatch error prints it, so a player is told
+    to type a digit-led name. Coin is a number, whitespace, a denomination
+    (`2 copper`); a numbered item is a number, a hyphen, a name. The search's
+    own regex tells the two apart, and asking it rather than copying its
+    pattern keeps `offer` reading what the search reads. The material
+    registry's `copper` ingot (a future smelting product) still cannot collide
+    with the denomination: `offer copper` is the ingot, `offer 2-copper` the
+    second ingot, `offer 5 copper` money.
+
+    Until Names NM-T1 the form was Evennia's suffix, `copper-2`, and the rule
+    was the first character alone. That rule would read `2-copper` as a
+    malformed amount, which is why the regex is consulted.
 
     A digit-led segment that fails to parse gets the CURRENCY error rather than
     "Could not find '5 silvre'". This is exactly why `parse_amount()` returns
@@ -325,7 +343,11 @@ class CmdPWOffer(CmdBaseOffer):
             if not segment:
                 continue
             first = segment[0]
-            if first.isascii() and first.isdigit():
+            if (
+                first.isascii()
+                and first.isdigit()
+                and not _MULTIMATCH_REGEX.match(segment)
+            ):
                 amount = parse_amount(segment)
                 if amount is None:
                     caller.msg(

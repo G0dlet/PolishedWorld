@@ -29,13 +29,16 @@ parties gain: `offer <obj>[, obj2 ...][, <amount> <denomination>][:emote]`,
 
 ## Currency on the table
 
-- **Syntax.** A comma-segment whose first character is an ASCII digit is coin;
-  everything else is an item name. The rule is total rather than heuristic
-  because Evennia's disambiguation syntax is a *suffix* (`copper-2`), so no
-  valid way of naming an object begins with a digit — which is also why the
-  material registry's future `copper` ingot cannot collide with the
-  denomination. Multiple coin segments sum. A digit-led segment that fails to
-  parse gets the currency error, not "Could not find".
+- **Syntax.** A comma-segment whose first character is an ASCII digit is coin,
+  unless `SEARCH_MULTIMATCH_REGEX` matches it; then it is a numbered item.
+  Everything else is an item name. The game's disambiguation form is a
+  *prefix* (`2-copper`, Names NM9), so the name the multimatch error prints
+  starts with a digit too: coin is number, space, denomination (`2 copper`), a
+  numbered item is number, hyphen, name (`2-copper`), and `offer` asks the
+  search's own regex which it is rather than copying the pattern. The material
+  registry's future `copper` ingot still cannot collide with the denomination.
+  Multiple coin segments sum. A digit-led segment that is not a numbered item
+  and fails to parse gets the currency error, not "Could not find".
 - **Offering moves no money.** The amount lives on the handler as
   `part_a_currency` / `part_b_currency`. An offer is a promise, which is why a
   forced teardown (decline, timeout, disconnect) needs no refund path.

@@ -169,6 +169,25 @@ class TestOfferSegmentClassification(TradeFixtureMixin, LedgerIsolationMixin, Ev
         self.assertEqual(self.handler.part_a_offers, [ingot])
         self.assertEqual(self.handler.part_a_currency, 0)
 
+    def test_a_numbered_item_is_an_item_not_coin(self):
+        # Names NM-T1: the multimatch form is `N-name`, so the name the game
+        # itself prints for a duplicate starts with a digit. The search's own
+        # regex decides, not the first character.
+        self._item("fiber")
+        second = self._item("fiber")
+        self._offer("2-fiber, 3 silver")
+        self.assertEqual(self.handler.part_a_offers, [second])
+        self.assertEqual(self.handler.part_a_currency, 3 * COPPER_PER_SILVER)
+
+    def test_the_compact_forms_still_get_the_currency_error(self):
+        # Deferred in BACKLOG ("2g30s", "50c"); until then they are money typed
+        # wrongly, not an item nobody owns.
+        for typed in ("2g30s", "50c"):
+            with self.subTest(typed=typed):
+                returned = self._offer(typed)
+                self.assertIn("isn't an amount of coin I can read", returned)
+                self.assertEqual(self.handler.part_a_currency, 0)
+
     def test_a_digit_led_segment_that_fails_to_parse_gets_the_currency_error(self):
         # NOT "Could not find '5 silvre'". This is why parse_amount returns
         # None instead of raising: the command owns the wording, and `offer`

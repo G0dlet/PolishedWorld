@@ -113,7 +113,7 @@ from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
 from tests.test_activity_log import ActivityLogMixin
 
 
-TWINE = "twine from fiber-1, fiber-2, fiber-3"
+TWINE = "twine from 1-fiber, 2-fiber, 3-fiber"
 TIRED = 50  # as in tests/test_rest.py: below full, so `rest` reaches start()
 INTERRUPT_MSG = "You set your crafting aside; your materials are untouched."
 
@@ -219,7 +219,7 @@ class TestCompletion(CraftTestBase):
         gone.location = self.room1  # dropped, given, bartered -- gone from the pack
         with captured_messages(self.char1) as seen:
             self.finish(scheduled)
-        self.assertIn("Could not find 'fiber-3'.", _joined(seen))
+        self.assertIn("Could not find '3-fiber'.", _joined(seen))
         for obj in self.fibres:
             self.assertIsNotNone(obj.pk)
         self.assertEqual(self.twine_in(self.char1), [])
@@ -256,13 +256,13 @@ class TestCourtesyRefusesAtStart(CraftTestBase):
         self.assert_refused("twine", "Usage: craft <recipe>")
 
     def test_an_unknown_recipe_gets_the_contribs_answer(self):
-        self.assert_refused("frobnicate from fiber-1", "Unknown recipe 'frobnicate'")
+        self.assert_refused("frobnicate from 1-fiber", "Unknown recipe 'frobnicate'")
 
     def test_a_missing_ingredient_name_gets_the_search_answer(self):
-        self.assert_refused("twine from fiber-1, fiber-2, rock", "Could not find 'rock'.")
+        self.assert_refused("twine from 1-fiber, 2-fiber, rock", "Could not find 'rock'.")
 
     def test_too_few_ingredients_get_the_validation_answer(self):
-        self.assert_refused("twine from fiber-1, fiber-2", "Could not craft twine without")
+        self.assert_refused("twine from 1-fiber, 2-fiber", "Could not craft twine without")
 
     def test_a_skill_floor_is_refused_at_start(self):
         with mock.patch.object(TwineRecipe, "min_skill", 999):
@@ -273,7 +273,7 @@ class TestCourtesyRefusesAtStart(CraftTestBase):
         # courtesy search, so the inventory is never searched.
         self.assertTrue(ClothRecipe.requires_knowledge)
         with mock.patch.object(type(self.char1), "search") as searched:
-            self.assert_refused("cloth from fiber-1", "You don't know how to make that.")
+            self.assert_refused("cloth from 1-fiber", "You don't know how to make that.")
         searched.assert_not_called()
 
 

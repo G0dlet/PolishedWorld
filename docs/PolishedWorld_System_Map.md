@@ -1,5 +1,6 @@
 # PolishedWorld — System Map
 
+> **Rev 4 · 2026-11-15** — **one claim retired by Names NM-T1.** The `copper` entry in *Known gaps / dangling edges* said no object name can begin with a digit, because Evennia's disambiguation form was the suffix `copper-2`. The game's form is now the rpsystem contrib's prefix, `2-copper`, and `offer` asks the search's own `SEARCH_MULTIMATCH_REGEX` before it reads a digit-led segment as coin. Nothing else changed.
 > **Rev 3 · 2026-08-03** — **graph fix: Rev 2's diagram did not render on GitHub.** `ECON[@economy mint / burn]` failed to parse, because Mermaid 11 reserves `@` for edge-ID and shape syntax (`a e1@--> b`, `a@{ shape: … }`) and so lexes a leading `@` in an *unquoted* node label as a `LINK_ID` token. Quoting the label fixes it; nothing else in the diagram was at fault — self-loops, `★`, em dashes, `Σ`, `==` inside quotes and dotted labelled edges all parse cleanly, verified one construct at a time against Mermaid 11.16. Both Mermaid blocks in the repo (this file and `roadmap.md`) now parse. **Rule of thumb: quote any node label that does not begin with a letter.** Rev 2's content is unchanged.
 > **Rev 2 · 2026-08-03** — **two stages of drift closed, and the honesty method itself repaired.** Stage 4's currency layer is built and merged, so the `NOT BUILT` currency node is replaced by the real graph (Treasury, wallets, the single mint path, the ledger, the audit invariant) and five seam rows are added. **Three of the eight existing seam rows were wrong**, and the way they went wrong matters more than the rows: the §*How to keep it honest* recipe — plain `grep -rn` — is what produced two of the three. `typeclasses/books.py` was listed as a `_RECIPE_CLASSES` consumer on the strength of two comments that say Book is deliberately **not** one, and `world/material_registry.py` was credited with three runtime consumers when nothing in the codebase imports it at all. The reverse failure exists too: an AST-based check misses `crafting_base.py:314`, where `attempt_skill_improvement` is dispatched through a `getattr` **string literal** — which is why that row said four check-sites and the truth is five (`disassemble` became the fifth in Stage 3). §*How to keep it honest* now names both failure modes and requires the cross-check. Also fixed: the prose referred to a `BLOCKED` cluster that does not exist in the graph, and the currency gap note described a death-drop behaviour that Stage 4 does not implement (**S4-3** keeps the wallet on death; `CoinPile` is Stage 5).
 > **Rev 1 · 2026-07-19** — first version. Structural (seam) view of how the built systems connect; a fourth view alongside the three altitudes.
@@ -183,9 +184,10 @@ the `[SINK BLOCKED]` items live in the Source/Sink Ledger.)*
   explain. Full entry — including the three candidate resolutions — in
   `docs/BACKLOG.md` (*Death & Corpses*). **Do not resolve it here.**
 - ⚠️ **`copper` is both a material and a denomination.** Harmless while coin has
-  no object form; the `offer` verb is settled by the digit-first rule (Evennia's
-  disambiguation syntax is a *suffix*, `copper-2`, so no valid object name can
-  begin with a digit). What remains open is `caller.search()` facing two
+  no object form; the `offer` verb is settled by the digit-first rule, which
+  since Names NM-T1 asks `SEARCH_MULTIMATCH_REGEX` first: the disambiguation
+  form is a *prefix* (`2-copper`), so a numbered item is number-hyphen-name and
+  coin is number-space-denomination. What remains open is `caller.search()` facing two
   `copper`s in one room, which needs `CoinPile` to exist at all. Entry in
   `docs/BACKLOG.md` (*Currency*).
 - **Knowledge has no sink.** `learn_recipe` is permanent; nothing un-learns.
