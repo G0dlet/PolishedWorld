@@ -37,6 +37,21 @@ A STATUE (lock 3 A)
 A statue is the person, logged out. A recog belongs to the person, not to
 the text, so a statue can be recognised like anyone else.
 
+INTRODUCE (NM-T6; NM5, UP6, OQ-NM3 lock A)
+------------------------------------------
+`introduce` is the truthful side (Names note §2.3): it gives the speaker's
+key, and cannot lie. Every awake character in the room reads one line naming
+the speaker as that reader knows them, and only then is the recog written,
+so a stranger reads the description and the name together. A hearer who has
+already chosen a name for the speaker keeps it (NM5): what a player has
+chosen to call someone is theirs (UG3). `introduce to <description>` gives
+the name to one person; the room reads that an introduction was made, with
+both people as each reader knows them, and without the name.
+
+A statue hears nothing: its player is not there. The lines are written out
+with singular *they* (as `typeclasses/characters.py:539`), not `$pron()`:
+Evennia's neutral pronoun is *it*, and no character has a gender yet.
+
 MULTIPLAYER
 -----------
 A recog is written only on its owner, by its owner's command (Names UG6):
@@ -202,6 +217,124 @@ class CmdRecog(Command):
             else:
                 lines.append(f" {written}")
         caller.msg("You know these people by name:\n" + "\n".join(lines))
+
+
+def _awake_characters(location, caller):
+    """The characters in `location` other than `caller` with a player in them."""
+    return [
+        obj
+        for obj in location.contents
+        if obj != caller and inherits_from(obj, _CHARACTER) and not obj.is_statue
+    ]
+
+
+def _remember(speaker, hearers):
+    """
+    Give each hearer the speaker's key as a recog, unless they already hold a
+    name for the speaker (NM5). One hearer failing is logged and does not
+    stop the others.
+    """
+    for hearer in hearers:
+        try:
+            if hearer.recog.get(speaker) is None:
+                hearer.recog.add(speaker, speaker.key)
+        except Exception:
+            logger.log_trace(
+                f"Names: introduce could not write {hearer.dbref}'s recog of {speaker.dbref}"
+            )
+
+
+class CmdIntroduce(Command):
+    """
+    Tell people your name.
+
+    Usage:
+      introduce
+      introduce to <description>
+
+    Examples:
+      introduce
+      introduce to lanky
+
+    Gives your true name to everyone awake in the room, or to one person.
+    Those who had no name for you will know you by it; anyone who has
+    already chosen a name for you keeps their own. When you introduce
+    yourself to one person, the others see it happen but do not hear the
+    name.
+
+    See also: recog, forget
+    """
+
+    key = "introduce"
+    locks = "cmd:all()"
+    help_category = "General"
+
+    def func(self):
+        caller = self.caller
+        args = self.args.strip()
+        location = caller.location
+        if args and not args.lower().startswith("to "):
+            caller.msg("Usage: introduce, or introduce to <description>")
+            return
+        if not location:
+            caller.msg("There is no one here to hear you.")
+            return
+        mapping = {"truename": caller.key}
+
+        if not args:
+            hearers = _awake_characters(location, caller)
+            if not hearers:
+                caller.msg("There is no one here to hear you.")
+                return
+
+            def send():
+                caller.msg(f"You introduce yourself as {caller.key}.")
+                location.msg_contents(
+                    "$You() introduces themselves as {truename}.",
+                    exclude=[caller] + [obj for obj in location.contents if obj not in hearers],
+                    from_obj=caller,
+                    mapping=mapping,
+                )
+
+        else:
+            wanted = args[3:].strip()
+            if wanted.lower() in ("me", "self"):
+                caller.msg("You know who you are.")
+                return
+            candidates = [
+                obj
+                for obj in location.contents
+                if obj != caller and inherits_from(obj, _CHARACTER)
+            ]
+            target = caller.search(wanted, candidates=candidates)
+            if not target:
+                return  # the search has told the caller
+            if target.is_statue:
+                caller.msg("They cannot hear you now.")
+                return
+            hearers = [target]
+            bystanders = [obj for obj in _awake_characters(location, caller) if obj != target]
+            shown = caller.get_sdesc(target, process=True)
+
+            def send():
+                caller.msg(f"You introduce yourself to {shown} as {caller.key}.")
+                location.msg_contents(
+                    "$You() introduces themselves to you as {truename}.",
+                    exclude=[obj for obj in location.contents if obj != target],
+                    from_obj=caller,
+                    mapping=mapping,
+                )
+                location.msg_contents(
+                    "$You() introduces themselves to {target}.",
+                    exclude=[obj for obj in location.contents if obj not in bystanders],
+                    from_obj=caller,
+                    mapping={"target": target},
+                )
+
+        # The lines first, then the recogs: each reader reads the speaker as
+        # they knew them before the command (NM-T6).
+        send()
+        _remember(caller, hearers)
 
 
 class CmdForget(Command):

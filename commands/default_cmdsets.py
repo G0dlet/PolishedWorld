@@ -37,7 +37,7 @@ from commands.crafting_commands import (
     CmdLearn,
 )
 from world.barter import CmdPWTrade
-from commands.names_commands import CmdRecog, CmdForget
+from commands.names_commands import CmdRecog, CmdForget, CmdIntroduce
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
 # ClothedCharacterCmdSet, which subclasses Evennia's DEFAULT CharacterCmdSet
@@ -198,6 +198,9 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # cmdsets or in our own commands.
         self.add(CmdRecog())
         self.add(CmdForget())
+        # introduce (NM-T6): the truthful side, a new command -- the contrib
+        # has none. Key verified free in the same inventory.
+        self.add(CmdIntroduce())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

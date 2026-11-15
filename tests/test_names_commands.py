@@ -308,3 +308,154 @@ class TestTheCommandSet(EvenniaCommandTest):
         keys = {cmd.key for cmd in cmdset.commands}
         self.assertIn("recog", keys)
         self.assertIn("forget", keys)
+
+
+# --------------------------------------------------------------------------
+# introduce (NM-T6; NM5, UP6, OQ-NM3 lock A)
+# --------------------------------------------------------------------------
+
+
+def _introduce_cmd():
+    from commands.names_commands import CmdIntroduce
+
+    return CmdIntroduce()
+
+
+class _Introduce(_Names):
+    """
+    char2 introduces. char1 and char3 are awake, char4 is a statue: the
+    test patches `is_statue` (it reads the sessions, which tests do not have).
+    Every character's `msg` is a Mock so the lines each reader got can be read.
+    """
+
+    AWAKE = ("Char", "Char2", "Char3")
+
+    def setUp(self):
+        super().setUp()
+        from typeclasses.characters import Character
+
+        patcher = mock.patch.object(
+            Character, "is_statue", new=property(lambda c: c.key not in self.AWAKE)
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        for char in (self.char1, self.char3, self.char4):
+            char.msg = mock.Mock()
+
+    def introduce(self, args=""):
+        return self.call(_introduce_cmd(), args, caller=self.char2)
+
+    def lines(self, char):
+        out = []
+        for call in char.msg.call_args_list:
+            text = call.kwargs.get("text")
+            out.append(text[0] if isinstance(text, tuple) else text)
+        return out
+
+
+class TestIntroduce(_Introduce):
+    def test_a_hearer_without_a_recog_gains_the_key(self):
+        self.introduce()
+        self.assertEqual(self.char1.recog.get(self.char2), "Char2")
+        self.assertEqual(self.char3.recog.get(self.char2), "Char2")
+
+    def test_a_hearer_with_their_own_label_keeps_it(self):
+        self.char3.recog.add(self.char2, "Liar")
+        self.introduce()
+        self.assertEqual(self.char3.recog.get(self.char2), "Liar")
+        self.assertIn("Liar introduces themselves as Char2.", self.lines(self.char3))
+
+    def test_each_reader_reads_the_name_they_had_before(self):
+        said = self.introduce()
+        self.assertIn("You introduce yourself as Char2.", said)
+        self.assertEqual(
+            self.lines(self.char1), ["A broad-shouldered man introduces themselves as Char2."]
+        )
+
+    def test_the_speaker_gains_nothing(self):
+        self.introduce()
+        self.assertEqual(self.held(), {})
+
+    def test_a_statue_hears_nothing(self):
+        self.introduce()
+        self.assertIsNone(self.char4.recog.get(self.char2))
+        self.assertEqual(self.lines(self.char4), [])
+
+    def test_no_one_awake(self):
+        self.AWAKE = ("Char2",)
+        said = self.introduce()
+        self.assertIn("There is no one here to hear you.", said)
+        for char in (self.char1, self.char3, self.char4):
+            self.assertIsNone(char.recog.get(self.char2))
+
+    def test_a_hearer_without_recog_storage_does_not_raise(self):
+        for key in ("_recog_ref2recog", "_recog_obj2recog"):
+            self.char3.attributes.remove(key)
+        self.char3.recog._cache()
+        said = self.introduce()
+        self.assertNotIn("Traceback", said)
+        self.assertEqual(self.char1.recog.get(self.char2), "Char2")
+
+    def test_one_hearer_failing_does_not_stop_the_others(self):
+        hearers = sorted((self.char1, self.char3), key=lambda c: c.id)
+        with mock.patch.object(hearers[0].recog, "add", side_effect=RuntimeError("x")):
+            said = self.introduce()
+        self.assertIn("You introduce yourself as Char2.", said)
+        self.assertEqual(hearers[1].recog.get(self.char2), "Char2")
+
+    def test_anything_but_to_is_the_usage(self):
+        said = self.introduce("Bob")
+        self.assertIn("Usage: introduce, or introduce to <description>", said)
+        self.assertIsNone(self.char1.recog.get(self.char2))
+
+
+class TestIntroduceTo(_Introduce):
+    def test_the_one_named_hears_the_name_and_gains_it(self):
+        said = self.introduce("to freckled")
+        self.assertIn("You introduce yourself to a freckled youth as Char2.", said)
+        self.assertEqual(
+            self.lines(self.char3),
+            ["A broad-shouldered man introduces themselves to you as Char2."],
+        )
+        self.assertEqual(self.char3.recog.get(self.char2), "Char2")
+
+    def test_the_room_reads_that_it_was_made_without_the_name(self):
+        self.char1.recog.add(self.char3, "Mia")
+        self.introduce("to freckled")
+        self.assertEqual(
+            self.lines(self.char1), ["A broad-shouldered man introduces themselves to Mia."]
+        )
+        self.assertIsNone(self.char1.recog.get(self.char2))
+
+    def test_their_own_label_is_kept(self):
+        self.char3.recog.add(self.char2, "Liar")
+        self.introduce("to freckled")
+        self.assertEqual(self.char3.recog.get(self.char2), "Liar")
+        self.assertEqual(
+            self.lines(self.char3), ["Liar introduces themselves to you as Char2."]
+        )
+
+    def test_a_statue_cannot_hear(self):
+        said = self.introduce("to stooped")
+        self.assertIn("They cannot hear you now.", said)
+        self.assertIsNone(self.char4.recog.get(self.char2))
+        self.assertEqual(self.lines(self.char1), [])
+
+    def test_oneself(self):
+        said = self.introduce("to me")
+        self.assertIn("You know who you are.", said)
+        self.assertEqual(self.lines(self.char1), [])
+
+    def test_nobody_by_that_description(self):
+        said = self.introduce("to purple")
+        self.assertIn("Could not find 'purple'", said)
+        self.assertIsNone(self.char3.recog.get(self.char2))
+
+
+class TestIntroduceInTheCommandSet(EvenniaCommandTest):
+    def test_introduce_is_in_the_character_set(self):
+        from commands.default_cmdsets import CharacterCmdSet
+
+        cmdset = CharacterCmdSet()
+        cmdset.at_cmdset_creation()
+        self.assertIn("introduce", {cmd.key for cmd in cmdset.commands})
