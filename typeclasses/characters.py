@@ -6,6 +6,8 @@ Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 """
 
 from evennia.contrib.game_systems.clothing import ClothedCharacter
+from evennia.contrib.rpg.rpsystem import ContribRPCharacter, RPSystemCmdSet
+from evennia.objects.objects import DefaultObject
 from evennia.utils import lazy_property
 from evennia.utils.utils import delay, inherits_from
 from evennia.contrib.rpg.traits import TraitHandler
@@ -38,6 +40,8 @@ from world.skill_xp import SkillXPHandler
 from world.recipe_mastery import RecipeMasteryHandler
 from world.chargen import derive_health_max, start_or_resume_chargen
 
+import re
+
 from django.conf import settings
 from django.utils.translation import gettext as _
 from evennia.utils import search
@@ -60,8 +64,13 @@ KNOWN_RECIPE_CATEGORY = "known_recipe"
 # encumbrance walk skips characters by, so a statue or an NPC counts too.
 _CHARACTER_PATH = "evennia.objects.objects.DefaultCharacter"
 
+# The game's multimatch form (`2-fiber`, settings.py MULTIMATCH FORM), compiled
+# the way evennia/objects/manager.py:28 compiles it. get_search_result reads
+# the number itself rather than leaving it to the rpsystem contrib's parser.
+_MULTIMATCH_REGEX = re.compile(settings.SEARCH_MULTIMATCH_REGEX, re.I + re.U)
 
-class Character(ObjectParent, ClothedCharacter):
+
+class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     """
     PolishedWorld character with Mongoose Legend integration.
 
@@ -78,6 +87,20 @@ class Character(ObjectParent, ClothedCharacter):
     `delete()`, a direct `location =`, `move_hooks=False` (death), a change
     to STR or SIZ -- crosses it silently (W2.2 Q4). A step through an exit
     while past the limit costs fatigue (`at_post_move`, W3.2).
+
+    Names (Combat Decomposition NM2, NM-T2): the rpsystem contrib's
+    `ContribRPCharacter` is the LAST base. The order is
+
+        Character, ObjectParent, ClothedCharacter, ContribRPCharacter,
+        DefaultCharacter, ContribRPObject, DefaultObject
+
+    so the project's hooks and the clothing contrib's resolve before the
+    contrib's, and `super()` in `get_display_name` reaches the contrib's
+    per-viewer name: recog, else short description, else key. What the project
+    changes on top: the contrib's command set is taken off at creation
+    (`sdesc` and `mask` are not player commands, NM3), names carry no colour
+    (NM11), and the search is the project's (`get_search_result`, NM9/NM10).
+    tests/test_names_character.py asserts the order by name.
     """
 
     @lazy_property
@@ -229,6 +252,16 @@ class Character(ObjectParent, ClothedCharacter):
         sets up survival traits at full, and prepares skills system.
         """
         super().at_object_creation()
+
+        # Names NM3: ContribRPCharacter.at_object_creation added RPSystemCmdSet
+        # persistently (rpsystem.py:1565). It carries `sdesc` and `mask`, which
+        # players must not have; the commands the game keeps are added to
+        # CharacterCmdSet one at a time. Removing the persistent set also takes
+        # its path out of cmdset_storage, so a reload does not bring it back.
+        try:
+            self.cmdset.remove(RPSystemCmdSet)
+        except Exception:
+            logger.log_trace(f"Names: could not remove RPSystemCmdSet from {self.dbref}")
         
         # === MONGOOSE LEGEND CHARACTERISTICS ===
         
@@ -590,6 +623,123 @@ class Character(ObjectParent, ClothedCharacter):
             self.msg(healing.HEALED)
       
     # === Display & Appearance ===
+
+    def process_sdesc(self, sdesc, obj, **kwargs):
+        """
+        A short description as THIS character reads it: no colour (Names NM11).
+
+        The contrib paints it `|b` (rpsystem.py:1651). Dark blue reads badly,
+        and a leading colour code stops `$You()` from capitalising a name at
+        the start of a line (funcparser_callable_you capitalises `name[:1]`).
+        The case markers of the contrib's `ref` are kept: an emote's `/Tall`
+        still asks for a capital.
+        """
+        if not sdesc:
+            return ""
+        ref = kwargs.get("ref", "~")
+        if "t" in ref:
+            sdesc = sdesc.lower()
+            sdesc = sdesc[0].upper() + sdesc[1:] if len(sdesc) > 1 else sdesc.upper()
+        elif "^" in ref:
+            sdesc = sdesc.upper()
+        elif "v" in ref:
+            sdesc = sdesc.lower()
+        return sdesc
+
+    def process_recog(self, recog, obj, **kwargs):
+        """
+        A recog as THIS character reads it: as written, no colour (Names NM11).
+
+        The contrib paints it `|m` (rpsystem.py:1670) and ignores `ref`; the
+        case is kept too, because what a player chose to call someone is
+        theirs (Names UG3).
+        """
+        return recog or ""
+
+    def get_search_result(self, searchdata, candidates=None, **kwargs):
+        """
+        The search, with the game's `N-` number and exact names first (Names
+        NM9, NM10).
+
+        The contrib's search (ContribRPObject.get_search_result,
+        rpsystem.py:1326) runs its emote parser over the candidates. Left to
+        it, three things go wrong, each run in the sandbox (2026-11-15):
+
+        * It matches the start of any word and nothing exact comes first, so
+          `leather` is a multimatch with a *leather strap* in the pack.
+        * Its candidate map has a row for the key and one per alias
+          (rpsystem.py:383-395) and counts `N-` in that list (:490-495), so
+          `1-fiber` and `2-fiber` were the same *plant fiber* (alias `fiber`).
+        * A number past the matches gives the last match, `0-` the first.
+
+        So the number is taken off here with SEARCH_MULTIMATCH_REGEX, the
+        contrib finds the matches for the bare name (it already removes
+        duplicates), the exact ones are kept when there are any, and the
+        number is counted in that list. A number past the end, or 0, finds
+        nothing, as in Evennia's own search (manager.py:497-501). As in
+        Evennia's search too, a string that is itself an exact name
+        (*2-handed sword*) is never read as a number.
+
+        "Exact" is what the searcher can see: a thing's key or an alias; a
+        character's recog or short description as THIS searcher reads it,
+        never its key, which would single out a stranger by a name the player
+        has not been given.
+
+        A global search (no candidates) and a non-string query go to the
+        contrib unchanged; it passes them to Evennia's default.
+        """
+        if candidates is None or not isinstance(searchdata, str):
+            return super().get_search_result(searchdata, candidates=candidates, **kwargs)
+
+        number = None
+        name = searchdata.strip()
+        match = _MULTIMATCH_REGEX.match(name)
+        if match:
+            whole = [obj for obj in candidates if name.lower() in self._exact_names(obj)]
+            if whole:
+                # An exact name that looks like a number (*2-handed sword*).
+                # The contrib's parser would read its `2-` as one, so
+                # Evennia's default search takes it, over those objects only.
+                return list(
+                    DefaultObject.get_search_result(
+                        self, name, candidates=whole, **kwargs
+                    ) or []
+                )
+            number, name = int(match.group("number")), match.group("name").strip()
+
+        results = list(
+            super().get_search_result(name, candidates=candidates, **kwargs) or []
+        )
+        try:
+            wanted = name.lower()
+            exact = [obj for obj in results if wanted in self._exact_names(obj)]
+        except Exception:
+            # A narrowing that fails must not lose the search: unnarrowed is
+            # what the contrib alone would have answered.
+            logger.log_trace(f"Names: exact narrowing failed for {searchdata!r}")
+            exact = []
+        if exact:
+            results = exact
+
+        if number is None:
+            return results
+        if 1 <= number <= len(results):
+            return [results[number - 1]]
+        return []
+
+    def _exact_names(self, obj):
+        """
+        The lower-cased names `obj` can be typed by exactly, as THIS character
+        sees it (see get_search_result).
+        """
+        if obj is self:
+            return {self.key.lower()}
+        if hasattr(obj, "sdesc"):
+            shown = self.get_sdesc(obj) or ""
+            return {shown.lower()} if shown else set()
+        names = {obj.key.lower()}
+        names.update(alias.lower() for alias in obj.aliases.all())
+        return names
 
     def get_display_name(self, looker=None, **kwargs):
         """

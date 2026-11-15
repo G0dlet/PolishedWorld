@@ -73,6 +73,7 @@ from commands.crafting_commands import (
     CmdScribe,
     CmdTeach,
 )
+from tests.names_fixture import describe, shown
 
 
 # Canonical recipe NAMES (MongooseCraftRecipe.name), because that is exactly
@@ -477,8 +478,9 @@ class TestTeachGate(EvenniaCommandTest):
         self.char1.recipe_mastery.add(CLOTH, MASTERY_TRANSMIT_THRESHOLD - 1)
         self.char2.ndb.pending_teach = (self.char1, CLOTH, time.time() + 60)
 
+        describe(self.char1)  # Names NM-T2: the student names the teacher as seen
         said = self.call(
-            CmdLearn(), f"{CLOTH} from {self.char1.key}", caller=self.char2,
+            CmdLearn(), f"{CLOTH} from {shown(self.char1)}", caller=self.char2,
         )
         self.assertIn("can't teach you that", said)
         self.assertFalse(self.char2.knows_recipe(CLOTH))
@@ -642,7 +644,8 @@ class TestKnowledgeIsLogged(ActivityLogMixin, EvenniaCommandTest):
     def test_a_lesson_logs_the_student_and_the_teacher(self):
         self._master()
         self.char2.ndb.pending_teach = (self.char1, CLOTH, time.time() + 60)
-        self.call(CmdLearn(), f"{CLOTH} from {self.char1.key}", caller=self.char2)
+        describe(self.char1)  # Names NM-T2: the student names the teacher as seen
+        self.call(CmdLearn(), f"{CLOTH} from {shown(self.char1)}", caller=self.char2)
         self.assertTrue(self.char2.knows_recipe(CLOTH))
         entry = self._only()
         self.assertEqual(

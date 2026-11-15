@@ -33,6 +33,7 @@ from evennia.utils.utils import callables_from_module, group_objects_by_key_and_
 
 from commands.character_commands import _whole
 from server.conf import inputfuncs
+from tests.names_fixture import describe, shown
 from world import client_state, encumbrance, gametime_utils, weather
 
 
@@ -267,6 +268,10 @@ class TestRoomSnapshot(EvenniaTest):
     things (WC8/WC14), the viewer left out, grouping, and the view lock.
     """
 
+    def setUp(self):
+        super().setUp()
+        describe(self.char1, self.char2)   # Names NM-T2: who is shown, by description
+
     def _look(self):
         return strip_ansi(self.room1.return_appearance(self.char1))
 
@@ -292,16 +297,18 @@ class TestRoomSnapshot(EvenniaTest):
     def test_statue_named_as_look_names_it(self):
         snap = client_state.room_snapshot(self.room1, self.char1)
         self.assertEqual(snap["characters"], [])
-        self.assertEqual(snap["things"], ["an Obj", "an Obj2", "stone statue of Char2"])
+        self.assertEqual(
+            snap["things"], ["an Obj", "an Obj2", f"stone statue of {shown(self.char2)}"]
+        )
         self._assert_in_look_in_order(snap["things"])
 
     def test_awake_character_listed_viewer_left_out(self):
         with mock.patch.object(type(self.char2), "is_statue",
                                new_callable=mock.PropertyMock, return_value=False):
             snap = client_state.room_snapshot(self.room1, self.char1)
-            self.assertEqual(snap["characters"], ["Char2"])
-            self.assertIn("Characters: Char2", self._look())
-        self.assertNotIn("stone statue of Char2", snap["things"])
+            self.assertEqual(snap["characters"], [shown(self.char2)])
+            self.assertIn(f"Characters: {shown(self.char2)}", self._look())
+        self.assertNotIn(f"stone statue of {shown(self.char2)}", snap["things"])
 
     def test_things_grouped_as_look_groups_them(self):
         for _ in range(2):
@@ -572,6 +579,7 @@ class TestRoomFanOut(ReactorMixin, EvenniaTest):
         self.s2 = mock.Mock(name="session of Char2")
         self.s3 = mock.Mock(name="session of Char3")
         self.s4 = mock.Mock(name="session of Char4")
+        describe(self.char1, self.char2, self.char3, self.char4)
         with mock.patch.object(client_state, "push"):
             self.reactor.run()   # the two creations' own room pushes
 
@@ -591,21 +599,23 @@ class TestRoomFanOut(ReactorMixin, EvenniaTest):
         self.assertEqual(mine, [expected[self.char1]])
         self.assertEqual(self._room_payloads(self.s2), [expected[self.char2]])
         self.assertEqual(self._room_payloads(self.s3), [expected[self.char3]])
-        self.assertIn("Char4", expected[self.char1]["characters"])
-        self.assertNotIn("Char2", expected[self.char2]["characters"])  # own names
-        self.assertIn("Char2", expected[self.char3]["characters"])
+        self.assertIn(shown(self.char4), expected[self.char1]["characters"])
+        self.assertNotIn(shown(self.char2), expected[self.char2]["characters"])  # own names
+        self.assertIn(shown(self.char2), expected[self.char3]["characters"])
         # the mover gets its new room from the same fan-out (lock 2A)
         self.assertEqual(self._room_payloads(self.s4)[-1:], [expected[self.char4]])
 
     def test_leaver_is_gone_from_what_the_others_get(self):
         with _awake(self.char2, self.s2), \
                 mock.patch.object(self.session, "data_out") as spy:
-            self.assertIn("Char2", client_state.room_snapshot(self.room1, self.char1)["characters"])
+            self.assertIn(
+                shown(self.char2), client_state.room_snapshot(self.room1, self.char1)["characters"]
+            )
             self.char2.move_to(self.room2, quiet=True)
             self.assertGreater(self.reactor.run(), 0)
         rooms = [payload[0][0] for d, payload in _sent(spy) if d == "room"]
         self.assertEqual(len(rooms), 1)
-        self.assertNotIn("Char2", rooms[0]["characters"])
+        self.assertNotIn(shown(self.char2), rooms[0]["characters"])
 
     def test_statues_get_nothing(self):
         with mock.patch.object(client_state, "push") as push:

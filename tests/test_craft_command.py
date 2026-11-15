@@ -111,6 +111,7 @@ from world.recipes import ClothRecipe, ClubRecipe, TwineRecipe
 
 from tests.test_work_command import WorkTestBase, _marker_of, captured_messages
 from tests.test_activity_log import ActivityLogMixin
+from tests.names_fixture import describe, shown
 
 
 TWINE = "twine from 1-fiber, 2-fiber, 3-fiber"
@@ -192,13 +193,17 @@ class TestStartSchedulesOnly(CraftTestBase):
         self.assertEqual(self.twine_in(self.char1), [])
 
     def test_the_crafter_is_told_and_the_room_sees_the_act_not_the_recipe(self):
+        describe(self.char1)
         with captured_messages(self.char2) as room:
             with mock.patch("world.timed_actions.delay"):
                 self.call(
                     CmdCraftGated(), TWINE, "You set to work on twine.", caller=self.char1
                 )
         joined = _joined(room)
-        self.assertIn(f"{self.char1.key} begins to craft something.", joined)
+        # Names NM-T2: the room reads the short description, through
+        # get_display_name() with no looker (crafting_commands.py:280), so
+        # neither a recog nor a capital yet; NM-T9 sends it through $You().
+        self.assertIn(f"{shown(self.char1)} begins to craft something.", joined)
         self.assertNotIn("twine", joined)
 
 

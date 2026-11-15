@@ -41,6 +41,7 @@ from evennia.utils.test_resources import EvenniaTest
 from commands.world_commands import CmdRoomLook
 from typeclasses.characters import Character
 from world import client_state, room_text
+from tests.names_fixture import describe, shown
 
 ROOM = "typeclasses.rooms.Room"
 EXIT = "typeclasses.exits.Exit"
@@ -109,12 +110,16 @@ class TestCanonicalText(_RoomLookTest):
             create_object(OBJECT, key="stone", location=self.room1)
         sleeper = create_object(Character, key="Sleeper", location=self.room1)
         self.assertTrue(sleeper.is_statue)  # receipt: a statue, not awake
+        # Names NM-T2: characters are listed by the short description.
+        describe(self.char2)
+        sleeper.sdesc.add("a sleeping traveller")
         with _awake("Char2"):
             sent = self._assert_canonical(
                 self.room1,
                 "|cRoom(%s)|n\nroom_desc\n|wExits:|n out\n"
-                "|wCharacters:|n Char2\n"
-                "|wYou see:|n an Obj, an Obj2, and two stones, |wstone statue of Sleeper|n"
+                f"|wCharacters:|n {shown(self.char2)}\n"
+                "|wYou see:|n an Obj, an Obj2, and two stones, "
+                "|wstone statue of a sleeping traveller|n"
                 % self.room1.dbref)
         self.assertEqual([kind for _text, kind in sent], ["look", "room_contents"])
         self.assertTrue(sent[1][0].startswith("|wExits:|n"))
@@ -159,10 +164,13 @@ class TestTwoMessagesInOrder(_RoomLookTest):
         self.assertIn("You become |cChar|n.", sent[0][0])  # DefaultCharacter's line kept
 
     def test_puppet_still_tells_the_room(self):
+        describe(self.char1)
         with mock.patch.object(self.char2, "msg") as heard:
             self.char1.at_post_puppet()
         lines = [c.args[0] if c.args else c.kwargs.get("text") for c in heard.call_args_list]
-        self.assertIn("Char has entered the game.", [str(line) for line in lines])
+        # Names NM-T2: Evennia's own line, named per reader (mapping), so the
+        # short description and no capital (objects.py, at_post_puppet).
+        self.assertIn(f"{shown(self.char1)} has entered the game.", [str(line) for line in lines])
 
 
 class TestOtherLooksUnchanged(_RoomLookTest):
