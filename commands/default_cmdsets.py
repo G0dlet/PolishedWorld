@@ -37,6 +37,7 @@ from commands.crafting_commands import (
     CmdLearn,
 )
 from world.barter import CmdPWTrade
+from commands.names_commands import CmdRecog, CmdForget
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
 # ClothedCharacterCmdSet, which subclasses Evennia's DEFAULT CharacterCmdSet
@@ -189,6 +190,14 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # CmdContainerLook, which would clobber extended_room's seasonal look.
         self.add(CmdGet())
         self.add(CmdPut())
+
+        # Names (NM4, NM-T5): the project's recog and forget on the contrib's
+        # RecogHandler. The contrib's CmdRecog is not added: it takes anything
+        # in the room as a target and its forget works only in the room.
+        # Keys verified free: no `recog` or `forget` in Evennia's default
+        # cmdsets or in our own commands.
+        self.add(CmdRecog())
+        self.add(CmdForget())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
