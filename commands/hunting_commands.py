@@ -336,7 +336,8 @@ class CmdHarvest(Command):
             if set_down:
                 caller.msg(caller.set_down_message(set_down))
             caller.location.msg_contents(
-                f"{caller.get_display_name()} harvests {part_name} from {corpse_label}.",
+                f"$You() harvests {part_name} from {corpse_label}.",
+                from_obj=caller,
                 exclude=caller,
             )
 
@@ -345,8 +346,8 @@ class CmdHarvest(Command):
             corpse.db.harvested[part_name] = True
             caller.msg(f"|rYou botch the work|n and ruin the {part_name} on {corpse_label}.")
             caller.location.msg_contents(
-                f"{caller.get_display_name()} botches the harvest, "
-                f"ruining part of {corpse_label}.",
+                f"$You() botches the harvest, ruining part of {corpse_label}.",
+                from_obj=caller,
                 exclude=caller,
             )
 

@@ -322,8 +322,9 @@ class CmdPay(Command):
         # and both parties have already been messaged directly.
         if caller.location:
             caller.location.msg_contents(
-                f"{caller.get_display_name()} hands {target.get_display_name()} "
-                "some coin.",
+                "$You() hands $you(target) some coin.",
+                from_obj=caller,
+                mapping={"target": target},
                 exclude=[caller, target],
             )
 

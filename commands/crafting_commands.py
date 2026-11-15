@@ -278,7 +278,8 @@ class CmdCraftGated(CmdCraft):
         caller.msg(f"You set to work on {cls.name}.")
         if caller.location:
             caller.location.msg_contents(
-                f"{caller.get_display_name()} begins to craft something.",
+                "$You() begins to craft something.",
+                from_obj=caller,
                 exclude=caller,
             )
 

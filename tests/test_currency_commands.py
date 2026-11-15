@@ -216,8 +216,10 @@ class TestPayCommandSuccess(SecondSessionMixin, LedgerIsolationMixin, EvenniaCom
         describe(self.char1, self.char2)  # Names NM-T2
 
     def test_payment_moves_coin_and_tells_both_parties(self):
-        # Names NM-T2: each side reads the other's short description; the
-        # payee's line starts lower-case until NM-T9 sends it through $You().
+        # Names NM-T2: each side reads the other's short description. The
+        # payee's line is a direct message (`target.msg`), not a room message,
+        # so NM-T9 left it: it still starts lower-case (decomposition, NM-T9's
+        # Shipped row, with the other direct lines that start with a name).
         self.call(
             CmdPay(), f"5 silver to {shown(self.char2)}",
             {
@@ -268,9 +270,10 @@ class TestPayCommandSuccess(SecondSessionMixin, LedgerIsolationMixin, EvenniaCom
         seen = self.call(
             CmdPay(), f"5 silver to {shown(self.char2)}", caller=self.char1, receiver=observer
         )
-        # Names NM-T2: the bystander reads both short descriptions (lower-case
-        # at the start until NM-T9).
-        self.assertIn(f"{shown(self.char1)} hands {shown(self.char2)} some coin.", seen)
+        # Names NM-T9: the bystander reads both short descriptions, the line's
+        # first with $You()'s capital (tests/test_names_room_messages.py).
+        self.assertIn(
+            f"{shown(self.char1).capitalize()} hands {shown(self.char2)} some coin.", seen)
         self.assertNotIn("Silver", seen)
         self.assertNotIn("5", seen)
 

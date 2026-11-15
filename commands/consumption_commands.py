@@ -60,7 +60,7 @@ class CmdEat(Command):
         caller.traits.hunger.current += obj.restore_amount  # auto-clamps to max
         caller.msg(obj.consume_message.format(key=obj.get_display_name(caller)))
         caller.location.msg_contents(
-            f"{caller.key} eats {obj.key}.", exclude=caller
+            f"$You() eats {obj.key}.", from_obj=caller, exclude=caller
         )
         obj.delete()
         # Launch Minimum L2.2: after the last write (the food deleted). The
@@ -191,8 +191,8 @@ class CmdDrink(Command):
             "cupped hands. The water is cold enough to ache."
         )
         caller.location.msg_contents(
-            f"{caller.get_display_name()} kneels at the "
-            f"{source.get_display_name()} and drinks.",
+            f"$You() kneels at the {source.get_display_name()} and drinks.",
+            from_obj=caller,
             exclude=caller,
         )
         client_state.push(caller, "survival")
@@ -238,8 +238,8 @@ class CmdEmpty(Command):
         obj.pour_out()
         caller.msg(f"You upend the {name} and let it run out.")
         caller.location.msg_contents(
-            f"{caller.get_display_name()} upends the {obj.get_display_name()} "
-            "and lets it run out.",
+            f"$You() upends the {obj.get_display_name()} and lets it run out.",
+            from_obj=caller,
             exclude=caller,
         )
 

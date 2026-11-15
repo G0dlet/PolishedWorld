@@ -200,10 +200,10 @@ class TestStartSchedulesOnly(CraftTestBase):
                     CmdCraftGated(), TWINE, "You set to work on twine.", caller=self.char1
                 )
         joined = _joined(room)
-        # Names NM-T2: the room reads the short description, through
-        # get_display_name() with no looker (crafting_commands.py:280), so
-        # neither a recog nor a capital yet; NM-T9 sends it through $You().
-        self.assertIn(f"{shown(self.char1)} begins to craft something.", joined)
+        # Names NM-T9: the room reads the actor through $You(), each reader
+        # as they know them, with the line's capital (per-reader cases in
+        # tests/test_names_room_messages.py).
+        self.assertIn(f"{shown(self.char1).capitalize()} begins to craft something.", joined)
         self.assertNotIn("twine", joined)
 
 
