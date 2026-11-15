@@ -9,7 +9,7 @@ from evennia.contrib.game_systems.clothing import ClothedCharacter
 from evennia.contrib.rpg.rpsystem import ContribRPCharacter, RPSystemCmdSet
 from evennia.objects.objects import DefaultObject
 from evennia.utils import lazy_property
-from evennia.utils.utils import delay, inherits_from
+from evennia.utils.utils import delay, inherits_from, make_iter
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
@@ -655,6 +655,92 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         theirs (Names UG3).
         """
         return recog or ""
+
+    def reset_pose(self):
+        """
+        Set the pose back to the default (Names UP19, NM14; NM-T7).
+
+        A pose describes a place: *is warming her hands by the fire* is said
+        of one room, and must not arrive in the next. The default is the
+        contrib's `pose_default` (*is here.*, rpsystem.py:1566, backfilled by
+        NM-T4); a character without one gets an empty pose. Never raises:
+        it runs inside at_post_move, where an exception would make move_to
+        report a failed move after the move has happened (objects.py:1331).
+        """
+        try:
+            self.db.pose = self.db.pose_default or ""
+        except Exception:
+            logger.log_trace(f"Names: could not reset the pose of {self.dbref}")
+
+    def at_pre_say(self, message, **kwargs):
+        """
+        A whisper is returned as it is (Names NM-T7, lock 2 A).
+
+        The contrib's hook wraps all speech as an emote, `/Me says, "..."`
+        or `/Me whispers "..."` (rpsystem.py:1569-1581), for its own `say`,
+        which parses emotes. Evennia's `whisper` calls the same hook and does
+        not, so the receiver read the wrapper itself (run 2026-11-15).
+        Evennia's at_say already names the whisperer per receiver.
+        """
+        if kwargs.get("whisper"):
+            return message
+        return super().at_pre_say(message, **kwargs)
+
+    def at_say(
+        self,
+        message,
+        msg_self=None,
+        msg_location=None,
+        receivers=None,
+        msg_receivers=None,
+        **kwargs,
+    ):
+        """
+        A whisper names the whisperer with a capital (Names NM-T7).
+
+        Evennia's at_say puts `{object}` -- `get_display_name(receiver)` --
+        at the start of the receiver's line and never capitalises it
+        (objects.py:2961); a short description starts lower-case, so the
+        receiver read *a lanky man whispers: ...*. For a whisper with
+        Evennia's own wording this hook writes the two lines itself, the
+        receiver's with the name asked for as the start of a sentence
+        (`ref="t"`, as an emote does: a short description gets its capital,
+        a recog keeps its own case). A `say`, or a whisper with a custom
+        `msg_receivers`, goes to Evennia unchanged.
+        """
+        if not kwargs.get("whisper") or msg_receivers is not None:
+            return super().at_say(
+                message,
+                msg_self=msg_self,
+                msg_location=msg_location,
+                receivers=receivers,
+                msg_receivers=msg_receivers,
+                **kwargs,
+            )
+        receivers = make_iter(receivers) if receivers else []
+        if msg_self:
+            template = (
+                _('{self} whisper to {all_receivers}, "|n{speech}|n"')
+                if msg_self is True
+                else msg_self
+            )
+            mapping = {
+                "self": _("You"),
+                "object": self.get_display_name(self),
+                "location": self.location.get_display_name(self) if self.location else None,
+                "receiver": None,
+                "all_receivers": ", ".join(recv.get_display_name(self) for recv in receivers)
+                or None,
+                "speech": message,
+            }
+            mapping.update(kwargs.get("mapping", {}))
+            self.msg(text=(template.format_map(mapping), {"type": "whisper"}), from_obj=self)
+        for receiver in receivers:
+            name = self.get_display_name(receiver, ref="t")
+            receiver.msg(
+                text=(f'{name} whispers: "|n{message}|n"', {"type": "whisper"}),
+                from_obj=self,
+            )
 
     def get_search_result(self, searchdata, candidates=None, **kwargs):
         """
@@ -1603,6 +1689,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             destination = self._get_respawn_location()
             if destination:
                 self.move_to(destination, quiet=True, move_hooks=False)
+                # The relocation runs without hooks, so at_post_move does not
+                # reset the pose (Names UP19, NM-T7): a body does not come
+                # back from death still warming its hands.
+                self.reset_pose()
 
             # Restore vitals (decision 2: reset hunger/thirst -- fed and watered).
             health = self.traits.get("health")
@@ -1866,6 +1956,9 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         the move has happened (`objects.py:1331`), and the exit would tell a
         character who did move "You cannot go there."
         """
+        # Names UP19, NM14 (NM-T7): a pose is left at the door, before the
+        # look so the room lists read the arrival as *is here.*
+        self.reset_pose()
         if self.location is not None and self.location.access(self, "view"):
             room_text.room_look(self, self.location)
         if move_type != "traverse":

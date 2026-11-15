@@ -63,7 +63,11 @@ import re
 
 from django.conf import settings
 from evennia import Command
-from evennia.contrib.rpg.rpsystem.rpsystem import RecogError, SdescError
+from evennia.contrib.rpg.rpsystem import rpsystem as _rp
+from evennia.contrib.rpg.rpsystem.rpsystem import CmdEmote as _ContribCmdEmote
+from evennia.contrib.rpg.rpsystem.rpsystem import CmdPose as _ContribCmdPose
+from evennia.contrib.rpg.rpsystem.rpsystem import CmdSay as _ContribCmdSay
+from evennia.contrib.rpg.rpsystem.rpsystem import EmoteError, RecogError, SdescError
 from evennia.utils import ansi, logger
 from evennia.utils.utils import inherits_from
 
@@ -396,3 +400,219 @@ class CmdForget(Command):
             caller.msg("The name will not leave you just now.")
             return
         caller.msg(f"You let the name {label} go.")
+
+
+# --------------------------------------------------------------------------
+# Emotes: the contrib's parser, its leftover number removed (NM-T7, lock 1 C)
+# --------------------------------------------------------------------------
+#
+# The contrib's emote parser leaves the number of a numbered reference in the
+# text: `nods to /2-tall.` reaches the room as *nods to /2a tall man.* When a
+# reference carries a number, its `head` is cut two characters after the `/`
+# instead of at it (rpsystem.py:426-431), so `/2` stays in front of the
+# `{#id}` marker that replaces the name. Every `/N-word` does it, `/1-` too,
+# and a pose stores it. Run 2026-11-15; the same lines are on Evennia's
+# `main` at 98b9df2 (2026-10-24), and the contrib's tests never try a number.
+#
+# The parser itself is taken as it is (OQ-NM8): a person the emoter knows by
+# a recog and sees by a description is two rows, `N-` is counted in that
+# list, and a number past the end names the last. Only the leftover text is
+# removed, right after the parser and before the markers are formatted, so
+# `send_emote` below is the contrib's (rpsystem.py:558-651) with that one
+# call changed. The contrib's `emote`, `say` and `pose` call its module
+# function directly, so each is subclassed to call these.
+
+# The marker the parser writes: `{#<id>}` with an optional case flag
+# (_get_case_ref, rpsystem.py:253: t, ^, v, ~).
+_RE_LEFTOVER_NUMBER = re.compile(r"/[0-9]+(?=\{#[0-9]+[t^v~]?\})")
+
+
+def parse_emote(sender, candidates, string, **kwargs):
+    """
+    The contrib's parse_sdescs_and_recogs (not in search mode), with the
+    leftover `/N` of a numbered reference removed. Raises EmoteError as the
+    contrib does.
+    """
+    emote, mapping = _rp.parse_sdescs_and_recogs(sender, candidates, string, **kwargs)
+    return _RE_LEFTOVER_NUMBER.sub("", emote), mapping
+
+
+def send_emote(sender, receivers, emote, msg_type="pose", anonymous_add="first", **kwargs):
+    """
+    The contrib's send_emote (rpsystem.py:558-651), calling parse_emote.
+
+    Each receiver reads every person as that receiver knows them (recog, else
+    short description); the sender is added at the start when the emote does
+    not name them (`anonymous_add="first"`), or not at all (`None`). A failed
+    reference tells only the sender.
+    """
+    case_sensitive = kwargs.pop("case_sensitive", True)
+    fallback = kwargs.pop("fallback", None)
+    try:
+        emote, obj_mapping = parse_emote(
+            sender, receivers, emote, case_sensitive=case_sensitive, fallback=fallback
+        )
+        emote, language_mapping = _rp.parse_language(sender, emote)
+    except (_rp.EmoteError, _rp.LanguageError) as err:
+        sender.msg(str(err))
+        return
+
+    skey = f"#{sender.id}"
+    # we escape the object mappings since we'll do the language ones first
+    emote = _rp._RE_REF.sub(r"{{#\1}}", emote)
+
+    self_refs = [f"{skey}{ref}" for ref in ("t", "^", "v", "~", "")]
+    if anonymous_add and not any(1 for tag in obj_mapping if tag in self_refs):
+        # no self-reference in the emote - add it
+        if anonymous_add == "first":
+            # add case flag for initial caps
+            skey += "t"
+            # don't put a space after the self-ref if it's a possessive emote
+            femote = "{key}{emote}" if emote.startswith("'") else "{key} {emote}"
+        else:
+            # add it to the end
+            femote = "{emote} [{key}]"
+        emote = femote.format(key="{{" + skey + "}}", emote=emote)
+        obj_mapping[skey] = sender
+
+    for receiver in receivers:
+        # first handle the language mapping, which always produce different keys ##1
+        if hasattr(receiver, "process_language") and callable(receiver.process_language):
+            receiver_lang_mapping = {
+                key: receiver.process_language(saytext, sender, langname)
+                for key, (langname, saytext) in language_mapping.items()
+            }
+        else:
+            receiver_lang_mapping = {
+                key: saytext for key, (langname, saytext) in language_mapping.items()
+            }
+        # map the language {##num} markers. This will convert the escaped sdesc markers on
+        # the form {{#num}} to {#num} markers ready to sdesc-map in the next step.
+        sendemote = emote.format_map(receiver_lang_mapping)
+
+        # map the ref keys to sdescs
+        receiver_sdesc_mapping = dict(
+            (
+                ref,
+                obj.get_display_name(receiver, ref=ref, noid=True),
+            )
+            for ref, obj in obj_mapping.items()
+        )
+
+        # do the template replacement of the sdesc/recog {#num} markers
+        receiver.msg(
+            text=(sendemote.format_map(receiver_sdesc_mapping), {"type": msg_type}),
+            from_obj=sender,
+            **kwargs,
+        )
+
+
+class CmdEmote(_ContribCmdEmote):
+    __doc__ = _ContribCmdEmote.__doc__
+
+    def func(self):
+        """The contrib's emote (rpsystem.py:933-943), through send_emote above."""
+        if not self.args:
+            self.caller.msg("What do you want to do?")
+            return
+        emote = self.args
+        targets = self.caller.location.contents if self.caller.location else [self.caller]
+        if not emote.endswith((".", "?", "!", '"')):
+            emote += "."
+        send_emote(self.caller, targets, emote, anonymous_add="first")
+
+
+class CmdSay(_ContribCmdSay):
+    __doc__ = _ContribCmdSay.__doc__
+
+    def func(self):
+        """The contrib's say (rpsystem.py:962-971), through send_emote above."""
+        caller = self.caller
+        if not self.args:
+            caller.msg("Say what?")
+            return
+        speech = caller.at_pre_say(self.args)
+        targets = caller.location.contents if caller.location else [caller]
+        send_emote(caller, targets, speech, msg_type="say", anonymous_add=None)
+
+
+class CmdPose(_ContribCmdPose):
+    """
+    Set how others see you standing in a room.
+
+    Usage:
+      pose <pose>
+      pose default <pose>
+      pose reset
+
+    Examples:
+      pose is warming her hands by the fire
+      pose is talking to /lanky
+
+    The pose ends the sentence that starts with how others see you:
+    *a lanky woman is warming her hands by the fire.* It stays in the room
+    when you leave; you arrive anywhere else with your default pose
+    (*is here.*). A /word names someone in the room as you see them now.
+
+    See also: emote, say
+    """
+
+    def func(self):
+        """
+        The contrib's pose (rpsystem.py:1070-1122) with two changes (Names
+        NM-T7): the references go through parse_emote, so a numbered one
+        leaves no `/N`; and a reference that matches no one is the parser's
+        line, not a traceback -- the contrib does not catch its EmoteError
+        (run 2026-11-15).
+        """
+        caller = self.caller
+        pose = self.args
+        target = self.target
+        if not pose and not self.reset:
+            caller.msg("Usage: pose <pose-text> OR pose obj = <pose-text>")
+            return
+
+        if not pose.endswith((".", "?", "!", '"')):
+            pose += "."
+        if target:
+            target = caller.search(target)
+            if not target:
+                return
+            if not target.access(caller, "edit"):
+                caller.msg("You can't pose that.")
+                return
+        else:
+            target = caller
+
+        target_name = target.sdesc.get() if hasattr(target, "sdesc") else target.key
+        if not target.attributes.has("pose"):
+            caller.msg(f"{target_name} cannot be posed.")
+            return
+
+        if self.reset:
+            pose = target.db.pose_default
+            target.db.pose = pose
+        elif self.default:
+            target.db.pose_default = pose
+            caller.msg(f"Default pose is now '{target_name} {pose}'.")
+            return
+        else:
+            # The references are mapped to short descriptions once, here.
+            try:
+                parsed, mapping = parse_emote(caller, caller.location.contents, pose)
+            except EmoteError as err:
+                caller.msg(str(err))
+                return
+            mapping = dict(
+                (ref, obj.sdesc.get() if hasattr(obj, "sdesc") else obj.key)
+                for ref, obj in mapping.items()
+            )
+            pose = parsed.format_map(mapping)
+
+            if len(target_name) + len(pose) > 60:
+                caller.msg(f"'{pose}' is too long.")
+                return
+
+            target.db.pose = pose
+
+        caller.msg(f"Pose will read '{target_name} {pose}'.")

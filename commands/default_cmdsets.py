@@ -37,7 +37,14 @@ from commands.crafting_commands import (
     CmdLearn,
 )
 from world.barter import CmdPWTrade
-from commands.names_commands import CmdRecog, CmdForget, CmdIntroduce
+from commands.names_commands import (
+    CmdRecog,
+    CmdForget,
+    CmdIntroduce,
+    CmdEmote,
+    CmdSay,
+    CmdPose,
+)
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
 # ClothedCharacterCmdSet, which subclasses Evennia's DEFAULT CharacterCmdSet
@@ -201,6 +208,18 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         # introduce (NM-T6): the truthful side, a new command -- the contrib
         # has none. Key verified free in the same inventory.
         self.add(CmdIntroduce())
+
+        # say, emote and pose (NM-T7; K7, UP20). The contrib's three, each
+        # through commands/names_commands.py's send_emote/parse_emote, which
+        # remove the `/N` the contrib's parser leaves of a numbered reference;
+        # pose also catches the parser's error (lock 1 C, Adam 2026-11-15).
+        # Added after the default set, they replace Evennia's say and pose by
+        # key and alias: Evennia's pose owned ':' and 'emote', the contrib's
+        # emote takes ':' (tests/test_names_speech.py). The contrib's sdesc,
+        # mask and recog are not added (NM3, NM4).
+        self.add(CmdSay())
+        self.add(CmdEmote())
+        self.add(CmdPose())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
