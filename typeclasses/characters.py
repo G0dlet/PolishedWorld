@@ -63,6 +63,25 @@ MOVE_FROM = "$You() is leaving {origin}, heading for {destination}."
 MOVE_TO = "$You() arrives to {destination} from {origin}."
 
 
+class _Sleeper:
+    """
+    A character as a room line names them while their body is stone.
+
+    `at_post_unpuppet` runs after the account has let go, so the character is
+    already a statue and its own `get_display_name` says *stone statue of*.
+    `$Your(sleeper)` with this in `mapping` reads `living_name` instead, per
+    reader and with `$You()`'s capital (Names NM-T11 lock 1 A). The funcparser
+    passes no kwargs to `get_display_name` (funcparser.py:1349), so a flag on
+    the call cannot do it.
+    """
+
+    def __init__(self, character):
+        self.character = character
+
+    def get_display_name(self, looker=None, **kwargs):
+        return self.character.living_name(looker, **kwargs)
+
+
 # Tag category under which a Character's learned (known) crafting recipes live.
 # Stage 3 / Component A. The known-recipe set is TAG-based, NOT an
 # AttributeProperty set (§2 lock), for three reasons:
@@ -549,10 +568,14 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     
         if self.location:
             self.db.prelogout_location = self.location  # safety, behåll konventionen
+            # Already a statue here: the sleeper is named by `living_name`
+            # (`_Sleeper`, Names NM-T11 lock 1 A).
             self.location.msg_contents(
-                f"{self.key}'s body slowly turns to weathered stone, "
+                "$Your(sleeper) body slowly turns to weathered stone, "
                 "their final pose frozen in place.",
+                from_obj=self,
                 exclude=[self],
+                mapping={"sleeper": _Sleeper(self)},
             )
             # W4.2: the others' room lists move this character from the
             # awake list to the statues (is_statue reads the sessions).
@@ -566,9 +589,12 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
 
         The first three steps are DefaultCharacter.at_post_puppet's
         (objects.py:3280-3289), copied with its look replaced by
-        `world.room_text.room_look` (webclient W5.4, WC4). super() is not
-        called: DefaultCharacter's version would send the one-message look,
-        and it never calls its own parent, so nothing else is skipped
+        `world.room_text.room_look` (webclient W5.4, WC4), and its arrival
+        line sent through `msg_contents` with `$You()` in place of
+        `for_contents` (Names NM-T11 lock 2 A): per reader, with a capital,
+        and read by the names census. super() is not called:
+        DefaultCharacter's version would send the one-message look, and it
+        never calls its own parent, so nothing else is skipped
         (tests/test_room_look.py TestHookMro). Without a location the look
         and the arrival line are left out instead of raising. The time spent
         away is credited to natural healing before the panels are pushed
@@ -577,14 +603,9 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         self.msg(_("\nYou become |c{name}|n.\n").format(name=self.key))
         if self.location is not None:
             room_text.room_look(self, self.location)
-
-            def message(obj, from_obj):
-                obj.msg(
-                    _("{name} has entered the game.").format(name=self.get_display_name(obj)),
-                    from_obj=from_obj,
-                )
-
-            self.location.for_contents(message, exclude=[self], from_obj=self)
+            self.location.msg_contents(
+                "$You() has entered the game.", from_obj=self, exclude=[self]
+            )
 
         # S2.2 (SL7): the game time spent away is credited to healing, once.
         # Before the panel push below, so its first snapshot already shows
@@ -611,8 +632,9 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
 
         if self.location:
             self.location.msg_contents(
-                f"The stone form of {self.key} stirs, color flowing back "
+                "The stone form of $you() stirs, color flowing back "
                 "into their flesh as they draw breath.",
+                from_obj=self,
                 exclude=[self],
             )
 
@@ -860,13 +882,22 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             return f"|wstone statue of {base_name}|n"
         return base_name
 
+    def living_name(self, looker, **kwargs):
+        """
+        The name `looker` knows this character by, without the statue: the
+        recog or the short description (Names K2, K3). For a statue's own
+        lines and look, and for a player's body, whose owner is a statue most
+        of the time anyone finds it.
+        """
+        return super().get_display_name(looker=looker, **kwargs)
+
     def return_appearance(self, looker, **kwargs):
         """
         Statue description instead of character description in statue state.
         """
         if self.is_statue:
             return (
-                f"|wA weathered stone statue depicting {self.key}.|n\n"
+                f"|wA weathered stone statue depicting {self.living_name(looker)}.|n\n"
                 "The carved figure stands silent and unmoving, "
                 "its features captured in fine detail. "
                 "It seems to be waiting."
@@ -1671,7 +1702,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 try:
                     corpse = create_object(
                         "typeclasses.corpse.PlayerCorpse",
-                        key=f"corpse of {self.key}",
+                        # Named per reader by PlayerCorpse.get_display_name;
+                        # the key names nobody (Names K3, NM-T11).
+                        key="corpse",
+                        aliases=["body"],
                         location=location,
                         attributes=[("owner", self.id)],
                     )

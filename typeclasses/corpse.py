@@ -20,13 +20,18 @@ Environmental modifiers scale how fast game-time counts against those thresholds
 global weather every time decay is queried.
 """
 
+import inflect
+
 from evennia import AttributeProperty
+from evennia.objects.models import ObjectDB
 from evennia.objects.objects import DefaultObject
 
 from world import gametime_utils
 from world import activity_log
 from world import weather as weather_logic
 from .objects import ObjectParent
+
+_INFLECT = inflect.engine()
 
 
 # Decay stage indices.
@@ -277,6 +282,47 @@ class PlayerCorpse(Corpse):
     # anyone but its owner may touch it; tests/test_death_contract.py derives
     # that bound from the modifier tables.
     _PLAYER_GRACE_HOURS = 72
+
+    # --- The name (Names K3, NM-T11) ------------------------------------------
+
+    def owner_character(self):
+        """The character this body was, or None if it no longer exists."""
+        owner_id = self.db.owner
+        if owner_id is None:
+            return None
+        owner = ObjectDB.objects.get_id(owner_id)
+        return owner if hasattr(owner, "living_name") else None
+
+    def _names(self, looker, count=1):
+        """
+        (singular, plural) as `looker` reads them: *the body of <the owner as
+        the looker knows them>* (lock 3 B), *your body* for the owner (lock 4
+        B), *a body* when the owner is gone.
+        """
+        words = _INFLECT.number_to_words(count, threshold=12)
+        owner = self.owner_character()
+        if owner is None:
+            return "a body", f"{words} bodies"
+        if looker is not None and looker == owner:
+            return "your body", f"your {words} bodies"
+        name = owner.living_name(looker)
+        return f"the body of {name}", f"{words} bodies of {name}"
+
+    def get_display_name(self, looker=None, **kwargs):
+        """The body named as `looker` knows its owner; the key names nobody."""
+        return self._names(looker)[0]
+
+    def get_numbered_name(self, count, looker, **kwargs):
+        """
+        The body's own singular and plural, in place of Evennia's, which would
+        put an article before *the body of* and store each reader's form as a
+        searchable alias (objects.py, `get_numbered_name`) -- a recog any
+        stranger could then search for. No alias is written here.
+        """
+        singular, plural = self._names(looker, count)
+        if kwargs.get("return_string"):
+            return singular if count == 1 else plural
+        return singular, plural
 
     def at_object_creation(self):
         """Inherit the carcass get-lock + death stamp, then lock looting owner-first."""

@@ -31,8 +31,9 @@ while still listed fails too, so the list cannot go stale.
 
 WHAT IT DOES NOT READ
 ---------------------
-- Lines sent with `for_contents` (`Character.at_post_puppet`'s *has entered
-  the game*, NM-T11) or with `msg` one receiver at a time.
+- Lines sent with `for_contents`, or with `msg` one receiver at a time.
+  (`Character.at_post_puppet`'s *has entered the game* went through
+  `for_contents` until NM-T11 lock 2 A moved it here.)
 - Evennia's own `msg_contents` calls. `Character.announce_move_from` and
   `announce_move_to` hand Evennia a `$You()` template (NM-T10 lock 1 A); the
   site tests in `test_names_room_messages` read those lines.
@@ -69,9 +70,6 @@ KNOWN = {
         ["node.get_display_name()"],
     ("commands/foraging_commands.py", "CmdRefill.func"):
         ["container.get_display_name()"],
-    # NM-T11's: the statue's two lines, converted with the statue's look.
-    ("typeclasses/characters.py", "Character.at_post_unpuppet"): ["self.key"],
-    ("typeclasses/characters.py", "Character.at_post_puppet"): ["self.key"],
 }
 
 

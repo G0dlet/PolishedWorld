@@ -239,10 +239,12 @@ class CmdHarvest(Command):
         #     here; before steps 5-6, so neither the listing nor a named part
         #     ever reaches a template. A free bailout, like a bad part name.
         if corpse.db.is_player_corpse:
-            corpse_label = corpse.get_display_name(caller)
+            # The word to type, so the key: since Names K3 (NM-T11) a body's
+            # key is `corpse` and names nobody, and its display name (*the
+            # body of ...*) is not something the search takes.
             caller.msg(
                 f"That is no quarry, but what remains of someone. "
-                f"To take something back: get <item> from {corpse_label}."
+                f"To take something back: get <item> from {corpse.key}."
             )
             return
 

@@ -139,7 +139,7 @@ def help_text():
         f"about {_plural(chill_minutes, 'real minute')}. {REST_LINE}\n\n"
         "The world's clock stands still while the server is down, so downtime "
         "does not shorten either window.\n\n"
-        "To take something back: |wget <item> from corpse of <your name>|n"
+        "To take something back: |wget <item> from corpse|n"
     )
 
 

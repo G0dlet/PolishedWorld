@@ -172,9 +172,10 @@ class TestTwoMessagesInOrder(_RoomLookTest):
         with mock.patch.object(self.char2, "msg") as heard:
             self.char1.at_post_puppet()
         lines = [c.args[0] if c.args else c.kwargs.get("text") for c in heard.call_args_list]
-        # Names NM-T2: Evennia's own line, named per reader (mapping), so the
-        # short description and no capital (objects.py, at_post_puppet).
-        self.assertIn(f"{shown(self.char1)} has entered the game.", [str(line) for line in lines])
+        lines = [line[0] if isinstance(line, tuple) else line for line in lines]
+        # Names NM-T11 lock 2 A: through `$You()`, so per reader and with the
+        # capital a name starting a line has (NM-T2 had Evennia's lower case).
+        self.assertIn("A weathered woman has entered the game.", [str(line) for line in lines])
 
 
 class TestOtherLooksUnchanged(_RoomLookTest):
