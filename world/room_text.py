@@ -80,11 +80,12 @@ def character_line(char, viewer, **kwargs):
     NM14; NM-T8): the name with its pose, *A broad-shouldered man is here.*
 
     The name is asked for with `ref="t"`, as an emote's `/Tall` and a
-    whisper ask for one at the start of a line (NM-T8 lock 2A): a short
-    description gets its capital, and a recog is written as its holder wrote
-    it (Names UG3, `Character.process_recog`). The pose is the contrib's
-    (`get_posed_sdesc`, rpsystem.py:1366): the current one, else the default.
-    A caller's own `pose` or `ref` does not reach the call twice.
+    whisper ask for one at the start of a line: the first character up, the
+    rest as written, as `$You()` writes it (`Character.process_sdesc`,
+    `process_recog`; NM-T9 lock 1B, which replaced NM-T8's 2A). The pose is
+    the contrib's (`get_posed_sdesc`, rpsystem.py:1366): the current one,
+    else the default. A caller's own `pose` or `ref` does not reach the call
+    twice.
 
     Args:
         char (Object): an awake character, from `room_lists(...)["characters"]`.

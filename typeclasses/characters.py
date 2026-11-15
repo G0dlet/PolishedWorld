@@ -47,6 +47,14 @@ from django.utils.translation import gettext as _
 from evennia.utils import search
 
 
+def capital(name):
+    """
+    A name at the start of a line, as `$You()` writes it: the first character
+    up, the rest as written (funcparser.py:1270-1272; Names NM-T9 lock 1B).
+    """
+    return name[:1].upper() + name[1:]
+
+
 # Tag category under which a Character's learned (known) crafting recipes live.
 # Stage 3 / Component A. The known-recipe set is TAG-based, NOT an
 # AttributeProperty set (§2 lock), for three reasons:
@@ -631,15 +639,17 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         The contrib paints it `|b` (rpsystem.py:1651). Dark blue reads badly,
         and a leading colour code stops `$You()` from capitalising a name at
         the start of a line (funcparser_callable_you capitalises `name[:1]`).
-        The case markers of the contrib's `ref` are kept: an emote's `/Tall`
-        still asks for a capital.
+        The case markers of the contrib's `ref` are kept, with one change:
+        a capital (`t`, an emote's `/Tall`, a line start) is `$You()`'s --
+        the first character up and the rest as written, where the contrib
+        lowered the rest first (rpsystem.py:1643-1645). *a woman from Kvarn*
+        starts a line as *A woman from Kvarn* whichever asks (NM-T9 lock 1B).
         """
         if not sdesc:
             return ""
         ref = kwargs.get("ref", "~")
         if "t" in ref:
-            sdesc = sdesc.lower()
-            sdesc = sdesc[0].upper() + sdesc[1:] if len(sdesc) > 1 else sdesc.upper()
+            sdesc = capital(sdesc)
         elif "^" in ref:
             sdesc = sdesc.upper()
         elif "v" in ref:
@@ -650,11 +660,16 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         """
         A recog as THIS character reads it: as written, no colour (Names NM11).
 
-        The contrib paints it `|m` (rpsystem.py:1670) and ignores `ref`; the
-        case is kept too, because what a player chose to call someone is
-        theirs (Names UG3).
+        The contrib paints it `|m` (rpsystem.py:1670) and ignores `ref`. Here
+        a capital (`t`) is given as `$You()` gives one -- the first character
+        up, the rest as written -- so a name starts a line the same way in a
+        say, a whisper, a look and a room message (NM-T9 lock 1B). No other
+        marker rewrites it: `/mia` or `/MIA` in an emote leaves what a
+        player chose to call someone as they wrote it.
         """
-        return recog or ""
+        if not recog:
+            return ""
+        return capital(recog) if "t" in kwargs.get("ref", "~") else recog
 
     def reset_pose(self):
         """
@@ -704,8 +719,9 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         receiver read *a lanky man whispers: ...*. For a whisper with
         Evennia's own wording this hook writes the two lines itself, the
         receiver's with the name asked for as the start of a sentence
-        (`ref="t"`, as an emote does: a short description gets its capital,
-        a recog keeps its own case). A `say`, or a whisper with a custom
+        (`ref="t"`, as an emote does: the first character up, the rest as
+        written, as `$You()` writes it -- NM-T9 lock 1B). A `say`, or a
+        whisper with a custom
         `msg_receivers`, goes to Evennia unchanged.
         """
         if not kwargs.get("whisper") or msg_receivers is not None:

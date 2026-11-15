@@ -145,6 +145,12 @@ class TestSay(_Speech):
         self.assertEqual(self.lines(self.char3), ['A broad-shouldered man says, "hello"'])
         self.assertEqual(self.lines(self.char1), ['Bob says, "hello"'])
 
+    def test_a_lower_case_recog_gets_the_lines_capital(self):
+        # NM-T9 lock 1B: $You()'s rule at the start of a line.
+        self.char1.recog.add(self.char2, "bob")
+        self.run_as("say", "hello")
+        self.assertEqual(self.lines(self.char1), ['Bob says, "hello"'])
+
     def test_no_key_reaches_a_stranger(self):
         self.run_as("say", "hello")
         self.assertNotIn("Char2", " ".join(self.lines(self.char3)))
@@ -156,6 +162,14 @@ class TestEmote(_Speech):
         self.run_as("emote", "waves at /freckled.")
         self.assertEqual(
             self.lines(self.char1), ["A broad-shouldered man waves at Mia."]
+        )
+
+    def test_a_lower_case_reference_keeps_a_recog_as_written(self):
+        # `/freckled` asks for no capital (v), so none is given (lock 1B).
+        self.char1.recog.add(self.char3, "mia of the Ford")
+        self.run_as("emote", "waves at /freckled.")
+        self.assertEqual(
+            self.lines(self.char1), ["A broad-shouldered man waves at mia of the Ford."]
         )
 
     def test_a_failed_reference_tells_only_the_emoter(self):
@@ -291,6 +305,11 @@ class TestWhisper(_Speech):
 
     def test_a_recogniser_reads_their_label(self):
         self.char3.recog.add(self.char2, "Bob")
+        self.run_as("whisper", "freckled = hello")
+        self.assertEqual(self.lines(self.char3), ['Bob whispers: "hello"'])
+
+    def test_a_lower_case_recog_gets_the_lines_capital(self):
+        self.char3.recog.add(self.char2, "bob")
         self.run_as("whisper", "freckled = hello")
         self.assertEqual(self.lines(self.char3), ['Bob whispers: "hello"'])
 

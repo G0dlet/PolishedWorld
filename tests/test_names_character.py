@@ -15,7 +15,9 @@ WHAT EACH CLASS PUTS PRESSURE ON
   a server reload does (OQ-NM2).
 * TestDisplayName -- what each kind of viewer reads: a stranger the short
   description, a recogniser the recog, oneself the key, `None` the short
-  description. No colour code in any of them (NM11).
+  description. No colour code in any of them (NM11). A capital (`ref="t"`)
+  is `$You()`'s for both, the first character up and the rest as written
+  (NM-T9 lock 1B).
 * TestYouCapitalises -- `$You()` capitalises a name at the start of a line only
   if the name starts with a letter (funcparser_callable_you, `name[:1].upper()`);
   the contrib's `|b` stopped it. This is the reason NM11 exists.
@@ -117,12 +119,48 @@ class TestDisplayName(_Named):
             self.char1.get_display_name(self.char2, ref="#0^"), "A WEATHERED WOMAN"
         )
 
-    def test_a_recog_keeps_its_case_whatever_the_marker(self):
-        # What a player chose to call someone is theirs (Names UG3).
-        self.char2.recog.add(self.char1, "Mia of the Ford")
+    def test_a_recog_gets_the_capital_a_line_start_asks_for(self):
+        # NM-T9 lock 1B: one rule at the start of a line, $You()'s -- the
+        # first character up, the rest as written (funcparser.py:1270-1272).
+        self.char2.recog.add(self.char1, "mia of the Ford")
         self.assertEqual(
-            self.char1.get_display_name(self.char2, ref="#0v"), "Mia of the Ford"
+            self.char1.get_display_name(self.char2, ref="#0t"), "Mia of the Ford"
         )
+
+    def test_a_recog_is_otherwise_as_written(self):
+        # Only the capital is asked for; `/mia` (v) or `/MIA` (^) in an emote
+        # does not rewrite what a player chose to call someone.
+        self.char2.recog.add(self.char1, "mia of the Ford")
+        for ref in ("#0v", "#0^", "#0~", "#0"):
+            with self.subTest(ref=ref):
+                self.assertEqual(
+                    self.char1.get_display_name(self.char2, ref=ref), "mia of the Ford"
+                )
+
+    def test_the_capital_leaves_the_rest_of_a_description_as_written(self):
+        self.char1.sdesc.add("a woman from Kvarn")
+        self.assertEqual(
+            self.char1.get_display_name(self.char2, ref="#0t"), "A woman from Kvarn"
+        )
+
+    def test_a_line_start_reads_as_you_writes_it(self):
+        # The same name at the start of a line whether `$You()` or `ref="t"`
+        # asks for it (NM-T9 lock 1B): a description with a proper noun for a
+        # stranger, a lower-case recog for a recogniser.
+        def you_line():
+            others = [o for o in self.room1.contents if o != self.char2]
+            with mock.patch.object(self.char2, "msg") as msg:
+                self.room1.msg_contents("$You() waits.", from_obj=self.char1, exclude=others)
+            return msg.call_args.kwargs["text"][0]
+
+        self.char1.sdesc.add("a woman from Kvarn")
+        for recog in (None, "mia"):
+            if recog:
+                self.char2.recog.add(self.char1, recog)
+            with self.subTest(recog=recog):
+                self.assertEqual(
+                    you_line(), f"{self.char1.get_display_name(self.char2, ref='t')} waits.")
+        self.assertEqual(you_line(), "Mia waits.")  # receipt: the recog was read
 
     def test_no_colour_code_for_any_viewer(self):
         self.char2.recog.add(self.char1, "Mia")

@@ -30,8 +30,8 @@ Each class names the bug it pressures:
                         from a copy of its own again (lock 4C).
   TestOneLinePerCharacter  the characters run together on one line again,
                         lose their poses, list the viewer or a statue, or
-                        start a line in lower case; a recog loses the case
-                        its holder gave it (Names NM-T8, K8, NM14; lock 2A).
+                        start a line in lower case; a name's capital is not
+                        $You()'s (Names NM-T8, K8, NM14; NM-T9 lock 1B).
 """
 
 from unittest import mock
@@ -325,14 +325,14 @@ class TestOneLinePerCharacter(EvenniaTest):
         with _awake_all("Char"):
             self.assertEqual(self.room1.get_display_characters(self.char1), "")
 
-    def test_a_recog_keeps_the_case_its_holder_gave_it(self):
-        # Lock 2A: ref="t" capitalises a short description; a recog is
-        # written as its holder wrote it (Names UG3), as in a whisper (NM-T7).
-        self.char1.recog.add(self.char2, "liar")
+    def test_a_recog_gets_the_lines_capital_and_keeps_the_rest(self):
+        # NM-T9 lock 1B (which replaced NM-T8's 2A): $You()'s rule -- the
+        # first character up, the rest as its holder wrote it.
+        self.char1.recog.add(self.char2, "liar of Kvarn")
         self.char1.recog.add(self.char3, "Tess")
         self.assertEqual(
             self._characters(),
-            "\nliar is here.\nTess is warming her hands by the fire.")
+            "\nLiar of Kvarn is here.\nTess is warming her hands by the fire.")
 
     def test_a_pose_kwarg_from_the_caller_does_not_raise(self):
         self.assertIn("is here.", self._characters(pose=False, ref="~"))
