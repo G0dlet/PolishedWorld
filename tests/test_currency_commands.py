@@ -217,14 +217,13 @@ class TestPayCommandSuccess(SecondSessionMixin, LedgerIsolationMixin, EvenniaCom
 
     def test_payment_moves_coin_and_tells_both_parties(self):
         # Names NM-T2: each side reads the other's short description. The
-        # payee's line is a direct message (`target.msg`), not a room message,
-        # so NM-T9 left it: it still starts lower-case (decomposition, NM-T9's
-        # Shipped row, with the other direct lines that start with a name).
+        # payee's line is a direct message (`target.msg`), not a room message;
+        # since NM-T12 it starts with `$You()`'s capital (`names.line_start`).
         self.call(
             CmdPay(), f"5 silver to {shown(self.char2)}",
             {
                 self.char1: f"You pay {shown(self.char2)} 5 Silver.",
-                self.char2: f"{shown(self.char1)} pays you 5 Silver.",
+                self.char2: "A weathered woman pays you 5 Silver.",
             },
             caller=self.char1,
         )

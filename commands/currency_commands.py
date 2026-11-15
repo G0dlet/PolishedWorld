@@ -86,7 +86,7 @@ from typeclasses.treasury import (
     get_configured_dbref,
     resolve_treasury,
 )
-from world import economy_log
+from world import economy_log, names
 from world.currency import format_copper, format_gamegold, parse_amount
 
 
@@ -261,7 +261,7 @@ class CmdPay(Command):
         # <room>` reaches this line. This guard is load-bearing, not decorative:
         # transfer_to raises TypeError on a target with no handler (D7).
         if not hasattr(target, "currency"):
-            caller.msg(f"{target.get_display_name(caller)} has no use for coin.")
+            caller.msg(f"{names.line_start(target, caller)} has no use for coin.")
             return
 
         # has_account is `self.sessions.count()` (verified live), so it is true
@@ -283,6 +283,9 @@ class CmdPay(Command):
         # and `donate` was deliberately not claimed (decomp §5). If player
         # donations ever become a feature, this is the guard to revisit.
         if not target.has_account:
+            # Not `names.line_start` (Names NM-T12): a character with no account
+            # is a statue, whose name starts with a colour code and so takes no
+            # capital -- the line reads *stone statue of ...* either way.
             caller.msg(
                 f"{target.get_display_name(caller)} is in no state to take coin."
             )
@@ -305,7 +308,7 @@ class CmdPay(Command):
 
         rendered = format_copper(amount)
         caller.msg(f"You pay {target.get_display_name(caller)} |y{rendered}|n.")
-        target.msg(f"{caller.get_display_name(target)} pays you |y{rendered}|n.")
+        target.msg(f"{names.line_start(caller, target)} pays you |y{rendered}|n.")
 
         # The room sees the ACT, never the AMOUNT.
         #

@@ -38,6 +38,22 @@ Skipping the hooks also skips the rooms' own: `Room.at_object_leave` and
 `arrive()` pushes both rooms itself. The arriving character's own panels are
 the caller's to push (AV5: `node_done` pushes all four after this returns).
 
+THE ROOM SEES THE NEWCOMER (Names NM-T12; Arrival AV8)
+------------------------------------------------------
+After the move, the room the character entered is told, through `$You()`,
+so each reader names the newcomer as they know them (Names UP10) -- in
+practice by the short description, since nobody knows a new character yet.
+The wording grows from the Newcomer note's §15 (*a stranger blinking in
+the doorway*), turned inward: the newcomer steps out of a shadowed corner of
+the room itself, so nobody outside had to see them pass, it reads the same
+by day and by night, and *... is here.* in the room's list follows from it.
+It names no room, so it holds for any arrival room, and no pronoun, which
+waits for OQ-NM9's question on gender (Names NM-T12 lock 3 D). The newcomer is
+excluded (it reads the menu's closing line and the room), the room it left
+hears nothing (`quiet=True`; Limbo is staff's), and a character already
+standing in the room is not announced, as it is not pushed. The line is
+sent in its own `try`: a line that fails is logged and the arrival stands.
+
 A MISS IS QUIET (AV6)
 ---------------------
 A database without the seed -- every unit-test database, a scratch game dir --
@@ -60,6 +76,13 @@ from world import client_state
 from world import seed_data
 from world.seeding import find_seeded
 
+# What the room reads when a newcomer arrives (Names NM-T12 lock 3 D; the
+# Newcomer note's §15). `$You()` is the newcomer, per reader with a capital.
+ARRIVAL_LINE = (
+    "$You() steps unsteadily out of a shadowed corner, "
+    "blinking and looking about in confusion."
+)
+
 
 def arrival_room():
     """
@@ -77,8 +100,8 @@ def arrive(character):
     Make the arrival room `character`'s home and stand it there.
 
     Order: resolve the room; write `home`; move without hooks, unless the
-    character already stands there; push the room it left and the room it
-    entered.
+    character already stands there; tell the room it entered (Names NM-T12);
+    push the room it left and the room it entered.
 
     Args:
         character (Character): a character that has just been made.
@@ -111,6 +134,7 @@ def arrive(character):
             )
             return None
 
+        _announce(character, room)
         # The hookless move ran neither room's hook (see the module docstring).
         client_state.push_room_soon(source)
         client_state.push_room_soon(room)
@@ -118,3 +142,15 @@ def arrive(character):
     except Exception:
         logger.log_trace(f"arrival: could not arrive {character!r}.")
         return None
+
+
+def _announce(character, room):
+    """
+    Tell everyone in `room` but `character` that it has arrived (Names
+    NM-T12; Arrival AV8). Never raises: a failed line is logged and the
+    arrival stands.
+    """
+    try:
+        room.msg_contents(ARRIVAL_LINE, exclude=[character], from_obj=character)
+    except Exception:
+        logger.log_trace(f"arrival: could not announce {character!r} in {room!r}.")
