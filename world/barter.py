@@ -20,6 +20,14 @@ Stage 4 Component E.1: the currency clause on `offer`
     no coin objects in Stage 4). Registering an offer moves no money at all --
     it is bookkeeping. Settlement happens in finish() (E.2), which is why a
     forced teardown needs no refund path: there was never anything to refund.
+
+Names NM-T13: the trade's lines name each party as the reader knows them
+    Every command of the trade's cmdset takes `_PerReader`, whose `parse`
+    frames the lines to the other party around the caller as that party
+    knows them; `end trade` is overridden for it (CmdPWFinish). The
+    stale-offer line is per reader (`_stale_offer_reasons`). The activity log
+    keeps keys: it is out of character. The `trade` command that starts a
+    trade is NM-T13b's.
 """
 
 import re
@@ -32,6 +40,7 @@ from evennia.contrib.game_systems.barter.barter import (
     CmdAccept as CmdBaseAccept,
     CmdDecline as CmdBaseDecline,
     CmdEvaluate as CmdBaseEvaluate,
+    CmdFinish as CmdBaseFinish,
     CmdStatus as CmdBaseStatus,
     TradeHandler as BaseTradeHandler,
     TradeTimeout as BaseTradeTimeout,
@@ -40,6 +49,7 @@ from evennia.contrib.game_systems.barter.barter import (
 from evennia.utils import logger
 from world import activity_log
 from world import client_state
+from world import names
 
 from world import encumbrance
 from world.currency import format_copper, parse_amount
@@ -157,8 +167,8 @@ def _over_ceiling_after_trade(handler):
     return over
 
 
-def _stale_offer_reason(handler):
-    """The message to cancel with, or None if the deal is still honest.
+def _stale_offer_reasons(handler):
+    """{party: the line to cancel with}, or None if the deal is still honest.
 
     Both call sites -- PWTradeHandler.finish() and CmdPWAccept.func() -- need
     the same three checks in the same order and the same wording, so the choice
@@ -167,18 +177,64 @@ def _stale_offer_reason(handler):
     Items are checked first only because an item leaving someone's hands is the
     older and commoner failure; neither takes precedence in any deeper sense.
     The ceiling comes last (W5.1 Q5): it reads the offers where the first
-    check has just found them. The line names who cannot carry it, and the
-    same line goes to both parties.
+    check has just found them. The line names who cannot carry it, as each
+    party knows them (Names NM-T13, NM15; lock 3 A: one's own side by one's
+    own name), so each party gets their own line; the other two name nobody
+    and read the same to both.
     """
+    parties = (handler.part_a, handler.part_b)
     if not _all_offers_in_hand(handler):
-        return "Trade cancelled: an offered item is no longer available."
+        return dict.fromkeys(parties, "Trade cancelled: an offered item is no longer available.")
     if not _offered_currency_still_held(handler):
-        return "Trade cancelled: offered coin is no longer available."
+        return dict.fromkeys(parties, "Trade cancelled: offered coin is no longer available.")
     over = _over_ceiling_after_trade(handler)
     if over:
-        names = " and ".join(party.key for party in over)
-        return f"Trade cancelled: {names} cannot carry that much."
+        return {
+            reader: "Trade cancelled: %s cannot carry that much."
+            % " and ".join(party.get_display_name(reader) for party in over)
+            for reader in parties
+        }
     return None
+
+
+def _tell(reasons):
+    """Send each party their own line from `_stale_offer_reasons`."""
+    for party, line in reasons.items():
+        party.msg(line)
+
+
+class _PerReader:
+    """
+    The trade's lines name a party as the reader knows them (Names NM-T13,
+    NM15). Mixed in first on every command of the trade's cmdset.
+
+    The contrib's `parse` (barter.py:414-421) builds `str_other`, the frame of
+    every line sent to the other party, around `caller.key`. Here it is built
+    around the caller as the other party knows them, with `$You()`'s capital
+    (`names.line_start`), since it starts the line. The contrib paints a
+    connected speaker's name `|c`; a name carries no colour (NM11; NM-T13
+    lock 2 A). The speech goes into a %-format string, so a `%` in it is
+    doubled: the contrib's own frame raised TypeError on `offer 5 silver :
+    100% fair`.
+
+    `self.named` is the caller's name for the other party to read where it
+    starts a sentence inside the frame (*... declines the current offer.*).
+    """
+
+    def parse(self):
+        super().parse()
+        caller, other = self.caller, self.other
+        if other is None:
+            self.named = caller.key
+            return
+        self.named = names.line_start(caller, other)
+        frame_name = self.named.replace("%", "%%")
+        if self.emote:
+            said = self.emote.replace("%", "%%")
+            self.str_caller = 'You say, "' + said + '"\n  [%s]'
+            self.str_other = f'{frame_name} says, "{said}"\n  [%s]'
+        else:
+            self.str_other = f"{frame_name}:s trade action: %s"
 
 
 def _describe_offer(objs, coin, verb):
@@ -246,7 +302,7 @@ class CmdPWTrade(CmdBaseTrade):
         return super().func()
 
 
-class CmdPWOffer(CmdBaseOffer):
+class CmdPWOffer(_PerReader, CmdBaseOffer):
     """
     offer items and/or coin in trade.
 
@@ -415,7 +471,7 @@ class CmdPWOffer(CmdBaseOffer):
         )
 
 
-class CmdPWDecline(CmdBaseDecline):
+class CmdPWDecline(_PerReader, CmdBaseDecline):
     """
     decline the standing offer, counting coin as an offer.
 
@@ -454,16 +510,15 @@ class CmdPWDecline(CmdBaseDecline):
             self.msg_other(
                 caller,
                 self.str_other
-                % "%s changes their mind, |Rdeclining|n the current offer."
-                % caller.key,
+                % f"{self.named} changes their mind, |Rdeclining|n the current offer.",
             )
         else:
             # no acceptance to change
             caller.msg(self.str_caller % "You |Rdecline|n the current offer.")
-            self.msg_other(caller, self.str_other % "%s declines the current offer." % caller.key)
+            self.msg_other(caller, self.str_other % f"{self.named} declines the current offer.")
 
 
-class CmdPWStatus(CmdBaseStatus):
+class CmdPWStatus(_PerReader, CmdBaseStatus):
     """
     show a list of the current deal, including coin on each side.
 
@@ -511,18 +566,20 @@ class CmdPWStatus(CmdBaseStatus):
         if not part_b_offerlist:
             part_b_offerlist = "\n <nothing>"
 
+        # Names NM-T13 (NM15; lock 3 A): each side as the reader knows them,
+        # their own by their own name; a capital where the name starts a line.
         string = "|gOffered by %s:|n%s\n|yOffered by %s:|n%s" % (
-            self.part_a.key,
+            self.part_a.get_display_name(caller),
             "".join(part_a_offerlist),
-            self.part_b.key,
+            self.part_b.get_display_name(caller),
             "".join(part_b_offerlist),
         )
         accept_a = handler.part_a_accepted and "|gYes|n" or "|rNo|n"
         accept_b = handler.part_b_accepted and "|gYes|n" or "|rNo|n"
         string += "\n\n%s agreed: %s, %s agreed: %s" % (
-            self.part_a.key,
+            names.line_start(self.part_a, caller),
             accept_a,
-            self.part_b.key,
+            self.part_b.get_display_name(caller),
             accept_b,
         )
         string += "\n Use 'offer', 'eval' and 'accept'/'decline' to trade. See also 'trade help'."
@@ -606,8 +663,8 @@ class PWTradeHandler(BaseTradeHandler):
             and self.part_a_accepted
             and self.part_b_accepted
         ):
-            reason = _stale_offer_reason(self)
-            if reason:
+            reasons = _stale_offer_reasons(self)
+            if reasons:
                 # An offered item left its owner's hands, or the promised coin
                 # was spent, between the offer and the final accept. Cancel the
                 # whole trade: drop the accepts so super() moves nothing -- and
@@ -617,8 +674,7 @@ class PWTradeHandler(BaseTradeHandler):
                 # table and every re-accept just re-aborts forever.
                 self.part_a_accepted = False
                 self.part_b_accepted = False
-                self.part_a.msg(reason)
-                self.part_b.msg(reason)
+                _tell(reasons)
                 return self._finish_and_clear(force=True)
         return self._finish_and_clear(force=force)
 
@@ -762,7 +818,7 @@ class PWTradeHandler(BaseTradeHandler):
         return True
 
 
-class CmdPWAccept(CmdBaseAccept):
+class CmdPWAccept(_PerReader, CmdBaseAccept):
     """
     Accept command with an ownership re-validation guard.
 
@@ -788,10 +844,9 @@ class CmdPWAccept(CmdBaseAccept):
             else handler.part_a_accepted
         )
         if other_already_accepted:
-            reason = _stale_offer_reason(handler)
-            if reason:
-                handler.part_a.msg(reason)
-                handler.part_b.msg(reason)
+            reasons = _stale_offer_reasons(handler)
+            if reasons:
+                _tell(reasons)
                 # Reset accepts so the forced teardown moves neither goods nor
                 # coin -- see _finish_and_clear's `completing`.
                 handler.part_a_accepted = False
@@ -799,10 +854,34 @@ class CmdPWAccept(CmdBaseAccept):
                 handler.finish(force=True)
                 return
 
-        return super().func()
+        # The contrib's body (barter.py:555-572), with each party named as the
+        # reader knows them (Names NM-T13, NM15).
+        if handler.accept(caller):
+            # deal finished. Trade ended and cleaned.
+            caller.msg(
+                self.str_caller
+                % "You |gaccept|n the deal. |gDeal is made and goods changed hands.|n"
+            )
+            self.msg_other(
+                caller,
+                self.str_other
+                % f"{self.named} |gaccepts|n the deal. |gDeal is made and goods changed hands.|n",
+            )
+        else:
+            # a one-sided accept.
+            caller.msg(
+                self.str_caller
+                % f"You |Gaccept|n the offer. {names.line_start(self.other, caller)} "
+                "must now also accept."
+            )
+            self.msg_other(
+                caller,
+                self.str_other
+                % f"{self.named} |Gaccepts|n the offer. You must now also accept.",
+            )
 
 
-class CmdPWEvaluate(CmdBaseEvaluate):
+class CmdPWEvaluate(_PerReader, CmdBaseEvaluate):
     """
     Evaluate command that shows an offered item's LIVE description.
 
@@ -848,6 +927,30 @@ class CmdPWEvaluate(CmdBaseEvaluate):
         )
 
 
+class CmdPWFinish(_PerReader, CmdBaseFinish):
+    """
+    end the trade prematurely
+
+    Usage:
+      end trade [:say]
+      finish trade [:say]
+
+    This ends the trade prematurely. No trade will take place.
+
+    The contrib's command (barter.py:745-752), with the caller named as the
+    other party knows them (Names NM-T13, NM15).
+    """
+
+    def func(self):
+        """end trade"""
+        caller = self.caller
+        self.tradehandler.finish(force=True)
+        caller.msg(self.str_caller % "You |raborted|n trade. No deal was made.")
+        self.msg_other(
+            caller, self.str_other % f"{self.named} |raborted|n trade. No deal was made."
+        )
+
+
 # CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
 # `TradeTimeout` from this contrib module's globals at call time. Reassigning
 # it here transparently makes the unmodified func start OUR corrected script.
@@ -861,3 +964,4 @@ barter_module.CmdAccept = CmdPWAccept
 barter_module.CmdDecline = CmdPWDecline
 barter_module.CmdEvaluate = CmdPWEvaluate
 barter_module.CmdStatus = CmdPWStatus
+barter_module.CmdFinish = CmdPWFinish

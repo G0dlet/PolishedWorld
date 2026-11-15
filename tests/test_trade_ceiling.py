@@ -4,7 +4,7 @@ Tests for W5.1's sixth site: a trade never completes above the ceiling.
 Weight and Encumbrance, Task W5.1 (docs/PolishedWorld_Weight_Decomposition.md,
 Rev 9 Q4-Q5). Upstream's finish() moves offers by assignment (barter.py:369,
 371) and runs no hook, so the ceiling is a third check in
-`world/barter.py::_stale_offer_reason`, before anything moves. The sum after
+`world/barter.py::_stale_offer_reasons`, before anything moves. The sum after
 the swap is the reader's: `world.encumbrance.enc_after_trade`.
 
 WHAT EACH CLASS PUTS PRESSURE ON
@@ -13,7 +13,7 @@ WHAT EACH CLASS PUTS PRESSURE ON
   the first), arriving objects count with their contents, and the
   twenty-to-one rule runs once over the merged count.
 * TestTradeCeiling -- finish(): either party crossing cancels the whole trade
-  with one line to both naming who; below the ceiling it completes; a trade
+  with a line to each naming who, as that party knows them (Names NM-T13); below the ceiling it completes; a trade
   that lightens a party already above the ceiling completes ("and above the
   sum before"); twenty items at enc 0 are read through the merged walk.
 * TestAcceptCommandCeiling -- the other caller, CmdPWAccept, gets the check
@@ -80,8 +80,12 @@ class _TradeCeilingFixture(TradeFixtureMixin, LedgerIsolationMixin):
         for i in range(zeros):
             _make(char, key=f"tcpebble{i}", enc=0)
 
-    def line(self, *names):
-        return f"Trade cancelled: {' and '.join(n.key for n in names)} cannot carry that much."
+    def line(self, reader, *names):
+        # Names NM-T13: each party reads who cannot carry it as they know them
+        # (their own side by their own name); the names themselves are pinned
+        # in tests/test_names_trade.py.
+        who = " and ".join(n.get_display_name(reader) for n in names)
+        return f"Trade cancelled: {who} cannot carry that much."
 
     def complete_and_listen(self):
         with captured_messages(self.char1) as one, captured_messages(self.char2) as two:
@@ -100,8 +104,8 @@ class TestTradeCeiling(_TradeCeilingFixture, EvenniaCommandTest):
         self.handler.offer(self.char2, pebble)
         one, two = self.complete_and_listen()
         self.assertEqual((anvil.location, pebble.location), (self.char1, self.char2))
-        self.assertIn(self.line(self.char2), one)
-        self.assertIn(self.line(self.char2), two)
+        self.assertIn(self.line(self.char1, self.char2), one)
+        self.assertIn(self.line(self.char2, self.char2), two)
 
     def test_the_other_party_is_checked_too(self):
         self.load(self.char1, CEILING)
@@ -111,8 +115,8 @@ class TestTradeCeiling(_TradeCeilingFixture, EvenniaCommandTest):
         self.handler.offer(self.char2, anvil)
         one, two = self.complete_and_listen()
         self.assertEqual((anvil.location, pebble.location), (self.char2, self.char1))
-        self.assertIn(self.line(self.char1), one)
-        self.assertIn(self.line(self.char1), two)
+        self.assertIn(self.line(self.char1, self.char1), one)
+        self.assertIn(self.line(self.char2, self.char1), two)
 
     def test_up_to_the_ceiling_the_trade_completes(self):
         self.load(self.char2, CEILING - 2)
@@ -142,7 +146,7 @@ class TestTradeCeiling(_TradeCeilingFixture, EvenniaCommandTest):
         self.handler.offer(self.char2, currency=100)
         one, two = self.complete_and_listen()
         self.assertEqual(feather.location, self.char1)
-        self.assertIn(self.line(self.char2), two)
+        self.assertIn(self.line(self.char2, self.char2), two)
 
     def test_a_party_giving_two_heavy_items_is_read_without_both(self):
         # 36 + 2 + 2 = 40; giving both for a 3 leaves 39.
@@ -167,6 +171,6 @@ class TestAcceptCommandCeiling(_TradeCeilingFixture, EvenniaCommandTest):
         self.handler.offer(self.char2, anvil)
         self.handler.part_b_accepted = True
         returned = self.call(CmdPWAccept(), "", caller=self.char1)
-        self.assertIn(self.line(self.char1), returned)
+        self.assertIn(self.line(self.char1, self.char1), returned)
         self.assertNotIn("You accept the offer", returned)
         self.assertEqual(anvil.location, self.char2)
