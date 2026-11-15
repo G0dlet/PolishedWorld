@@ -319,20 +319,22 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
 
     def get_display_characters(self, looker, **kwargs):
         """
-        The Characters line: awake characters only (W5.4 lock 4C).
+        A line per awake character, with its pose (Names K8, NM14; NM-T8).
 
-        Statues of logged-out characters are listed under 'You see:' by
-        get_display_things instead (WC14). Which characters count is decided
-        once, in `world.room_text.room_lists`, which the webclient's room
-        snapshot reads as well. "" when `room_lists=False` is passed (W5.4).
+        *A broad-shouldered man is here.* -- each line is
+        `room_text.character_line`, the one the webclient's room panel
+        shows too (NM-T8 lock 1B). Statues of logged-out characters are
+        listed under 'You see:' by get_display_things instead (WC14). Which
+        characters count is decided once, in `world.room_text.room_lists`.
+        "" when `room_lists=False` is passed (W5.4).
         """
         if kwargs.get(room_text.LISTS_KWARG) is False:
             return ""
         characters = room_text.room_lists(self, looker, **kwargs)["characters"]
         if not characters:
             return ""
-        names = ", ".join(c.get_display_name(looker, **kwargs) for c in characters)
-        return f"\n|wCharacters:|n {names}"
+        lines = "\n".join(room_text.character_line(c, looker, **kwargs) for c in characters)
+        return f"\n{lines}"
 
     def get_display_things(self, looker, **kwargs):
         """

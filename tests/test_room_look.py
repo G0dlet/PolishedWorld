@@ -28,6 +28,10 @@ Each class names the bug it pressures:
                         command instead of the project's.
   TestOneHelper         the room's text or the client snapshot builds a list
                         from a copy of its own again (lock 4C).
+  TestOneLinePerCharacter  the characters run together on one line again,
+                        lose their poses, list the viewer or a statue, or
+                        start a line in lower case; a recog loses the case
+                        its holder gave it (Names NM-T8, K8, NM14; lock 2A).
 """
 
 from unittest import mock
@@ -117,7 +121,7 @@ class TestCanonicalText(_RoomLookTest):
             sent = self._assert_canonical(
                 self.room1,
                 "|cRoom(%s)|n\nroom_desc\n|wExits:|n out\n"
-                f"|wCharacters:|n {shown(self.char2)}\n"
+                f"{shown(self.char2).capitalize()} is here.\n"
                 "|wYou see:|n an Obj, an Obj2, and two stones, "
                 "|wstone statue of a sleeping traveller|n"
                 % self.room1.dbref)
@@ -251,7 +255,7 @@ class TestOneHelper(EvenniaTest):
         with self._phantom():
             characters = self.room1.get_display_characters(self.char1)
             things = self.room1.get_display_things(self.char1)
-        self.assertEqual(characters, "\n|wCharacters:|n Obj2")
+        self.assertEqual(characters, "\nObj2")  # Names NM-T8: a line each, no heading
         self.assertEqual(things, "|wYou see:|n a phantom, Obj")
 
     def test_the_snapshot_reads_room_lists(self):
@@ -269,3 +273,74 @@ class TestOneHelper(EvenniaTest):
         self.assertEqual(lists["characters"], [])
         self.assertEqual(lists["statues"], [self.char2])
         self.assertEqual(lists["things"], ["an Obj", "an Obj2"])
+
+
+def _awake_all(*keys):
+    """is_statue False for the characters named in `keys`, True for the rest."""
+    return mock.patch.object(Character, "is_statue", new=property(lambda c: c.key not in keys))
+
+
+class TestOneLinePerCharacter(EvenniaTest):
+    """Names NM-T8 (K8, NM14): a line per awake character, with its pose."""
+
+    def setUp(self):
+        super().setUp()
+        describe(self.char1, self.char2)
+        self.char3 = create_object(Character, key="Char3", location=self.room1)
+        describe(self.char3)
+        self.char3.db.pose = "is warming her hands by the fire."
+
+    def _characters(self, **kwargs):
+        with _awake_all("Char", "Char2", "Char3"):
+            return self.room1.get_display_characters(self.char1, **kwargs)
+
+    def test_two_awake_characters_give_two_lines_with_their_poses(self):
+        self.assertEqual(
+            self._characters(),
+            "\nA broad-shouldered man is here."
+            "\nA freckled youth is warming her hands by the fire.")
+
+    def test_no_heading_and_no_commas(self):
+        text = self._characters()
+        self.assertNotIn("Characters:", text)
+        self.assertEqual(len(text.strip().splitlines()), 2)
+
+    def test_the_viewer_is_not_listed(self):
+        # The viewer reads their own key (rpsystem.py:1541), so a listed
+        # viewer would show as "Char"; the fixture's lines hold no key.
+        self.assertNotIn("Char", self._characters())
+
+    def test_a_statue_is_under_you_see_and_not_on_a_line(self):
+        with _awake_all("Char", "Char2"):
+            characters = self.room1.get_display_characters(self.char1)
+            things = self.room1.get_display_things(self.char1)
+        self.assertEqual(characters, "\nA broad-shouldered man is here.")
+        self.assertIn(f"stone statue of {shown(self.char3)}", things)
+        self.assertNotIn("warming", things)  # a statue's pose is not shown
+
+    def test_room_lists_false_is_empty(self):
+        self.assertEqual(self._characters(**{room_text.LISTS_KWARG: False}), "")
+
+    def test_no_one_awake_is_empty(self):
+        with _awake_all("Char"):
+            self.assertEqual(self.room1.get_display_characters(self.char1), "")
+
+    def test_a_recog_keeps_the_case_its_holder_gave_it(self):
+        # Lock 2A: ref="t" capitalises a short description; a recog is
+        # written as its holder wrote it (Names UG3), as in a whisper (NM-T7).
+        self.char1.recog.add(self.char2, "liar")
+        self.char1.recog.add(self.char3, "Tess")
+        self.assertEqual(
+            self._characters(),
+            "\nliar is here.\nTess is warming her hands by the fire.")
+
+    def test_a_pose_kwarg_from_the_caller_does_not_raise(self):
+        self.assertIn("is here.", self._characters(pose=False, ref="~"))
+
+    def test_the_lines_reach_the_room_contents_message(self):
+        with _awake_all("Char", "Char2", "Char3"):
+            lists = room_text.contents_text(self.room1, self.char1)
+        self.assertIn(
+            "A broad-shouldered man is here.\n"
+            "A freckled youth is warming her hands by the fire.\n"
+            "|wYou see:|n", lists)

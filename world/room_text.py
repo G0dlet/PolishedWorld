@@ -36,6 +36,8 @@ pass up to DefaultCharacter's hooks. Looking at anything else -- an object,
 `room_lists` is the one place the room's lists are chosen (lock 4C): the
 Room's display hooks (typeclasses/rooms.py) format them for look, and the
 webclient's room snapshot (world/client_state.py) sends them as data.
+`character_line` is the one line an awake character gets in both (Names
+NM-T8): a line each, with its pose.
 """
 
 from django.conf import settings
@@ -70,6 +72,29 @@ def numbered_names(objs, viewer, **kwargs):
         singular, plural = group[0].get_numbered_name(len(group), viewer, key=name)
         names.append(singular if len(group) == 1 else plural)
     return names
+
+
+def character_line(char, viewer, **kwargs):
+    """
+    The room's line for one awake character, as `viewer` reads it (Names K8,
+    NM14; NM-T8): the name with its pose, *A broad-shouldered man is here.*
+
+    The name is asked for with `ref="t"`, as an emote's `/Tall` and a
+    whisper ask for one at the start of a line (NM-T8 lock 2A): a short
+    description gets its capital, and a recog is written as its holder wrote
+    it (Names UG3, `Character.process_recog`). The pose is the contrib's
+    (`get_posed_sdesc`, rpsystem.py:1366): the current one, else the default.
+    A caller's own `pose` or `ref` does not reach the call twice.
+
+    Args:
+        char (Object): an awake character, from `room_lists(...)["characters"]`.
+        viewer (Object): who reads the line.
+        **kwargs: passed on to `get_display_name`.
+
+    Returns:
+        str: the line, with no colour of its own.
+    """
+    return char.get_display_name(viewer, **{**kwargs, "pose": True, "ref": "t"})
 
 
 def room_lists(room, viewer, **kwargs):

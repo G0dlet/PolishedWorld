@@ -306,9 +306,28 @@ class TestRoomSnapshot(EvenniaTest):
         with mock.patch.object(type(self.char2), "is_statue",
                                new_callable=mock.PropertyMock, return_value=False):
             snap = client_state.room_snapshot(self.room1, self.char1)
-            self.assertEqual(snap["characters"], [shown(self.char2)])
-            self.assertIn(f"Characters: {shown(self.char2)}", self._look())
+            # Names NM-T8 lock 1B: the panel shows look's line, pose and all.
+            line = f"{shown(self.char2).capitalize()} is here."
+            self.assertEqual(snap["characters"], [line])
+            self.assertIn(f"\n{line}\n", self._look())
         self.assertNotIn(f"stone statue of {shown(self.char2)}", snap["things"])
+
+    def test_characters_are_looks_lines_with_their_poses(self):
+        # Names NM-T8 lock 1B: wide, the webclient hides room_contents and
+        # shows the panel (pw_text.js showInText), so the panel carries the
+        # pose or a webclient player never reads one.
+        third = create_object("typeclasses.characters.Character", key="Char3",
+                              location=self.room1)
+        describe(third)
+        third.db.pose = "is warming her hands by the fire."
+        awake = property(lambda c: c.key not in ("Char", "Char2", "Char3"))  # is_statue
+        with mock.patch.object(type(self.char2), "is_statue", new=awake):
+            snap = client_state.room_snapshot(self.room1, self.char1)
+            self.assertEqual(snap["characters"], [
+                f"{shown(self.char2).capitalize()} is here.",
+                f"{shown(third).capitalize()} is warming her hands by the fire.",
+            ])
+            self._assert_in_look_in_order(snap["characters"])
 
     def test_things_grouped_as_look_groups_them(self):
         for _ in range(2):
@@ -562,6 +581,11 @@ class TestPushSoon(ReactorMixin, EvenniaTest):
         self.assertNotIn("char", self.char1.ndb.client_state_pending)
 
 
+def _line(char):
+    """A fixture character's room line with the default pose (Names NM-T8)."""
+    return f"{shown(char).capitalize()} is here."
+
+
 class TestRoomFanOut(ReactorMixin, EvenniaTest):
     """
     Pressures WC8's "one snapshot per viewer": three awake characters see a
@@ -599,9 +623,11 @@ class TestRoomFanOut(ReactorMixin, EvenniaTest):
         self.assertEqual(mine, [expected[self.char1]])
         self.assertEqual(self._room_payloads(self.s2), [expected[self.char2]])
         self.assertEqual(self._room_payloads(self.s3), [expected[self.char3]])
-        self.assertIn(shown(self.char4), expected[self.char1]["characters"])
-        self.assertNotIn(shown(self.char2), expected[self.char2]["characters"])  # own names
-        self.assertIn(shown(self.char2), expected[self.char3]["characters"])
+        self.assertIn(_line(self.char4), expected[self.char1]["characters"])
+        # own names: a listed viewer would read their own key (rpsystem.py:1541)
+        self.assertFalse([c for c in expected[self.char2]["characters"] if "Char2" in c])
+        self.assertEqual(len(expected[self.char2]["characters"]), 3)  # receipt: the others
+        self.assertIn(_line(self.char2), expected[self.char3]["characters"])
         # the mover gets its new room from the same fan-out (lock 2A)
         self.assertEqual(self._room_payloads(self.s4)[-1:], [expected[self.char4]])
 
@@ -609,13 +635,13 @@ class TestRoomFanOut(ReactorMixin, EvenniaTest):
         with _awake(self.char2, self.s2), \
                 mock.patch.object(self.session, "data_out") as spy:
             self.assertIn(
-                shown(self.char2), client_state.room_snapshot(self.room1, self.char1)["characters"]
+                _line(self.char2), client_state.room_snapshot(self.room1, self.char1)["characters"]
             )
             self.char2.move_to(self.room2, quiet=True)
             self.assertGreater(self.reactor.run(), 0)
         rooms = [payload[0][0] for d, payload in _sent(spy) if d == "room"]
         self.assertEqual(len(rooms), 1)
-        self.assertNotIn(shown(self.char2), rooms[0]["characters"])
+        self.assertNotIn(_line(self.char2), rooms[0]["characters"])
 
     def test_statues_get_nothing(self):
         with mock.patch.object(client_state, "push") as push:
