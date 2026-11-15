@@ -30,6 +30,12 @@ description the searcher reads, never the key. Narrowing on a character's key
 would let `tall` single out the one whose key is *Tall* -- telling a player a
 name they have not been given.
 
+THE COMMANDS (NM-T3)
+--------------------
+TestTheCommandsReachTheirTargets calls `caller.search` the way `hunt`,
+`craft ... from` (ingredients and tools), `teach`, `pay ... to` and
+`get ... from` call it, with a player as the caller.
+
 HOW TO RUN
 ----------
     evennia test --settings settings.py tests.test_names_search
@@ -201,3 +207,73 @@ class TestCharacters(_Search):
         )
         scarred.sdesc.add("a tall man with a scar")
         self.assertEqual(self.found("a tall man"), [man])
+
+
+class TestTheCommandsReachTheirTargets(_Search):
+    """
+    Each command that names a target, with `caller.search` called the way the
+    command calls it (NM-T3). The arguments are copied from the line named in
+    each test; a command that changes how it searches should change its test.
+
+    char2 is the caller throughout: a player, so no Builder fallback can find a
+    character by key and hide a miss.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.char1.sdesc.add("a weathered woman")
+
+    def test_hunt_reaches_the_second_rabbit(self):
+        # commands/hunting_commands.py:76 -- caller.search(name, candidates=creatures)
+        rabbits = [
+            create_object("typeclasses.creatures.Creature", key="rabbit", location=self.room1)
+            for _ in range(2)
+        ]
+        self.assertEqual(
+            self.char2.search("2-rabbit", candidates=rabbits, quiet=True), [rabbits[1]]
+        )
+
+    def test_craft_reaches_each_numbered_ingredient(self):
+        # commands/crafting_commands.py:315 -- caller.search(key, location=caller).
+        # The contrib alone gave the same plant fiber for 1- and 2-.
+        fibres = [self.make("plant fiber", aliases=["fiber"]) for _ in range(3)]
+        found = [
+            self.char2.search(f"{n}-fiber", location=self.char2, quiet=True)
+            for n in (1, 2, 3)
+        ]
+        self.assertEqual(found, [[fibre] for fibre in fibres])
+
+    def test_craft_reaches_the_tool_by_its_exact_name(self):
+        # commands/crafting_commands.py:324 -- caller.search(key)
+        knife = self.make("knife")
+        self.make("knife sheath", location=self.room1)
+        self.assertEqual(self.char2.search("knife", quiet=True), [knife])
+
+    def test_teach_reaches_the_student_by_what_the_teacher_sees(self):
+        # commands/crafting_commands.py:1222 -- caller.search(student_name)
+        self.assertEqual(self.char2.search("weathered", quiet=True), [self.char1])
+        self.assertEqual(self.char2.search(self.char1.key, quiet=True), [])
+
+    def test_pay_reaches_the_payee_by_the_exact_description(self):
+        # commands/currency_commands.py:249 -- caller.search(target_name)
+        other = create_object(
+            "typeclasses.characters.Character", key="Other", location=self.room1
+        )
+        other.sdesc.add("a weathered woman with a limp")
+        self.assertEqual(
+            self.char2.search("a weathered woman", quiet=True), [self.char1]
+        )
+
+    def test_get_from_reaches_the_numbered_thing_inside(self):
+        # evennia/contrib/game_systems/containers/containers.py:138, :142 --
+        # the container by caller.search(rhs), then the thing with
+        # caller.search(lhs, location=container). CmdGet is the contrib's.
+        sack = create_object(
+            "typeclasses.containers.Container", key="large sack", location=self.room1
+        )
+        fibres = [self.make("plant fiber", location=sack, aliases=["fiber"]) for _ in range(2)]
+        container = self.char2.search("sack")
+        self.assertEqual(container, sack)
+        self.assertEqual(
+            self.char2.search("2-fiber", location=container, quiet=True), [fibres[1]]
+        )
