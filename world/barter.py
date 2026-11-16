@@ -2,9 +2,9 @@
 PolishedWorld barter hardening layer.
 
 Thin subclasses over Evennia's barter contrib that fix confirmed upstream
-bugs WITHOUT forking the contrib's ~95-line command logic. We reuse the
-contrib's CmdTrade.func unchanged and only swap in corrected helper classes
-by reassigning the module globals that func resolves at call time.
+bugs, and swap corrected classes in by reassigning the module globals the
+contrib resolves at call time. The contrib's CmdTrade.func was reused
+unchanged until Names NM-T13b, which gave CmdPWTrade its own (see below).
 
 CmdTrade is re-exported here so that routing the cmdset import through this
 module is what loads it (and runs the monkeypatch) at server start.
@@ -26,8 +26,15 @@ Names NM-T13: the trade's lines name each party as the reader knows them
     frames the lines to the other party around the caller as that party
     knows them; `end trade` is overridden for it (CmdPWFinish). The
     stale-offer line is per reader (`_stale_offer_reasons`). The activity log
-    keeps keys: it is out of character. The `trade` command that starts a
-    trade is NM-T13b's.
+    keeps keys: it is out of character.
+
+Names NM-T13b: the `trade` command that starts a trade
+    CmdPWTrade.func is the project's own: each party named as the reader
+    knows them, the answer line giving a name the invitee can type in their
+    room (`names.name_to_type_here`), and three contrib faults fixed -- the
+    crash on `trade X accept` with no proposal, the inviter's `trade X
+    decline` that never took an invitation back, and `accept`/`decline`
+    found as substrings of a name.
 """
 
 import re
@@ -282,24 +289,139 @@ class PWTradeTimeout(BaseTradeTimeout):
 
 class CmdPWTrade(CmdBaseTrade):
     """
-    Trade entry command with the bare-'trade' crash fixed.
+    Initiate trade with another party
 
-    Upstream's no-args branch reads self.caller.ndb.tradeevent.trade_started,
-    but ndb.tradeevent is never assigned -> AttributeError whenever you type
-    'trade' while already holding a tradehandler. We handle that one branch
-    here (reading the real attribute, tradehandler) and delegate every other
-    case to the unmodified upstream func.
+    Usage:
+      trade <other party> [:say]
+      trade <other party> accept [:say]
+      trade <other party> decline [:say]
+
+    Initiate trade with another party. The other party needs to repeat
+    this command with trade accept/decline within a minute in order to
+    properly initiate the trade action. You can use the decline option
+    yourself if you want to retract an already suggested trade. The
+    optional say part works like the say command and allows you to add
+    info to your choice.
     """
 
+    # The project's own func (Names NM-T13b; NM15). The contrib's
+    # (barter.py:803-899) named both parties by key in all thirteen of its
+    # lines and told the invitee to type `trade <inviter's key> accept`. Here
+    # each party is named as the reader knows them, with a capital where the
+    # name starts a sentence and no |c on a speaker (NM-T13 lock 2 A; NM11),
+    # and the answer line gives a name the invitee can type in their room
+    # (`names.name_to_type_here`, lock 1 C). Fixed on the way (locks 2-4 A):
+    # `trade X accept` with no proposal from X raised AttributeError
+    # (`None.join`); the inviter's `trade X decline` never took an invitation
+    # back, as this help says it does (the branch tested `part_b == caller`);
+    # and `accept`/`decline` were found as substrings, so a name holding
+    # either was read as the keyword -- only the last word counts now. The
+    # bare `trade` reads the real attribute, `tradehandler` (upstream's
+    # `ndb.tradeevent` is never assigned).
+
     def func(self):
+        caller = self.caller
         if not self.args:
-            handler = self.caller.ndb.tradehandler
+            handler = caller.ndb.tradehandler
             if handler and handler.trade_started:
-                self.caller.msg("You are already in a trade. Use 'end trade' to abort it.")
+                caller.msg("You are already in a trade. Use 'end trade' to abort it.")
             else:
-                self.caller.msg("Usage: trade <other party> [accept|decline] [:emote]")
+                caller.msg("Usage: trade <other party> [accept|decline] [:emote]")
             return
-        return super().func()
+
+        args, emote = self.args.strip(), None
+        if ":" in args:
+            args, emote = [part.strip() for part in args.rsplit(":", 1)]
+        words = args.split()
+        keyword = words[-1].lower() if len(words) > 1 else None
+        if keyword in ("accept", "decline"):
+            args = " ".join(words[:-1])
+        else:
+            keyword = None
+
+        part_a = caller
+        part_b = caller.search(args)
+        if not part_b:
+            return
+        if part_a == part_b:
+            part_a.msg("You play trader with yourself.")
+            return
+
+        # The caller as part_b reads them, and part_b as the caller does.
+        a_named = names.line_start(part_a, part_b)
+        b_seen = part_b.get_display_name(part_a)
+        selfemote = theiremote = ""
+        if emote is not None:
+            selfemote = f'You say, "{emote}"\n  '
+            theiremote = f'{a_named} says, "{emote}"\n  '
+
+        def to_a(text):
+            part_a.msg(selfemote + text)
+
+        def to_b(text):
+            part_b.msg(theiremote + text)
+
+        timeout = barter_module.TRADE_TIMEOUT
+        mine = part_a.ndb.tradehandler
+        theirs = part_b.ndb.tradehandler
+
+        if keyword is None:
+            if mine:
+                # Name the party the caller is actually trading or
+                # negotiating with, not the one just typed.
+                other = mine.get_other(part_a).get_display_name(part_a)
+                if mine.trade_started:
+                    part_a.msg(
+                        f"You are already in trade with {other}. You need to end trade first."
+                    )
+                else:
+                    part_a.msg(
+                        f"You are already trying to initiate trade with {other}. "
+                        "You need to decline that trade first."
+                    )
+            elif theirs and theirs.part_b == part_a:
+                # part_b has invited the caller: the same as accepting.
+                theirs.join(part_a)
+                to_b(f"{a_named} starts to trade with you. See |wtrade help|n for aid.")
+                to_a(f"You start to trade with {b_seen}. See |wtrade help|n for aid.")
+            else:
+                PWTradeHandler(part_a, part_b)
+                answer = names.name_to_type_here(part_b, part_a)
+                to_a(f"You ask to trade with {b_seen}. They need to accept within {timeout} secs.")
+                to_b(
+                    f"{a_named} wants to trade with you. Use |wtrade {answer} "
+                    f"accept/decline [:emote]|n to answer (within {timeout} secs)."
+                )
+                part_a.scripts.add(PWTradeTimeout)
+            return
+
+        if keyword == "accept":
+            if mine:
+                other = mine.get_other(part_a).get_display_name(part_a)
+                part_a.msg(f"You are already in trade with {other}. You need to end that first.")
+            elif theirs and theirs.join(part_a):
+                to_b(f"{a_named} starts to trade with you. See |wtrade help|n for aid.")
+                to_a(f"You start to trade with {b_seen}. See |wtrade help|n for aid.")
+            else:
+                part_a.msg("No trade proposal to accept.")
+            return
+
+        # decline
+        if (
+            mine
+            and mine.part_a == part_a
+            and mine.part_b == part_b
+            and not mine.trade_started
+        ):
+            # the inviter takes the invitation back
+            mine.finish(force=True)
+            to_b(f"{a_named} aborted trade attempt with you.")
+            to_a(f"You aborted the trade attempt with {b_seen}.")
+        elif theirs and theirs.unjoin(part_a):
+            to_b(f"{a_named} declines the trade")
+            to_a(f"You decline trade with {b_seen}.")
+        else:
+            part_a.msg("No trade proposal to decline.")
 
 
 class CmdPWOffer(_PerReader, CmdBaseOffer):
@@ -951,9 +1073,10 @@ class CmdPWFinish(_PerReader, CmdBaseFinish):
         )
 
 
-# CmdTrade.func does `part_a.scripts.add(TradeTimeout)`, resolving the name
-# `TradeTimeout` from this contrib module's globals at call time. Reassigning
-# it here transparently makes the unmodified func start OUR corrected script.
+# The contrib's CmdTrade.func does `part_a.scripts.add(TradeTimeout)`,
+# resolving the name `TradeTimeout` from this contrib module's globals at call
+# time; CmdPWTrade.func (NM-T13b) names PWTradeTimeout and PWTradeHandler
+# itself, and the swaps stay for anything else that resolves them.
 # CmdsetTrade.at_cmdset_creation resolves CmdOffer/CmdAccept/CmdDecline/
 # CmdEvaluate/CmdStatus the same way at trade-start, so swapping these globals
 # injects our corrected commands.
