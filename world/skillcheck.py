@@ -43,6 +43,8 @@ Deliberate adaptation notes:
   roll), not to this function.
 - `target` is never clamped; skills above 100% behave faithfully (only 00
   fumbles, and a wider critical band).
+- The "opposed skills over 100%" rule (p. 45) belongs to the opposed forms
+  below and not to skill_check: a plain test is never lowered.
 """
 
 from math import ceil
@@ -133,6 +135,15 @@ def _within_skill(roll, target):
     return roll if roll <= target else 0
 
 
+def _excess(*targets):
+    """
+    The over-100% penalty of an opposed test (p. 45, SC3): what the highest
+    modified target in the contest has above 100, or 0. It is taken off every
+    side, so the master tests at 100 and everyone else below.
+    """
+    return max(0, max(targets) - 100)
+
+
 def _judge(first, second, first_target=None, second_target=None):
     """
     Legend p. 45's order of resolution over two finished skill_check results.
@@ -197,10 +208,13 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
       5. If BOTH fail: stalemate -- the rulebook says re-roll later; callers
          decide what an inconclusive contest means in their context.
 
-    NOTE: the "opposed skills over 100%" rule (highest mastered skill is dropped
-    to 100% and the excess penalises everyone) is intentionally NOT implemented
-    -- PolishedWorld caps skills at 100 for the MVP, so it is currently dead
-    code. Revisit when skill progression lifts the cap.
+    Opposed skills over 100% (p. 45, SC3): the side with the highest modified
+    target -- found *after* every other modifier -- subtracts 100 from it and
+    the remainder is a penalty to both sides. The master tests at 100 and the
+    other side below its own target. The excess is 0 unless a modified target
+    is above 100, so a hunter at 120% with -20 for overload gives none. Both
+    sides roll against the lowered target, so the bands follow it: a roll of
+    11 is a critical at 120 and a plain success at 100.
 
     Args:
         attacker_skill (int): The acting side's effective skill %.
@@ -211,10 +225,19 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     Returns:
         dict: {
             "winner" (str): one of "attacker", "defender", "stalemate".
-            "attacker" (dict): the attacker's full skill_check result.
-            "defender" (dict): the defender's full skill_check result.
+            "attacker" (dict): the attacker's full skill_check result; its
+                "target" is the lowered target the roll was tested against.
+            "defender" (dict): the defender's, likewise.
+            "excess" (int): what was taken off both sides (0 in the ordinary
+                case).
         }
     """
-    a = skill_check(attacker_skill, attacker_mod)
-    d = skill_check(defender_skill, defender_mod)
-    return {"winner": _judge(a, d), "attacker": a, "defender": d}
+    # The same coercion skill_check applies, so the excess is measured on the
+    # targets the rolls will actually be made against.
+    excess = _excess(
+        int(attacker_skill) + int(attacker_mod),
+        int(defender_skill) + int(defender_mod),
+    )
+    a = skill_check(attacker_skill, int(attacker_mod) - excess)
+    d = skill_check(defender_skill, int(defender_mod) - excess)
+    return {"winner": _judge(a, d), "attacker": a, "defender": d, "excess": excess}

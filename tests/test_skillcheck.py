@@ -197,3 +197,56 @@ class TestOutsideTheSkill(_OpposedTest):
     def test_automatic_success_still_beats_a_failure(self):
         # The level decides before the roll does.
         self.assertWinner(3, 30, [5, 80], ATTACKER)
+
+
+class TestOpposedOverOneHundred(_OpposedTest):
+    """
+    OC2 (SC3), Legend p. 45: the highest modified target in the contest is
+    lowered to 100 and its excess is taken off both sides. Before SC-T2 the
+    targets went to skill_check as they were and the result had no "excess".
+    """
+
+    # Dice that settle every target line below without a coin.
+    DICE = [50, 95]
+
+    def assertTargets(self, attacker, defender, excess, targets, **mods):
+        result, _ = opposed(attacker, defender, self.DICE, **mods)
+        self.assertEqual(result["excess"], excess)
+        self.assertEqual(
+            (result["attacker"]["target"], result["defender"]["target"]), targets
+        )
+
+    def test_the_master_drops_to_100_and_the_lesser_side_pays(self):
+        self.assertTargets(120, 30, 20, (100, 10))
+
+    def test_the_highest_is_found_after_the_modifiers(self):
+        # SCM5: taken from the skills before their modifiers, the excess would be 20.
+        self.assertTargets(120, 30, 0, (100, 30), attacker_mod=-20)
+
+    def test_the_defender_can_be_the_master(self):
+        self.assertTargets(60, 130, 30, (30, 100))
+
+    def test_both_above_100(self):
+        self.assertTargets(200, 150, 100, (100, 50))
+
+    def test_below_100_nothing_changes(self):
+        # SCM7: without max(0, ...) the excess would be -20, paid out as a bonus.
+        self.assertTargets(50, 30, 0, (50, 30))
+
+    def test_the_excess_is_reported_when_it_is_0(self):
+        result, _ = opposed(100, 30, self.DICE)
+        self.assertIn("excess", result)
+        self.assertEqual(result["excess"], 0)
+
+    def test_a_critical_at_120_is_a_plain_success_at_100(self):
+        # 11 is a critical at 120 (01-12) and a plain success at 100 (01-10);
+        # the defender's 30 is the higher roll within its lowered 40.
+        result = self.assertWinner(120, 60, [11, 30], DEFENDER)
+        self.assertEqual(result["attacker"]["result"], SUCCESS)
+        self.assertEqual(result["defender"]["result"], SUCCESS)
+
+    def test_the_lowered_targets_decide_the_bands(self):
+        # 99 is an automatic failure at 100, and a fumble at the defender's 40.
+        result = self.assertWinner(120, 60, [99, 99], STALEMATE)
+        self.assertEqual(result["attacker"]["result"], FAILURE)
+        self.assertEqual(result["defender"]["result"], FUMBLE)

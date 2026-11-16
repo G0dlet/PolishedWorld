@@ -63,11 +63,8 @@ Skills above 100% -- DELIVERED (Stage 4.5, D.2, 2026-08-16):
     beside the code that fulfils it is the shape of claim this epic has had to
     retract four times.
 
-    ⚠️ world/skillcheck.py's opposed_check has its OWN unimplemented >100% rule
-    (the highest mastered skill is dropped to 100 and the excess penalises
-    everyone). D.2 deliberately did not touch it. The old text above bundled the
-    two deferrals into one sentence, which made them look like one decision;
-    they are not, and lifting this cap does not decide that one.
+    The opposed test's own over-100% rule (p. 45) is delivered in
+    world/skillcheck.py's opposed forms (Skill-Check Forms SC-T2, 2026-11-16).
 
 Where the curve takes over from the roll:
     Nothing here caps anything any more, and nothing needs to -- the curve in
