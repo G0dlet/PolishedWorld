@@ -1,5 +1,6 @@
 # PolishedWorld — Combat Design (Stage 5: the source verification, the first reading, and the decisions the decomposition is built on)
 
+> **Rev 3 · 2026-11-16** — three notes and one row, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (slice SC decomposed, locks SC1–SC6): HQ2 says what SC does to the hunt's outcome; §4.14 points to the decomposition and to what its reading found; §5 gains the one place where SC rules beyond the book (SC3). No decision changes.
 > **Rev 2 · 2026-11-16** — two notes in §6, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`): the Names note is annotated (Rev 2), so the list of notes not annotated loses it; and the short description's state slot, which Names left for the wound slice (WO2), with `health` given no word. No decision changes.
 > **Rev 1 · 2026-11-14** — first version, docs only, with roadmap Rev 80, BACKLOG Rev 112, README Rev 60 and the series handoff `docs/system_designs/HANDOFF.md` Rev 18. Written from Stage 5's design and source-verification session (roadmap decision log, *Order after the webclient*, step (4)): EvAdventure's combat read at the pinned `v6.1.0`, *Legend*'s combat chapter and *Arms of Legend* read in source, and the open questions put to Adam one group at a time. **Unlike the one-system series' notes, the numbered items here are decisions**: Adam took each group on 2026-11-14, with one change of his own (AR1: Armour Points add up across layers) and one rider (AR3: three layers now, open to change). Where an item is a calibration value and not a lock, it says so. No code is written and none is changed by this document.
 > **Canonical:** `docs/PolishedWorld_Combat_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
@@ -249,7 +250,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 *Decides Hunting TQ13.* `hunt` kills on a won opposed test and deals no damage (`commands/hunting_commands.py:99–121`).
 
 - **HQ1 — Stage 5 owns the damage, Hunting owns the trail.** An animal with General Hit Points that survives a hit is the wounded quarry; the bleeding trail and the flight (Hunting TP12) stay the hunt's.
-- **HQ2 — `hunt` does not change in Stage 5.** It abstracts stalking and felling passive prey. Reconciling it with combat belongs to a hunting decomposition afterwards. Until then there are two ways to kill a rabbit, `hunt` and `attack`.
+- **HQ2 — `hunt` does not change in Stage 5.** It abstracts stalking and felling passive prey. Reconciling it with combat belongs to a hunting decomposition afterwards. Until then there are two ways to kill a rabbit, `hunt` and `attack`. *(Rev 3: slice SC corrects the opposed test `hunt` calls — OC1 and the over-100 % rule — and `commands/hunting_commands.py` is not edited. HQ2 protects the hunt's model, not a tie-break OC1 decided was wrong: the slice's lock SC4. Measured, the correction moves the hunt's odds by hundredths of a percentage point, and the over-100 % rule by about three points for a hunter above 100 %.)*
 
 ### 4.8 The helpless body (HB)
 
@@ -306,6 +307,8 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 - **OC2 — The over-100 % rule is built with Stage 5** (p. 45). The function's docstring still says skills cap at 100.
 - **OC3 — Two new forms are needed:** a comparison of level of success alone, for attack against parry (pp. 129, 131), and an opposed test against a roll already made, for the wound tests (p. 145). `opposed_check` rolls both sides afresh (`world/skillcheck.py:127`).
 
+*(Rev 3: decomposed as slice SC, `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md`. Its reading found that the second form has more users than the wound tests — Bleed and Disarm oppose the original attack or parry roll (pp. 132–133) — that the levels table gives nobody a level when neither side succeeded (p. 131), and that `skill_check` needs no change for OC2: the rule is a modifier on the targets of an opposed test.)*
+
 ### 4.15 Stage 5 before Stage 6 (SO)
 
 *Resolves **[OPEN] Stage 5 vs Stage 6 order**.*
@@ -328,6 +331,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 | SR3 | Disengaging: a free attack or an Evade contest (p. 140) | A free attack from every attacker with a Combat Action |
 | HP2–HP4 | Awards per story, several uses, no cap (pp. 87–88) | Earned by time played, cap 4, *Glancing Blow* only at first |
 | PV1 | — | Player against player is built and switched off |
+| OC3 (SC3) | The over-100 % rule is given for opposed tests (p. 45); nothing on an opposed test against a roll already made (p. 145) | The made roll keeps its level and its roll; whether it lies within the skill is measured against the lowered target, and the resisting side rolls against its own lowered target *(Rev 3)* |
 
 ---
 

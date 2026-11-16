@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 115 · 2026-11-16** — one entry **corrected and annotated**, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (Stage 5's slice SC decomposed), roadmap Rev 83 and README Rev 64. ***`opposed_check` lets an automatic success win on a roll outside the skill range***: its example was wrong — at a target of 60 a roll of 04 is a critical and wins — and is replaced by one that was run; the caller's line is `:99`; the entry names the decomposition and its tasks. Status unchanged (DECIDED, code SCHEDULED). No entry closed.
 > **Rev 114 · 2026-11-16** — one entry **closed**, one **added** and four **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`), roadmap Rev 82 and README Rev 62. ***Strangers by description — `rpg/rpsystem`*** → DONE, with what shipped and what was left. **New: *Account names on the Public channel*** (*UX & Item Identity*, OPEN) — the slice's OQ-NM10, placed here and not decided (Adam: as recommended). **Annotated:** *First-steps hints* (the names hint, UP23, a candidate; Status unchanged), *A screen-reader pass* (what it now reads), *Webclient: players and NPCs apart* (its trigger (1) fired; the *Characters:* line is gone), and *`copper` is both a material and a denomination* (no longer *no name begins with a digit*: the form is `2-copper`).
 > **Rev 113 · 2026-11-14** — one entry **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 1 (Stage 5's slice map and the Names slice's tasks), roadmap Rev 81 and README Rev 61. ***Strangers by description — `rpg/rpsystem`*** gains what the decomposition's source reading found beyond the design note. The decomposition also places the entries whose trigger is Stage 5's kickoff — *`CoinPile` vs the corpse's atomic content delete* and *`copper` is both a material and a denomination* in slice DL, *Runnable seam checker for the System Map* in the stage's close-out — and names the slices the blocked entries wait for; those entries are not edited. No entry closed and no Status changed.
 > **Rev 112 · 2026-11-14** — Stage 5's design and source-verification session, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80. **Closed:** ***Read EvAdventure's twitch combat before Stage 5's design*** → DONE (read; the document's §2). **Decided:** ***Hero Points in a persistent world*** (HP1–HP4) and ***`opposed_check` lets an automatic success win on a roll outside the skill range*** (OC1–OC3) — the code for both waits for Stage 5. **Annotated:** *A collapsed body's instant commands* (its combat trigger is named: HB2) and *Character panel: Legend combat state* (its rule check is answered: WO1).
@@ -1164,12 +1165,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `world/skillcheck.py::opposed_check` breaks a tie between two successes on the
   higher roll, so a side that succeeded only through the automatic band can beat
   one that succeeded within its range: at target 3 a 05 beats an opponent's 04
-  at target 60. Legend's tie-break is the higher roll *within his skill range*
+  at target 30. *(Rev 115: this read "at target 60", which is wrong — the
+  critical band at 60 is 01–06, so that 04 wins on level. Run in the sandbox,
+  the defect needs the side within its range at a target of 30 or less.)*
+  Legend's tie-break is the higher roll *within his skill range*
   (core, *Opposed Skills*), and 05 is not within a range of 3. How an automatic
   success should rank in that tie is a rules decision, taken with the rulebook
   open. The same docstring still says skills cap at 100 for the MVP, which P-7 ended; the
   over-100 % rule it skips is flagged in `world/improvement.py:66` too.
-- **Why deferred:** One live caller, hunt (`commands/hunting_commands.py:97`),
+- **Why deferred:** One live caller, hunt (`commands/hunting_commands.py:99`),
   and it needs a side with a target under 5 to matter.
 - **Trigger:** The next caller of `opposed_check` (combat, Stage 5) or the next
   change to hunt's resolution.
@@ -1182,7 +1186,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (OC2). Combat also needs two forms the function does not have: a
   comparison of level of success alone, for attack against parry, and an
   opposed test against a roll already made, for the wound tests (OC3).
-- **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5, the next caller)
+- **Decomposed (2026-11-16, Rev 115):**
+  `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` — the judge and
+  OC1 (SC-T1), the over-100 % rule (SC-T2), a test of the hunt through its
+  command (SC-T3), and the two forms (SC-T5, SC-T6). The hunt gets the
+  corrected test with no edit to its command (SC4). SC-T8 closes this entry.
+- **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5 slice SC, SC-T1–SC-T6)
 
 ---
 
