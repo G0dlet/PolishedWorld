@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 26 · 2026-11-15** — **the multimatch form is `N-name`** (Names NM-T1, NM9; on `feature/names`). §12's numbered-alias rule and the two craft steps that type it (§11's receipt block, §17's protocol) now read `1-fiber`, `1-rabbit`. §11's account of the Rev 5 run keeps `fiber-1`: it quotes what the protocol said then. The suffix form finds nothing after NM-T1, so any protocol written before it that types `name-N` is stale.
 > **Rev 25 · 2026-11-14** — **arrival** (Arrival decomposition AV-T4; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). New **§24: arrival** — the neighbours each task ran and the census row AV-T1 added, a seeded database in a menu test and the shipped closing `look` through `_MenuFixture.on_exit`, the two-client protocol for AV-T2 as run (with `arrivaltest3`, and why), AV-T3's in-game check in the room where the dev Treasury stands, and the merge suite with `"#10"` stashed.
 > **Rev 24 · 2026-11-14** — **the survival loop** (survival loop decomposition S4.2; merged as `98fa60e`, PR #29, tagged `alpha-20261114`). New **§23: the survival loop** — the three census tests in every neighbour run, the command with its runner written out, what the tests pin (the new modules, the readers on old `descs`, pinned rolls, the clock), how a protocol is built for this loop (a start where the opposite would show, a fill with a margin, a tick after a reload, its own starting state, every value it claims printed, staff logged out), and §23.3, the protocols as run, S1.1–S3.5 and S4.1. The suite is 1607 at the merge; Node 142 and the art tools' 46 are unchanged.
 > **Rev 23 · 2026-11-12** — **the webclient visual pass** (visual decomposition V5.2; merged as `ea41a0f`, PR #28, tagged `alpha-20261112`). §21.1 gives the pipeline's count after the pass (46); new **§21.4 *Receiving a picture or icon family***, as run at V3.1–V3.4 and V2.2.1 (hash, `validate` in the repo, master byte for byte, `rm` and `clean` the whole family, the family test red before green, approval in the client); §22.1 gives the Node count (142); new **§22.5 *The visual pass's tests and the static render*** and **§22.6 *its protocols, as run***.
@@ -316,7 +317,7 @@ demanded: the craft's own outcome line distinguishes success from failure, and
 the XP total moves on any tick that reaches the engine. **A craft's receipt is its result line, not its item count** (weight W3.1): a `raw`-policy recipe makes an item on a failure too, so *1 made* proves nothing about the tier.
 
 ```
-craft twine from fiber-1, fiber-2, fiber-3
+craft twine from 1-fiber, 2-fiber, 3-fiber
     You work the materials into length of twine.     <- success: the tick ran
     The work fights you; ...                          <- failure: it did not
     You botch the work badly ...                      <- fumble: it did not
@@ -779,10 +780,14 @@ messages rather than usage hints:
   `harvest hide from` alone yields `Could not find 'hide from'` — an object-search
   failure on the mis-parsed remainder, not a usage error. Read a `Could not find`
   naming *two* words that were meant to be separate as a syntax problem first.
-- **Identical objects need the numbered alias.** Six rabbits in a room make
-  `hunt rabbit` return a disambiguation list; `hunt rabbit-1` is the target.
-  Evennia's multimatch numbering is per-search, so re-check the list after any
-  kill or flight rather than assuming `-1` still names the same animal.
+- **Identical objects need the numbered alias, number first.** Six rabbits in
+  a room make `hunt rabbit` return a disambiguation list; `hunt 1-rabbit` is
+  the target. The form is the rpsystem contrib's prefix since Names NM-T1
+  (`server/conf/settings.py`, *MULTIMATCH FORM*); Evennia's suffix,
+  `rabbit-1`, now finds nothing, and a protocol written before NM-T1 that
+  types it is stale. Evennia's multimatch numbering is per-search, so re-check
+  the list after any kill or flight rather than assuming `1-` still names the
+  same animal.
 - **Evennia 6.1.0's connection screen creates an account in a dialog.** Type the new username at the prompt and answer its questions; `create <name> <password>` is not what it asks for. A login step is checked against the screen, not against memory.
 - **An unknown command says `Command 'x' is not available.`** and may add `Maybe you meant …?` (Evennia Ref §11.33). A step for a retired command predicts the first sentence only.
 - **`@py char.execute_cmd(...)` prints `<Deferred at … current result: None>`.** `execute_cmd` returns a Twisted Deferred; in expression mode `@py` echoes it. It is not an error — the receipt is the next line of output.
@@ -993,7 +998,7 @@ The three protocols below were run at home during E.2 (2026-10-31 – 11-01). Th
    → current 31, value 101, and the twine count *n*.
 3. Craft:
    ```
-   craft twine from fiber-1, fiber-2, fiber-3
+   craft twine from 1-fiber, 2-fiber, 3-fiber
    ```
    When it completes (about 20 s), read the receipts:
    ```

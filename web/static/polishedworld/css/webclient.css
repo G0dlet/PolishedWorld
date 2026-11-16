@@ -494,6 +494,15 @@ body {
 
 .pw-inventory-empty { list-style: none; }
 
+/* A character's pose under its name, muted (Names NM-T17 lock 2b). Only a
+   pose that is not *is here.* is sent; the indent puts it under the name,
+   past the square marker. */
+.pw-room-pose {
+  display: block;
+  padding-left: 1.25em;
+  color: var(--pw-muted);
+}
+
 #pw-room-exits-list { list-style: none; }
 
 #pw-room-exits-list > li::before {

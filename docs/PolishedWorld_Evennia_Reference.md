@@ -1,5 +1,6 @@
 # PolishedWorld Evennia Reference
 
+> **Rev 35 · 2026-11-15** — **the multimatch form is `N-name`** (Names NM-T1, NM9; on `feature/names`). §11.6's crafting example and its regex are the prefix form now, with what an exact-first search does to keys that themselves hold a digit and a hyphen (OQ-NM7, run in the sandbox). The barter paragraph's digit-first rule (Stage 4 Component E) no longer rests on "no object name begins with a digit": `offer` asks `SEARCH_MULTIMATCH_REGEX` first.
 > **Rev 34 · 2026-11-14** — **arrival, verified against the pinned `v6.1.0`** (Arrival decomposition AV-T4; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). New **§21: where a new character stands, and what `home` is** — `START_LOCATION` and `DEFAULT_HOME` both `"#2"`, `create_character` placing at `START_LOCATION`, the hooks a hookless `move_to` skips (the rooms' too, so the mover pushes the rooms itself), `home =` saving through the idmapper's foreign-key setter, and respawn reading `home` last. §19.4's list of push sites gains `world.arrival.arrive`. What was already here is pointed to: every public function in a menu module is a node (§15.1), `cmd_on_exit` after `close_menu` (§15.3).
 > **Rev 33 · 2026-11-14** — **the survival loop, verified against the pinned `v6.1.0`** (survival loop decomposition S4.2; merged as `98fa60e`, PR #29, tagged `alpha-20261114`). New **§20: the survival loop** — which stops run the unpuppet hooks (`stop` and `reboot` do, `reload` and `reset` do not, a crash late), a game clock that counts runtime only, `ndb` through an unpuppet, where each `move_type` comes from and what a refused walk prints, a gauge's `current` clamped on write, `search_object`'s exact pass, an `AttributeProperty` read off its class, and the project's truncated game seconds. What was already here is pointed to, not repeated: a gauge's rounding on read (§3.6), the hooks' `move_type` and `traverse` (§11.31), a reload without `at_post_puppet` (§11.32).
 > **Rev 32 · 2026-11-12** — **the webclient visual pass** (visual decomposition V5.2; merged as `ea41a0f`, PR #28, tagged `alpha-20261112`). New **§19.7: font, frames, icons and pictures** — no payload changed; one self-hosted heading font; art only as CSS backgrounds from `polishedworld/ui/<family>/`, named by a script's `data-*` attribute and mapped to a file by the stylesheet; frames as `border-image` over a double Copper border; the banner in the wide layout only; the id-plus-attribute specificity trap; and Evennia's `#connecting` box hidden, with the check to repeat at an Evennia upgrade (OQ-V4).
@@ -719,9 +720,13 @@ Coin reaches a trade through a **handler-level bridge** instead
 
 - `offer` takes currency segments alongside item names —
   `offer iron sword, 5 silver`. A comma-segment whose first character is an
-  ASCII digit is coin; everything else is an item. The rule is total rather
-  than heuristic because `SEARCH_MULTIMATCH_REGEX` is a *suffix* form
-  (`copper-2`), so no valid way of naming an object begins with a digit.
+  ASCII digit is coin unless `SEARCH_MULTIMATCH_REGEX` matches it; then it is a
+  numbered item. Everything else is an item. Since Names NM-T1 the
+  multimatch form is a *prefix* (`2-copper`, §11.6), so coin is number, space,
+  denomination and a numbered item number, hyphen, name; `offer` compiles the
+  setting itself, as `evennia/objects/manager.py:28` does, so the two cannot
+  drift. Before NM-T1 the form was the suffix `copper-2` and the first
+  character alone decided.
 - The amount is recorded as `part_a_currency` / `part_b_currency` on the trade
   handler. **No wallet is touched at offer time** — an offer is a promise.
 - Settlement happens inside `finish()`, alongside the item moves (§7.5), gated
@@ -1051,11 +1056,20 @@ Consequences, both seen live:
 
 **Crafting impact (`CmdCraft`):** the command does one `caller.search(token)` **per
 ingredient token**. Two objects sharing a key/alias multimatch → the search aborts and the
-craft fails. Supply identical ingredients with Evennia's numbered disambiguation, which is
-`name-number` (regex `(?P<name>.*?)-(?P<number>[0-9]+)`, default separator `-`):
+craft fails. Supply identical ingredients with the numbered disambiguation, which in this
+game is `number-name` since Names NM-T1 (`server/conf/settings.py`, *MULTIMATCH FORM*:
+regex `(?P<number>[0-9]+)-(?P<name>[^-]*)(?P<args>.*)`, the rpsystem contrib's
+`README.md:80–81`). Evennia's default is the suffix `name-number`
+(`settings_default.py:417`, `:425`), and it no longer works here:
 
-    craft leather from hide-1, hide-2 using knife
-    craft leather boots from leather-1, leather-2 using needle
+    craft leather from 1-hide, 2-hide using knife
+    craft leather boots from 1-leather, 2-leather using needle
+
+The search tries the whole string as an exact key first (`manager.py:470`), so a key that
+itself starts with a digit and a hyphen (*2-handed sword*) is still found whole, and
+`1-2-handed sword` picks the first. The name group stops at the first hyphen: `1-half-cloak`
+is found through the fuzzy pass on `half`, and a partial `2-handed` reads as *the second
+"handed"*.
 
 dbrefs (`craft X from #140, #141`) are the bulletproof alternative — exact and unambiguous.
 

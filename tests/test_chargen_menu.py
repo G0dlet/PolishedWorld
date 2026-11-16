@@ -10,6 +10,10 @@ number it produces differs from the all-10s default (health 28 not 20; bases
 16/29/21/21/26 not 20), so a screen or a write that silently fell back to the
 default draft cannot pass. Expected values are written out by hand, never
 recomputed from the module under test.
+
+The appearance step (Names NM-T16) takes female, adult, freckled: with the
+fixture's SIZ 8 that reads *a small, freckled woman*, and neither the build
+nor the noun is the placeholder's or the all-10s draft's (SIZ 10, *lean*).
 """
 
 from unittest import mock
@@ -18,7 +22,7 @@ from evennia.utils.ansi import strip_ansi
 from evennia.utils.evmenu import EvMenu
 from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
-from world import chargen_menu, client_state, seed_data
+from world import chargen_menu, client_state, sdesc, seed_data
 from world.chargen_menu import _parse_line
 from world.seeding import find_seeded, seed_world
 
@@ -39,6 +43,14 @@ EXPECTED_BASES = {
 }
 # The tanner's +10 craft on top.
 EXPECTED_FINAL = dict(EXPECTED_BASES, craft=31)
+
+# Sex 2, age 2, feature 11, on the appearance step's numbered lists.
+APPEARANCE_LINE = "2 2 11"
+APPEARANCE = {"sex": "female", "age": "adult", "feature": "freckled"}
+# By hand: SIZ 8 is *small* (NM-T15 lock 1), female adult is *woman*.
+COMPOSED = "a small, freckled woman"
+NO_CHOICES = "Chosen: sex --, age --, feature --."
+ALL_CHOSEN = "Chosen: sex female, age adult, feature freckled."
 
 
 class TestParseLine(EvenniaTestCase):
@@ -123,10 +135,22 @@ class _MenuFixture(EvenniaTest):
             "health": char.traits.get("health").base,
             "profession": char.db.profession,
             "complete": char.db.chargen_complete,
+            "appearance": char.attributes.get("appearance"),
         }
 
-    def walk_to_last_confirm(self):
+    def walk_to_profession_confirm(self):
         return self.send(FIXTURE_LINE, "next", "yes", "tanner")
+
+    def walk_to_last_confirm(self):
+        return self.send(FIXTURE_LINE, "next", "yes", "tanner", "yes",
+                         APPEARANCE_LINE, "next")
+
+    def restart_at(self, node, **kwargs):
+        """A menu saved at `node` with these kwargs, resumed; what it printed."""
+        self.out.clear()
+        EvMenu(self.char1, MENU, startnode=node, startnode_input=("", kwargs),
+               cmd_on_exit=self.on_exit)
+        return "\n".join(self.out)
 
 
 class TestAllocateNode(_MenuFixture):
@@ -188,10 +212,18 @@ class TestConfirmScreens(_MenuFixture):
         self.assertNotIn("skill_bonus", text)
 
     def test_profession_confirm_shows_base_and_bonus(self):
-        text = self.walk_to_last_confirm()
+        text = self.walk_to_profession_confirm()
         self.assertEqual(self.node(), "node_confirm_profession")
         self.assertIn("craft 21 -> 31 (+10)", text)
         self.assertIn("Recipes: leather", text)
+
+    def test_the_final_question_has_moved_to_the_appearance(self):
+        # NM-T16: the profession's yes is no longer the last one.
+        text = self.walk_to_profession_confirm()
+        self.assertNotIn("cannot be changed", text)
+        self.assertNotIn("Create this character", text)
+        self.send("yes")
+        self.assertEqual(self.node(), "node_appearance")
 
 
 class TestNoWriteBeforeDone(_MenuFixture):
@@ -242,6 +274,206 @@ class TestHappyPath(_MenuFixture):
     def test_progress_baseline_is_retaken(self):
         self.assertEqual(self.char1.login_skill_snapshot, EXPECTED_FINAL)
 
+    def test_the_appearance_facts_are_written_and_composed(self):
+        self.assertEqual(self.state()["appearance"], APPEARANCE)
+        self.assertEqual(self.char1.sdesc.get(), COMPOSED)
+
+
+# ---------------------------------------------------------------------------
+# The appearance step (Names NM-T16; OQ-NM9 (1))
+# ---------------------------------------------------------------------------
+
+
+class TestAppearanceStep(_MenuFixture):
+    """Three numbered lists, one line parsed like the allocation's, a gate."""
+
+    def setUp(self):
+        super().setUp()
+        self.walk_to_profession_confirm()
+        self.text = self.send("yes")
+
+    def test_the_build_is_shown_from_siz_and_not_chosen(self):
+        self.assertEqual(self.node(), "node_appearance")
+        self.assertIn("SIZ 8 reads as small.", self.text)
+        self.assertNotIn("build 1", self.text)
+
+    def test_the_three_lists(self):
+        for shown in ("1 male (he)", "2 female (she)", "3 unstated (they)",
+                      "1 young", "2 adult", "3 old",
+                      "1 grey-eyed", "11 freckled", "20 weathered"):
+            with self.subTest(shown=shown):
+                self.assertIn(shown, self.text)
+        self.assertIn(NO_CHOICES, self.text)
+        self.assertIn("Still to choose: sex, age, feature.", self.text)
+
+    def test_a_pair_by_number_or_by_word(self):
+        self.send("sex female")
+        text = self.send("AGE 2")
+        self.assertEqual(self.node(), "node_appearance")
+        self.assertIn("Chosen: sex female, age adult, feature --.", text)
+        self.assertIn("Still to choose: feature.", text)
+
+    def test_all_three_on_one_line(self):
+        text = self.send(APPEARANCE_LINE)
+        self.assertIn(ALL_CHOSEN, text)
+        self.assertIn("All three chosen.", text)
+
+    def test_a_line_of_three_words(self):
+        text = self.send("female adult freckled")
+        self.assertIn(ALL_CHOSEN, text)
+
+    def test_a_choice_off_the_lists_is_refused_with_the_lists_again(self):
+        self.send("sex 1")
+        before = "Chosen: sex male, age --, feature --."
+        for line, said in (
+            ("sex 4", "There is no sex 4; choose 1-3."),
+            ("age 0", "There is no age 0; choose 1-3."),
+            ("feature 21", "There is no feature 21; choose 1-20."),
+            ("feature purple", "'purple' is not a feature on the list."),
+            ("sex 2 age 9", "There is no age 9"),
+            ("2 2 99", "There is no feature 99"),
+            ("sex", "Pairs come as a name and a choice"),
+            ("1 2", "needs all 3"),
+            ("sex 2 colour 1", "Unknown choice 'colour'"),
+        ):
+            with self.subTest(line=line):
+                text = self.send(line)
+                self.assertEqual(self.node(), "node_appearance")
+                self.assertIn(said, text)
+                self.assertIn(before, text)       # the whole line changed nothing
+                self.assertIn("20 weathered", text)   # the lists again
+
+    def test_next_is_refused_until_all_three_are_chosen(self):
+        self.send("sex 2", "feature 11")
+        text = self.send("next")
+        self.assertEqual(self.node(), "node_appearance")
+        self.assertIn("Not yet -- choose all three first.", text)
+        self.assertIn("Chosen: sex female, age --, feature freckled.", text)
+
+    def test_next_with_all_three_reaches_the_confirmation(self):
+        self.send(APPEARANCE_LINE, "next")
+        self.assertEqual(self.node(), "node_confirm_appearance")
+
+    def test_back_to_the_profession_and_yes_keeps_the_choices(self):
+        self.send(APPEARANCE_LINE)
+        text = self.send("back")
+        self.assertEqual(self.node(), "node_confirm_profession")
+        self.assertIn("craft 21 -> 31 (+10)", text)
+        self.assertIn(ALL_CHOSEN, self.send("yes"))
+
+    def test_help_gives_the_forms(self):
+        self.assertIn("all three at once", self.send("help"))
+
+
+class TestConfirmAppearance(_MenuFixture):
+    """The composer's line for the draft, the final question, `back`."""
+
+    def setUp(self):
+        super().setUp()
+        self.text = self.walk_to_last_confirm()
+
+    def test_the_line_and_the_final_question(self):
+        self.assertEqual(self.node(), "node_confirm_appearance")
+        self.assertIn(f"  {COMPOSED}\n", self.text)
+        self.assertIn("This cannot be changed here. Create this character?", self.text)
+
+    def test_the_line_is_the_composers_without_state_or_garment(self):
+        with mock.patch.object(
+            sdesc, "compose_text", wraps=sdesc.compose_text
+        ) as composer:
+            self.send("back", "next")
+        composer.assert_called_once_with("female", "adult", "freckled", 8)
+
+    def test_back_returns_with_the_choices_and_the_draft(self):
+        text = self.send("back")
+        self.assertEqual(self.node(), "node_appearance")
+        self.assertIn(ALL_CHOSEN, text)
+        self.assertIn("SIZ 8 reads as small.", text)
+
+    def test_a_stale_confirmation_goes_back_to_the_step(self):
+        text = self.restart_at(
+            "node_confirm_appearance", draft=dict(FIXTURE), profession="tanner"
+        )
+        self.assertIn("Choose how strangers see you first.", text)
+        self.assertNotIn("Create this character", text)
+        self.send("back")
+        self.assertEqual(self.node(), "node_appearance")
+
+
+class TestDoneWithoutAppearance(_MenuFixture):
+    """
+    A menu saved before NM-T16 has a draft and a profession and no choices.
+    `node_done` writes nothing for it and sends it to the step (NMM25).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.before = self.state()
+
+    def test_node_done_without_choices_writes_nothing(self):
+        text = self.restart_at("node_done", draft=dict(FIXTURE), profession="tanner")
+        self.assertIn("Nothing was changed: choose how strangers see you first.", text)
+        self.assertEqual(self.node(), "node_done")
+        self.assertEqual(self.state(), self.before)
+        self.assertFalse(self.char1.db.chargen_complete)
+
+    def test_back_lands_on_the_step_and_the_character_is_then_made(self):
+        self.restart_at("node_done", draft=dict(FIXTURE), profession="tanner")
+        text = self.send("back")
+        self.assertEqual(self.node(), "node_appearance")
+        self.assertIn("SIZ 8 reads as small.", text)
+        self.send(APPEARANCE_LINE, "next", "yes")
+        self.assertIsNone(self.node())
+        self.assertIs(self.char1.db.chargen_complete, True)
+        self.assertEqual(self.state()["appearance"], APPEARANCE)
+
+    def test_a_saved_profession_confirmation_leads_to_the_step(self):
+        self.restart_at(
+            "node_confirm_profession", draft=dict(FIXTURE), profession="tanner"
+        )
+        text = self.send("yes")
+        self.assertEqual(self.node(), "node_appearance")
+        self.assertIn(NO_CHOICES, text)
+
+    def test_a_stored_choice_off_the_lists_is_asked_for_again(self):
+        # Shown as chosen, it would be a choice `next` then refuses.
+        text = self.restart_at(
+            "node_appearance", draft=dict(FIXTURE), profession="tanner",
+            appearance={"sex": "female", "age": "Adult", "feature": "purple"},
+        )
+        self.assertIn("Chosen: sex female, age --, feature --.", text)
+        self.assertIn("Still to choose: age, feature.", text)
+
+    def test_choices_off_the_lists_are_not_written(self):
+        for appearance in (
+            {"sex": "female", "age": "adult"},
+            dict(APPEARANCE, feature="purple"),
+            dict(APPEARANCE, sex="neutral"),
+            "female adult freckled",
+        ):
+            with self.subTest(appearance=appearance):
+                text, _ = chargen_menu.node_done(
+                    self.char1, "", draft=dict(FIXTURE), profession="tanner",
+                    appearance=appearance,
+                )
+                self.assertIn("Nothing was changed", text)
+                self.assertEqual(self.state(), self.before)
+
+
+class TestAppearanceBeforeThePush(_MenuFixture):
+    """AV5 for the facts: the panels' push already reads them (NMM24)."""
+
+    def test_the_push_sees_the_facts(self):
+        seen = []
+        with mock.patch.object(
+            client_state, "push",
+            side_effect=lambda obj, *domains, **kw: seen.append(sdesc.facts_of(obj)),
+        ):
+            self.walk_to_last_confirm()
+            self.send("yes")
+        self.assertIs(self.char1.db.chargen_complete, True)   # receipt: node_done ran
+        self.assertEqual(seen[-1], APPEARANCE)
+
 
 class TestDoneRefuses(_MenuFixture):
     """
@@ -281,6 +513,8 @@ class TestDoneRefuses(_MenuFixture):
         self.assertIn("could not be granted (boom)", text)
         self.assertFalse(self.char1.db.chargen_complete)
         self.assertEqual(self.state()["stats"], FIXTURE)
+        # The facts come after the grant: a half-done character has none.
+        self.assertIsNone(self.state()["appearance"])
 
     def test_silent_grant_refusal_leaves_flag_unset(self):
         self.walk_to_last_confirm()
@@ -300,7 +534,8 @@ class TestDoneRefuses(_MenuFixture):
         ):
             self.send("yes")
         self.assertEqual(self.node(), "node_done")
-        self.send("back", "next", "yes", "tanner", "yes")
+        self.send("back", "next", "yes", "tanner", "yes", APPEARANCE_LINE,
+                  "next", "yes")
         self.assertIsNone(self.node())
         self.assertIs(self.char1.db.chargen_complete, True)
         self.assertEqual(self.state()["profession"], "tanner")
@@ -351,6 +586,26 @@ class TestDoneArrives(_SeededMenu):
             self.send("yes")
         self.assertIs(self.char1.db.chargen_complete, True)   # receipt: node_done ran
         self.assertEqual(seen[-1], (self.temple, client_state.DOMAINS))
+
+    def test_the_temple_reads_the_newcomer_by_the_composed_description(self):
+        # NM-T16's protocol in a test: a stranger in the temple sees the
+        # newcomer arrive by the text just composed, and finds them by a word.
+        self.char2.move_to(self.temple, quiet=True, move_hooks=False)
+        heard = []
+        with mock.patch.object(
+            self.char2, "msg",
+            side_effect=lambda text=None, *a, **kw: heard.append(
+                strip_ansi(str(text[0] if isinstance(text, (tuple, list)) else text))
+            ),
+        ):
+            self.walk_to_last_confirm()
+            self.send("yes")
+            found = self.char2.search("freckled")
+        self.assertIn(
+            "A small, freckled woman steps unsteadily out of a shadowed corner",
+            "\n".join(heard),
+        )
+        self.assertEqual(found, self.char1)
 
     def test_an_unknown_profession_moves_nothing(self):
         # Not reachable through the menu's options; node_done guards it anyway.

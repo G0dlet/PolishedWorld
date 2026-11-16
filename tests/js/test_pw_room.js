@@ -15,6 +15,10 @@
  *             follows the "#" link; Enter or Space on a link reaches
  *             default_in, which would send an empty command or move the focus
  *             (decomp §3 key claims).
+ *   characters (Names NM-T17 lock 2b) the pose is lost, written as markup,
+ *             shown when the server sent none, put before the name or in
+ *             the name's text, or a changed pose alone leaves the list as
+ *             it was.
  */
 "use strict";
 
@@ -45,7 +49,7 @@ function room(overrides) {
         {
             name: "Temple Clearing", indoor: false,
             exits: [{ name: "north", key: "north" }, { name: "old temple", key: "old temple" }],
-            characters: ["tester"],
+            characters: [{ name: "A lean, grey-eyed woman", pose: "" }],
             things: ["a rabbit", "two stones", "stone statue of TestChar"],
         },
         overrides || {}
@@ -58,7 +62,7 @@ describe("items", () => {
             ["exits", "characters", "things"].map((list) => listItems(room(), list)),
             [
                 [{ text: "north", key: "north" }, { text: "old temple", key: "old temple" }],
-                [{ text: "tester", key: null }],
+                [{ text: "A lean, grey-eyed woman", key: null, pose: "" }],
                 [{ text: "a rabbit", key: null }, { text: "two stones", key: null },
                  { text: "stone statue of TestChar", key: null }],
             ]
@@ -129,9 +133,16 @@ function shown(elements) {
     const out = { name: elements["pw-room-name"].hidden ? null : elements["pw-room-name"].textContent };
     for (const list of ["exits", "characters", "things"]) {
         const row = elements["pw-room-" + list];
-        out[list] = row.hidden ? null : elements["pw-room-" + list + "-list"].children.map(
-            (li) => (li.children.length ? li.children[0].textContent : li.textContent)
-        );
+        out[list] = row.hidden ? null : elements["pw-room-" + list + "-list"].children.map((li) => {
+            if (list === "exits") {
+                return li.children[0].textContent;
+            }
+            if (list === "characters") {
+                const pose = li.children.find((c) => c.className === "pw-room-pose");
+                return pose ? [li.textContent, pose.textContent] : li.textContent;
+            }
+            return li.textContent;
+        });
     }
     return out;
 }
@@ -149,7 +160,7 @@ describe("writer", () => {
         assert.deepEqual(shown(elements), {
             name: "Temple Clearing",
             exits: ["north", "old temple"],
-            characters: ["tester"],
+            characters: ["A lean, grey-eyed woman"],
             things: ["a rabbit", "two stones", "stone statue of TestChar"],
         });
     });
@@ -171,7 +182,8 @@ describe("writer", () => {
     it("does not rebuild a list or rewrite the name when nothing changed", () => {
         const { elements, render } = load(IDS);
         render(room());
-        render(room({ characters: ["tester", "warden"] }));
+        render(room({ characters: [{ name: "A lean, grey-eyed woman", pose: "" },
+                                   { name: "Warden", pose: "" }] }));
         assert.deepEqual(
             [elements["pw-room-name"].writes, elements["pw-room-exits-list"].rebuilds,
              elements["pw-room-characters-list"].rebuilds, elements["pw-room-things-list"].rebuilds],
@@ -279,5 +291,52 @@ describe("exits", () => {
         const entries = ["characters", "things"].map((list) =>
             elements["pw-room-" + list + "-list"].children.map((li) => [li.tagName, li.children.length]));
         assert.deepEqual(entries, [[["li", 0]], [["li", 0], ["li", 0], ["li", 0]]]);
+    });
+});
+
+// ------------------------------------------------------------- characters
+
+function posed(name, pose) {
+    return { name: name, pose: pose };
+}
+
+describe("characters", () => {
+    it("carries the name and the pose, and no pose when none was sent", () => {
+        assert.deepEqual(
+            listItems(room({ characters: [posed("Tess", "is sitting by the fire."),
+                                          posed("A lean man", ""), { name: "Old" }] }), "characters"),
+            [{ text: "Tess", key: null, pose: "is sitting by the fire." },
+             { text: "A lean man", key: null, pose: "" },
+             { text: "Old", key: null, pose: "" }]
+        );
+    });
+
+    it("writes the pose under the name in its own muted span, and none for no pose", () => {
+        const { elements, render } = load(IDS);
+        render(room({ characters: [posed("Tess", "is sitting by the fire."), posed("A lean man", "")] }));
+        assert.deepEqual(shown(elements).characters,
+                         [["Tess", "is sitting by the fire."], "A lean man"]);
+        const [first, second] = elements["pw-room-characters-list"].children;
+        assert.deepEqual(
+            [first.children.map((c) => [c.tagName, c.className]), second.children.length],
+            [[["span", "pw-room-pose"]], 0]
+        );
+    });
+
+    it("writes a pose with markup as text", () => {
+        const { elements, render } = load(IDS);
+        render(room({ characters: [posed("<b>Tess</b>", "<i>waves</i>")] }));
+        assert.deepEqual(shown(elements).characters, [["<b>Tess</b>", "<i>waves</i>"]]);
+    });
+
+    it("rebuilds the list when only a pose changes, and not when nothing does", () => {
+        const { elements, render } = load(IDS);
+        render(room({ characters: [posed("Tess", "")] }));
+        render(room({ characters: [posed("Tess", "")] }));
+        render(room({ characters: [posed("Tess", "is sitting.")] }));
+        assert.deepEqual(
+            [elements["pw-room-characters-list"].rebuilds, shown(elements).characters],
+            [2, [["Tess", "is sitting."]]]
+        );
     });
 });

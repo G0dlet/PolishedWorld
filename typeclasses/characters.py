@@ -6,8 +6,10 @@ Includes survival mechanics (hunger, thirst, fatigue) and skill system.
 """
 
 from evennia.contrib.game_systems.clothing import ClothedCharacter
+from evennia.contrib.rpg.rpsystem import ContribRPCharacter, RPSystemCmdSet
+from evennia.objects.objects import DefaultObject
 from evennia.utils import lazy_property
-from evennia.utils.utils import delay, inherits_from
+from evennia.utils.utils import delay, inherits_from, make_iter
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.contrib.rpg.buffs import BuffHandler
 from evennia.contrib.game_systems.cooldowns import CooldownHandler
@@ -28,6 +30,7 @@ from world import timed_actions
 from world import activity_log
 from world import gametime_utils
 from world import healing
+from world import sdesc as sdesc_rules
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -38,9 +41,56 @@ from world.skill_xp import SkillXPHandler
 from world.recipe_mastery import RecipeMasteryHandler
 from world.chargen import derive_health_max, start_or_resume_chargen
 
+import re
+
 from django.conf import settings
 from django.utils.translation import gettext as _
 from evennia.utils import search
+
+
+def capital(name):
+    """
+    A name at the start of a line, as `$You()` writes it: the first character
+    up, the rest as written (funcparser.py:1270-1272; Names NM-T9 lock 1B).
+    """
+    return name[:1].upper() + name[1:]
+
+
+# Evennia's move lines (objects.py:2293, :2349), with the mover through
+# `$You()`: per reader and with a capital, where Evennia's `{object}` gives
+# the reader's name but leaves it lower-case (Names NM-T10 lock 1 A). The
+# wording is Evennia's; `{origin}` and `{destination}` are its mapping.
+MOVE_FROM = "$You() is leaving {origin}, heading for {destination}."
+MOVE_TO = "$You() arrives to {destination} from {origin}."
+
+
+class _Sleeper:
+    """
+    A character as a room line names them while their body is stone.
+
+    `at_post_unpuppet` runs after the account has let go, so the character is
+    already a statue and its own `get_display_name` says *stone statue of*.
+    `$Your(sleeper)` with this in `mapping` reads `living_name` instead, per
+    reader and with `$You()`'s capital (Names NM-T11 lock 1 A). The funcparser
+    passes no kwargs to `get_display_name` (funcparser.py:1349), so a flag on
+    the call cannot do it. `$pron(your, sleeper)` reads `gender` from it,
+    so it passes the character's through (Names NM-T15b).
+    """
+
+    def __init__(self, character):
+        self.character = character
+
+    def get_display_name(self, looker=None, **kwargs):
+        return self.character.living_name(looker, **kwargs)
+
+    @property
+    def gender(self):
+        return self.character.gender
+
+
+# The sexes in `db.appearance` that are also Evennia's pronoun genders
+# (pronouns.py GENDERS); any other value reads singular *they* (NM-T15b).
+_PRONOUN_SEXES = frozenset({"male", "female"})
 
 
 # Tag category under which a Character's learned (known) crafting recipes live.
@@ -60,8 +110,13 @@ KNOWN_RECIPE_CATEGORY = "known_recipe"
 # encumbrance walk skips characters by, so a statue or an NPC counts too.
 _CHARACTER_PATH = "evennia.objects.objects.DefaultCharacter"
 
+# The game's multimatch form (`2-fiber`, settings.py MULTIMATCH FORM), compiled
+# the way evennia/objects/manager.py:28 compiles it. get_search_result reads
+# the number itself rather than leaving it to the rpsystem contrib's parser.
+_MULTIMATCH_REGEX = re.compile(settings.SEARCH_MULTIMATCH_REGEX, re.I + re.U)
 
-class Character(ObjectParent, ClothedCharacter):
+
+class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     """
     PolishedWorld character with Mongoose Legend integration.
 
@@ -78,6 +133,20 @@ class Character(ObjectParent, ClothedCharacter):
     `delete()`, a direct `location =`, `move_hooks=False` (death), a change
     to STR or SIZ -- crosses it silently (W2.2 Q4). A step through an exit
     while past the limit costs fatigue (`at_post_move`, W3.2).
+
+    Names (Combat Decomposition NM2, NM-T2): the rpsystem contrib's
+    `ContribRPCharacter` is the LAST base. The order is
+
+        Character, ObjectParent, ClothedCharacter, ContribRPCharacter,
+        DefaultCharacter, ContribRPObject, DefaultObject
+
+    so the project's hooks and the clothing contrib's resolve before the
+    contrib's, and `super()` in `get_display_name` reaches the contrib's
+    per-viewer name: recog, else short description, else key. What the project
+    changes on top: the contrib's command set is taken off at creation
+    (`sdesc` and `mask` are not player commands, NM3), names carry no colour
+    (NM11), and the search is the project's (`get_search_result`, NM9/NM10).
+    tests/test_names_character.py asserts the order by name.
     """
 
     @lazy_property
@@ -221,6 +290,17 @@ class Character(ObjectParent, ClothedCharacter):
         """
         return RecipeMasteryHandler(self, db_attribute="recipe_mastery")
 
+    @lazy_property
+    def sdesc(self):
+        """
+        The short description, composed live from the appearance facts, the
+        state and the outermost garment (Names NM-T15, OQ-NM9; world/sdesc.py).
+        Replaces the contrib's handler of the same name (`rpsystem.py:1311`):
+        `lazy_property` caches on the instance by name, so every contrib
+        reader and the project's search read this one.
+        """
+        return sdesc_rules.LiveSdescHandler(self)
+
     def at_object_creation(self):
         """
         Called once when character is first created.
@@ -229,6 +309,21 @@ class Character(ObjectParent, ClothedCharacter):
         sets up survival traits at full, and prepares skills system.
         """
         super().at_object_creation()
+
+        # Names NM3: ContribRPCharacter.at_object_creation added RPSystemCmdSet
+        # persistently (rpsystem.py:1565). It carries `sdesc` and `mask`, which
+        # players must not have; the commands the game keeps are added to
+        # CharacterCmdSet one at a time. Removing the persistent set also takes
+        # its path out of cmdset_storage, so a reload does not bring it back.
+        try:
+            self.cmdset.remove(RPSystemCmdSet)
+        except Exception:
+            logger.log_trace(f"Names: could not remove RPSystemCmdSet from {self.dbref}")
+        # Names NM-T15 (Rev 6's finding): the contrib wrote *A normal person*
+        # (rpsystem.py:1567), with a capital, and *normal* found every new
+        # character. A new one reads the placeholder until NM-T16 writes its
+        # appearance facts.
+        self.sdesc.add(sdesc_rules.PLACEHOLDER)
         
         # === MONGOOSE LEGEND CHARACTERISTICS ===
         
@@ -500,10 +595,14 @@ class Character(ObjectParent, ClothedCharacter):
     
         if self.location:
             self.db.prelogout_location = self.location  # safety, behåll konventionen
+            # Already a statue here: the sleeper is named by `living_name`
+            # (`_Sleeper`, Names NM-T11 lock 1 A).
             self.location.msg_contents(
-                f"{self.key}'s body slowly turns to weathered stone, "
-                "their final pose frozen in place.",
+                "$Your(sleeper) body slowly turns to weathered stone, "
+                "$pron(your, sleeper) final pose frozen in place.",
+                from_obj=self,
                 exclude=[self],
+                mapping={"sleeper": _Sleeper(self)},
             )
             # W4.2: the others' room lists move this character from the
             # awake list to the statues (is_statue reads the sessions).
@@ -517,9 +616,12 @@ class Character(ObjectParent, ClothedCharacter):
 
         The first three steps are DefaultCharacter.at_post_puppet's
         (objects.py:3280-3289), copied with its look replaced by
-        `world.room_text.room_look` (webclient W5.4, WC4). super() is not
-        called: DefaultCharacter's version would send the one-message look,
-        and it never calls its own parent, so nothing else is skipped
+        `world.room_text.room_look` (webclient W5.4, WC4), and its arrival
+        line sent through `msg_contents` with `$You()` in place of
+        `for_contents` (Names NM-T11 lock 2 A): per reader, with a capital,
+        and read by the names census. super() is not called:
+        DefaultCharacter's version would send the one-message look, and it
+        never calls its own parent, so nothing else is skipped
         (tests/test_room_look.py TestHookMro). Without a location the look
         and the arrival line are left out instead of raising. The time spent
         away is credited to natural healing before the panels are pushed
@@ -528,14 +630,9 @@ class Character(ObjectParent, ClothedCharacter):
         self.msg(_("\nYou become |c{name}|n.\n").format(name=self.key))
         if self.location is not None:
             room_text.room_look(self, self.location)
-
-            def message(obj, from_obj):
-                obj.msg(
-                    _("{name} has entered the game.").format(name=self.get_display_name(obj)),
-                    from_obj=from_obj,
-                )
-
-            self.location.for_contents(message, exclude=[self], from_obj=self)
+            self.location.msg_contents(
+                "$You() has entered the game.", from_obj=self, exclude=[self]
+            )
 
         # S2.2 (SL7): the game time spent away is credited to healing, once.
         # Before the panel push below, so its first snapshot already shows
@@ -562,8 +659,9 @@ class Character(ObjectParent, ClothedCharacter):
 
         if self.location:
             self.location.msg_contents(
-                f"The stone form of {self.key} stirs, color flowing back "
-                "into their flesh as they draw breath.",
+                "The stone form of $you() stirs, color flowing back "
+                "into $pron(your) flesh as $pron(you) $pconj(draw) breath.",
+                from_obj=self,
                 exclude=[self],
             )
 
@@ -591,6 +689,217 @@ class Character(ObjectParent, ClothedCharacter):
       
     # === Display & Appearance ===
 
+    def process_sdesc(self, sdesc, obj, **kwargs):
+        """
+        A short description as THIS character reads it: no colour (Names NM11).
+
+        The contrib paints it `|b` (rpsystem.py:1651). Dark blue reads badly,
+        and a leading colour code stops `$You()` from capitalising a name at
+        the start of a line (funcparser_callable_you capitalises `name[:1]`).
+        The case markers of the contrib's `ref` are kept, with one change:
+        a capital (`t`, an emote's `/Tall`, a line start) is `$You()`'s --
+        the first character up and the rest as written, where the contrib
+        lowered the rest first (rpsystem.py:1643-1645). *a woman from Kvarn*
+        starts a line as *A woman from Kvarn* whichever asks (NM-T9 lock 1B).
+        """
+        if not sdesc:
+            return ""
+        ref = kwargs.get("ref", "~")
+        if "t" in ref:
+            sdesc = capital(sdesc)
+        elif "^" in ref:
+            sdesc = sdesc.upper()
+        elif "v" in ref:
+            sdesc = sdesc.lower()
+        return sdesc
+
+    def process_recog(self, recog, obj, **kwargs):
+        """
+        A recog as THIS character reads it: as written, no colour (Names NM11).
+
+        The contrib paints it `|m` (rpsystem.py:1670) and ignores `ref`. Here
+        a capital (`t`) is given as `$You()` gives one -- the first character
+        up, the rest as written -- so a name starts a line the same way in a
+        say, a whisper, a look and a room message (NM-T9 lock 1B). No other
+        marker rewrites it: `/mia` or `/MIA` in an emote leaves what a
+        player chose to call someone as they wrote it.
+        """
+        if not recog:
+            return ""
+        return capital(recog) if "t" in kwargs.get("ref", "~") else recog
+
+    def reset_pose(self):
+        """
+        Set the pose back to the default (Names UP19, NM14; NM-T7).
+
+        A pose describes a place: *is warming her hands by the fire* is said
+        of one room, and must not arrive in the next. The default is the
+        contrib's `pose_default` (*is here.*, rpsystem.py:1566, backfilled by
+        NM-T4); a character without one gets an empty pose. Never raises:
+        it runs inside at_post_move, where an exception would make move_to
+        report a failed move after the move has happened (objects.py:1331).
+        """
+        try:
+            self.db.pose = self.db.pose_default or ""
+        except Exception:
+            logger.log_trace(f"Names: could not reset the pose of {self.dbref}")
+
+    def at_pre_say(self, message, **kwargs):
+        """
+        A whisper is returned as it is (Names NM-T7, lock 2 A).
+
+        The contrib's hook wraps all speech as an emote, `/Me says, "..."`
+        or `/Me whispers "..."` (rpsystem.py:1569-1581), for its own `say`,
+        which parses emotes. Evennia's `whisper` calls the same hook and does
+        not, so the receiver read the wrapper itself (run 2026-11-15).
+        Evennia's at_say already names the whisperer per receiver.
+        """
+        if kwargs.get("whisper"):
+            return message
+        return super().at_pre_say(message, **kwargs)
+
+    def at_say(
+        self,
+        message,
+        msg_self=None,
+        msg_location=None,
+        receivers=None,
+        msg_receivers=None,
+        **kwargs,
+    ):
+        """
+        A whisper names the whisperer with a capital (Names NM-T7).
+
+        Evennia's at_say puts `{object}` -- `get_display_name(receiver)` --
+        at the start of the receiver's line and never capitalises it
+        (objects.py:2961); a short description starts lower-case, so the
+        receiver read *a lanky man whispers: ...*. For a whisper with
+        Evennia's own wording this hook writes the two lines itself, the
+        receiver's with the name asked for as the start of a sentence
+        (`ref="t"`, as an emote does: the first character up, the rest as
+        written, as `$You()` writes it -- NM-T9 lock 1B). A `say`, or a
+        whisper with a custom
+        `msg_receivers`, goes to Evennia unchanged.
+        """
+        if not kwargs.get("whisper") or msg_receivers is not None:
+            return super().at_say(
+                message,
+                msg_self=msg_self,
+                msg_location=msg_location,
+                receivers=receivers,
+                msg_receivers=msg_receivers,
+                **kwargs,
+            )
+        receivers = make_iter(receivers) if receivers else []
+        if msg_self:
+            template = (
+                _('{self} whisper to {all_receivers}, "|n{speech}|n"')
+                if msg_self is True
+                else msg_self
+            )
+            mapping = {
+                "self": _("You"),
+                "object": self.get_display_name(self),
+                "location": self.location.get_display_name(self) if self.location else None,
+                "receiver": None,
+                "all_receivers": ", ".join(recv.get_display_name(self) for recv in receivers)
+                or None,
+                "speech": message,
+            }
+            mapping.update(kwargs.get("mapping", {}))
+            self.msg(text=(template.format_map(mapping), {"type": "whisper"}), from_obj=self)
+        for receiver in receivers:
+            name = self.get_display_name(receiver, ref="t")
+            receiver.msg(
+                text=(f'{name} whispers: "|n{message}|n"', {"type": "whisper"}),
+                from_obj=self,
+            )
+
+    def get_search_result(self, searchdata, candidates=None, **kwargs):
+        """
+        The search, with the game's `N-` number and exact names first (Names
+        NM9, NM10).
+
+        The contrib's search (ContribRPObject.get_search_result,
+        rpsystem.py:1326) runs its emote parser over the candidates. Left to
+        it, three things go wrong, each run in the sandbox (2026-11-15):
+
+        * It matches the start of any word and nothing exact comes first, so
+          `leather` is a multimatch with a *leather strap* in the pack.
+        * Its candidate map has a row for the key and one per alias
+          (rpsystem.py:383-395) and counts `N-` in that list (:490-495), so
+          `1-fiber` and `2-fiber` were the same *plant fiber* (alias `fiber`).
+        * A number past the matches gives the last match, `0-` the first.
+
+        So the number is taken off here with SEARCH_MULTIMATCH_REGEX, the
+        contrib finds the matches for the bare name (it already removes
+        duplicates), the exact ones are kept when there are any, and the
+        number is counted in that list. A number past the end, or 0, finds
+        nothing, as in Evennia's own search (manager.py:497-501). As in
+        Evennia's search too, a string that is itself an exact name
+        (*2-handed sword*) is never read as a number.
+
+        "Exact" is what the searcher can see: a thing's key or an alias; a
+        character's recog or short description as THIS searcher reads it,
+        never its key, which would single out a stranger by a name the player
+        has not been given.
+
+        A global search (no candidates) and a non-string query go to the
+        contrib unchanged; it passes them to Evennia's default.
+        """
+        if candidates is None or not isinstance(searchdata, str):
+            return super().get_search_result(searchdata, candidates=candidates, **kwargs)
+
+        number = None
+        name = searchdata.strip()
+        match = _MULTIMATCH_REGEX.match(name)
+        if match:
+            whole = [obj for obj in candidates if name.lower() in self._exact_names(obj)]
+            if whole:
+                # An exact name that looks like a number (*2-handed sword*).
+                # The contrib's parser would read its `2-` as one, so
+                # Evennia's default search takes it, over those objects only.
+                return list(
+                    DefaultObject.get_search_result(
+                        self, name, candidates=whole, **kwargs
+                    ) or []
+                )
+            number, name = int(match.group("number")), match.group("name").strip()
+
+        results = list(
+            super().get_search_result(name, candidates=candidates, **kwargs) or []
+        )
+        try:
+            wanted = name.lower()
+            exact = [obj for obj in results if wanted in self._exact_names(obj)]
+        except Exception:
+            # A narrowing that fails must not lose the search: unnarrowed is
+            # what the contrib alone would have answered.
+            logger.log_trace(f"Names: exact narrowing failed for {searchdata!r}")
+            exact = []
+        if exact:
+            results = exact
+
+        if number is None:
+            return results
+        if 1 <= number <= len(results):
+            return [results[number - 1]]
+        return []
+
+    def _exact_names(self, obj):
+        """
+        The lower-cased names `obj` can be typed by exactly, as THIS character
+        sees it (see get_search_result).
+        """
+        if obj is self:
+            return {self.key.lower()}
+        if hasattr(obj, "sdesc"):
+            shown = self.get_sdesc(obj) or ""
+            return {shown.lower()} if shown else set()
+        names = {obj.key.lower()}
+        names.update(alias.lower() for alias in obj.aliases.all())
+        return names
+
     def get_display_name(self, looker=None, **kwargs):
         """
         Show 'stone statue of X' in room listings when in statue state.
@@ -600,13 +909,42 @@ class Character(ObjectParent, ClothedCharacter):
             return f"|wstone statue of {base_name}|n"
         return base_name
 
+    def living_name(self, looker, **kwargs):
+        """
+        The name `looker` knows this character by, without the statue: the
+        recog or the short description (Names K2, K3). For a statue's own
+        lines and look, and for a player's body, whose owner is a statue most
+        of the time anyone finds it.
+        """
+        return super().get_display_name(looker=looker, **kwargs)
+
+    @property
+    def gender(self):
+        """
+        The pronouns others read for this character (Names NM-T15b, OQ-NM9 (7)):
+        `"male"` or `"female"` from the sex in `db.appearance`, else
+        `"plural"` -- singular *they*, for `unstated`, for no facts and for
+        anything else stored there. Never Evennia's `"neutral"`, which is *it*
+        (pronouns.py:84) and what an object without `gender` gets
+        (funcparser.py:1609). `$pron()` and `$pconj()` -- the verb after a
+        pronoun -- read it per receiver (funcparser.py:1612, :1477); `$conj()`
+        does not (`:1383`), so a verb whose subject is a pronoun is `$pconj()`.
+        A property, so it is never stale.
+        """
+        appearance = self.attributes.get("appearance")
+        try:
+            sex = appearance.get("sex")
+        except AttributeError:  # no facts (None), or something not a mapping
+            return "plural"
+        return sex if sex in _PRONOUN_SEXES else "plural"
+
     def return_appearance(self, looker, **kwargs):
         """
         Statue description instead of character description in statue state.
         """
         if self.is_statue:
             return (
-                f"|wA weathered stone statue depicting {self.key}.|n\n"
+                f"|wA weathered stone statue depicting {self.living_name(looker)}.|n\n"
                 "The carved figure stands silent and unmoving, "
                 "its features captured in fine detail. "
                 "It seems to be waiting."
@@ -1411,7 +1749,10 @@ class Character(ObjectParent, ClothedCharacter):
                 try:
                     corpse = create_object(
                         "typeclasses.corpse.PlayerCorpse",
-                        key=f"corpse of {self.key}",
+                        # Named per reader by PlayerCorpse.get_display_name;
+                        # the key names nobody (Names K3, NM-T11).
+                        key="corpse",
+                        aliases=["body"],
                         location=location,
                         attributes=[("owner", self.id)],
                     )
@@ -1453,6 +1794,10 @@ class Character(ObjectParent, ClothedCharacter):
             destination = self._get_respawn_location()
             if destination:
                 self.move_to(destination, quiet=True, move_hooks=False)
+                # The relocation runs without hooks, so at_post_move does not
+                # reset the pose (Names UP19, NM-T7): a body does not come
+                # back from death still warming its hands.
+                self.reset_pose()
 
             # Restore vitals (decision 2: reset hunger/thirst -- fed and watered).
             health = self.traits.get("health")
@@ -1551,7 +1896,7 @@ class Character(ObjectParent, ClothedCharacter):
         self.msg("You settle down to rest.")
         if self.location:
             self.location.msg_contents(
-                f"{self.key} settles down to rest.", exclude=self
+                "$You() settles down to rest.", from_obj=self, exclude=self
             )
 
     def stop_resting(self, reason="You stop resting."):
@@ -1595,7 +1940,7 @@ class Character(ObjectParent, ClothedCharacter):
         self.msg(fatigue_rules.FALL)
         if self.location:
             self.location.msg_contents(
-                fatigue_rules.FALL_ROOM.format(name=self.key), exclude=self
+                fatigue_rules.FALL_ROOM, from_obj=self, exclude=self
             )
         self.arm_collapse()
 
@@ -1678,6 +2023,31 @@ class Character(ObjectParent, ClothedCharacter):
         timed_actions.interrupt(self)
         return super().at_pre_move(destination, move_type=move_type, **kwargs)
 
+    def announce_move_from(self, destination, msg=None, mapping=None, move_type="move", **kwargs):
+        """
+        Tell the room left behind, naming the mover as each reader knows them
+        (Names NM-T10 lock 1 A): Evennia's line with `$You()` for `{object}`.
+
+        A `msg` given by the caller is kept as given.
+        """
+        super().announce_move_from(
+            destination, msg=msg or MOVE_FROM, mapping=mapping, move_type=move_type, **kwargs
+        )
+
+    def announce_move_to(self, source_location, msg=None, mapping=None, move_type="move", **kwargs):
+        """
+        Tell the room entered, naming the mover as each reader knows them
+        (Names NM-T10 lock 1 A).
+
+        Evennia ignores `msg` when there is no `source_location`
+        (objects.py:2388-2394) and says *{object} arrives to {destination}.*
+        A character comes from nowhere only by `quiet=True` moves (arrival,
+        death), which send no line, so that branch is not reached here.
+        """
+        super().announce_move_to(
+            source_location, msg=msg or MOVE_TO, mapping=mapping, move_type=move_type, **kwargs
+        )
+
     def at_post_move(self, source_location, move_type="move", **kwargs):
         """
         Look around, then charge a step taken while overloaded (W3.2).
@@ -1716,6 +2086,9 @@ class Character(ObjectParent, ClothedCharacter):
         the move has happened (`objects.py:1331`), and the exit would tell a
         character who did move "You cannot go there."
         """
+        # Names UP19, NM14 (NM-T7): a pose is left at the door, before the
+        # look so the room lists read the arrival as *is here.*
+        self.reset_pose()
         if self.location is not None and self.location.access(self, "view"):
             room_text.room_look(self, self.location)
         if move_type != "traverse":
@@ -1963,7 +2336,7 @@ def _rest_tick(char, marker):
         char.msg("You feel fully rested.")
         if char.location:
             char.location.msg_contents(
-                f"{char.key} gets up, looking refreshed.", exclude=char
+                "$You() gets up, looking refreshed.", from_obj=char, exclude=char
             )
         return
     delay(char.rest_interval, _rest_tick, char, marker)   # reschedule
@@ -1999,7 +2372,7 @@ def _collapse_tick(char, marker):
         char.msg(fatigue_rules.WAKE)
         if char.location:
             char.location.msg_contents(
-                fatigue_rules.WAKE_ROOM.format(name=char.key), exclude=char
+                fatigue_rules.WAKE_ROOM, from_obj=char, exclude=char
             )
         return
     delay(char.rest_interval, _collapse_tick, char, marker)   # reschedule
@@ -2015,4 +2388,4 @@ def _announce_getting_up(char):
     a test can assert identity on it and a traceback names it.
     """
     if char.location:
-        char.location.msg_contents(f"{char.key} gets up.", exclude=char)
+        char.location.msg_contents("$You() gets up.", from_obj=char, exclude=char)

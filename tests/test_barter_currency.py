@@ -42,7 +42,7 @@ HOW TO RUN
 
 from evennia.contrib.game_systems.barter import barter as barter_module
 from evennia.contrib.game_systems.barter.barter import CmdsetTrade
-from evennia.utils import create
+from evennia.utils import ansi, create
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from tests.test_currency import LedgerIsolationMixin
@@ -169,6 +169,25 @@ class TestOfferSegmentClassification(TradeFixtureMixin, LedgerIsolationMixin, Ev
         self.assertEqual(self.handler.part_a_offers, [ingot])
         self.assertEqual(self.handler.part_a_currency, 0)
 
+    def test_a_numbered_item_is_an_item_not_coin(self):
+        # Names NM-T1: the multimatch form is `N-name`, so the name the game
+        # itself prints for a duplicate starts with a digit. The search's own
+        # regex decides, not the first character.
+        self._item("fiber")
+        second = self._item("fiber")
+        self._offer("2-fiber, 3 silver")
+        self.assertEqual(self.handler.part_a_offers, [second])
+        self.assertEqual(self.handler.part_a_currency, 3 * COPPER_PER_SILVER)
+
+    def test_the_compact_forms_still_get_the_currency_error(self):
+        # Deferred in BACKLOG ("2g30s", "50c"); until then they are money typed
+        # wrongly, not an item nobody owns.
+        for typed in ("2g30s", "50c"):
+            with self.subTest(typed=typed):
+                returned = self._offer(typed)
+                self.assertIn("isn't an amount of coin I can read", returned)
+                self.assertEqual(self.handler.part_a_currency, 0)
+
     def test_a_digit_led_segment_that_fails_to_parse_gets_the_currency_error(self):
         # NOT "Could not find '5 silvre'". This is why parse_amount returns
         # None instead of raising: the command owns the wording, and `offer`
@@ -282,7 +301,9 @@ class TestOfferMessages(TradeFixtureMixin, LedgerIsolationMixin, EvenniaCommandT
             "5 silver",
             msg={
                 self.char1: "Your trade action: You offer 5 Silver in coin",
-                self.char2: "Char:s trade action: They offer 5 Silver in coin",
+                # Names NM-T13: char2 reads char1 as it knows it, with a capital;
+                # NM-T15: a new character is *a quiet traveller*.
+                self.char2: "A quiet traveller:s trade action: They offer 5 Silver in coin",
             },
         )
 
@@ -332,16 +353,26 @@ class TestStatusRendersCoin(TradeFixtureMixin, LedgerIsolationMixin, EvenniaComm
 
     def test_output_is_identical_to_the_contrib_when_no_coin_is_offered(self):
         # The regression property: if this ever fails, the patch has changed
-        # the item table itself rather than only adding to it.
+        # the item table itself rather than only adding to it. Since Names
+        # NM-T13 the parties are named as the reader knows them, where the
+        # contrib prints keys; with each name put back to its key the two
+        # outputs are the same.
         self._item("iron sword")
         self._offer("iron sword")
         ours = self.call(CmdPWStatus(), "", caller=self.char1)
+        for party in (self.char2, self.char1):
+            ours = ours.replace(ansi.strip_ansi(party.get_display_name(self.char1)), party.key)
         # NOT `from ...barter import CmdStatus` -- importing world.barter has
         # already replaced that global, so the import would hand back our own
-        # class and the comparison would be vacuous. The base class is the only
-        # honest reference to the unpatched contrib command.
-        contrib_status = CmdPWStatus.__bases__[0]
+        # class and the comparison would be vacuous. The contrib's own class,
+        # found in the MRO, is the only honest reference to the unpatched
+        # command (the first base is the Names mixin since NM-T13).
+        contrib_status = next(
+            cls for cls in CmdPWStatus.__mro__
+            if cls.__module__ == "evennia.contrib.game_systems.barter.barter"
+        )
         theirs = self.call(contrib_status(), "", caller=self.char1)
+        self.assertNotEqual(ours.count("Char2"), 0)
         self.assertEqual(ours, theirs)
 
 
@@ -637,7 +668,7 @@ class TestStaleCurrencyGuard(TradeFixtureMixin, LedgerIsolationMixin, EvenniaTes
         self.assertEqual(sword.location, self.char2)
 
     def test_the_cancel_message_names_coin_and_not_an_item(self):
-        # The whole reason _stale_offer_reason exists. A player told "an offered
+        # The whole reason _stale_offer_reasons exists. A player told "an offered
         # item is no longer available" when it was the silver that vanished will
         # go looking for the wrong thing.
         self.handler.offer(self.char1, currency=500)

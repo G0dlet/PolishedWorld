@@ -145,6 +145,7 @@ from world.harvest_templates import get_part
 from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
 from world.skillcheck import opposed_check, skill_check
 from world.survival_ticker import _check_survival_warnings
+from tests.names_fixture import describe, shown
 
 OBJ = "typeclasses.objects.Object"
 WARN = "world.encumbrance.logger.log_warn"
@@ -473,8 +474,9 @@ class TestCeilingHook(EvenniaCommandTest):
     def test_give_across_the_ceiling_stays_with_the_giver_and_tells_both(self):
         self._load(39)
         anvil = _make(self.char2, key="anvil", enc=2)
+        describe(self.char1)  # Names NM-T2: a player names her by what they see
         with mock.patch.object(self.char1, "msg") as receiver_msg:
-            out = self.call(CmdGive(), "anvil = Char", caller=self.char2)
+            out = self.call(CmdGive(), f"anvil = {shown(self.char1)}", caller=self.char2)
         self.assertEqual(anvil.location, self.char2)
         receiver_msg.assert_any_call(self.REFUSED)
         self.assertIn(
@@ -664,8 +666,9 @@ class TestCrossingMessages(EvenniaCommandTest):
         self._load(20, holder=self.char2)
         anvil = _make(self.room1, key="anvil", enc=1)
         anvil.move_to(self.char2, quiet=True)
+        describe(self.char1)  # Names NM-T2: a player names her by what they see
         with mock.patch.object(self.char1, "msg") as receiver_msg:
-            out = self.call(CmdGive(), "anvil = Char", caller=self.char2)
+            out = self.call(CmdGive(), f"anvil = {shown(self.char1)}", caller=self.char2)
         self.assertEqual(anvil.location, self.char1)
         self.assertEqual(_crossings(receiver_msg), [OVER])
         self.assertEqual(out.count(FREE_AGAIN), 1)

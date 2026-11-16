@@ -18,7 +18,7 @@ from evennia import default_cmds
 from evennia.contrib.grid import extended_room
 from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
 from commands import character_commands
-from commands.admin_commands import CmdWeather
+from commands.admin_commands import CmdAppearance, CmdWeather
 from commands.world_commands import CmdRoomLook, CmdTime
 from commands.consumption_commands import CmdEat, CmdDrink, CmdEmpty, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
@@ -37,15 +37,27 @@ from commands.crafting_commands import (
     CmdLearn,
 )
 from world.barter import CmdPWTrade
+from commands.names_commands import (
+    CmdRecog,
+    CmdForget,
+    CmdIntroduce,
+    CmdEmote,
+    CmdSay,
+    CmdPose,
+    CmdWho,
+    CmdCover,
+    CmdUncover,
+)
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
 # ClothedCharacterCmdSet, which subclasses Evennia's DEFAULT CharacterCmdSet
 # (clothing.py:702) and would re-run a foreign at_cmdset_creation on top of ours.
+# `cover` and `uncover` are the contrib's, subclassed in names_commands so the
+# room panel follows a changed layer (Names NM-T17); `wear` and `remove` push
+# from the garment's own methods (typeclasses/clothing.py).
 from evennia.contrib.game_systems.clothing.clothing import (
     CmdWear,
     CmdRemove,
-    CmdCover,
-    CmdUncover,
 )
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -80,6 +92,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRoomLook())
 
         self.add(CmdWeather())
+        # Names NM-T15: staff set the appearance facts (no free text).
+        self.add(CmdAppearance())
 
         self.add(CmdEat())
         self.add(CmdDrink())
@@ -190,6 +204,29 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdGet())
         self.add(CmdPut())
 
+        # Names (NM4, NM-T5): the project's recog and forget on the contrib's
+        # RecogHandler. The contrib's CmdRecog is not added: it takes anything
+        # in the room as a target and its forget works only in the room.
+        # Keys verified free: no `recog` or `forget` in Evennia's default
+        # cmdsets or in our own commands.
+        self.add(CmdRecog())
+        self.add(CmdForget())
+        # introduce (NM-T6): the truthful side, a new command -- the contrib
+        # has none. Key verified free in the same inventory.
+        self.add(CmdIntroduce())
+
+        # say, emote and pose (NM-T7; K7, UP20). The contrib's three, each
+        # through commands/names_commands.py's send_emote/parse_emote, which
+        # remove the `/N` the contrib's parser leaves of a numbered reference;
+        # pose also catches the parser's error (lock 1 C, Adam 2026-11-15).
+        # Added after the default set, they replace Evennia's say and pose by
+        # key and alias: Evennia's pose owned ':' and 'emote', the contrib's
+        # emote takes ':' (tests/test_names_speech.py). The contrib's sdesc,
+        # mask and recog are not added (NM3, NM4).
+        self.add(CmdSay())
+        self.add(CmdEmote())
+        self.add(CmdPose())
+
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
     """
@@ -209,6 +246,8 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
+        # Names NM-T14 (K1): `who` counts for players and lists for staff.
+        self.add(CmdWho())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

@@ -169,7 +169,8 @@ class CmdForage(Command):
         if set_down:
             caller.msg(caller.set_down_message(set_down))
         caller.location.msg_contents(
-            f"{caller.get_display_name()} forages from the {node.get_display_name()}.",
+            f"$You() forages from the {node.get_display_name()}.",
+            from_obj=caller,
             exclude=caller,
         )
         if broke:
@@ -238,7 +239,8 @@ class CmdRefill(Command):
             name = container.get_display_name(caller)
             caller.msg(f"You dip the {name} in, but the worn vessel splits apart, ruined beyond use.")
             caller.location.msg_contents(
-                f"{caller.get_display_name()}'s {name} falls apart at the water's edge.",
+                f"$Your() {name} falls apart at the water's edge.",
+                from_obj=caller,
                 exclude=caller,
             )
             container.delete()
@@ -253,6 +255,7 @@ class CmdRefill(Command):
 
         caller.msg(f"You fill the {container.get_display_name(caller)} with cool, clear water.")
         caller.location.msg_contents(
-            f"{caller.get_display_name()} refills the {container.get_display_name()} at the water's edge.",
+            f"$You() refills the {container.get_display_name()} at the water's edge.",
+            from_obj=caller,
             exclude=caller,
         )

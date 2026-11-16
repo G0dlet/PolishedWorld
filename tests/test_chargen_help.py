@@ -88,6 +88,13 @@ class TestHelpChargen(EvenniaCommandTest):
         for name in ("weaver", "tanner", "cobbler", "generalist"):
             self.assertIn(name, text)
 
+    def test_names_the_appearance(self):
+        # Names NM-T16: the menu's third choice, and the build it does not offer.
+        text = chargen.help_text()
+        self.assertIn("|wAppearance|n: choose your sex, an age and one feature", text)
+        self.assertIn("a build that follows your SIZ", text)
+        self.assertIn("characteristics, profession and appearance are chosen once", text)
+
     def test_promises_no_characteristic_growth(self):
         text = chargen.help_text()
         self.assertIn("Your characteristics stay as you set them", text)

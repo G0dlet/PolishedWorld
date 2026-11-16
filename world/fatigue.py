@@ -238,11 +238,14 @@ COLLAPSE_WAKE_AT = 41
 COLLAPSE_KEY = "collapse"
 COLLAPSE_LABEL = "lying where you fell"
 
-# The lines (OQ-S4, lock I1). Room lines take the character's key.
+# The lines (OQ-S4, lock I1). Room lines name the character through `$You()`,
+# sent with the character as `from_obj`, so each reader reads their own name
+# for them (Names NM-T10), and the pronoun and its verb (`$pconj`, not
+# `$conj`, which never reads `gender`) follow the character's (NM-T15b).
 FALL = "Your legs fold, and the ground comes up to meet you."
-FALL_ROOM = "{name} sways and goes down where they stand."
+FALL_ROOM = "$You() sways and goes down where $pron(you) $pconj(stand)."
 WAKE = "You stir, and get slowly to your feet."
-WAKE_ROOM = "{name} stirs and gets slowly up."
+WAKE_ROOM = "$You() stirs and gets slowly up."
 CANNOT_MOVE = "Your legs will not carry you."
 CANNOT_HANDLE = "Your hands will not obey you."
 

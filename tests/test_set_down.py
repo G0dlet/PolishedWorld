@@ -228,7 +228,7 @@ class TestCraftSetsDown(_CeilingFixture, CraftFixtureMixin, EvenniaCommandTest):
     def test_a_product_past_the_ceiling_is_set_down_and_the_inputs_are_spent(self):
         self.load_to(CEILING)
         cloth = self.give("cloth", "cloth")
-        lines = self.craft("sack from cloth-1, cloth-2")
+        lines = self.craft("sack from 1-cloth, 2-cloth")
         sacks = self.on_floor(self.is_sack)
         self.assertEqual((len(sacks), self.held(self.is_sack)), (1, []))
         # The receipt that the craft ran: its consumption is unchanged.
@@ -243,14 +243,14 @@ class TestCraftSetsDown(_CeilingFixture, CraftFixtureMixin, EvenniaCommandTest):
         # delivery, so where the product lands does not matter.
         self.load_to(CEILING)
         self.give("cloth", "cloth")
-        self.craft("sack from cloth-1, cloth-2")
+        self.craft("sack from 1-cloth, 2-cloth")
         self.assertEqual(len(self.on_floor(self.is_sack)), 1)   # receipt: set down
         self.assertEqual(self.char1.recipe_mastery.count("sack"), 1)
 
     def test_one_under_the_ceiling_the_product_is_in_hand(self):
         self.load_to(CEILING - 1)
         self.give("cloth", "cloth")
-        lines = self.craft("sack from cloth-1, cloth-2")
+        lines = self.craft("sack from 1-cloth, 2-cloth")
         self.assertEqual(len(self.held(self.is_sack)), 1)
         self.assertEqual(self.on_floor(self.is_sack), [])
         self.assertNotIn(SET_DOWN, "\n".join(lines))

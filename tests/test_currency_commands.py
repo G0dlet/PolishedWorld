@@ -64,6 +64,7 @@ from commands.currency_commands import CmdPay, CmdWallet
 from tests.test_currency import LedgerIsolationMixin
 from world import economy_log
 from world.currency import COPPER_PER_GOLD, COPPER_PER_SILVER
+from tests.names_fixture import describe, shown
 
 
 class SecondSessionMixin:
@@ -212,13 +213,17 @@ class TestPayCommandSuccess(SecondSessionMixin, LedgerIsolationMixin, EvenniaCom
     def setUp(self):
         super().setUp()
         self.char1.currency.add(1_000, source="admin_correction")
+        describe(self.char1, self.char2)  # Names NM-T2
 
     def test_payment_moves_coin_and_tells_both_parties(self):
+        # Names NM-T2: each side reads the other's short description. The
+        # payee's line is a direct message (`target.msg`), not a room message;
+        # since NM-T12 it starts with `$You()`'s capital (`names.line_start`).
         self.call(
-            CmdPay(), "5 silver to Char2",
+            CmdPay(), f"5 silver to {shown(self.char2)}",
             {
-                self.char1: "You pay Char2 5 Silver.",
-                self.char2: "Char pays you 5 Silver.",
+                self.char1: f"You pay {shown(self.char2)} 5 Silver.",
+                self.char2: "A weathered woman pays you 5 Silver.",
             },
             caller=self.char1,
         )
@@ -262,9 +267,12 @@ class TestPayCommandSuccess(SecondSessionMixin, LedgerIsolationMixin, EvenniaCom
             self.character_typeclass, key="Watcher", location=self.room1, home=self.room1
         )
         seen = self.call(
-            CmdPay(), "5 silver to Char2", caller=self.char1, receiver=observer
+            CmdPay(), f"5 silver to {shown(self.char2)}", caller=self.char1, receiver=observer
         )
-        self.assertIn("Char hands Char2 some coin.", seen)
+        # Names NM-T9: the bystander reads both short descriptions, the line's
+        # first with $You()'s capital (tests/test_names_room_messages.py).
+        self.assertIn(
+            f"{shown(self.char1).capitalize()} hands {shown(self.char2)} some coin.", seen)
         self.assertNotIn("Silver", seen)
         self.assertNotIn("5", seen)
 
@@ -290,6 +298,7 @@ class TestPayCommandRefusals(SecondSessionMixin, LedgerIsolationMixin, EvenniaCo
     def setUp(self):
         super().setUp()
         self.char1.currency.add(500, source="admin_correction")
+        describe(self.char1, self.char2)  # Names NM-T2
 
     def _assert_nothing_moved(self):
         self.assertEqual(self.char1.currency.value, 500)
@@ -373,15 +382,16 @@ class TestPayCommandRefusals(SecondSessionMixin, LedgerIsolationMixin, EvenniaCo
         # the statue-logout body the stock fixture gives you. Paying it would
         # hand over coin with no witness and no chance to refuse.
         # NOTE the expected wording: get_display_name renders an unpuppeted
-        # character as "stone statue of Char2" (our statue-logout), so the
-        # refusal composes into "stone statue of Char2 is in no state to take
+        # character as "stone statue of <name>" (our statue-logout; since Names
+        # NM-T2 the name is the short description), so the refusal composes into
+        # "stone statue of a broad-shouldered man is in no state to take
         # coin." That is the message a player actually sees, and it reads
         # correctly -- which is why the guard uses get_display_name rather than
         # .key. Asserted verbatim so a change to either half is visible here.
         self._disconnect_second_session()
         self.call(
-            CmdPay(), "5 copper to Char2",
-            "stone statue of Char2 is in no state to take coin.",
+            CmdPay(), f"5 copper to {shown(self.char2)}",
+            f"stone statue of {shown(self.char2)} is in no state to take coin.",
             caller=self.char1,
         )
         self._assert_nothing_moved()

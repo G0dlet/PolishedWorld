@@ -81,8 +81,10 @@ class Creature(ObjectParent, DefaultObject):
         location = self.location
         if location:
             if killer:
+                # The killer per reader (Names NM-T10); the creature by key,
+                # one name for every reader, as its corpse is.
                 location.msg_contents(
-                    f"{killer.key} fells {self.key}.", exclude=[killer]
+                    f"$You() fells {self.key}.", from_obj=killer, exclude=[killer]
                 )
                 killer.msg(f"You fell {self.get_display_name(killer)}.")
             else:

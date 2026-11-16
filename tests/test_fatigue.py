@@ -73,6 +73,7 @@ from evennia.utils.create import create_object
 
 from commands.character_commands import CmdSheet, CmdStatus
 from commands.consumption_commands import CmdDrink, CmdEat, CmdEmpty, CmdRest
+from tests.names_fixture import describe
 from tests.test_encumbrance import LIMIT, _make, _PenaltyFixture
 from typeclasses.characters import _collapse_tick, _rest_tick
 from world import client_state, fatigue, survival_ticker, timed_actions
@@ -547,6 +548,9 @@ def _said(msg_mock):
             for c in msg_mock.call_args_list]
 
 
+SEEN = "A weathered woman"  # char1 as char2 reads it at the start of a line (NM-T10)
+
+
 class _CollapseFixture(_AwakeFixture):
     """
     char1 Debilitated (fatigue 0); `timed_actions.delay` patched, so a started
@@ -559,6 +563,7 @@ class _CollapseFixture(_AwakeFixture):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.fatigue.current = 0
+        describe(self.char1, self.char2)   # char2 reads char1 by description (NM-T10)
 
     def slot(self):
         return timed_actions.is_busy(self.char1)
@@ -605,7 +610,7 @@ class TestCollapseRoll(_TickDriver, _CollapseFixture, EvenniaTest):
                             interrupt_msg="You break off what you were doing.")
         mine, theirs = self.fall()
         self.assertEqual(mine, ["You break off what you were doing.", fatigue.FALL])
-        self.assertIn(fatigue.FALL_ROOM.format(name=self.char1.key), "\n".join(theirs))
+        self.assertIn(f"{SEEN} sways and goes down where they stand.", "\n".join(theirs))
         self.assertEqual(self.slot().key, fatigue.COLLAPSE_KEY)
 
 
@@ -690,7 +695,7 @@ class TestCollapseRecovery(_TickDriver, _CollapseFixture, EvenniaTest):
         self.assertFalse(self.char1.db.collapsed)
         self.assertIsNone(self.slot())
         self.assertIn(fatigue.WAKE, mine)
-        self.assertIn(fatigue.WAKE_ROOM.format(name=self.char1.key), "\n".join(theirs))
+        self.assertIn(f"{SEEN} stirs and gets slowly up.", "\n".join(theirs))
 
     def test_awake_again_the_body_can_walk(self):
         self.step(36)

@@ -93,7 +93,7 @@ def captured_messages(obj):
         obj.msg = original
 
 
-def make_corpse(location, owner, hours_ago=0.0, key="corpse of Owner"):
+def make_corpse(location, owner, hours_ago=0.0, key="corpse"):
     corpse = create_object(
         PLAYER_CORPSE, key=key, location=location, attributes=[("owner", owner.id)]
     )
@@ -200,11 +200,13 @@ class TestGraceFailsClosed(GraceTestBase):
 class TestDeletedOwner(GraceTestBase):
     def test_deleted_owner_body_stays_locked_then_opens(self):
         doomed = create_object(CHARACTER, key="Doomed", location=self.room1)
-        locked = make_corpse(self.room1, doomed, 0, key="corpse of Doomed")
-        opened = make_corpse(self.room1, doomed, GRACE + 1, key="corpse of Doomed")
+        locked = make_corpse(self.room1, doomed, 0)
+        opened = make_corpse(self.room1, doomed, GRACE + 1)
         doomed_id = doomed.id
         doomed.delete()
         self.assertFalse(ObjectDB.objects.filter(id=doomed_id).exists())
+        # Names NM-T11: a body whose owner is gone names nobody.
+        self.assertEqual(locked.get_display_name(self.stranger), "a body")
         with clock_at():
             self.assertFalse(locked.access(self.stranger, "get_from"))
             self.assertTrue(opened.access(self.stranger, "get_from"))
@@ -216,12 +218,12 @@ class TestLootThroughTheCommand(EvenniaCommandTest):
     def setUp(self):
         super().setUp()
         self.assertFalse(self.char1.locks.lock_bypass)
-        self.corpse = make_corpse(self.room1, self.char2, 0, key="corpse of Owner")
+        self.corpse = make_corpse(self.room1, self.char2, 0)
         self.item = create_object(OBJECT, key="flint knife", location=self.corpse)
 
     def test_stranger_refused_once_and_item_stays(self):
         with clock_at():
-            out = self.call(CmdContainerGet(), "flint knife from corpse of Owner")
+            out = self.call(CmdContainerGet(), "flint knife from corpse")
         self.assertEqual(out.count(REFUSAL), 1)
         self.assertNotIn("You can't get", out)       # no second writer
         self.assertEqual(self.item.location, self.corpse)
@@ -229,14 +231,14 @@ class TestLootThroughTheCommand(EvenniaCommandTest):
     def test_stranger_takes_after_the_grace(self):
         self.corpse.db.death_time = NOW - (GRACE * HOUR)
         with clock_at():
-            out = self.call(CmdContainerGet(), "flint knife from corpse of Owner")
+            out = self.call(CmdContainerGet(), "flint knife from corpse")
         self.assertNotIn(REFUSAL, out)
         self.assertEqual(self.item.location, self.char1)
 
     def test_owner_takes_inside_the_grace(self):
         self.corpse.db.owner = self.char1.id
         with clock_at():
-            out = self.call(CmdContainerGet(), "flint knife from corpse of Owner")
+            out = self.call(CmdContainerGet(), "flint knife from corpse")
         self.assertNotIn(REFUSAL, out)
         self.assertEqual(self.item.location, self.char1)
 

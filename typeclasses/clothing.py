@@ -29,6 +29,20 @@ from world import client_state
 from world.thermal import apply_thermal_stress
 
 
+def _forget_look(wearer):
+    """
+    Drop the wearer's short-description memo (Names NM-T15), so the room
+    push that follows reads the garment just put on or taken off. Never
+    raises: remove() runs inside at_post_move.
+    """
+    try:
+        sdesc = getattr(wearer, "sdesc", None)
+        if sdesc is not None and hasattr(sdesc, "forget"):
+            sdesc.forget()
+    except Exception:
+        logger.log_trace(f"clothing: could not forget the short description of {wearer!r}")
+
+
 class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
     """
     Wearable garment with a thermal `warmth` rating and a shared wear axis.
@@ -82,6 +96,10 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
         super().wear(wearer, wearstyle, quiet=quiet)
         apply_thermal_stress(wearer)
         client_state.push_soon(wearer, "char")
+        # Names NM-T17: the garment others see is in the wearer's short
+        # description (OQ-NM9 (3)), so the memo goes and the room is pushed.
+        _forget_look(wearer)
+        client_state.push_room_soon(getattr(wearer, "location", None))
 
     def remove(self, wearer, quiet=False):
         """
@@ -96,6 +114,8 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
         super().remove(wearer, quiet=quiet)
         apply_thermal_stress(wearer)
         client_state.push_soon(wearer, "char")
+        _forget_look(wearer)   # NM-T17, as wear() does
+        client_state.push_room_soon(getattr(wearer, "location", None))
 
     def at_post_move(self, source_location, move_type="move", **kwargs):
         """

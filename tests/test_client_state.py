@@ -33,6 +33,7 @@ from evennia.utils.utils import callables_from_module, group_objects_by_key_and_
 
 from commands.character_commands import _whole
 from server.conf import inputfuncs
+from tests.names_fixture import describe, shown
 from world import client_state, encumbrance, gametime_utils, weather
 
 
@@ -267,6 +268,10 @@ class TestRoomSnapshot(EvenniaTest):
     things (WC8/WC14), the viewer left out, grouping, and the view lock.
     """
 
+    def setUp(self):
+        super().setUp()
+        describe(self.char1, self.char2)   # Names NM-T2: who is shown, by description
+
     def _look(self):
         return strip_ansi(self.room1.return_appearance(self.char1))
 
@@ -292,16 +297,80 @@ class TestRoomSnapshot(EvenniaTest):
     def test_statue_named_as_look_names_it(self):
         snap = client_state.room_snapshot(self.room1, self.char1)
         self.assertEqual(snap["characters"], [])
-        self.assertEqual(snap["things"], ["an Obj", "an Obj2", "stone statue of Char2"])
+        self.assertEqual(
+            snap["things"], ["an Obj", "an Obj2", f"stone statue of {shown(self.char2)}"]
+        )
         self._assert_in_look_in_order(snap["things"])
 
     def test_awake_character_listed_viewer_left_out(self):
         with mock.patch.object(type(self.char2), "is_statue",
                                new_callable=mock.PropertyMock, return_value=False):
             snap = client_state.room_snapshot(self.room1, self.char1)
-            self.assertEqual(snap["characters"], ["Char2"])
-            self.assertIn("Characters: Char2", self._look())
-        self.assertNotIn("stone statue of Char2", snap["things"])
+            # Names NM-T17 lock 2b: the name, and no pose for *is here.*,
+            # which look still shows (K8).
+            name = shown(self.char2).capitalize()
+            self.assertEqual(snap["characters"], [{"name": name, "pose": ""}])
+            self.assertIn(f"\n{name} is here.\n", self._look())
+        self.assertNotIn(f"stone statue of {shown(self.char2)}", snap["things"])
+
+    def _posed(self, pose=None, pose_default=None):
+        """char2 and an awake Char3 with `pose` (and `pose_default`); the snapshot."""
+        third = create_object("typeclasses.characters.Character", key="Char3",
+                              location=self.room1)
+        describe(third)
+        if pose is not None:
+            third.db.pose = pose
+        if pose_default is not None:
+            third.db.pose_default = pose_default
+        awake = property(lambda c: c.key not in ("Char", "Char2", "Char3"))  # is_statue
+        with mock.patch.object(type(self.char2), "is_statue", new=awake):
+            return third, client_state.room_snapshot(self.room1, self.char1), self._look()
+
+    def test_characters_are_looks_lines_in_two_parts(self):
+        # Names NM-T17 lock 2b (replacing NM-T8's 1B): wide, the webclient
+        # hides room_contents and shows the panel (pw_text.js showInText),
+        # so the panel carries the pose apart from the name; joined they are
+        # look's line, in look's order.
+        third, snap, look = self._posed("is warming her hands by the fire.")
+        self.assertEqual(snap["characters"], [
+            {"name": shown(self.char2).capitalize(), "pose": ""},
+            {"name": shown(third).capitalize(), "pose": "is warming her hands by the fire."},
+        ])
+        posed = snap["characters"][1]
+        self.assertIn(f"\n{posed['name']} {posed['pose']}", look)
+        found = [look.find(f"\n{entry['name']} ") for entry in snap["characters"]]
+        self.assertEqual(found, sorted(found))      # look's order
+        self.assertNotIn(-1, found)                 # every name starts a line of look
+
+    def test_is_here_is_left_out_wherever_it_comes_from(self):
+        # the default, and the same words set as a pose
+        for pose in ("", "is here."):
+            with self.subTest(pose=pose):
+                third, snap, look = self._posed(pose)
+                self.assertEqual(snap["characters"][1]["pose"], "")
+                self.assertIn(f"{shown(third).capitalize()} is here.", look)
+                third.delete()
+
+    def test_a_default_pose_of_ones_own_is_shown(self):
+        # lock 2b, not 2a: only the contrib's *is here.* is left out
+        third, snap, look = self._posed("", pose_default="is leaning on a staff.")
+        self.assertEqual(snap["characters"][1]["pose"], "is leaning on a staff.")
+        self.assertIn(f"{shown(third).capitalize()} is leaning on a staff.", look)
+
+    def test_no_pose_at_all(self):
+        third, snap, look = self._posed("", pose_default="")
+        self.assertEqual(snap["characters"][1], {"name": shown(third).capitalize(), "pose": ""})
+
+    def test_the_name_is_the_viewers_and_the_pose_is_plain(self):
+        third, _snap, _look = self._posed("is |rbleeding|n.")
+        self.char1.recog.add(third, "Tess")
+        awake = property(lambda c: c.key not in ("Char", "Char2", "Char3"))
+        with mock.patch.object(type(self.char2), "is_statue", new=awake):
+            snap = client_state.room_snapshot(self.room1, self.char1)
+            other = client_state.room_snapshot(self.room1, self.char2)
+        self.assertEqual(snap["characters"][1], {"name": "Tess", "pose": "is bleeding."})
+        self.assertIn({"name": shown(third).capitalize(), "pose": "is bleeding."},
+                      other["characters"])
 
     def test_things_grouped_as_look_groups_them(self):
         for _ in range(2):
@@ -555,6 +624,14 @@ class TestPushSoon(ReactorMixin, EvenniaTest):
         self.assertNotIn("char", self.char1.ndb.client_state_pending)
 
 
+def _line(char):
+    """
+    A fixture character's room-panel entry with the default pose: the name,
+    and no pose for *is here.* (Names NM-T17 lock 2b).
+    """
+    return {"name": shown(char).capitalize(), "pose": ""}
+
+
 class TestRoomFanOut(ReactorMixin, EvenniaTest):
     """
     Pressures WC8's "one snapshot per viewer": three awake characters see a
@@ -572,6 +649,7 @@ class TestRoomFanOut(ReactorMixin, EvenniaTest):
         self.s2 = mock.Mock(name="session of Char2")
         self.s3 = mock.Mock(name="session of Char3")
         self.s4 = mock.Mock(name="session of Char4")
+        describe(self.char1, self.char2, self.char3, self.char4)
         with mock.patch.object(client_state, "push"):
             self.reactor.run()   # the two creations' own room pushes
 
@@ -591,21 +669,25 @@ class TestRoomFanOut(ReactorMixin, EvenniaTest):
         self.assertEqual(mine, [expected[self.char1]])
         self.assertEqual(self._room_payloads(self.s2), [expected[self.char2]])
         self.assertEqual(self._room_payloads(self.s3), [expected[self.char3]])
-        self.assertIn("Char4", expected[self.char1]["characters"])
-        self.assertNotIn("Char2", expected[self.char2]["characters"])  # own names
-        self.assertIn("Char2", expected[self.char3]["characters"])
+        self.assertIn(_line(self.char4), expected[self.char1]["characters"])
+        # own names: a listed viewer would read their own key (rpsystem.py:1541)
+        self.assertFalse([c for c in expected[self.char2]["characters"] if "Char2" in c["name"]])
+        self.assertEqual(len(expected[self.char2]["characters"]), 3)  # receipt: the others
+        self.assertIn(_line(self.char2), expected[self.char3]["characters"])
         # the mover gets its new room from the same fan-out (lock 2A)
         self.assertEqual(self._room_payloads(self.s4)[-1:], [expected[self.char4]])
 
     def test_leaver_is_gone_from_what_the_others_get(self):
         with _awake(self.char2, self.s2), \
                 mock.patch.object(self.session, "data_out") as spy:
-            self.assertIn("Char2", client_state.room_snapshot(self.room1, self.char1)["characters"])
+            self.assertIn(
+                _line(self.char2), client_state.room_snapshot(self.room1, self.char1)["characters"]
+            )
             self.char2.move_to(self.room2, quiet=True)
             self.assertGreater(self.reactor.run(), 0)
         rooms = [payload[0][0] for d, payload in _sent(spy) if d == "room"]
         self.assertEqual(len(rooms), 1)
-        self.assertNotIn("Char2", rooms[0]["characters"])
+        self.assertNotIn(_line(self.char2), rooms[0]["characters"])
 
     def test_statues_get_nothing(self):
         with mock.patch.object(client_state, "push") as push:
@@ -940,6 +1022,16 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "_collapse_tick", "push"): 1,
         # Arrival AV-T1: a hookless move (AV4) pushes both rooms, as death's does
         ("world/arrival.py", "arrive", "push_room_soon"): 2,
+        # Names NM-T15: staff change a character's appearance facts
+        ("commands/admin_commands.py", "CmdAppearance.func", "push_room"): 1,
+        # Names NM-T17: names, a pose and the layers worn change the panel
+        ("commands/names_commands.py", "CmdRecog.func", "push"): 1,
+        ("commands/names_commands.py", "CmdForget.func", "push"): 1,
+        ("commands/names_commands.py", "_remember", "push"): 1,
+        ("commands/names_commands.py", "CmdPose.func", "push_room"): 1,
+        ("commands/names_commands.py", "_layers_changed", "push_room"): 1,
+        ("typeclasses/clothing.py", "ClothingWithBuffs.wear", "push_room_soon"): 1,
+        ("typeclasses/clothing.py", "ClothingWithBuffs.remove", "push_room_soon"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the

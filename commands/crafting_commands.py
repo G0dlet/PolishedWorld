@@ -39,7 +39,7 @@ from world.recipe_mastery import (
     MASTERY_STEP_SIZE,
     MASTERY_TITLES,
 )
-from world import activity_log, client_state, timed_actions
+from world import activity_log, client_state, names, timed_actions
 
 # Real-time seconds between reverse-engineering attempts (Component E.2). A
 # conservative dev value: the disassemble roll is already destructive (the item
@@ -278,7 +278,8 @@ class CmdCraftGated(CmdCraft):
         caller.msg(f"You set to work on {cls.name}.")
         if caller.location:
             caller.location.msg_contents(
-                f"{caller.get_display_name()} begins to craft something.",
+                "$You() begins to craft something.",
+                from_obj=caller,
                 exclude=caller,
             )
 
@@ -1231,7 +1232,7 @@ class CmdTeach(Command):
         # unpuppeted bodies with one honest message.
         if not (student.has_account and hasattr(student, "learn_recipe")):
             caller.msg(
-                f"{student.get_display_name(caller)} isn't someone you can teach."
+                f"{names.line_start(student, caller)} isn't someone you can teach."
             )
             return
 
@@ -1265,10 +1266,14 @@ class CmdTeach(Command):
             f"You offer to teach {student.get_display_name(caller)} the "
             f"|y{recipe_name}|n recipe. They have {TEACH_TIMEOUT}s to take you up on it."
         )
+        # Names NM-T12 (K5, UP15): the line to type names the teacher as the
+        # student can type them -- their recog, or a word of the short
+        # description -- never the key (world/names.py).
         student.msg(
-            f"{caller.get_display_name(student)} offers to teach you the "
+            f"{names.line_start(caller, student)} offers to teach you the "
             f"|y{recipe_name}|n recipe. Answer with "
-            f"|wlearn {recipe_name} from {caller.key}|n within {TEACH_TIMEOUT}s."
+            f"|wlearn {recipe_name} from {names.name_to_type(student, caller)}|n "
+            f"within {TEACH_TIMEOUT}s."
         )
 
 
@@ -1474,7 +1479,7 @@ class CmdLearn(Command):
         # than silently teaching something else.
         if recipe_request and recipe_request.lower() != recipe_name.lower():
             caller.msg(
-                f"{teacher.get_display_name(caller)} offered to teach you "
+                f"{names.line_start(teacher, caller)} offered to teach you "
                 f"|w{recipe_name}|n, not |w{recipe_request}|n."
             )
             return True
@@ -1498,7 +1503,7 @@ class CmdLearn(Command):
         # the teacher's count.
         if not _can_transmit(teacher, recipe_name):
             caller.ndb.pending_teach = None
-            caller.msg(f"{teacher.get_display_name(caller)} can't teach you that.")
+            caller.msg(f"{names.line_start(teacher, caller)} can't teach you that.")
             return True
 
         # The offer has now been answered either way, so retire it BEFORE the
@@ -1513,7 +1518,7 @@ class CmdLearn(Command):
         if not caller.learn_recipe(recipe_name):
             caller.msg("You already know this recipe. The lesson is a pleasant one anyway.")
             teacher.msg(
-                f"{caller.get_display_name(teacher)} already knows |y{recipe_name}|n."
+                f"{names.line_start(caller, teacher)} already knows |y{recipe_name}|n."
             )
             return True
 
@@ -1530,7 +1535,7 @@ class CmdLearn(Command):
             counterpart=[teacher.dbref, teacher.key],
         )
         caller.msg(
-            f"{teacher.get_display_name(caller)} walks you through the "
+            f"{names.line_start(teacher, caller)} walks you through the "
             f"|y{recipe_name}|n recipe until it sticks. You have learned it."
         )
         teacher.msg(

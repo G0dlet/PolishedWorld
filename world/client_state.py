@@ -210,14 +210,25 @@ def world_snapshot():
     }
 
 
+def _character(char, viewer):
+    """One character's entry in the room snapshot: {"name", "pose"}, plain."""
+    name, pose = room_text.character_parts(char, viewer)
+    return {"name": _plain(name), "pose": _plain(pose)}
+
+
 def room_snapshot(room, viewer):
     """
     The viewer's location as `look` lists it for that viewer (WC8): names
     depend on the looker, so this is built once per viewer.
 
     exits are [{"name", "key"}] -- the key is what a click sends (W5.4,
-    web/static/polishedworld/js/pw_room.js); characters are awake characters
-    other than the viewer; things are look's 'You see:' entries, grouped
+    web/static/polishedworld/js/pw_room.js); characters are
+    [{"name", "pose"}] for the awake characters other than the viewer, look's
+    line in two parts (`room_text.character_parts`, Names NM-T17 lock 2b,
+    which replaced NM-T8's lock 1B): a wide webclient hides look's lists and
+    shows this panel instead (pw_text.js showInText), so the panel carries
+    the pose; it is "" when it is the contrib's *is here.*, and the panel
+    shows a pose only when there is one; things are look's 'You see:' entries, grouped
     things first, then statues of logged-out characters. The lists come
     from `world.room_text.room_lists`, the one helper the Room's display
     hooks read too (W5.4 lock 4C). No room gives the empty shape, so the
@@ -232,7 +243,7 @@ def room_snapshot(room, viewer):
         "indoor": bool(room.db.is_indoor),
         "exits": [{"name": _plain(ex.get_display_name(viewer)), "key": ex.key}
                   for ex in lists["exits"]],
-        "characters": [_plain(c.get_display_name(viewer)) for c in lists["characters"]],
+        "characters": [_character(c, viewer) for c in lists["characters"]],
         "things": [_plain(name) for name in things],
     }
 

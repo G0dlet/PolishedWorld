@@ -466,7 +466,8 @@ def _finish_task(caller, task_key, marker):
     # you did the work, not what you are carrying afterwards.
     if caller.location:
         caller.location.msg_contents(
-            f"{caller.get_display_name()} {task['done_room']}",
+            f"$You() {task['done_room']}",
+            from_obj=caller,
             exclude=caller,
         )
 
@@ -607,7 +608,8 @@ class CmdWork(Command):
         caller.msg(task["begin_actor"])
         if caller.location:
             caller.location.msg_contents(
-                f"{caller.get_display_name()} {task['begin_room']}",
+                f"$You() {task['begin_room']}",
+                from_obj=caller,
                 exclude=caller,
             )
 
