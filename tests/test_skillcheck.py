@@ -30,6 +30,7 @@ from world.skillcheck import (
     FUMBLE,
     STALEMATE,
     SUCCESS,
+    compare_levels,
     opposed_check,
     skill_check,
 )
@@ -250,3 +251,51 @@ class TestOpposedOverOneHundred(_OpposedTest):
         result = self.assertWinner(120, 60, [99, 99], STALEMATE)
         self.assertEqual(result["attacker"]["result"], FAILURE)
         self.assertEqual(result["defender"]["result"], FUMBLE)
+
+
+# Legend p. 131, "Levels of Success", transcribed cell for cell and not
+# computed. Rows are the defender's level, columns the attacker's. None is the
+# book's "--" (nobody gains a level); otherwise (winner, levels).
+LEVELS_OF_SUCCESS = {
+    CRITICAL: {CRITICAL: None, SUCCESS: (DEFENDER, 1), FAILURE: (DEFENDER, 2), FUMBLE: (DEFENDER, 3)},
+    SUCCESS: {CRITICAL: (ATTACKER, 1), SUCCESS: None, FAILURE: (DEFENDER, 1), FUMBLE: (DEFENDER, 2)},
+    FAILURE: {CRITICAL: (ATTACKER, 2), SUCCESS: (ATTACKER, 1), FAILURE: None, FUMBLE: None},
+    FUMBLE: {CRITICAL: (ATTACKER, 3), SUCCESS: (ATTACKER, 2), FAILURE: None, FUMBLE: None},
+}
+
+
+class TestCompareLevels(EvenniaTestCase):
+    """
+    OC3 (SC1): attack against parry compares two levels of success by the
+    table on p. 131. It is not an opposed test: nothing is rolled and the
+    over-100 % rule does not apply. Where neither side succeeded the cell is
+    "--", which the ranks alone would not give (failure outranks fumble).
+    """
+
+    def test_the_sixteen_cells(self):
+        for defender, row in LEVELS_OF_SUCCESS.items():
+            for attacker, cell in row.items():
+                winner, levels = cell if cell else (None, 0)
+                with self.subTest(attacker=attacker, defender=defender):
+                    self.assertEqual(
+                        compare_levels(attacker, defender),
+                        {"winner": winner, "levels": levels},
+                    )
+
+    def test_nothing_is_rolled(self):
+        with mock.patch(ROLL, side_effect=AssertionError("compare_levels rolled")) as die:
+            for defender, row in LEVELS_OF_SUCCESS.items():
+                for attacker in row:
+                    compare_levels(attacker, defender)
+        self.assertEqual(die.call_count, 0)
+
+    def test_an_unknown_level_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "hit"):
+            compare_levels("hit", SUCCESS)
+        with self.assertRaisesRegex(ValueError, "miss"):
+            compare_levels(SUCCESS, "miss")
+
+    def test_a_defender_without_an_action(self):
+        # p. 131: a defender with no Combat Action, or who does not parry, is
+        # treated as having automatically rolled a Failure.
+        self.assertEqual(compare_levels(SUCCESS, FAILURE), {"winner": ATTACKER, "levels": 1})

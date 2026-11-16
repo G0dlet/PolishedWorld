@@ -241,3 +241,54 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     a = skill_check(attacker_skill, int(attacker_mod) - excess)
     d = skill_check(defender_skill, int(defender_mod) - excess)
     return {"winner": _judge(a, d), "attacker": a, "defender": d, "excess": excess}
+
+
+# --- Levels of success, compared -------------------------------------------
+_SUCCESSES = (CRITICAL, SUCCESS)
+
+
+def compare_levels(attacker_level, defender_level):
+    """
+    Compare two levels of success with no opposed test: attack against parry
+    (core rulebook, "Levels of Success" table, p.131; pp.129, 131).
+
+    Both sides have already rolled. If neither succeeded -- failure or fumble
+    against failure or fumble -- the table's cell is "--": nobody gains a
+    level, though failure outranks fumble. Otherwise the winner is the side
+    with the higher level, and `levels` is the number of steps between the
+    two (1-3), each worth one Combat Manoeuvre. Equal levels give nobody a
+    level.
+
+    The result is `None` and not STALEMATE when nobody wins: STALEMATE means
+    *roll again later* (p.45), while "--" here only means that no manoeuvre is
+    gained -- the attack may still have hit. A defender with no Combat Action
+    left, or who does not parry, is treated as having automatically rolled a
+    Failure (p.131): pass FAILURE for that side.
+
+    No die is rolled and the over-100% rule does not apply: attack against
+    parry is not an opposed test (Combat Design section 1, point 3; OQ-SC2).
+
+    Args:
+        attacker_level (str): CRITICAL, SUCCESS, FAILURE or FUMBLE.
+        defender_level (str): The same, for the defender.
+
+    Returns:
+        dict: {
+            "winner" (str or None): "attacker", "defender", or None.
+            "levels" (int): 0-3, the steps the winner gained (0 if None).
+        }
+
+    Raises:
+        ValueError: if either level is not one of the four constants.
+    """
+    for level in (attacker_level, defender_level):
+        if level not in _LEVEL_RANK:
+            raise ValueError(f"not a level of success: {level!r}")
+
+    if attacker_level not in _SUCCESSES and defender_level not in _SUCCESSES:
+        return {"winner": None, "levels": 0}
+
+    difference = _LEVEL_RANK[attacker_level] - _LEVEL_RANK[defender_level]
+    if difference == 0:
+        return {"winner": None, "levels": 0}
+    return {"winner": ATTACKER if difference > 0 else DEFENDER, "levels": abs(difference)}

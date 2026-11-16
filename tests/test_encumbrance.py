@@ -990,7 +990,7 @@ ROLL_NAMES = ("skill_check", "opposed_check")
 # The public forms of world/skillcheck.py that roll nothing, so a call to one
 # is no skill test (SC5). Every public function in that module stands in
 # exactly one of the two tuples (test_every_public_form_is_named).
-NON_ROLL_NAMES = ()
+NON_ROLL_NAMES = ("compare_levels",)
 REPO = Path(__file__).resolve().parents[1]
 
 
