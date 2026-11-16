@@ -24,6 +24,7 @@ from evennia.contrib.rpg.rpsystem import RPSystemCmdSet
 from evennia.utils import logger
 
 from typeclasses.characters import Character
+from world.sdesc import PLACEHOLDER
 
 
 # Keep in sync with the matching self.skills.add("hunting", ...) call in
@@ -94,7 +95,7 @@ def backfill_hunting():
 # OQ-NM6: one placeholder for every character made before the short
 # description had a source. Lower case, because the contrib and $You() add
 # the capital where a sentence starts.
-NAMES_PLACEHOLDER_SDESC = "a quiet traveller"
+NAMES_PLACEHOLDER_SDESC = PLACEHOLDER   # world/sdesc.py since NM-T15
 
 # The contrib's own default (rpsystem.py:1567). Nobody chose it, so a character
 # that has it is treated as one that has none.

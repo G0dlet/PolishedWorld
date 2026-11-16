@@ -18,7 +18,7 @@ from evennia import default_cmds
 from evennia.contrib.grid import extended_room
 from evennia.contrib.game_systems.crafting.crafting import CraftingCmdSet
 from commands import character_commands
-from commands.admin_commands import CmdWeather
+from commands.admin_commands import CmdAppearance, CmdWeather
 from commands.world_commands import CmdRoomLook, CmdTime
 from commands.consumption_commands import CmdEat, CmdDrink, CmdEmpty, CmdRest
 from commands.foraging_commands import CmdForage, CmdRefill
@@ -89,6 +89,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdRoomLook())
 
         self.add(CmdWeather())
+        # Names NM-T15: staff set the appearance facts (no free text).
+        self.add(CmdAppearance())
 
         self.add(CmdEat())
         self.add(CmdDrink())

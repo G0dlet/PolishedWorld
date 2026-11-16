@@ -2,7 +2,8 @@
 Distinct short descriptions for the fixture characters. Names, Task NM-T2.
 
 Since NM-T2 a character is shown to others by its short description, and the
-contrib gives every new one the same: *A normal person* (rpsystem.py:1567).
+game gives every new one the same: *a quiet traveller* (NM-T15; the contrib's
+was *A normal person*, rpsystem.py:1567).
 A test that asks *who* did something cannot tell two of those apart, so a test
 that reads a character's name gives each fixture character its own here, and
 asserts `shown(char)` where it used to assert the key.

@@ -93,7 +93,8 @@ class TestTheContribsCmdsetIsOff(EvenniaTest):
         # Evennia echoes the whole line it could not match.
         self.assertIn("Command 'sdesc a tall stranger' is not available", said)
         self.assertIn("Command 'mask a hooded figure' is not available", said)
-        self.assertEqual(self.char1.sdesc.get(), "A normal person")
+        # NM-T15: a new character reads the placeholder, not the contrib's text.
+        self.assertEqual(self.char1.sdesc.get(), "a quiet traveller")
 
 
 class TestDisplayName(_Named):

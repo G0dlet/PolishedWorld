@@ -30,6 +30,7 @@ from world import timed_actions
 from world import activity_log
 from world import gametime_utils
 from world import healing
+from world import sdesc as sdesc_rules
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -289,6 +290,17 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         """
         return RecipeMasteryHandler(self, db_attribute="recipe_mastery")
 
+    @lazy_property
+    def sdesc(self):
+        """
+        The short description, composed live from the appearance facts, the
+        state and the outermost garment (Names NM-T15, OQ-NM9; world/sdesc.py).
+        Replaces the contrib's handler of the same name (`rpsystem.py:1311`):
+        `lazy_property` caches on the instance by name, so every contrib
+        reader and the project's search read this one.
+        """
+        return sdesc_rules.LiveSdescHandler(self)
+
     def at_object_creation(self):
         """
         Called once when character is first created.
@@ -307,6 +319,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             self.cmdset.remove(RPSystemCmdSet)
         except Exception:
             logger.log_trace(f"Names: could not remove RPSystemCmdSet from {self.dbref}")
+        # Names NM-T15 (Rev 6's finding): the contrib wrote *A normal person*
+        # (rpsystem.py:1567), with a capital, and *normal* found every new
+        # character. A new one reads the placeholder until NM-T16 writes its
+        # appearance facts.
+        self.sdesc.add(sdesc_rules.PLACEHOLDER)
         
         # === MONGOOSE LEGEND CHARACTERISTICS ===
         

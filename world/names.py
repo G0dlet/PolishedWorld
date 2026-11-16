@@ -21,6 +21,11 @@ teacher alone and matches the start of any word of either, so one word is
 enough; a recog is given whole because it is what the player chose to call
 someone. Never the key.
 
+A composed description (NM-T15) begins with its most changeable words, a
+state or a garment, which may be gone before the player types them. So for a
+character with appearance facts the word is its fixed core's -- the feature,
+or *hooded* while a hood is worn -- which is never dropped (NM-T15 lock 2 A).
+
 `name_to_type_here` is for a search over the looker's whole room (NM-T13b
 lock 1 C; the `trade` answer line): one word can find two people there --
 *normal* finds every new character -- so the word is given only when the
@@ -53,15 +58,17 @@ import string
 from evennia.utils.verb_conjugation.pronouns import pronoun_to_viewpoints
 
 from typeclasses.characters import capital
+from world import sdesc as sdesc_rules
 
 ARTICLES = frozenset({"a", "an", "the"})
 
 
 def name_to_type(looker, char):
     """
-    The name `looker` can type for `char`: their recog for it, else the first
-    word of its short description that is not an article, else the whole
-    short description.
+    The name `looker` can type for `char`: their recog for it, else the word
+    of its fixed core -- the feature, or *hooded* -- for a composed
+    description (NM-T15 lock 2 A), else the first word of its short
+    description that is not an article, else the whole short description.
 
     Args:
         looker (Object): who will type it.
@@ -74,6 +81,9 @@ def name_to_type(looker, char):
     recog = _recog(looker, char)
     if recog:
         return recog
+    core = _core_word(char)
+    if core:
+        return core
     sdesc = _sdesc(char)
     for word in sdesc.split():
         word = word.strip(string.punctuation)
@@ -108,6 +118,10 @@ def name_to_type_here(looker, char):
 def _recog(looker, char):
     handler = getattr(looker, "recog", None)
     return handler.get(char) if handler is not None else None
+
+
+def _core_word(char):
+    return sdesc_rules.core_word(char) if hasattr(char, "sdesc") else None
 
 
 def _sdesc(char):

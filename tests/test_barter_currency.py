@@ -301,8 +301,9 @@ class TestOfferMessages(TradeFixtureMixin, LedgerIsolationMixin, EvenniaCommandT
             "5 silver",
             msg={
                 self.char1: "Your trade action: You offer 5 Silver in coin",
-                # Names NM-T13: char2 reads char1 as it knows it, with a capital.
-                self.char2: "A normal person:s trade action: They offer 5 Silver in coin",
+                # Names NM-T13: char2 reads char1 as it knows it, with a capital;
+                # NM-T15: a new character is *a quiet traveller*.
+                self.char2: "A quiet traveller:s trade action: They offer 5 Silver in coin",
             },
         )
 

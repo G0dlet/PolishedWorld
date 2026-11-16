@@ -575,6 +575,8 @@ FUR_CLOAK = {
     "aliases": ["cloak", "fur"],
     "desc": "A heavy cloak of stitched animal furs, thick enough to turn aside a winter wind.",
     "clothing_type": "fullbody",
+    # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    "look_word": "cloaked",
     "warmth": 3,
     "enc": 0,   # Q6: Legend core pp. 98-100 give clothing no ENC
 }
@@ -650,6 +652,8 @@ ROBE = {
     ),
     # SOURCE: RobeRecipe (cloth x3). SINK: worn for warmth (survival).
     "clothing_type": "fullbody",
+    # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    "look_word": "robed",
     "warmth": 1,
     "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
 }
@@ -662,6 +666,9 @@ HOOD = {
     "desc": "A deep cloth hood with a short shoulder cape and close-stitched seams.",
     # SOURCE: HoodRecipe (cloth x1). SINK: worn for warmth (survival).
     "clothing_type": "hat",
+    # Names NM-T15 (OQ-NM9 (3)): *hooded* in the feature's place; the person
+    # is still recognised (a disguise is UP9, later).
+    "conceals": ("feature",),
     "warmth": 1,
     "enc": 0,   # AoL p. 37 / Legend core pp. 98-100: no ENC for clothing
 }
@@ -692,6 +699,8 @@ LINEN_CUIRASS = {
     ),
     # SOURCE: LinenCuirassRecipe (cloth x4). SINK: worn for warmth (survival); armour waits for combat (Stage 5).
     "clothing_type": "top",
+    # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    "look_word": "armoured",
     "warmth": 1,
     "enc": 1,   # AoL p. 50 / Legend core p. 96: Linen, ENC 1 per chest location
 }
@@ -795,6 +804,8 @@ BONE_ARMOUR = {
     # SOURCE: BoneArmourRecipe (bone x3 + leather). SINK: worn for warmth
     # (survival); armour waits for combat (Stage 5).
     "clothing_type": "top",
+    # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    "look_word": "bone-clad",
     "warmth": 1,
     "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the chest
 }

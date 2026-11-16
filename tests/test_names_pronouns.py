@@ -56,7 +56,10 @@ SEXES = (
 
 
 def _appear(char, sex):
-    char.db.appearance = {"sex": sex, "age": "adult", "feature": "freckled"}
+    # The sex alone: `gender` reads only it, and without all three facts the
+    # short description is the stored one (NM-T15), so each reader names the
+    # character as the fixtures do and only the pronoun changes.
+    char.db.appearance = {"sex": sex}
 
 
 class TestGender(EvenniaTest):

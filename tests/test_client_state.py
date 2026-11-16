@@ -976,6 +976,8 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "_collapse_tick", "push"): 1,
         # Arrival AV-T1: a hookless move (AV4) pushes both rooms, as death's does
         ("world/arrival.py", "arrive", "push_room_soon"): 2,
+        # Names NM-T15: staff change a character's appearance facts
+        ("commands/admin_commands.py", "CmdAppearance.func", "push_room"): 1,
     }
 
     # Every `.location =` in production code: it runs no move hook, so the
