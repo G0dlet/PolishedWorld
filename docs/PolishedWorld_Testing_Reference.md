@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 28 · 2026-11-16** — **the skill-check forms** (the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged)). New **§26: The skill-check forms** — the merge suite and why a static count of `def test_` is 21 short, the neighbours of a change to `world/skillcheck.py`, what the tests pin (dice and a coin pinned in rolling order with `call_count` read after, a made roll built by `skill_check`, the census of public forms, the hunt's outcome read in the world), and a protocol that pins the die: one `py` line with a `with` statement, not `py/edit`.
 > **Rev 27 · 2026-11-16** — **Names** (Combat Decomposition NM-T19; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`). New **§25: Names** — the merge suite with Node, the neighbours of a change that names someone, what the tests pin (a Builder's search falls back to the key, `EvenniaCommandTest.call` gives every command a Developer's account, `location.msg_contents` for a room line, the fixture's descriptions, the memo, a stripped fixture), and how a protocol targets and reads a stranger (by dbref; read on a player; three readers; facts first). §22.3 gains the receipt for a tab open across a deploy: the old `pw_room.js` writes *[object Object]* until the shell's `evennia reload` and a hard reload.
 > **Rev 26 · 2026-11-15** — **the multimatch form is `N-name`** (Names NM-T1, NM9; on `feature/names`). §12's numbered-alias rule and the two craft steps that type it (§11's receipt block, §17's protocol) now read `1-fiber`, `1-rabbit`. §11's account of the Rev 5 run keeps `fiber-1`: it quotes what the protocol said then. The suffix form finds nothing after NM-T1, so any protocol written before it that types `name-N` is stale.
 > **Rev 25 · 2026-11-14** — **arrival** (Arrival decomposition AV-T4; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). New **§24: arrival** — the neighbours each task ran and the census row AV-T1 added, a seeded database in a menu test and the shipped closing `look` through `_MenuFixture.on_exit`, the two-client protocol for AV-T2 as run (with `arrivaltest3`, and why), AV-T3's in-game check in the room where the dev Treasury stands, and the merge suite with `"#10"` stashed.
@@ -1526,6 +1527,32 @@ The first run used `arrivaltest2`, which finished the menu before S had read ste
 - **Facts first.** `@appearance <character> = sex:female, age:adult, feature:grey-eyed` (Builder) gives a dev character the facts a new one gets in the menu; it answers with the text the facts read as.
 - **Bodies and statues made before the slice** keep the old key (*corpse of <key>*) until they crumble; rename them with `@py` before a step that reads one (NM-T11).
 - **After a change to the webclient's script:** §22.3's receipt before the step, not after.
+
+## 26. The skill-check forms
+
+*(Skill-Check Forms decomposition, slice SC, SC-T1–SC-T6, 2026-11-16; merged as `d3d7ae1` (PR #32), not tagged. Tests `tests/test_skillcheck.py` (the bands and the three opposed forms), `tests/test_hunt_resolution.py` (hunt through `CmdHunt`) and `tests/test_encumbrance.py::TestRollCensus`. What the code does is the decomposition; how `py` runs a line is Evennia Ref §23.)*
+
+### 26.1 Running it
+
+- **The merge:** `Ran 2050 tests`, `OK` on the local merge result at work, `"#10"` stashed (§13), 925 s; the sandbox 2050 OK with `--parallel 2`, 974 s. Read the result with `grep -E "^(Ran|OK|FAILED)"`: `tail -n 5` showed only the test databases being destroyed (lesson 247).
+- **A static count of `def test_` is 21 short.** It gives 2029 under `tests/`; `test_names_trade.TestTradeNamesKnown` and `test_names_trade_start.TestTradeStartKnown` inherit 13 and 8 tests from their parents and run them again. Predict from the last run, or add what the classes inherit (lesson 386).
+- **Neighbours of a change to `world/skillcheck.py`:** `tests.test_skillcheck`, `tests.test_hunt_resolution` and `tests.test_encumbrance` (the census, and hunt's modifier tests) — 141 at SC-T6, about a minute in the sandbox.
+
+### 26.2 What the tests pin
+
+- **The dice and the coin, pinned in rolling order:** `mock.patch("world.skillcheck.randint", side_effect=[…])`. `opposed_check` rolls the attacker, the defender, and a coin only on a dead heat; `opposed_against` rolls the resisting side and a coin only on a dead heat. Read `call_count` after the call: a spare entry in the list hides a roll that never happened, and a short list raises `StopIteration` inside the code under test.
+- **A made roll is built by `skill_check` at a pinned die,** not written as a dict, so its keys are what the function returns.
+- **The census of forms.** `TestRollCensus.test_every_public_form_is_named` fails a new public function in `world/skillcheck.py` until its name is in `ROLL_NAMES` or `NON_ROLL_NAMES`; take that red before adding the name (SC-T5, SC-T6).
+- **The hunt's outcome is read in the world,** not in its lines: a `Corpse` in the room for a kill; neither corpse nor creature for a flight (the fixture's `room1` has an exit, so the quarry moves to `room2`; a room without one deletes it); the creature in place for a stalemate. The hunter's value is set through the trait's `mod`, after `physical_modifier()` is read as 0 — the fixture sets fatigue to 100. A kill writes the improvement line to the activity log: `ActivityLogMixin` first in the bases.
+- **A mutation's killer is counted per test file.** SCM6 (the excess taken off the lesser side only) is killed by the judge's tests and survives the hunt's, where both hunts end as they should (lesson 389).
+
+### 26.3 A protocol that pins the die
+
+- **One `py` line, a `with` statement its only statement:** `py with __import__("unittest.mock").mock.patch("world.skillcheck.randint", side_effect=[5, 4]) as die: …; self.msg(str(die.call_count))`. The count printed is the receipt that the pinned dice were the ones used. A command run inside it with `self.execute_cmd("hunt scdeer")` rolls under the patch.
+- **Not `py/edit`.** A command sent with `execute_cmd` from an executed buffer is appended to the buffer and never runs, and `:q` with any answer but *no* runs the buffer again (Evennia Ref §23; lesson 388).
+- **Read the hunter first.** `physical_modifier()` is part of the target: step 1 read −30 on a *wearied* G0dlet, and the line that sets the target subtracts it.
+- **No placeholder in a line** (lesson 162): the restore is the number read back in step 1, written out, or a value saved in `self.db` there.
+- **Read the whole picture.** The location panel still listed a quarry that had fled, which no step asked about (lesson 394; BACKLOG *Webclient: a quarry that flees stays in the location panel*).
 
 ## Domain quick-refs
 

@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Progression (XP) Decomposition
 
+> **Rev 12 · 2026-11-16** — one dated note, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged): §7's line that `opposed_check` keeps its own unimplemented over-100 % rule is history; the note says it is delivered. Nothing else changes.
 > **Rev 11 · 2026-11-01** — **E.2 shipped**: merged to `main` as `d5450ad` (tree `9dfa0fb`), every task recorded in `docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 2. §7 gains a dated *shipped* note under the Rev 10 pointer, and its heading drops ⛔ BLOCKED; the rest of the section, its status line included, stands as written, as the design source it is. Nothing else changes.
 > **Rev 10 · 2026-10-31** — **E.2 is decomposed, in its own document: `docs/PolishedWorld_Trivial_Work_Decomposition.md` Rev 1.** §7 gains a pointer and three corrections against the code and the rulebook, none of them a design change: (1) *both live call sites* in `attempt_skill_improvement`'s docstring is **six** (craft, repair, hunt-attack, hunt-harvest, disassemble, scribe); (2) disassemble **has** a difficulty datum — it subtracts `min_skill` from its roll (`commands/crafting_commands.py:736`) — so it leaves E.3's list and is gated with craft (TD5); (3) *routine tasks do not earn an Improvement Roll* is not a rule in *Legend* (core p. 68: Improvement Rolls are the Games Master's award at a story's close), so the gate is the on-use adaptation's stand-in for that judgement, faithful in spirit (TD9). The two-jobs choice is made — *accept* (TD1) — and the wall is answered: the registry's top rung always teaches (TD3). No decision in §2 changed.
 > **Rev 9 · 2026-10-26** — **two claims corrected against the code, from the Alpha Content close-out (AC6, finding AC5.1-2/6).** §1 said every `min_skill` gate and tool buff reads `skill.current`; the craft roll and the craft floor read the effective `.value`, and only teaching reads `.current`. §7 said `min_skill` carries *two* jobs; the code reads it **four** ways today — the craft floor, the transmission gate (inscribe, scribe, teach), the disassemble modifier and the displays — and E.2 would make a fifth. §7 also said a *tool* buff may lift you over the floor; a tool's ±20 shifts the roll, never the floor — only a buff on the trait does. E.1 shipped in the Alpha Content epic (AC5.1); E.2 stays homed in BACKLOG. No decision changed.
@@ -934,6 +935,8 @@ player is ever observed above ~130.
   separate decision with its own motivation. `world/improvement.py`'s old
   deferral note bundled the two into one sentence, which made them look like one
   decision; they are not, and lifting this cap does not decide that one.
+  *(2026-11-16: delivered — Skill-Check Forms SC-T2, merged as `d3d7ae1`: an opposed
+  test lowers the highest modified target to 100 and takes the excess off both sides.)*
 
 **Mutations — five run, one survivor, and the survivor is provable.**
 

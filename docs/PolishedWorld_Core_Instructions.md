@@ -1,5 +1,6 @@
 # PolishedWorld Development - Core Custom Instructions
 
+> **Rev 8 · 2026-11-16** — one line, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2): *Mongoose Legend Adaptations* names the three opposed forms of `world/skillcheck.py` and the tie *within the skill*.
 > **Rev 7 · 2026-11-12** — **the project's genre line names its tone.** *High fantasy* becomes *cozy dark hard fantasy*, the name Adam settled on in a tone chat for what the roadmap's North star already says, and *Core Design Pillars* gains the tone line under the four pillars, pointing at the new `docs/PolishedWorld_Tone_Guide.md` (writing) and `docs/system_designs/PolishedWorld_Comfort_Design.md` (mechanics). Only those two places change; *Current State* is still Rev 4's. The project-settings copy of these instructions is edited by hand to match.
 > **Rev 6 · 2026-11-09** — the *GameGold* lines follow `GameGold_Design.md` Rev 5 and roadmap Rev 63: a PoW phase of about one year instead of 100 bootstrap blocks, the chain launch split from Stage 8, and the platform line corrected from Bitcoin Core 26.x to the `28.x` branch that `GameGold_Design.md` Rev 3 confirmed. Only those two lines change. The project-settings copy of these instructions carries no GameGold parameters.
 > **Rev 5 · 2026-11-04** — **Python ≥ 3.12, not 3.11+.** The pinned Evennia 6.1.0 (`requirements.txt`, Launch Minimum L1.1) requires Python 3.12 or later in its wheel metadata; both machines run 3.14. Only that line changes: the *Current State* below is still Rev 4's and is not brought up to date here. The project-settings copy of these instructions is edited by hand to match.
@@ -198,7 +199,7 @@ month. Keep it to a paragraph.
 - Auto-resolve routine skill checks
 - Real-time with cooldowns (not turn-based rounds)
 - Skill improvement on use (not session XP)
-- `opposed_check` in `world/skillcheck.py` implements full Legend resolution order (level of success → higher successful roll → higher skill → coin toss; both fail = stalemate)
+- `world/skillcheck.py` has three opposed forms over one judge: `opposed_check` (Legend p. 45's order — level of success → higher roll *within the skill* → higher skill → coin toss; both fail = stalemate — with opposed skills over 100 %), `opposed_against` (a resisting roll against a successful roll already made) and `compare_levels` (attack against parry, p. 131, no roll)
 
 ### GameGold (post-MVP crypto layer)
 - Platform: **blackcoin-more** fork (`28.x` branch, Bitcoin Core 28.4 base, PoSV3, actively maintained)

@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 116 · 2026-11-16** — one entry **closed**, one **added** and one **annotated**, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged), with roadmap Rev 84 and README Rev 65. ***`opposed_check` lets an automatic success win on a roll outside the skill range*** → DONE, with what shipped. **New: *Webclient: a quarry that flees stays in the location panel*** (*UX & Item Identity*, OPEN), seen in SC-T7's protocol. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — hunt's first tests of its outcomes (SC-T3).
 > **Rev 115 · 2026-11-16** — one entry **corrected and annotated**, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (Stage 5's slice SC decomposed), roadmap Rev 83 and README Rev 64. ***`opposed_check` lets an automatic success win on a roll outside the skill range***: its example was wrong — at a target of 60 a roll of 04 is a critical and wins — and is replaced by one that was run; the caller's line is `:99`; the entry names the decomposition and its tasks. Status unchanged (DECIDED, code SCHEDULED). No entry closed.
 > **Rev 114 · 2026-11-16** — one entry **closed**, one **added** and four **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`), roadmap Rev 82 and README Rev 62. ***Strangers by description — `rpg/rpsystem`*** → DONE, with what shipped and what was left. **New: *Account names on the Public channel*** (*UX & Item Identity*, OPEN) — the slice's OQ-NM10, placed here and not decided (Adam: as recommended). **Annotated:** *First-steps hints* (the names hint, UP23, a candidate; Status unchanged), *A screen-reader pass* (what it now reads), *Webclient: players and NPCs apart* (its trigger (1) fired; the *Characters:* line is gone), and *`copper` is both a material and a denomination* (no longer *no name begins with a digit*: the form is `2-copper`).
 > **Rev 113 · 2026-11-14** — one entry **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 1 (Stage 5's slice map and the Names slice's tasks), roadmap Rev 81 and README Rev 61. ***Strangers by description — `rpg/rpsystem`*** gains what the decomposition's source reading found beyond the design note. The decomposition also places the entries whose trigger is Stage 5's kickoff — *`CoinPile` vs the corpse's atomic content delete* and *`copper` is both a material and a denomination* in slice DL, *Runnable seam checker for the System Map* in the stage's close-out — and names the slices the blocked entries wait for; those entries are not edited. No entry closed and no Status changed.
@@ -1191,7 +1192,7 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   OC1 (SC-T1), the over-100 % rule (SC-T2), a test of the hunt through its
   command (SC-T3), and the two forms (SC-T5, SC-T6). The hunt gets the
   corrected test with no edit to its command (SC4). SC-T8 closes this entry.
-- **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5 slice SC, SC-T1–SC-T6)
+- **Status:** DONE (merged as `d3d7ae1`, PR #32; `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2) — `opposed_check` resolves through one private `_judge`, where a roll outside the skill counts 0 in a tie (SC2: target 3 rolling 05 now loses to target 30 rolling 04); opposed skills over 100 % lower the highest modified target to 100 and take the excess off both sides, reported as `excess` (SC3). The docstring's cap at 100 is gone, and so is `world/improvement.py`'s warning. Combat's two forms are `compare_levels` and `opposed_against`. `hunt` gets all of it with no edit to its command; `tests/test_hunt_resolution.py` reads its outcome.
 
 ---
 
@@ -3594,6 +3595,35 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Webclient visual pass decomposition Rev 11, V5.2 (2026-11-12).
 - **Status:** OPEN
 
+---
+
+### Webclient: a quarry that flees stays in the location panel
+
+- **What:** `CmdHunt._flee` moves the quarry through a random exit with
+  `move_to(..., quiet=True, move_hooks=False)` (`commands/hunting_commands.py:171`).
+  With `move_hooks=False`, Evennia 6.1 calls neither the old room's
+  `at_object_leave` nor the new room's `at_object_receive`
+  (`evennia/objects/objects.py:1288`, `:1318`), and those are where a room
+  schedules its panel push (`typeclasses/rooms.py:415–432`). So the panel of
+  everyone in the room keeps the quarry under *You see* after it has bolted,
+  and nobody in the room it fled to sees it arrive, until that room's next
+  push. Seen in SC-T7's protocol (2026-11-16): after *scdeer breaks away and
+  bolts*, and after it was deleted in the neighbouring room, Limbo's panel
+  still listed *a scdeer*. Lesson 157 names the pattern.
+- **Why deferred:** Not slice SC's, which changed no command; and nothing is
+  wrong in the text stream: `look` reads the room live.
+- **Smallest fix:** push both rooms after the move in `_flee`
+  (`client_state.push_room_soon` for the source and the destination), or drop
+  `move_hooks=False` after reading what the hooks would then do for a
+  `Creature` — the comment above the call gives the reason it was set. Either
+  way, a test that hunts with the dice pinned to a flight and reads the push,
+  and a row in `TestPushCensus` if the push is a new site.
+- **Trigger:** The next change to `hunt` (the Hunting note's `stalk` and shot,
+  TP6–TP7), or a player report of a stale panel.
+- **Origin:** Skill-check forms SC-T7, the in-game protocol's picture
+  (2026-11-16).
+- **Status:** OPEN
+
 ## Tooling & Process
 
 ### `PolishedWorld_System_Backlog.md` lives at the wrong altitude for its location
@@ -4154,6 +4184,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   cooldown set before it reads `improve_craft`. What each roll tier does is
   still untested, and repair and hunt, which E.2 did not change, still have
   nothing of their own.
+- **Note (2026-11-16, skill-check forms SC-T3):** hunt has its first tests of its
+  own outcomes through the command: `tests/test_hunt_resolution.py`, three tests
+  with both dice pinned that read what became of the quarry (a corpse, a flight,
+  a stalemate). They cover the three cases the corrected opposed test changed,
+  not hunt as a whole: its refusals, its cooldown and its improvement line are
+  still untested through the command, and repair still has nothing of its own.
 - **Origin:** Weight W3.1 (decomposition Rev 6), filed at W6.1.
 - **Status:** OPEN
 

@@ -1,5 +1,6 @@
 # PolishedWorld — Skill Improvement Decomposition (Stage 1)
 
+> **Rev 5 · 2026-11-16** — two dated notes, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged): the two lines that call the over-100 % band and `opposed_check`'s over-100 % rule dead code are history; each note says both are delivered. Nothing else changes.
 > **Rev 4 · 2026-08-03** — §Call-sites marked as a **planning snapshot**, not a current map. It stated "exakt fyra" call-sites for `skill_check` in present tense; two stages later the surface is six, and the line numbers have moved. The inventory is left as written — it is the terrain Stage 1 was planned against and that is worth preserving — with the current count recorded beside it. Found while verifying the System Map seam table (System Map Rev 2).
 > **Rev 3 · 2026-07-10** — Session C complete: C.1 (tick-feedback), C.2 (tier-celebration), C.3 (`progress` command) committed & in-game-verified on `feature/skill-improvement`. **Component C done → skill-improvement feature functionally complete.** Corrections vs Rev 2's plan, all forced by live source: (1) celebration fires on **desc-tier crossings**, not the 25/50/75/100 quarter marks — the quarters decoupled from the real named ranks, and the desc words mix nouns ("tracker") and adjectives ("mighty", "sneaky"), so "You are now a X" was ungrammatical; shipped copy is label-safe `Your {skill} reaches a new tier: |y{tier}|n.`; (2) `CounterTrait.desc()` reads the buff-inflated `.value`, so tier detection uses a pure `world/improvement.tier_for(value, descs)` on the permanent `old`/`new` ints (mod-safe) — never `skill.desc()`; (3) there were **four** call-sites, not three — harvest (`hunting_commands`) was the missed fourth; (4) C.3 baseline is an `AttributeProperty` dict snapshotted in `at_post_puppet` (after the safe `super()`, fresh dict each puppet), diffed on `.current`.
 > **Rev 2 · 2026-07-06** — Session A complete: A.1 (pure primitive), B.1 (`improve_skill_on_use` chokepoint), B.2 (`attempt_skill_improvement` gated wrapper), B.3 (wired into craft/repair/hunt) committed & in-game-verified on `feature/skill-improvement`. Records the B.2 consolidation (gated wrapper vs pure predicate) and the verified `.current`-vs-`.value` improvement/resolution split. Session C (felt-progress) next.
@@ -56,7 +57,7 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
   - Rulla 1D100, **addera hela INT-Characteristicen** (inte en tabell-modifier — CHA-tabellen styr *antalet* rolls, inte roll-bonusen).
   - `(1D100 + INT) > current skill` → **+1D4+1**.
   - `(1D100 + INT) ≤ current skill` → **+1** (garanterat golv, aldrig 0).
-  - `>100 %`-band (mål 100 + halverad INT per 100%-band) — **intentionally deferred**; MVP kappar vid 100, dead code precis som `opposed_check`:s >100%-not. Dokumenterad TODO-hook i A.1, byggs när caps lyfts.
+  - `>100 %`-band (mål 100 + halverad INT per 100%-band) — **intentionally deferred**; MVP kappar vid 100, dead code precis som `opposed_check`:s >100%-not. Dokumenterad TODO-hook i A.1, byggs när caps lyfts. *(2026-11-16: båda levererade — bandet i Stage 4.5 D.2, `opposed_check`:s regel i Skill-Check Forms SC-T2, `d3d7ae1`.)*
   - **Self-throttle:** rollen måste *överstiga* current skill → låga skills får ofta 1D4+1, höga skills nästan alltid +1. Detta är pacing-motorn; ingen hidden accumulator behövs.
 - **Characteristic-improvement (kanon):** höja 1 poäng kostar `current value` improvement rolls (10→11 = 10), inga tärningar. Relevant för varför on-use-höjning behöver egen adaption (uppskjuten, se beslut 4).
 
@@ -114,7 +115,7 @@ Kontrollerat mot `main` @ raw.githubusercontent.com + `/mnt/project/Legend.pdf` 
       return {"gained": gained, "roll": roll,
               "int_bonus": int(int_char), "total": total, "beat": beat}
   ```
-  `>100 %`-bandet (mål 100 + halverad INT) lämnas som dokumenterad TODO — MVP kappar vid 100, oåtkomlig kod idag (samma linje som `opposed_check`).
+  `>100 %`-bandet (mål 100 + halverad INT) lämnas som dokumenterad TODO — MVP kappar vid 100, oåtkomlig kod idag (samma linje som `opposed_check`). *(2026-11-16: båda levererade, se noten ovan.)*
 - **@py test (smoke):** `@py from world.improvement import improvement_roll; print(improvement_roll(25, 10))`
 - **evennia shell (self-throttle):** loop 1000× på skill=20 vs skill=90, samma INT=10 → låg skill ~90 % beat, hög skill ~20 % beat; `gained ∈ {1,2,3,4,5}` vid beat, alltid `≥1`.
 - **Commit:** `feat(improvement): add pure Legend improvement-roll primitive`

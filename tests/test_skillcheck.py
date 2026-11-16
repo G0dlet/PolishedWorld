@@ -397,7 +397,7 @@ class TestOpposedAgainst(EvenniaTestCase):
         self.assertResisted(made_roll(80, 24), 38, [69], False)
 
     def test_book_thraces_critical_cannot_be_resisted_at_38(self):
-        # p. 149: Thrace's Spear 58 % scores 06, a critical; the goblin "must
+        # p. 150: Thrace's Spear 58 % scores 06, a critical; the goblin "must
         # roll a critical success on its Resilience and gain a higher roll than
         # 06", which is impossible at 38 % (criticals 01-04). Every face.
         made = made_roll(58, 6)

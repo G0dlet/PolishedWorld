@@ -1,5 +1,6 @@
 # PolishedWorld — Combat Design (Stage 5: the source verification, the first reading, and the decisions the decomposition is built on)
 
+> **Rev 4 · 2026-11-16** — two notes, docs only, in the commit that closes slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32): §4.14 says OC1–OC3 are built and where they stand in `world/skillcheck.py`; §6's seam line for that module says it was read before SC. No decision changes.
 > **Rev 3 · 2026-11-16** — three notes and one row, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (slice SC decomposed, locks SC1–SC6): HQ2 says what SC does to the hunt's outcome; §4.14 points to the decomposition and to what its reading found; §5 gains the one place where SC rules beyond the book (SC3). No decision changes.
 > **Rev 2 · 2026-11-16** — two notes in §6, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`): the Names note is annotated (Rev 2), so the list of notes not annotated loses it; and the short description's state slot, which Names left for the wound slice (WO2), with `health` given no word. No decision changes.
 > **Rev 1 · 2026-11-14** — first version, docs only, with roadmap Rev 80, BACKLOG Rev 112, README Rev 60 and the series handoff `docs/system_designs/HANDOFF.md` Rev 18. Written from Stage 5's design and source-verification session (roadmap decision log, *Order after the webclient*, step (4)): EvAdventure's combat read at the pinned `v6.1.0`, *Legend*'s combat chapter and *Arms of Legend* read in source, and the open questions put to Adam one group at a time. **Unlike the one-system series' notes, the numbered items here are decisions**: Adam took each group on 2026-11-14, with one change of his own (AR1: Armour Points add up across layers) and one rider (AR3: three layers now, open to change). Where an item is a calibration value and not a lock, it says so. No code is written and none is changed by this document.
@@ -309,6 +310,8 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 
 *(Rev 3: decomposed as slice SC, `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md`. Its reading found that the second form has more users than the wound tests — Bleed and Disarm oppose the original attack or parry roll (pp. 132–133) — that the levels table gives nobody a level when neither side succeeded (p. 131), and that `skill_check` needs no change for OC2: the rule is a modifier on the targets of an opposed test.)*
 
+*(Rev 4: built and merged as `d3d7ae1`, PR #32. OC1 and OC2 in `opposed_check` (`world/skillcheck.py:193`), OC3 as `opposed_against` (`:246`) and `compare_levels` (`:314`), with one private `_judge` (`:147`) under the two opposed forms; `skill_check` is now at `:60`. The docstring no longer says skills cap at 100, and the result reports `excess`.)*
+
 ### 4.15 Stage 5 before Stage 6 (SO)
 
 *Resolves **[OPEN] Stage 5 vs Stage 6 order**.*
@@ -344,7 +347,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 - `Character.at_character_death(killer=None)` (`:1353`), and its restore block against the wound tiers (BACKLOG *`at_character_death()` restore block vs persistent wound tiers*).
 - `Character.physical_modifier()` (`:679`) — overload and the fatigue level, already summed.
 - `Character.refuse_if_collapsed()` and `at_pre_move` (`:1644`) — HB2, CT6, SR3.
-- `world/skillcheck.py`: `skill_check` (`:58`), `opposed_check` (`:127`) — OC1–OC3.
+- `world/skillcheck.py`: `skill_check` (`:58`), `opposed_check` (`:127`) — OC1–OC3. *(Rev 4: read before SC; after it `:60` and `:193`, with `opposed_against` `:246` and `compare_levels` `:314`.)*
 - `world/timed_actions.py` — one slot per character; `is_current()` and `claim()` refuse a body without an account (§2.5, point 1).
 - `tests/test_client_state.py::TestPushCensus` and the other census tests — every new push, every write to `.current` and every `.location =` is a row; TR4 adds one for names.
 
