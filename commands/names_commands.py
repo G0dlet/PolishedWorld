@@ -52,6 +52,16 @@ A statue hears nothing: its player is not there. The lines are written out
 with singular *they* (as `typeclasses/characters.py:539`), not `$pron()`:
 Evennia's neutral pronoun is *it*, and no character has a gender yet.
 
+WHO (NM-T14; K1, UP14, UQ1)
+---------------------------
+Evennia's `who` gave every player a table of every connected account, and
+an account's name is its character's key (Evennia's
+`AUTO_CREATE_CHARACTER_WITH_ACCOUNT`). `CmdWho` gives an account with Builder or above Evennia's command
+unchanged (lock 2 A), and anyone else one sentence with the count (lock 1
+A): *seven travellers are abroad in the world*, the reader counted, the
+number in words to twenty. A list of the people you know who are online is
+left out (UQ1): it would tell you where your friends are not.
+
 MULTIPLAYER
 -----------
 A recog is written only on its owner, by its owner's command (Names UG6):
@@ -61,8 +71,10 @@ nothing ticks. The push to the webclient is NM-T17's.
 
 import re
 
+import evennia
 from django.conf import settings
 from evennia import Command
+from evennia.commands.default.account import CmdWho as _EvenniaCmdWho
 from evennia.contrib.rpg.rpsystem import rpsystem as _rp
 from evennia.contrib.rpg.rpsystem.rpsystem import CmdEmote as _ContribCmdEmote
 from evennia.contrib.rpg.rpsystem.rpsystem import CmdPose as _ContribCmdPose
@@ -616,3 +628,49 @@ class CmdPose(_ContribCmdPose):
             target.db.pose = pose
 
         caller.msg(f"Pose will read '{target_name} {pose}'.")
+
+
+
+# -- who (NM-T14) ------------------------------------------------------------
+
+_NUMBER_WORDS = (
+    "no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+    "seventeen", "eighteen", "nineteen", "twenty",
+)
+
+
+def abroad_line(count):
+    """
+    The sentence a player reads for `who` (Names UP14; NM-T14 lock 1 A).
+
+    Args:
+        count (int): connected accounts, the reader among them.
+
+    Returns:
+        str: *Seven travellers are abroad in the world.*, in words to twenty.
+    """
+    if count == 1:
+        return "One traveller is abroad in the world."
+    number = _NUMBER_WORDS[count] if 0 <= count < len(_NUMBER_WORDS) else str(count)
+    return f"{number[:1].upper()}{number[1:]} travellers are abroad in the world."
+
+
+class CmdWho(_EvenniaCmdWho):
+    """
+    see how many travellers are abroad
+
+    Usage:
+      who
+      doing
+
+    Tells you how many travellers are abroad in the world, yourself among
+    them. Who they are, you learn in play. Staff (Builder and above) see the
+    list of connected accounts.
+    """
+
+    def func(self):
+        account = self.account
+        if account and account.check_permstring("Builder"):
+            return super().func()
+        self.msg(abroad_line(evennia.SESSION_HANDLER.account_count()))

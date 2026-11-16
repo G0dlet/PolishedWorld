@@ -44,6 +44,7 @@ from commands.names_commands import (
     CmdEmote,
     CmdSay,
     CmdPose,
+    CmdWho,
 )
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
@@ -240,6 +241,8 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
+        # Names NM-T14 (K1): `who` counts for players and lists for staff.
+        self.add(CmdWho())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
