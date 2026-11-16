@@ -124,6 +124,61 @@ STALEMATE = "stalemate"
 _LEVEL_RANK = {CRITICAL: 3, SUCCESS: 2, FAILURE: 1, FUMBLE: 0}
 
 
+def _within_skill(roll, target):
+    """
+    The roll as it counts in an opposed tie: itself if it lies within the
+    skill (roll <= target), else 0 (SC2). An automatic success at 02-05 above
+    the target, or a critical 01 at a target of 0 or less, lies outside.
+    """
+    return roll if roll <= target else 0
+
+
+def _judge(first, second, first_target=None, second_target=None):
+    """
+    Legend p. 45's order of resolution over two finished skill_check results.
+
+    Args:
+        first (dict): The first side's skill_check result.
+        second (dict): The second side's skill_check result.
+        first_target (int, optional): The target the first side's roll is
+            measured against for *within the skill* and for the skill
+            tie-break. Defaults to the result's own "target".
+        second_target (int, optional): The same for the second side.
+
+    Returns:
+        str: ATTACKER if the first side wins, DEFENDER if the second does,
+            STALEMATE if both failed.
+    """
+    if first_target is None:
+        first_target = first["target"]
+    if second_target is None:
+        second_target = second["target"]
+
+    # Both fail -> stalemate, regardless of failure vs fumble (rulebook: "if
+    # both fail then a stalemate has occurred").
+    if not first["success"] and not second["success"]:
+        return STALEMATE
+
+    # Different levels of success -> higher level wins.
+    first_rank, second_rank = _LEVEL_RANK[first["result"]], _LEVEL_RANK[second["result"]]
+    if first_rank != second_rank:
+        return ATTACKER if first_rank > second_rank else DEFENDER
+
+    # Same level (so both succeeded) -> the higher roll within the skill wins;
+    # a roll outside the skill counts as 0 (SC2).
+    first_roll = _within_skill(first["roll"], first_target)
+    second_roll = _within_skill(second["roll"], second_target)
+    if first_roll != second_roll:
+        return ATTACKER if first_roll > second_roll else DEFENDER
+
+    # Same roll too -> higher modified skill wins.
+    if first_target != second_target:
+        return ATTACKER if first_target > second_target else DEFENDER
+
+    # Dead heat -> coin toss.
+    return ATTACKER if randint(1, 2) == 1 else DEFENDER
+
+
 def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0):
     """
     Resolve a Mongoose Legend *opposed* skill test (core rulebook, "Opposed
@@ -132,8 +187,12 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     Both sides roll their own skill_check. Resolution, in order:
       1. Higher level of success wins (critical > success > failure > fumble).
       2. Same level (so both succeeded): higher dice roll *within skill range*
-         wins -- the higher successful roll represents using more of one's skill.
-      3. Same level AND same roll: higher modified skill wins.
+         wins. Within the skill range means roll <= target; a success outside
+         it (an automatic success at 02-05 above the target, or a critical 01
+         at a target of 0 or less) counts as 0 here, so it loses to any
+         success within the skill (SC2, Combat Design OC1).
+      3. Same level AND same roll (two rolls outside the skill both count 0):
+         higher modified skill wins.
       4. Still tied: coin toss.
       5. If BOTH fail: stalemate -- the rulebook says re-roll later; callers
          decide what an inconclusive contest means in their context.
@@ -158,24 +217,4 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     """
     a = skill_check(attacker_skill, attacker_mod)
     d = skill_check(defender_skill, defender_mod)
-
-    # Both fail -> stalemate, regardless of failure vs fumble (rulebook: "if
-    # both fail then a stalemate has occurred").
-    if not a["success"] and not d["success"]:
-        winner = STALEMATE
-    else:
-        a_rank, d_rank = _LEVEL_RANK[a["result"]], _LEVEL_RANK[d["result"]]
-        if a_rank != d_rank:
-            # Different levels of success -> higher level wins.
-            winner = ATTACKER if a_rank > d_rank else DEFENDER
-        elif a["roll"] != d["roll"]:
-            # Same level (both succeeded) -> higher successful roll wins.
-            winner = ATTACKER if a["roll"] > d["roll"] else DEFENDER
-        elif a["target"] != d["target"]:
-            # Same roll too -> higher modified skill wins.
-            winner = ATTACKER if a["target"] > d["target"] else DEFENDER
-        else:
-            # Dead heat -> coin toss.
-            winner = ATTACKER if randint(1, 2) == 1 else DEFENDER
-
-    return {"winner": winner, "attacker": a, "defender": d}
+    return {"winner": _judge(a, d), "attacker": a, "defender": d}

@@ -12,13 +12,27 @@ success (01-05) -> roll <= target -> failure.
 
 Targets 0, 3, 97 and 120 sit at the edges where the bands decide; 50 is the
 control where they change nothing.
+
+The opposed forms (Skill-Check Forms decomposition, slice SC) follow the band
+tests. Their dice are pinned with `side_effect` in the order the code rolls
+them: attacker, defender, then the coin if one is tossed.
 """
 
 from unittest import mock
 
 from evennia.utils.test_resources import EvenniaTestCase
 
-from world.skillcheck import CRITICAL, FAILURE, FUMBLE, SUCCESS, skill_check
+from world.skillcheck import (
+    ATTACKER,
+    CRITICAL,
+    DEFENDER,
+    FAILURE,
+    FUMBLE,
+    STALEMATE,
+    SUCCESS,
+    opposed_check,
+    skill_check,
+)
 
 ROLL = "world.skillcheck.randint"
 
@@ -27,6 +41,13 @@ def check(target, roll):
     """skill_check at exactly `target` with the d100 showing `roll`."""
     with mock.patch(ROLL, return_value=roll):
         return skill_check(target)
+
+
+def opposed(attacker, defender, dice, **mods):
+    """opposed_check with the dice in rolling order; returns (result, dice used)."""
+    with mock.patch(ROLL, side_effect=list(dice)) as die:
+        result = opposed_check(attacker, defender, **mods)
+    return result, die.call_count
 
 
 class _BandTest(EvenniaTestCase):
@@ -108,3 +129,71 @@ class TestTargetFifty(_BandTest):
 
     def test_boundary_unchanged(self):
         self.assertResults(50, {50: SUCCESS, 51: FAILURE})
+
+
+class _OpposedTest(EvenniaTestCase):
+    def assertWinner(self, attacker, defender, dice, winner, **mods):
+        """The winner, and that exactly the dice given were rolled."""
+        result, used = opposed(attacker, defender, dice, **mods)
+        self.assertEqual(result["winner"], winner)
+        self.assertEqual(used, len(dice))
+        return result
+
+
+class TestOpposedOrder(_OpposedTest):
+    """
+    Legend p. 45's order: both fail -> stalemate; the higher level; the higher
+    roll within the skill; the higher skill; a coin. Every test here passed
+    before SC-T1 too: they pin the order so that the refactor cannot move it.
+    """
+
+    def test_book_stealth_beats_perception_on_the_higher_roll(self):
+        # p. 45: Stealth 75 % rolling 71 against Perception 60 % rolling 59.
+        self.assertWinner(75, 60, [71, 59], ATTACKER)
+
+    def test_book_perception_beats_stealth_on_the_higher_roll(self):
+        # p. 45: the guard's 59 against the thief's 54.
+        self.assertWinner(75, 60, [54, 59], DEFENDER)
+
+    def test_book_critical_beats_a_higher_success(self):
+        # p. 45: Athletics 35 % rolling 02 (a critical) against 95 % rolling 94.
+        self.assertWinner(35, 95, [2, 94], ATTACKER)
+
+    def test_same_roll_goes_to_the_higher_skill(self):
+        # SCM3: a reversed skill tie-break would give it to the defender.
+        self.assertWinner(50, 40, [20, 20], ATTACKER)
+
+    def test_dead_heat_is_a_coin(self):
+        self.assertWinner(50, 50, [20, 20, 1], ATTACKER)
+        self.assertWinner(50, 50, [20, 20, 2], DEFENDER)
+
+    def test_failure_against_fumble_is_a_stalemate(self):
+        # SCM4: without the both-failed check, failure outranks fumble.
+        result = self.assertWinner(50, 40, [80, 99], STALEMATE)
+        self.assertEqual(result["attacker"]["result"], FAILURE)
+        self.assertEqual(result["defender"]["result"], FUMBLE)
+
+
+class TestOutsideTheSkill(_OpposedTest):
+    """
+    OC1 (SC2): between two successes of the same level the roll counts only
+    if it lies within the skill (roll <= target); a roll outside it counts as
+    0. Before SC-T1 the tie went to the higher raw roll, so an automatic
+    success at 02-05 could beat a success within the skill.
+    """
+
+    def test_automatic_success_loses_to_a_success_within_the_skill(self):
+        # Target 3 rolling 05 against target 30 rolling 04.
+        self.assertWinner(3, 30, [5, 4], DEFENDER)
+
+    def test_both_outside_goes_to_the_higher_skill(self):
+        # Target 3 rolling 04 against target 2 rolling 05: both count 0.
+        self.assertWinner(3, 2, [4, 5], ATTACKER)
+
+    def test_a_roll_equal_to_the_target_is_within_the_skill(self):
+        # SCM2: with `<` the attacker's 30 would count 0 and lose to 29.
+        self.assertWinner(30, 60, [30, 29], ATTACKER)
+
+    def test_automatic_success_still_beats_a_failure(self):
+        # The level decides before the roll does.
+        self.assertWinner(3, 30, [5, 80], ATTACKER)
