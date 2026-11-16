@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 63 · 2026-11-16** — one row changed, docs only, with `docs/PolishedWorld_Lessons.md` Rev 10 (lessons 342–385, after the commit that closed Names): the Lessons register's row reads *1–385*; it had read *1–341* since Rev 59. No document added or removed; the directory-vs-list loop was run (62/0).
 > **Rev 62 · 2026-11-16** — no row changed, docs only, in the commit that closes Stage 5's first slice (`docs/PolishedWorld_Combat_Decomposition.md` Rev 12, Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`), with the Names note Rev 2, Combat Design Rev 2, the Temperature note Rev 3, Testing Ref Rev 27, Evennia Ref Rev 36, BACKLOG Rev 114, roadmap Rev 82, runbook Rev 11, System Map Rev 5, Lessons Rev 9, the Weight decomposition Rev 12, the series handoff Rev 19 and the dev board. No document added or removed; the directory-vs-list loop was run (62/0).
 > **Rev 61 · 2026-11-14** — index `PolishedWorld_Combat_Decomposition.md` (Stage 5's slice map — fourteen slices in order, with what each carries of the Combat Design and what it waits for — and the full task breakdown of the first slice, Names: `rpg/rpsystem` on the character, NM-T1–NM-T19). Added in the same commit as the document, with roadmap Rev 81 and BACKLOG Rev 113; the directory-vs-list loop was run after the file existed in the tree (62/0).
 > **Rev 60 · 2026-11-14** — index `PolishedWorld_Combat_Design.md` (Stage 5's design: EvAdventure's combat read at `v6.1.0`, *Legend*'s combat chapter and *Arms of Legend* verified in source, and the decisions on timing, PvE and the haven, targeting, wounds and damage outside combat, armour layers, the item schema, skills, manoeuvres, Hero Points and the order against Stage 6). Added in the same commit as the document, with roadmap Rev 80, BACKLOG Rev 112 and the series handoff Rev 18; the directory-vs-list loop was run after the file existed in the tree (61/0).
@@ -114,7 +115,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–341) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–385) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |

@@ -1,5 +1,6 @@
 # PolishedWorld — Lessons register
 
+> **Rev 10 · 2026-11-16** — lessons 342–385 appended after the docs commit that closes Names (`docs/PolishedWorld_Combat_Decomposition.md` NM-T19), from the candidates 1–51 the Names session handoffs carried after the register's 341, numbered in candidate order; two handoffs had each written a 25, so there were 52. Read against 1–341 by keyword before numbering: five recurred and are not added — 14 was 244, the first 25 was 7, 29 was 150, 41 was 156 and 49 was 181; 7, 10 and 45 are one lesson (348), and the second 25 and 33 are one (364). Four lessons sharpen an older one, which gains *refined by N*: 156 (345), 168 (368), 184 (382), 275 (384).
 > **Rev 9 · 2026-11-16** — lesson 90 corrected in the docs commit that closes Names (`docs/PolishedWorld_Combat_Decomposition.md` NM-T19): the multimatch form it quotes is now the prefix, `hunt 1-rabbit`. No lesson added; the session handoffs' candidates after 341 wait for a commit that has their texts.
 > **Rev 8 · 2026-11-14** — lessons 333–341 appended in the docs commit that closes the arrival slice (`docs/PolishedWorld_Arrival_Decomposition.md` AV-T4), from the candidates (a)–(g) the newcomer and arrival handoff carried after Rev 7 and two from the close-out, (h) and (i), numbered in letter order. Read against 1–332 by keyword before numbering: none had been written before; a candidate that lesson 100 had already said (`git rev-parse --short` with several revisions) recurred and is not added. Four lessons sharpen an older one, which gains *refined by N*: 57 (333, 335), 135 (339), 147 (337), 277 (341).
 > **Rev 7 · 2026-11-14** — lessons 303–332 appended in the second docs commit that closes the survival loop (`docs/PolishedWorld_Survival_Loop_Decomposition.md` S4.2), from the candidates (a)–(ak) the session handoffs carried after Rev 6 — (a)–(c) from the visual pass's close-out, (d)–(ai) from the survival loop's decomposition and tasks, (aj)–(ak) from its merge — numbered in letter order. Read against 1–302 before numbering: (h) was 52, (t) 28, (u) 129 and (ad) 145, so they recurred and are not added; (s) + (ab) and (w) + (ae) + (ah) are one lesson each. Thirteen lessons sharpen an older one, which gains *refined by N*: 2 (318), 11 (325), 13 (319), 31 (304), 69 (323), 181 (316), 182 (320), 183 (313), 193 (305), 236 (331), 240 (321), 244 (310), 262 (332).
@@ -178,7 +179,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 153. **Expected output goes on a line of its own, never after the command.** A prediction on the same line was copied with it and gave `fatal: ambiguous argument`. *(Origin: weight W2.2, 2026-10-29)*
 154. **The catalogue loop runs against `docs/README.md`, not the repository's root README.** Against the root README it reported every file missing — a false alarm. *(Origin: weight W2.2, 2026-10-29)*
 155. **A test description that names a load is counted against the limit before the code is written.** At L = 20, 40 is still overloaded, so the recovery test had to run at 21/20. *(Origin: weight W2.2, 2026-10-29)*
-156. **A lock's premise is read against live source when it is locked.** Rev 1 excluded scribe as Lore and forage as Survival; scribe rolls Craft and forage makes no skill test at all. *(Origin: weight W2.2, 2026-10-29)*
+156. **A lock's premise is read against live source when it is locked.** Rev 1 excluded scribe as Lore and forage as Survival; scribe rolls Craft and forage makes no skill test at all. *(Origin: weight W2.2, 2026-10-29; refined by 345)*
 157. **`move_hooks=False` is a silent path for every hook-based mechanism: grep production code for it when a feature relies on hooks.** Death (`characters.py:1259`) was found that way. *(Origin: weight W2.2, 2026-10-29; refined by 260)*
 158. **In `@py` with statements, a `lambda` or `def` does not see names from the same line: bind them as default arguments.** `@py` runs `eval(code, {}, available_vars)`, so a function's free names resolve in an empty globals. *(Origin: weight W3.1, 2026-10-30)*
 159. **`previous rebase directory .git/rebase-apply still exists` means an old `am` is hanging: run `git am --abort`, check HEAD, then `am` again.** *Not rewinding to ORIG_HEAD* means HEAD was untouched. *(Origin: weight W3.1, 2026-10-30)*
@@ -190,7 +191,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 165. **Read the command around the hook, not just the hook: a fix below a command is receipted by a test through the command.** The crafting contrib's `CmdCraft.func` re-places products after `craft()` and would overwrite a recipe-level fix. *(Origin: weight W4.2, 2026-10-30)*
 166. **A mutation prediction of "command not found" assumes the test goes through the cmdset.** Tests that call `Cmd()` directly were killed only by the cmdset test (M47). *(Origin: weight W4.2, 2026-10-30)*
 167. **zsh refuses a glob with no match and does not run the command: write the glob exactly as in the chain.** One extra dot was enough to miss. *(Origin: weight W4.2, 2026-10-30)*
-168. **A recipe's `msg` sends a tuple, `(text, {"type": "crafting"})`: a line-collecting helper takes `text[0]`.** `captured_messages` stringified the tuple's repr. *(Origin: weight W5.1, 2026-10-30)*
+168. **A recipe's `msg` sends a tuple, `(text, {"type": "crafting"})`: a line-collecting helper takes `text[0]`.** `captured_messages` stringified the tuple's repr. *(Origin: weight W5.1, 2026-10-30; refined by 368)*
 169. **A mutation that restores the old line can survive once delivery has moved: define it against the new path.** The new path gave the same outcome (M55). *(Origin: weight W5.1, 2026-10-30)*
 170. **A probe's attribution via `inspect.stack` lands on the innermost `tests/` frame, the mixin's file: count tests per module with `countTestCases()`.** `test_trade_ceiling` was counted under `test_barter_currency`. *(Origin: weight W5.1, 2026-10-30)*
 171. **Read tightenings against the order of the lifecycle.** Rev 9's Q3 delivered in `do_craft` while the inputs were still carried, and following it literally would have printed a false *You are overloaded.* *(Origin: weight W5.1, 2026-10-30)*
@@ -206,7 +207,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 181. **A mutation's predicted killer must read the value the mutation changes.** RM12 moves mastery into `_skill_value()`, but improvement reads `skill.current`. *(Origin: recipe mastery session 2, 2026-10-30; refined by 316)*
 182. **A decomposition can contradict a standing BACKLOG constraint: grep BACKLOG for the rule before locking a task that touches a shared seam.** Registry readers, Rev 24. *(Origin: recipe mastery session 2, 2026-10-30; refined by 320)*
 183. **Replacing a gate breaks every test that passes through it, not just the gate's own tests: count call sites, not test names.** M3.1: about 20 calls go through `_can_transmit`. *(Origin: recipe mastery session 2, 2026-10-30; refined by 186, 313)*
-184. **Patch globs narrow as patches accumulate: glob on a word only the new patch has.** Each delivery leaves another file in the folder for the next glob to hit. *(Origin: recipe mastery session 2, 2026-10-30)*
+184. **Patch globs narrow as patches accumulate: glob on a word only the new patch has.** Each delivery leaves another file in the folder for the next glob to hit. *(Origin: recipe mastery session 2, 2026-10-30; refined by 382)*
 185. **Every test that passes through a gate needs a positive assert that it got through.** When M3.1 closed the gate, tests that asserted nothing happened went green for the wrong reason. *(Origin: recipe mastery session 3, 2026-10-31)*
 186. **Count one fate per old test, not additions and removals.** A table of old test → new fate gave 29 for `test_knowledge` and held; plus/minus gave 27 — and 183's *about 20 calls* was 12 tests. *(Origin: recipe mastery session 3, 2026-10-31)*
 187. **A collision test needs a collision in real data: run the premise against the source before planning the mutation, and create the collision in the test if the data has none.** No discipline name resolves as a recipe, so RM23b patches one in with `patch.dict`. *(Origin: recipe mastery session 3, 2026-10-31)*
@@ -297,7 +298,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 272. **A test that compares two results of the same code is green when a stub returns `null` to both: compare against a literal.** "Ignores the server's wall clock" was green against the empty stub. *(Origin: webclient W5.3, W-ai; 2026-11-09)*
 273. **A decomposition's list of callers is a census claim: grep the library for the call (`at_look(`), not just the project.** WC4 named two senders of the room look; `DefaultCharacter.at_post_puppet` was the third. *(Origin: webclient W5.4, W-aj; 2026-11-10)*
 274. **A test of "one helper both use" that only counts calls is green while any caller uses it: make the helper answer with phantom values and read each caller's output.** `TestOneHelper`. *(Origin: webclient W5.4, W-ak; 2026-11-10)*
-275. **A protocol that starts with a reload needs a receipt that the reload took: read that the new files are in `server/.static`, not only that the page loads.** Both new scripts gave 404 because the server had not been reloaded after the patch. *(Origin: webclient W5.4, W-al; 2026-11-10)*
+275. **A protocol that starts with a reload needs a receipt that the reload took: read that the new files are in `server/.static`, not only that the page loads.** Both new scripts gave 404 because the server had not been reloaded after the patch. *(Origin: webclient W5.4, W-al; 2026-11-10; refined by 384)*
 276. **A protocol step that shows a field at the end of a WS frame asks for the frame to be opened.** The list view cuts the line. *(Origin: webclient W5.4, W-am; 2026-11-10)*
 277. **A GitHub Desktop step can move the local settings line into a stash of its own: the run's configuration is part of its receipt.** A Desktop branch switch stashed `TREASURY_DBREF` and two suite runs went green for the wrong reason; a chain with a stash guard stops, as it should, and the next step starts with `git status --short; git --no-pager stash list`. *(Origin: `ingame_reports` and webclient W5.4, (f), W-an; 2026-11-05 → 2026-11-10; refined by 341)*
 278. **A BACKLOG annotation's "same scene" is read against each stack line's number in the source.** Rev 87 said "a key"; `webclient_gui.js:313` was the idle timer. *(Origin: webclient W6.1, W-ao; 2026-11-11)*
@@ -403,3 +404,91 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 340. **A precedent is read whole before a lock cites it: the line it names and what the same function does after.** AV4 cited death's hookless `move_to` (`characters.py:1455`) but not the room pushes forty lines lower (`:1495–1503`), which the same choice requires; the re-read of §3 before AV-T1 found them. *(Origin: Arrival AV-T1, candidate (h); 2026-11-14)*
 
 341. **A chain that stashes the settings line and leaves the branch carries its own way back in the same line.** AV-T5's return (`git switch` back, `git stash pop`) stood as a separate command and was skipped; the next chain ran on `main` with `"#10"` still in the stash, and a later `stash pop` brought it back. *(Origin: Arrival AV-T5, candidate (i); 2026-11-14)*
+
+342. **Labels are checked against the repo before they are used in the chat: `grep -rhoE "\b<XX>[0-9]+\b"` over `docs world commands typeclasses server tests`.** The design session named targeting TG and wounds WD, both taken (Hunting TG1–TG5, Weight WD1–WD5), and it was found only at delivery; NM-T1's extra mutations then took NMM2 and NMM3, NM-T2's, hence the letter after the number (NMM1b). *(Origin: Stage 5 design session, Combat decomposition and NM-T1, candidate 1; 2026-11-14 → 15)*
+
+343. **An assumption in a roadmap line is not a source: read the rule before a proposal rests on it, and say so when the book disagrees.** Stage 5's text assumed Armour Points summed across layers (core p. 95 takes the highest), wear per hit and no pattern for non-combat damage; *Legend* had none of the three. *(Origin: Stage 5 design session, candidate 2; 2026-11-14)*
+
+344. **A count in a design note or a decomposition ages: re-count it against live source before it becomes a lock, and re-measure the next task's red run after each delivered task.** The Names note's sixteen room messages were twenty at `33fab93`; NM-T2's seventeen broken tests were 57 once NM-T1 had moved the craft tests to `1-fiber`. *(Origin: Combat decomposition and NM-T2, candidate 3; 2026-11-14 → 15)*
+
+345. **Run what a lock rests on, when it can be run.** The class order, the search and the suite under the class change were read and then run, and the run gave what the reading did not: the statue already per looker, and 17 broken tests, not "many". *(Origin: Combat decomposition, candidate 4; 2026-11-14)*
+
+346. **A contrib's creation hook does more than its class: read `at_object_creation` before deciding what the project leaves out.** `ContribRPCharacter.at_object_creation` adds the whole `RPSystemCmdSet`, persistently, so leaving `sdesc` and `mask` out of the project's cmdset was not enough (NM3). *(Origin: Combat decomposition, candidate 5; 2026-11-14)*
+
+347. **`$You()` capitalises only a name that starts with a letter: a leading colour code (`|b`, `|w`) keeps it lower-case.** The contrib's coloured descriptions would have started sentences in lower case (NM11); NMM3 confirmed it. *(Origin: Combat decomposition and NM-T1, candidate 6; 2026-11-14 → 15)*
+
+348. **A parallel run reports a failure badly — it needs `tblib` to show one at all, cannot return a failing `subTest`, and with `--parallel 2` can crash while sending the error: read a failure by running its module serially.** Each time the output showed an abort or a fragment, not the assertion. *(Origin: Combat decomposition, NM-T1–NM-T4 and NM-T15, candidates 7, 10 and 45; 2026-11-14 → 16)*
+
+349. **A failure "only in the parallel run" can be deterministic under the change: run the test alone, with the change, before calling it flaky.** OQ-NM1 passed alone on `main` and failed alone under the class line: `Obj` matched *Obj* and *Obj2* by word start. *(Origin: Names NM-T2, candidate 8; 2026-11-15)*
+
+350. **A contrib's `N-` form is run against an object that matches by both key and alias.** The candidate list holds an object once per name and counts `N-` there: with three *plant fiber* (alias `fiber`), `1-fiber` and `2-fiber` were the same object. *(Origin: Names NM-T2, candidate 9; 2026-11-15)*
+
+351. **A fixture that strips Attributes after creation reloads the handlers.** A handler loaded while the Attributes existed holds a `_SaverDict` whose root is gone, and the next write raises. *(Origin: Names NM-T4, candidate 11; 2026-11-15)*
+
+352. **A new block in a file that carries an uncommitted local line goes far from that line, and `stash pop` is simulated against each place the line can stand.** NM-T1's multimatch settings went to the end of `settings.py`, away from `"#10"`, and both pops were run in the sandbox. *(Origin: Names NM-T1, candidate 12; 2026-11-15)*
+
+353. **When two branches differ in a file with a local change, stash before `git switch`, and pop on the branch where the stash was taken.** `settings.py` differed between `main` and `feature/names`, so the docs chain for `main` from the feature branch became three steps. *(Origin: Names NM-T1–NM-T4, candidate 13; 2026-11-15)*
+
+354. **A probe that reads *who* a reference points at has not read the *text*: read the output as a player reads it.** OQ-NM8's run looked at the mapping and missed *nods to /2a tall man.*; the red test, which read the line, found it. *(Origin: Names NM-T7, candidate 15; 2026-11-15)*
+
+355. **A contrib's hook reaches commands from another source: run every command that calls a hook you inherit.** The contrib's `at_pre_say`, written for its own `say`, broke Evennia's `whisper` from NM-T2 on, and no test noticed. *(Origin: Names NM-T7, candidate 16; 2026-11-15)*
+
+356. **Read `origin` before the sandbox is synced to it: compare the tree first.** A `reset --hard origin/feature/names` before the push was confirmed removed the sandbox's NM-T6 commit; it came back from the reflog. *(Origin: Names NM-T6, candidate 17; 2026-11-15)*
+
+357. **Evennia's own lines do not capitalise a display name (`at_say`, `announce_move_*`): a name at the start of a line needs `$You()`'s capital.** *a quiet traveller is leaving Limbo, heading for temple.* started lower-case for a stranger (NM-T9, NM-T10). *(Origin: Names NM-T6–NM-T7, candidate 18; 2026-11-15)*
+
+358. **A lock that rests on a run is reopened when the run turns out to have missed something, and Adam is told before the code is committed.** NM-T7's lock 1 A (the parser kept as it is) was reopened as 1 C when the red test found the leftover number. *(Origin: Names NM-T7, candidate 19; 2026-11-15)*
+
+359. **When a list's elements change form, `assertNotIn(element, list)` goes green without testing anything: rewrite every `NotIn` in the new form.** NM-T8's fan-out tests compared names with lists that now held lines, and would have passed with the fault in place. *(Origin: Names NM-T8, candidate 20; 2026-11-15)*
+
+360. **Read how the same rule already reads in the game before a lock is recommended.** NM-T8's lock 2 A (`ref="t"`) was chosen without reading that `introduce`, `get`, `drop` and `give` already used `$You()`, and it was reopened in the next task. *(Origin: Names NM-T8–NM-T9, candidate 21; 2026-11-15)*
+
+361. **A panel that shows the text's lines inherits the text's prose: judge a UI change on the screen, not by parity.** Parity with `look` was NM-T8's reason for lock 1 B; only the screenshot showed *is here.* on every row as noise, and NM-T17's lock 2b replaced it. *(Origin: Names NM-T8, candidate 22; 2026-11-15)*
+
+362. **Run the whole suite in a clone of its own while mutations run in the working clone.** They share files, and a suite that reads a mutated module gives a receipt for the wrong code. *(Origin: Names NM-T9, candidate 23; 2026-11-15)*
+
+363. **A comment in a test that promises a later task is a claim to check against that task's scope.** `test_currency_commands` promised that NM-T9 would fix the payee's line, a direct line outside NM-T9's goal; fix the comment or the task, never neither. *(Origin: Names NM-T9, candidate 24; 2026-11-15)*
+
+364. **A line that tells a player what to type uses a word the search finds, and is tested against the search it feeds.** The harvest refusal quoted `get_display_name` and told a player to type *get <item> from a body*; one word of a description finds a single candidate, but in a room it may find two (`name_to_type_here`). *(Origin: Names NM-T11 and NM-T13b, candidates 25 and 33; 2026-11-15 → 16)*
+
+365. **An `at_post_*` hook sees the new state: read when the hook runs against the state before choosing `$You()`.** `at_post_unpuppet` runs after the account has let go, so the character is already a statue and its name says so. *(Origin: Names NM-T11, candidate 26; 2026-11-15)*
+
+366. **Inherited display helpers can write data: read a helper's side effects before it is given a name per reader.** Evennia's `get_numbered_name` saves each reader's form as an alias, so a name that differs per reader leaks into the search through it. *(Origin: Names NM-T11, candidate 27; 2026-11-15)*
+
+367. **The "red first" figure in a *Shipped* line is a receipt: count it from the run, not from memory.** The docs draft said 13 of 14 and 8 site tests; the runs showed 12 of 14 and 8 of 9. *(Origin: Names NM-T10–NM-T11, candidate 28; 2026-11-15)*
+
+368. **A test helper that reads `msg` calls handles both forms, a plain string and `(text, kwargs)`.** A line moved from `for_contents` to `msg_contents` changes form, and an `assertIn` against `str(tuple)` stops matching. *(Origin: Names NM-T11, candidate 30; 2026-11-15)*
+
+369. **A test account with Builder hides a key that leaks: a test where the player types what a line shows runs as a player without Builder.** The contrib's search falls back to the key for a Builder. *(Origin: Names NM-T12, candidate 31; 2026-11-16)*
+
+370. **Read what the test framework sets, not only what the test passes in.** `EvenniaCommandTest.call` gives every command `self.account`, a Developer, whoever the caller. *(Origin: Names NM-T14, candidate 32; 2026-11-16)*
+
+371. **Text from a player never becomes a format string.** The barter contrib's `str_other` took the offer's text into a `%` template and crashed on `%`. *(Origin: Names NM-T13, candidate 34; 2026-11-16)*
+
+372. **A contrib fault is reproduced in the sandbox before it is put forward as one.** All three barter faults were run before they became choices at NM-T13b's STOPP. *(Origin: Names NM-T13b, candidate 35; 2026-11-16)*
+
+373. **An `@py` protocol step that combines querysets is tried in the sandbox first.** `QuerySet + QuerySet` raises TypeError. *(Origin: Names NM-T13–NM-T14, candidate 36; 2026-11-16)*
+
+374. **Read the branch behind every help text that is rewritten: a claim in help must match the code.** `trade`'s help said the inviter could take an invitation back, and the branch that would have done it was dead. *(Origin: Names NM-T13b, candidate 37; 2026-11-16)*
+
+375. **`obj.msg_contents` messages the object's contents: a room line goes through `location.msg_contents`.** The probe's first measure sent to an inventory and counted 68 reads instead of 28. *(Origin: Names OQ-NM9 design pass, candidate 38; 2026-11-16)*
+
+376. **Evennia's `"neutral"` is *it*: singular *they* is `"plural"`.** A character without `gender` falls back to Evennia's default, so a project that never wants *it* sets the property for everyone (NM-T15b). *(Origin: Names OQ-NM9 design pass, candidate 39; 2026-11-16)*
+
+377. **`msg_contents` computes `get_display_name` for every `mapping` entry per receiver, whether the string uses the entry or not: an expensive name costs receivers times entries.** That is what made the live description need a memo. *(Origin: Names OQ-NM9 design pass, candidate 40; 2026-11-16)*
+
+378. **A cost question's threshold word is tested with a probe.** The leaning *live* held only with a memo; the figures for one read and for reads per line decided it, and both were needed. *(Origin: Names OQ-NM9 design pass, candidate 42; 2026-11-16)*
+
+379. **`$conj()` is the verb after a name and never reads `gender`; `$pconj()` is the verb after a pronoun — and a test with `male` and `female` cannot tell them apart.** *he stands* reads right either way; only the line without facts, *they stand*, showed the mix-up Rev 7 had written. *(Origin: Names NM-T15b, candidate 43; 2026-11-16)*
+
+380. **When a task gives an existing fixture a new meaning, tests in another module can break: the neighbours may not catch it, the whole suite does.** NM-T15b's tests wrote full facts, and after NM-T15 those characters were composed. *(Origin: Names NM-T15, candidate 44; 2026-11-16)*
+
+381. **A test over every combination that checks only the length misses a skipped drop step: compare against the order written out on its own.** The next step still fits, so a word dropped too early passes a length check. *(Origin: Names NM-T15, candidate 46; 2026-11-16)*
+
+382. **A chain names the patch by its exact file name, not a glob.** `*NM-T16*.patch` also matched Rev 7's docs patch, whose name holds the task id; `git am` took it first, in alphabetical order, and stopped. *(Origin: Names NM-T16, candidate 47; 2026-11-16)*
+
+383. **A saved EvMenu carries kwargs from an older version of its module: read them through a function that tolerates anything — a wrong type, unknown values, missing keys.** NM-T16's own test with a string in place of a dict found a crash in `node_done` before the STOPP. *(Origin: Names NM-T16, candidate 48; 2026-11-16)*
+
+384. **When a snapshot changes shape, the old script writes *[object Object]* and no error shows: the `server/.static` receipt belongs in every chain that changes JavaScript, not only in the protocol.** The server ran the new Python while `server/.static` still held the old `pw_room.js`. *(Origin: Names NM-T17, candidate 50; 2026-11-16)*
+
+385. **A protocol step run against an old client does not count: run it again after the receipt, and read its picture on its own.** NM-T17's first `recog` ran under the old script, and later frames rebuilt the panel, so the picture proved nothing. *(Origin: Names NM-T17, candidate 51; 2026-11-16)*
