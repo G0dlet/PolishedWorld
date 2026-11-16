@@ -5,6 +5,7 @@ Names a player reads and names a player types (Names, Task NM-T12).
     names.line_start(obj, looker)     # "Mia of the Ford", "A weathered woman"
     names.name_to_type(looker, char)  # "mia of the Ford", "weathered"
     names.name_to_type_here(looker, char)  # the same, or "a weathered woman"
+    names.pronoun(char, "your")       # "her", "his", "their"
 
 A NAME TO TYPE IS NOT A NAME TO READ (UP15, K5)
 -----------------------------------------------
@@ -34,12 +35,22 @@ first character up and the rest as written (`capital`). It works for any
 object -- a thing's key gets its capital too. A statue's name starts with a
 colour code, and stays as `$You()` would write it: *stone statue of ...*.
 
+A PRONOUN OUTSIDE THE FUNCPARSER (NM-T15b)
+-----------------------------------------
+`pronoun` is `$pron()` for a line built with `%` or an f-string, such as the
+barter contrib's frames: Evennia's own table read for the character's
+`gender`, in the third person, as another reads it. It is given the second
+person form, as `$pron()` is (*your*, *you*, *yourself*). Anything without a
+`gender` reads singular *they*, never *it*.
+
 MULTIPLAYER
 -----------
-Both read state and write nothing.
+All read state and write nothing.
 """
 
 import string
+
+from evennia.utils.verb_conjugation.pronouns import pronoun_to_viewpoints
 
 from typeclasses.characters import capital
 
@@ -106,3 +117,21 @@ def _sdesc(char):
 def line_start(obj, looker):
     """`obj`'s name as `looker` reads it, to start a line: `$You()`'s capital."""
     return capital(obj.get_display_name(looker))
+
+
+def pronoun(char, you_form):
+    """
+    `char`'s third-person pronoun for `you_form`, as another reads it: what
+    `$pron(you_form)` gives every receiver but `char` (funcparser.py:1609).
+
+    Args:
+        char (Object): who it names; its `gender`, else singular *they*.
+        you_form (str): the second-person form, as `$pron()` takes it --
+            *your*, *you*, *yourself*.
+
+    Returns:
+        str: *her*, *his*, *their* ... in `you_form`'s case.
+    """
+    gender = getattr(char, "gender", "plural")
+    _, third_person = pronoun_to_viewpoints(you_form, gender=gender)
+    return third_person

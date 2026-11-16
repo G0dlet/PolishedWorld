@@ -48,9 +48,9 @@ chosen to call someone is theirs (UG3). `introduce to <description>` gives
 the name to one person; the room reads that an introduction was made, with
 both people as each reader knows them, and without the name.
 
-A statue hears nothing: its player is not there. The lines are written out
-with singular *they* (as `typeclasses/characters.py:539`), not `$pron()`:
-Evennia's neutral pronoun is *it*, and no character has a gender yet.
+A statue hears nothing: its player is not there. The reflexive is
+`$pron(yourself)`, read from the speaker's `gender` (NM-T15b): *himself*,
+*herself*, or *themselves* for a character without the facts.
 
 WHO (NM-T14; K1, UP14, UQ1)
 ---------------------------
@@ -306,7 +306,7 @@ class CmdIntroduce(Command):
             def send():
                 caller.msg(f"You introduce yourself as {caller.key}.")
                 location.msg_contents(
-                    "$You() introduces themselves as {truename}.",
+                    "$You() introduces $pron(yourself) as {truename}.",
                     exclude=[caller] + [obj for obj in location.contents if obj not in hearers],
                     from_obj=caller,
                     mapping=mapping,
@@ -335,13 +335,13 @@ class CmdIntroduce(Command):
             def send():
                 caller.msg(f"You introduce yourself to {shown} as {caller.key}.")
                 location.msg_contents(
-                    "$You() introduces themselves to you as {truename}.",
+                    "$You() introduces $pron(yourself) to you as {truename}.",
                     exclude=[obj for obj in location.contents if obj != target],
                     from_obj=caller,
                     mapping=mapping,
                 )
                 location.msg_contents(
-                    "$You() introduces themselves to {target}.",
+                    "$You() introduces $pron(yourself) to {target}.",
                     exclude=[obj for obj in location.contents if obj not in bystanders],
                     from_obj=caller,
                     mapping={"target": target},

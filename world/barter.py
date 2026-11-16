@@ -632,7 +632,10 @@ class CmdPWDecline(_PerReader, CmdBaseDecline):
             self.msg_other(
                 caller,
                 self.str_other
-                % f"{self.named} changes their mind, |Rdeclining|n the current offer.",
+                % (
+                    f"{self.named} changes {names.pronoun(caller, 'your')} mind, "
+                    "|Rdeclining|n the current offer."
+                ),
             )
         else:
             # no acceptance to change

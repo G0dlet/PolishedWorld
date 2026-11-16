@@ -72,7 +72,8 @@ class _Sleeper:
     `$Your(sleeper)` with this in `mapping` reads `living_name` instead, per
     reader and with `$You()`'s capital (Names NM-T11 lock 1 A). The funcparser
     passes no kwargs to `get_display_name` (funcparser.py:1349), so a flag on
-    the call cannot do it.
+    the call cannot do it. `$pron(your, sleeper)` reads `gender` from it,
+    so it passes the character's through (Names NM-T15b).
     """
 
     def __init__(self, character):
@@ -80,6 +81,15 @@ class _Sleeper:
 
     def get_display_name(self, looker=None, **kwargs):
         return self.character.living_name(looker, **kwargs)
+
+    @property
+    def gender(self):
+        return self.character.gender
+
+
+# The sexes in `db.appearance` that are also Evennia's pronoun genders
+# (pronouns.py GENDERS); any other value reads singular *they* (NM-T15b).
+_PRONOUN_SEXES = frozenset({"male", "female"})
 
 
 # Tag category under which a Character's learned (known) crafting recipes live.
@@ -572,7 +582,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # (`_Sleeper`, Names NM-T11 lock 1 A).
             self.location.msg_contents(
                 "$Your(sleeper) body slowly turns to weathered stone, "
-                "their final pose frozen in place.",
+                "$pron(your, sleeper) final pose frozen in place.",
                 from_obj=self,
                 exclude=[self],
                 mapping={"sleeper": _Sleeper(self)},
@@ -633,7 +643,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         if self.location:
             self.location.msg_contents(
                 "The stone form of $you() stirs, color flowing back "
-                "into their flesh as they draw breath.",
+                "into $pron(your) flesh as $pron(you) $pconj(draw) breath.",
                 from_obj=self,
                 exclude=[self],
             )
@@ -890,6 +900,26 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         of the time anyone finds it.
         """
         return super().get_display_name(looker=looker, **kwargs)
+
+    @property
+    def gender(self):
+        """
+        The pronouns others read for this character (Names NM-T15b, OQ-NM9 (7)):
+        `"male"` or `"female"` from the sex in `db.appearance`, else
+        `"plural"` -- singular *they*, for `unstated`, for no facts and for
+        anything else stored there. Never Evennia's `"neutral"`, which is *it*
+        (pronouns.py:84) and what an object without `gender` gets
+        (funcparser.py:1609). `$pron()` and `$pconj()` -- the verb after a
+        pronoun -- read it per receiver (funcparser.py:1612, :1477); `$conj()`
+        does not (`:1383`), so a verb whose subject is a pronoun is `$pconj()`.
+        A property, so it is never stale.
+        """
+        appearance = self.attributes.get("appearance")
+        try:
+            sex = appearance.get("sex")
+        except AttributeError:  # no facts (None), or something not a mapping
+            return "plural"
+        return sex if sex in _PRONOUN_SEXES else "plural"
 
     def return_appearance(self, looker, **kwargs):
         """
