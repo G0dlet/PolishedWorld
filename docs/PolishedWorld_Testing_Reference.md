@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 27 · 2026-11-16** — **Names** (Combat Decomposition NM-T19; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`). New **§25: Names** — the merge suite with Node, the neighbours of a change that names someone, what the tests pin (a Builder's search falls back to the key, `EvenniaCommandTest.call` gives every command a Developer's account, `location.msg_contents` for a room line, the fixture's descriptions, the memo, a stripped fixture), and how a protocol targets and reads a stranger (by dbref; read on a player; three readers; facts first). §22.3 gains the receipt for a tab open across a deploy: the old `pw_room.js` writes *[object Object]* until the shell's `evennia reload` and a hard reload.
 > **Rev 26 · 2026-11-15** — **the multimatch form is `N-name`** (Names NM-T1, NM9; on `feature/names`). §12's numbered-alias rule and the two craft steps that type it (§11's receipt block, §17's protocol) now read `1-fiber`, `1-rabbit`. §11's account of the Rev 5 run keeps `fiber-1`: it quotes what the protocol said then. The suffix form finds nothing after NM-T1, so any protocol written before it that types `name-N` is stale.
 > **Rev 25 · 2026-11-14** — **arrival** (Arrival decomposition AV-T4; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). New **§24: arrival** — the neighbours each task ran and the census row AV-T1 added, a seeded database in a menu test and the shipped closing `look` through `_MenuFixture.on_exit`, the two-client protocol for AV-T2 as run (with `arrivaltest3`, and why), AV-T3's in-game check in the room where the dev Treasury stands, and the merge suite with `"#10"` stashed.
 > **Rev 24 · 2026-11-14** — **the survival loop** (survival loop decomposition S4.2; merged as `98fa60e`, PR #29, tagged `alpha-20261114`). New **§23: the survival loop** — the three census tests in every neighbour run, the command with its runner written out, what the tests pin (the new modules, the readers on old `descs`, pinned rolls, the clock), how a protocol is built for this loop (a start where the opposite would show, a fill with a margin, a tick after a reload, its own starting state, every value it claims printed, staff logged out), and §23.3, the protocols as run, S1.1–S3.5 and S4.1. The suite is 1607 at the merge; Node 142 and the art tools' 46 are unchanged.
@@ -1361,6 +1362,7 @@ Three clients: G = `G0dlet` (Developer), W = `warden` (Admin, `#167`), C = `test
 
   At W6.1 the first read gave `"false"` with the toggle untouched; after clearing, the trap showed only Adam's own writes, each from the toggle's `change` listener. The first `"false"` is unexplained.
 - **Objects for a protocol**: start with `inventory` (lesson 71); a step that moves a number picks an object whose value moves (`enc` 0 items do not); a garment to wear needs a type without a cap (`CLOTHING_TYPE_LIMIT`, `server/conf/settings.py:210`: `undershirt` is capped at one), so W7.1 spawned an `accessory` with a unique key; `spawn` places by assignment (`building.py:4620`), so a step after it predicts no room-panel frame.
+- **A tab open across a deploy keeps the old scripts** *(Rev 27, Names NM-T17)*. The server runs the new Python at once; `server/.static` keeps the old JavaScript until the shell's `evennia reload`, because the in-game `reload` does not run `collectstatic`. When a snapshot changes shape, the old `pw_room.js` writes *[object Object]* where a name should be, and no error shows. Receipt: `grep -c <new string> server/.static/polishedworld/js/<file> web/static/polishedworld/js/<file>` gives the same count for both; then hard-reload every window. A step run before the receipt does not count: run it again and read its picture on its own (NM-T17's first `recog`).
 - **A Shipped claim needs a picture of it, or "per Adam"** — and a claim about *how* something was done (Tab, Space, Enter) needs a picture of the way, not just of the result.
 - **A screen reader that says nothing**: try a control page with the same markup and no project code (W8.1: `/tmp/live.html`, one `#messagewindow` with `role="log"` and `aria-live="polite"`). Silent there too → the tool, not the page. Next time, read Firefox's `about:support` → *Accessibility* → *Activated* first (BACKLOG, the Orca entry).
 
@@ -1497,6 +1499,33 @@ Each task's protocol is written out in its *Shipped* line in the decomposition; 
 The first run used `arrivaltest2`, which finished the menu before S had read step 2, so the protocol began again with a new account; `arrivaltest2`'s statue stands in the temple. N played from a text client, so the Location panel on arrival (AV5) was not seen; `test_the_push_already_sees_the_temple` carries it (Adam's ruling).
 
 **AV-T3.** `work` is gated on the Treasury's room, not on a room named temple: on the work dev database the Treasury `#10` stands in the hand-built `temple` `#4`, and the seeded Old Temple answers *There is no work to be had here.* In `#4`: `work water` → *You shoulder the yoke and set off for the spring.*, the closing line, 35 Copper.
+
+## 25. Names
+
+*(Combat Decomposition, slice NM, NM-T1–NM-T17, 2026-11-15 → 2026-11-16; merged as `c4ac47a` (PR #31, tagged `alpha-20261116`). Tests `tests/test_multimatch.py`, `tests/names_fixture.py` and the `tests/test_names_*.py` modules; one census of its own, `tests/test_names_census.py`, and seven rows in `TestPushCensus`. What the code does is Evennia Ref §22 and the decomposition; the multimatch form is §12.)*
+
+### 25.1 Running it
+
+- **The merge:** `Ran 2012 tests`, `OK` on the local merge result at work, `"#10"` stashed (§13); the sandbox, 2012 OK with `--parallel 2` and no `"#10"` line. **Node too:** the slice changes `pw_room.js` and `webclient.css`, so `node --test tests/js/*.js` (§22.1) — 146/146.
+- **Neighbours of a change that names someone:** `tests.test_names_census` and `tests.test_client_state` with the module the change is in. The census fails a new room message that names a character until it goes through `$You()` or `mapping`, or is pinned with the reason it names none; `TestPushCensus` fails a new push until it is a row.
+
+### 25.2 What the tests pin
+
+- **A Builder's search finds anyone by key.** The contrib falls back to a key search for a Builder when no description matched (`rpsystem.py:1339`, `:1346`). A test of what a player can find calls `search` with a player as the caller, or a Builder's fallback hides the miss (NM-T3).
+- **`EvenniaCommandTest.call` gives every command `self.account`,** a Developer, whatever the caller (`utils/test_resources.py:432`). A test of a player's account command swaps the account for the call (NM-T14, `who`).
+- **`obj.msg_contents` messages `obj`'s contents.** A room line goes through `location.msg_contents`; a test reads it on a bystander, not on the actor.
+- **Characters with descriptions:** `tests/names_fixture.py` gives `Char`–`Char4` distinct short descriptions, so a line that names someone by key fails. A character without appearance facts reads *a quiet traveller* and takes singular *they*; those lines are pinned word for word.
+- **The description is memoised for a second.** A test that changes what is worn and reads the description fills the memo first, so a missing `forget()` shows (NM-T17).
+- **A fixture that strips Attributes reloads the handlers.** One loaded while the Attributes existed holds a `_SaverDict` whose root Attribute is gone, and the next write raises (NM-T4).
+
+### 25.3 Building a protocol for names
+
+- **Target by dbref, never by name** (Names UP18). A player cannot type another player's key; an `@py` recipe reads a character as `evennia.search_object("#168")[0]`. A Developer types a key and gets a match the player would not.
+- **Read a stranger on a player.** G0dlet is a Developer and knows people by recog; what a stranger reads is read on `tester` (`player`) or a third account. A reader with a recog reads the recog, so `forget` first when the step is about the description (NM-T15: G0dlet read tester by recog, so the text was read through `@appearance`).
+- **Three readers when the step is "this one and no other":** A acts, B is the reader who should see it, C the one who should not (NM-T17 in Limbo: G0dlet, `tester` `#168`, `arrivaltest6` `#276`, made with `Account.create` and taken through the menu).
+- **Facts first.** `@appearance <character> = sex:female, age:adult, feature:grey-eyed` (Builder) gives a dev character the facts a new one gets in the menu; it answers with the text the facts read as.
+- **Bodies and statues made before the slice** keep the old key (*corpse of <key>*) until they crumble; rename them with `@py` before a step that reads one (NM-T11).
+- **After a change to the webclient's script:** §22.3's receipt before the step, not after.
 
 ## Domain quick-refs
 

@@ -47,12 +47,13 @@ The wording grows from the Newcomer note's §15 (*a stranger blinking in
 the doorway*), turned inward: the newcomer steps out of a shadowed corner of
 the room itself, so nobody outside had to see them pass, it reads the same
 by day and by night, and *... is here.* in the room's list follows from it.
-It names no room, so it holds for any arrival room, and no pronoun, which
-waits for OQ-NM9's question on gender (Names NM-T12 lock 3 D). The newcomer is
-excluded (it reads the menu's closing line and the room), the room it left
-hears nothing (`quiet=True`; Limbo is staff's), and a character already
-standing in the room is not announced, as it is not pushed. The line is
-sent in its own `try`: a line that fails is logged and the arrival stands.
+It names no room, so it holds for any arrival room, and needs no pronoun
+(Names NM-T12 lock 3 D; since NM-T15b a pronoun would read the newcomer's
+`gender`). The newcomer is excluded (it reads the menu's closing line and
+the room), the room it left hears nothing (`quiet=True`; Limbo is staff's),
+and a character already standing in the room is not announced, as it is not
+pushed. The line is sent in its own `try`: a line that fails is logged and the
+arrival stands.
 
 A MISS IS QUIET (AV6)
 ---------------------

@@ -11,7 +11,6 @@ a top-level bullet under one of them, and anything else is ignored.
 
 ## Planned
 
-- Combat
 - A wider world to explore
 - Magic
 - GameGold
@@ -19,6 +18,7 @@ a top-level bullet under one of them, and anything else is ignored.
 ## In progress
 
 - The closed alpha
+- Combat
 
 ## Done
 
@@ -35,3 +35,4 @@ a top-level bullet under one of them, and anything else is ignored.
 - A webclient with panels beside the text
 - A better-looking webclient: frames, icons and pictures
 - Healing over time, real tiredness and drinking at the spring
+- Strangers known by how they look, and names given in play

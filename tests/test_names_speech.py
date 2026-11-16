@@ -12,7 +12,7 @@ by key and alias (K7). The subclasses change two things, both run
 2026-11-15: the contrib's parser leaves `/N` of a numbered reference in the
 text (*nods to /2a tall man.*, rpsystem.py:426-431, also on Evennia's `main`),
 which `parse_emote` removes (lock 1 C, TestTheLeftoverNumber); and its pose
-does not catch the parser's EmoteError (`:1104`), so a bad reference was a
+does not catch the parser's EmoteError (`:1107`), so a bad reference was a
 traceback.
 
 THE PARSER IS TAKEN AS IT IS (OQ-NM8, lock A, Adam 2026-11-15)

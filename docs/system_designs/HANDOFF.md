@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 19 · 2026-11-16** — one gotcha **annotated**, docs only, in the commit that closes Names (`docs/PolishedWorld_Combat_Decomposition.md` Rev 12; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`): the `rpg/rpsystem` gotcha says the slice shipped and where its findings are now. No queue entry, prefix or tie-in changed.
 > **Rev 18 · 2026-11-14** — one passage **changed**, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80: Stage 5's design session is held, and it hands one question to *lodging & safe logout* — whether a creature may attack a statue (PV; not in Stage 5's first slice). No queue entry, prefix or tie-in changed.
 > **Rev 17 · 2026-11-14** — two passages **changed**, docs only, in the commit that closes the arrival slice (`docs/PolishedWorld_Arrival_Decomposition.md` Rev 2; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`): the session note says the slice is shipped, and the gotcha on a new character's first room says where it stands now — Limbo until creation is done, then the Old Temple, which is its `home`.
 > **Rev 16 · 2026-11-14** — one sentence **changed**, docs only, with the Newcomer note Rev 2 and README Rev 58: NCQ5 is answered — the Limbo start was confirmed on the dev instance and is decomposed as `docs/PolishedWorld_Arrival_Decomposition.md` — so *This session* no longer asks for it. No queue entry, prefix or tie-in changed.
@@ -1159,6 +1160,10 @@ storage own no raw material.
   default `AUTO_CREATE_CHARACTER_WITH_ACCOUNT` those are character names.
   `msg_contents` with `$You()`/`mapping` resolves names per receiver
   (`objects.py:1051`); moves already do (`:2293`, `:2349`).
+  *(Rev 19: shipped as Stage 5's first slice — merged as `c4ac47a`, PR #31,
+  tagged `alpha-20261116`. The game's multimatch is `N-name`; a stranger's
+  description is composed live; what the contrib does at 6.1.0 is Evennia Ref
+  §22, and a protocol that names a player targets by dbref, Testing Ref §25.)*
 - No Magic Points trait in code — POW is a static trait (`typeclasses/characters.py:264`);
   the roadmap's Stage 7 said otherwise until Rev 66.
 - Cooldowns are a Character handler (`typeclasses/characters.py:155`); the forage

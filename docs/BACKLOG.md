@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 114 · 2026-11-16** — one entry **closed**, one **added** and four **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`), roadmap Rev 82 and README Rev 62. ***Strangers by description — `rpg/rpsystem`*** → DONE, with what shipped and what was left. **New: *Account names on the Public channel*** (*UX & Item Identity*, OPEN) — the slice's OQ-NM10, placed here and not decided (Adam: as recommended). **Annotated:** *First-steps hints* (the names hint, UP23, a candidate; Status unchanged), *A screen-reader pass* (what it now reads), *Webclient: players and NPCs apart* (its trigger (1) fired; the *Characters:* line is gone), and *`copper` is both a material and a denomination* (no longer *no name begins with a digit*: the form is `2-copper`).
 > **Rev 113 · 2026-11-14** — one entry **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 1 (Stage 5's slice map and the Names slice's tasks), roadmap Rev 81 and README Rev 61. ***Strangers by description — `rpg/rpsystem`*** gains what the decomposition's source reading found beyond the design note. The decomposition also places the entries whose trigger is Stage 5's kickoff — *`CoinPile` vs the corpse's atomic content delete* and *`copper` is both a material and a denomination* in slice DL, *Runnable seam checker for the System Map* in the stage's close-out — and names the slices the blocked entries wait for; those entries are not edited. No entry closed and no Status changed.
 > **Rev 112 · 2026-11-14** — Stage 5's design and source-verification session, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80. **Closed:** ***Read EvAdventure's twitch combat before Stage 5's design*** → DONE (read; the document's §2). **Decided:** ***Hero Points in a persistent world*** (HP1–HP4) and ***`opposed_check` lets an automatic success win on a roll outside the skill range*** (OC1–OC3) — the code for both waits for Stage 5. **Annotated:** *A collapsed body's instant commands* (its combat trigger is named: HB2) and *Character panel: Legend combat state* (its rule check is answered: WO1).
 > **Rev 111 · 2026-11-14** — two entries **annotated**, docs only, with `docs/PolishedWorld_Arrival_Decomposition.md` Rev 2 (DONE; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`). ***Faucet task-table tuning*** — its Newcomer annotation's Z2, the chore that walked to a well, is shipped: `work water` names the spring; the copper question it carries is unchanged. The entry on the two known `TREASURY_DBREF` failures — *TestAccount already exists* in a parallel worker recurred, this time with the line set, in the sandbox's full suite at 1635 tests; the runs with the line stashed were green. Nothing is added, closed or reordered.
@@ -3121,6 +3122,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   events are tabled with their seams (NCP10). Which hints exist is still the
   alpha's answer, so the Status stands — and the alpha runs without hints, as the
   baseline they are judged against (NCQ6). Nothing is decided.
+- **Annotation (2026-11-16, Names shipped):** Names' slice is merged
+  (`c4ac47a`) without its hint (Names UP23; Combat Decomposition NM1): the
+  first time a newcomer shares a room with another player, *Strangers are
+  known by how they look. Introduce yourself with `introduce`; when someone
+  tells you a name, `recog <description> as <name>`.* It is a candidate for
+  this entry's list, with the same Status: since Names, every newcomer meets
+  strangers, and the commands' own help is what teaches them today.
 - **Status:** BLOCKED (alpha reports)
 
 ### An NPC guide driven by a language model — `rpg/llm`
@@ -3271,8 +3279,40 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   party by key throughout (NM15). The whole suite with only the class line
   changed: 17 of 1635 tests break. The first-steps hint (UP23) is left to
   *First-steps hints*; no hint mechanism exists in code.
-- **Status:** SCHEDULED (design note before the newcomer's; code before
-  Stage 5's combat code)
+- **Annotation (2026-11-16, Names shipped):** Stage 5's first slice is
+  merged — `c4ac47a` (PR #31, tree `111f074`), tagged `alpha-20261116`;
+  `docs/PolishedWorld_Combat_Decomposition.md` Rev 12, NM-T1–NM-T19. A
+  character is a short description until a reader names them; the
+  description is composed live from three facts chosen once in character
+  creation, a build from SIZ, one visible state and the outermost garment
+  (OQ-NM9); `recog`, `forget` and a truthful `introduce`; `say`, `emote` and
+  `pose` from the contrib; every room message, the statue, the body, the teach
+  offer, `trade` and `who` name a character per reader; the room panel follows.
+  Multimatch is `N-name` (`1-fiber`), so the `fiber-1` and `rabbit-1` the
+  passages above quote are history. Left out, as decided: masks and disguise,
+  `rplanguage`, the letter of introduction (NM1). Left open: the first-steps
+  hint (*First-steps hints*), UP3's help line for `desc`, and the Public
+  channel's account names (*Account names on the Public channel*).
+- **Status:** DONE (`c4ac47a`, PR #31; Combat Decomposition slice NM, Rev 12)
+
+### Account names on the Public channel
+- **What:** every message on the Public channel is prefixed with the sender's
+  account name (`Account.get_display_name`, `accounts/accounts.py:440` at
+  `v6.1.0`), and an account's name is its character's key
+  (`AUTO_CREATE_CHARACTER_WITH_ACCOUNT = True`, `settings_default.py:802`, not
+  overridden). A player who speaks on Public tells everyone their key, which
+  Names UG1 says the interface never gives. `page` needs an account name to
+  reach someone, and `channel/who` lists Public's subscribers when asked.
+- **Ways, none chosen:** (1) an out-of-character name apart from the key; (2)
+  Public not joined at character creation; (3) accept it, as the Names note's
+  UQ8 leaned (Sindome: account names are out of character).
+- **Why deferred:** found in Names NM-T14's inventory of account commands
+  (Combat Decomposition OQ-NM10); not decided in that slice, and the slice
+  closed without it (Adam, 2026-11-16: placed here, as recommended).
+- **Trigger:** before the alpha's invitations, if the cohort uses Public — or
+  any session Adam picks it for.
+- **Origin:** Combat Decomposition Rev 6, OQ-NM10 (2026-11-16).
+- **Status:** OPEN
 
 ### A screen-reader pass
 - **What:** Play the core loop with Evennia's `SCREENREADER` option on (a
@@ -3299,6 +3339,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Annotation (2026-11-11, webclient W8.1):** that pass could not run (Orca
   read no page text on the work machine, not even a control page) and now
   takes this entry's trigger; the two passes run together.
+- **Annotation (2026-11-16, Names shipped):** what this pass reads is merged
+  (`c4ac47a`): a short description of at most 40 characters, composed with a
+  fixed drop order (Names UP1, OQ-NM9 (4)); `recog` on the server; one line
+  per character in `look`, its pose after the name; and in the webclient's
+  room panel the name, with the pose under it in a muted `span.pw-room-pose`
+  (NM-T17) — whether a screen reader reads that span as part of the row is
+  for this pass.
 - **Status:** OPEN
 
 ### Webclient: `TypeError` on Enter while disconnected
@@ -3506,6 +3553,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   penalty (*- wearied (-30% to physical tests)*), and `sheet` and the
   survival panel show the level's word. Part (2) stays OPEN on its second
   trigger; part (1) is unchanged.
+- **Annotation (2026-11-16, Names shipped):** trigger (1) has fired — the
+  `rpg/rpsystem` slice is merged (`c4ac47a`). The `Characters:` line this
+  entry names is gone: `look` lists one character per line with its pose
+  (Names NM-T8), and `room_snapshot` sends `characters` as `{name, pose}`
+  (NM-T17), so a marker for a player would be a third field. The sweeper and
+  creatures are objects, not characters, and list under the things.
 - **Status:** OPEN
 
 ### Webclient art: possible later revisions
@@ -4602,6 +4655,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   narrower than when this entry was written: **`caller.search()` disambiguating
   two objects in a room that both answer to `copper`**, which needs `CoinPile`
   to exist first.
+  *(2026-11-16, Names NM-T1: the premise is gone — the game's multimatch is
+  the prefix `2-copper`, so a name may begin with a digit. `offer` now asks
+  `SEARCH_MULTIMATCH_REGEX` before it reads a digit-led segment as coin:
+  `2-copper` is the second copper, `2 copper` is money, and `2g30s`, `50c`
+  keep the currency error.)*
 - **Trigger:** **Stage 5 kickoff** — the same trigger as the `CoinPile` deferral
   (S4-3), and for the same reason: the moment coins are real objects, two
   different things in a room answer to `copper` and `caller.search()` has to
