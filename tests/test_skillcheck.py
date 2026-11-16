@@ -31,6 +31,7 @@ from world.skillcheck import (
     STALEMATE,
     SUCCESS,
     compare_levels,
+    opposed_against,
     opposed_check,
     skill_check,
 )
@@ -299,3 +300,117 @@ class TestCompareLevels(EvenniaTestCase):
         # p. 131: a defender with no Combat Action, or who does not parry, is
         # treated as having automatically rolled a Failure.
         self.assertEqual(compare_levels(SUCCESS, FAILURE), {"winner": ATTACKER, "levels": 1})
+
+
+def made_roll(target, roll):
+    """A real skill_check result at `target` with the d100 showing `roll`."""
+    return check(target, roll)
+
+
+class TestOpposedAgainst(EvenniaTestCase):
+    """
+    OC3 (SC1, SC3): an opposed test against a roll already made -- the wound
+    tests (pp. 145-146), Bleed and Disarm (pp. 132-133). Only the resisting
+    side rolls. The made roll keeps its level and its roll; whether it lies
+    within the skill is asked against its target less the excess (SC3, a
+    project rule: the book is silent on it).
+
+    Every case also asserts that one die was rolled (two with the coin), that
+    `made` is equal to a copy taken before the call, and that the returned
+    `made` is the same object.
+    """
+
+    def against(self, made, skill, dice, modifier=0):
+        before = dict(made)
+        with mock.patch(ROLL, side_effect=list(dice)) as die:
+            result = opposed_against(made, skill, modifier)
+        self.assertEqual(die.call_count, len(dice))
+        self.assertEqual(made, before)
+        self.assertIs(result["made"], made)
+        return result
+
+    def assertResisted(self, made, skill, dice, resisted, excess=0, target=None):
+        result = self.against(made, skill, dice)
+        self.assertEqual(result["resisted"], resisted)
+        self.assertEqual(result["excess"], excess)
+        if target is not None:
+            self.assertEqual(result["resisting"]["target"], target)
+        return result
+
+    # -- the order, as in opposed_check --------------------------------------
+
+    def test_the_higher_roll_within_the_skill_resists(self):
+        made = made_roll(60, 40)
+        self.assertResisted(made, 50, [45], True, target=50)
+        self.assertResisted(made, 50, [30], False, target=50)
+
+    def test_a_made_roll_outside_its_skill_counts_0(self):
+        # SC2: the made 05 at target 3 lies outside; the resisting 04 is within 30.
+        self.assertResisted(made_roll(3, 5), 30, [4], True)
+
+    def test_a_failed_resistance_never_resists(self):
+        self.assertResisted(made_roll(3, 5), 30, [80], False)
+
+    def test_both_outside_goes_to_the_higher_skill(self):
+        # Both count 0; the made side's target 3 beats 2. No coin is tossed.
+        self.assertResisted(made_roll(3, 5), 2, [4], False)
+
+    def test_dead_heat_is_a_coin(self):
+        made = made_roll(50, 20)
+        self.assertResisted(made, 50, [20, 1], False)
+        self.assertResisted(made, 50, [20, 2], True)
+
+    # -- over 100 % (SC3) ----------------------------------------------------
+
+    def test_a_made_critical_stays_a_critical(self):
+        # Made at 120 rolling 12 (a critical, 01-12). Excess 20: the resisting
+        # 60 tests at 40, where 03 is a critical too. 12 is within the lowered
+        # 100 and beats 03. SCM13: re-judged at 100, the 12 would be a plain
+        # success and lose on level.
+        made = made_roll(120, 12)
+        result = self.assertResisted(made, 60, [3], False, excess=20, target=40)
+        self.assertEqual(result["resisting"]["result"], CRITICAL)
+        self.assertEqual(result["made"]["result"], CRITICAL)
+        self.assertEqual(result["made"]["target"], 120)
+
+    def test_the_made_roll_is_measured_against_its_lowered_target(self):
+        # Made at 80 rolling 70; the resisting 130 gives excess 30, so the
+        # made range is 50 and 70 lies outside it. SCM14: measured against
+        # its own 80, the 70 would beat the resisting 20.
+        self.assertResisted(made_roll(80, 70), 130, [20], True, excess=30, target=100)
+
+    def test_a_made_roll_within_its_lowered_target(self):
+        made = made_roll(80, 45)
+        self.assertResisted(made, 130, [20], False, excess=30, target=100)
+        self.assertResisted(made, 130, [60], True, excess=30, target=100)
+
+    # -- the book's worked examples (pp. 149-151) ----------------------------
+
+    def test_book_lilina_fails_her_resilience(self):
+        # The goblin's short sword (Sword and Shield 50 %) rolls 39; Lilina's
+        # Resilience 45 % rolls 53 against it.
+        self.assertResisted(made_roll(50, 39), 45, [53], False)
+
+    def test_book_the_goblin_fails_its_resilience(self):
+        # Alaric's spear (Spear and Shield 80 %) rolls 24; the goblin's
+        # Resilience 38 % rolls 69 against it.
+        self.assertResisted(made_roll(80, 24), 38, [69], False)
+
+    def test_book_thraces_critical_cannot_be_resisted_at_38(self):
+        # p. 149: Thrace's Spear 58 % scores 06, a critical; the goblin "must
+        # roll a critical success on its Resilience and gain a higher roll than
+        # 06", which is impossible at 38 % (criticals 01-04). Every face.
+        made = made_roll(58, 6)
+        self.assertEqual(made["result"], CRITICAL)
+        for face in range(1, 101):
+            with self.subTest(face=face):
+                self.assertFalse(self.against(made, 38, [face])["resisted"])
+
+    # -- refusal -------------------------------------------------------------
+
+    def test_a_failed_made_roll_is_refused_before_any_die(self):
+        made = made_roll(50, 80)
+        with mock.patch(ROLL) as die:
+            with self.assertRaises(ValueError):
+                opposed_against(made, 50)
+        self.assertEqual(die.call_count, 0)

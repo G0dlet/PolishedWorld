@@ -986,7 +986,7 @@ ROLL_SITES = {
     "world/crafting_base.py": 1,          # craft (do_craft)
     "world/fatigue.py": 2,                # awake_test (S3.3), collapse_test (S3.4)
 }
-ROLL_NAMES = ("skill_check", "opposed_check")
+ROLL_NAMES = ("skill_check", "opposed_check", "opposed_against")
 # The public forms of world/skillcheck.py that roll nothing, so a call to one
 # is no skill test (SC5). Every public function in that module stands in
 # exactly one of the two tuples (test_every_public_form_is_named).

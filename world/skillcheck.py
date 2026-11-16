@@ -243,6 +243,70 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     return {"winner": _judge(a, d), "attacker": a, "defender": d, "excess": excess}
 
 
+def opposed_against(made, skill, modifier=0):
+    """
+    Resolve an opposed test against a roll that has already been made: only
+    the resisting side rolls (core rulebook pp.145-146 and 132-133).
+
+    The book uses this form in three places: the wound tests, where a
+    Serious or Major Wound is resisted with Resilience "in an Opposed Test
+    against the value of the original attack roll"; Bleed (Resilience
+    against the attacker's original attack roll); and Disarm (Combat Skill
+    against the original attack roll *or the original parry roll*). Because
+    the roll already made can be a parry, the sides are named for what they
+    are -- `made` and `resisting` -- and the answer is `resisted`, not an
+    attacker or a defender.
+
+    The book always opposes a *successful* roll, so `made` must be one: a
+    failed `made` is the caller's error and raises ValueError before any die
+    is rolled. A stalemate therefore cannot arise; this form always answers.
+
+    Order of resolution as in opposed_check (p.45, SC2). Opposed skills over
+    100% apply (SC3): the excess is taken from the higher of `made["target"]`
+    and the resisting side's modified target, and the resisting side rolls
+    against its own target less the excess. **The made roll keeps its level
+    and its roll** -- a critical stays a critical -- and only whether it lies
+    within the skill is asked against `made["target"] - excess`. The book is
+    silent on a roll already made; this is a project rule (Combat Design
+    section 5): one blow has one level, and a resisting skill above 100% is
+    worth more than one of 100.
+
+    `modifier` is the caller's to compose, as with skill_check (whether a
+    wound's Resilience takes the physical modifier is OQ-SC1).
+
+    Args:
+        made (dict): A successful skill_check result, the roll being resisted.
+            Returned as it came: not copied and never written to.
+        skill (int): The resisting side's effective skill %.
+        modifier (int): Situational modifier for the resisting side.
+
+    Returns:
+        dict: {
+            "resisted" (bool): True if the resisting side won.
+            "made" (dict): `made`, the same object. Its "target" is the target
+                the roll was made against, not lowered.
+            "resisting" (dict): the resisting side's skill_check result; its
+                "target" is already lowered by the excess.
+            "excess" (int): the over-100% penalty (0 in the ordinary case).
+        }
+
+    Raises:
+        ValueError: if `made` is not a successful roll.
+    """
+    if not made.get("success"):
+        raise ValueError("opposed_against needs a successful made roll; got a failed one")
+
+    excess = _excess(made["target"], int(skill) + int(modifier))
+    resisting = skill_check(skill, int(modifier) - excess)
+    winner = _judge(made, resisting, first_target=made["target"] - excess)
+    return {
+        "resisted": winner == DEFENDER,
+        "made": made,
+        "resisting": resisting,
+        "excess": excess,
+    }
+
+
 # --- Levels of success, compared -------------------------------------------
 _SUCCESSES = (CRITICAL, SUCCESS)
 
