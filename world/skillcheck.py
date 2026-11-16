@@ -43,6 +43,8 @@ Deliberate adaptation notes:
   roll), not to this function.
 - `target` is never clamped; skills above 100% behave faithfully (only 00
   fumbles, and a wider critical band).
+- The "opposed skills over 100%" rule (p. 45) belongs to the opposed forms
+  below and not to skill_check: a plain test is never lowered.
 """
 
 from math import ceil
@@ -124,6 +126,70 @@ STALEMATE = "stalemate"
 _LEVEL_RANK = {CRITICAL: 3, SUCCESS: 2, FAILURE: 1, FUMBLE: 0}
 
 
+def _within_skill(roll, target):
+    """
+    The roll as it counts in an opposed tie: itself if it lies within the
+    skill (roll <= target), else 0 (SC2). An automatic success at 02-05 above
+    the target, or a critical 01 at a target of 0 or less, lies outside.
+    """
+    return roll if roll <= target else 0
+
+
+def _excess(*targets):
+    """
+    The over-100% penalty of an opposed test (p. 45, SC3): what the highest
+    modified target in the contest has above 100, or 0. It is taken off every
+    side, so the master tests at 100 and everyone else below.
+    """
+    return max(0, max(targets) - 100)
+
+
+def _judge(first, second, first_target=None, second_target=None):
+    """
+    Legend p. 45's order of resolution over two finished skill_check results.
+
+    Args:
+        first (dict): The first side's skill_check result.
+        second (dict): The second side's skill_check result.
+        first_target (int, optional): The target the first side's roll is
+            measured against for *within the skill* and for the skill
+            tie-break. Defaults to the result's own "target".
+        second_target (int, optional): The same for the second side.
+
+    Returns:
+        str: ATTACKER if the first side wins, DEFENDER if the second does,
+            STALEMATE if both failed.
+    """
+    if first_target is None:
+        first_target = first["target"]
+    if second_target is None:
+        second_target = second["target"]
+
+    # Both fail -> stalemate, regardless of failure vs fumble (rulebook: "if
+    # both fail then a stalemate has occurred").
+    if not first["success"] and not second["success"]:
+        return STALEMATE
+
+    # Different levels of success -> higher level wins.
+    first_rank, second_rank = _LEVEL_RANK[first["result"]], _LEVEL_RANK[second["result"]]
+    if first_rank != second_rank:
+        return ATTACKER if first_rank > second_rank else DEFENDER
+
+    # Same level (so both succeeded) -> the higher roll within the skill wins;
+    # a roll outside the skill counts as 0 (SC2).
+    first_roll = _within_skill(first["roll"], first_target)
+    second_roll = _within_skill(second["roll"], second_target)
+    if first_roll != second_roll:
+        return ATTACKER if first_roll > second_roll else DEFENDER
+
+    # Same roll too -> higher modified skill wins.
+    if first_target != second_target:
+        return ATTACKER if first_target > second_target else DEFENDER
+
+    # Dead heat -> coin toss.
+    return ATTACKER if randint(1, 2) == 1 else DEFENDER
+
+
 def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0):
     """
     Resolve a Mongoose Legend *opposed* skill test (core rulebook, "Opposed
@@ -132,16 +198,23 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     Both sides roll their own skill_check. Resolution, in order:
       1. Higher level of success wins (critical > success > failure > fumble).
       2. Same level (so both succeeded): higher dice roll *within skill range*
-         wins -- the higher successful roll represents using more of one's skill.
-      3. Same level AND same roll: higher modified skill wins.
+         wins. Within the skill range means roll <= target; a success outside
+         it (an automatic success at 02-05 above the target, or a critical 01
+         at a target of 0 or less) counts as 0 here, so it loses to any
+         success within the skill (SC2, Combat Design OC1).
+      3. Same level AND same roll (two rolls outside the skill both count 0):
+         higher modified skill wins.
       4. Still tied: coin toss.
       5. If BOTH fail: stalemate -- the rulebook says re-roll later; callers
          decide what an inconclusive contest means in their context.
 
-    NOTE: the "opposed skills over 100%" rule (highest mastered skill is dropped
-    to 100% and the excess penalises everyone) is intentionally NOT implemented
-    -- PolishedWorld caps skills at 100 for the MVP, so it is currently dead
-    code. Revisit when skill progression lifts the cap.
+    Opposed skills over 100% (p. 45, SC3): the side with the highest modified
+    target -- found *after* every other modifier -- subtracts 100 from it and
+    the remainder is a penalty to both sides. The master tests at 100 and the
+    other side below its own target. The excess is 0 unless a modified target
+    is above 100, so a hunter at 120% with -20 for overload gives none. Both
+    sides roll against the lowered target, so the bands follow it: a roll of
+    11 is a critical at 120 and a plain success at 100.
 
     Args:
         attacker_skill (int): The acting side's effective skill %.
@@ -152,30 +225,134 @@ def opposed_check(attacker_skill, defender_skill, attacker_mod=0, defender_mod=0
     Returns:
         dict: {
             "winner" (str): one of "attacker", "defender", "stalemate".
-            "attacker" (dict): the attacker's full skill_check result.
-            "defender" (dict): the defender's full skill_check result.
+            "attacker" (dict): the attacker's full skill_check result; its
+                "target" is the lowered target the roll was tested against.
+            "defender" (dict): the defender's, likewise.
+            "excess" (int): what was taken off both sides (0 in the ordinary
+                case).
         }
     """
-    a = skill_check(attacker_skill, attacker_mod)
-    d = skill_check(defender_skill, defender_mod)
+    # The same coercion skill_check applies, so the excess is measured on the
+    # targets the rolls will actually be made against.
+    excess = _excess(
+        int(attacker_skill) + int(attacker_mod),
+        int(defender_skill) + int(defender_mod),
+    )
+    a = skill_check(attacker_skill, int(attacker_mod) - excess)
+    d = skill_check(defender_skill, int(defender_mod) - excess)
+    return {"winner": _judge(a, d), "attacker": a, "defender": d, "excess": excess}
 
-    # Both fail -> stalemate, regardless of failure vs fumble (rulebook: "if
-    # both fail then a stalemate has occurred").
-    if not a["success"] and not d["success"]:
-        winner = STALEMATE
-    else:
-        a_rank, d_rank = _LEVEL_RANK[a["result"]], _LEVEL_RANK[d["result"]]
-        if a_rank != d_rank:
-            # Different levels of success -> higher level wins.
-            winner = ATTACKER if a_rank > d_rank else DEFENDER
-        elif a["roll"] != d["roll"]:
-            # Same level (both succeeded) -> higher successful roll wins.
-            winner = ATTACKER if a["roll"] > d["roll"] else DEFENDER
-        elif a["target"] != d["target"]:
-            # Same roll too -> higher modified skill wins.
-            winner = ATTACKER if a["target"] > d["target"] else DEFENDER
-        else:
-            # Dead heat -> coin toss.
-            winner = ATTACKER if randint(1, 2) == 1 else DEFENDER
 
-    return {"winner": winner, "attacker": a, "defender": d}
+def opposed_against(made, skill, modifier=0):
+    """
+    Resolve an opposed test against a roll that has already been made: only
+    the resisting side rolls (core rulebook pp.145-146 and 132-133).
+
+    The book uses this form in three places: the wound tests, where a
+    Serious or Major Wound is resisted with Resilience "in an Opposed Test
+    against the value of the original attack roll"; Bleed (Resilience
+    against the attacker's original attack roll); and Disarm (Combat Skill
+    against the original attack roll *or the original parry roll*). Because
+    the roll already made can be a parry, the sides are named for what they
+    are -- `made` and `resisting` -- and the answer is `resisted`, not an
+    attacker or a defender.
+
+    The book always opposes a *successful* roll, so `made` must be one: a
+    failed `made` is the caller's error and raises ValueError before any die
+    is rolled. A stalemate therefore cannot arise; this form always answers.
+
+    Order of resolution as in opposed_check (p.45, SC2). Opposed skills over
+    100% apply (SC3): the excess is taken from the higher of `made["target"]`
+    and the resisting side's modified target, and the resisting side rolls
+    against its own target less the excess. **The made roll keeps its level
+    and its roll** -- a critical stays a critical -- and only whether it lies
+    within the skill is asked against `made["target"] - excess`. The book is
+    silent on a roll already made; this is a project rule (Combat Design
+    section 5): one blow has one level, and a resisting skill above 100% is
+    worth more than one of 100.
+
+    `modifier` is the caller's to compose, as with skill_check (whether a
+    wound's Resilience takes the physical modifier is OQ-SC1).
+
+    Args:
+        made (dict): A successful skill_check result, the roll being resisted.
+            Returned as it came: not copied and never written to.
+        skill (int): The resisting side's effective skill %.
+        modifier (int): Situational modifier for the resisting side.
+
+    Returns:
+        dict: {
+            "resisted" (bool): True if the resisting side won.
+            "made" (dict): `made`, the same object. Its "target" is the target
+                the roll was made against, not lowered.
+            "resisting" (dict): the resisting side's skill_check result; its
+                "target" is already lowered by the excess.
+            "excess" (int): the over-100% penalty (0 in the ordinary case).
+        }
+
+    Raises:
+        ValueError: if `made` is not a successful roll.
+    """
+    if not made.get("success"):
+        raise ValueError("opposed_against needs a successful made roll; got a failed one")
+
+    excess = _excess(made["target"], int(skill) + int(modifier))
+    resisting = skill_check(skill, int(modifier) - excess)
+    winner = _judge(made, resisting, first_target=made["target"] - excess)
+    return {
+        "resisted": winner == DEFENDER,
+        "made": made,
+        "resisting": resisting,
+        "excess": excess,
+    }
+
+
+# --- Levels of success, compared -------------------------------------------
+_SUCCESSES = (CRITICAL, SUCCESS)
+
+
+def compare_levels(attacker_level, defender_level):
+    """
+    Compare two levels of success with no opposed test: attack against parry
+    (core rulebook, "Levels of Success" table, p.131; pp.129, 131).
+
+    Both sides have already rolled. If neither succeeded -- failure or fumble
+    against failure or fumble -- the table's cell is "--": nobody gains a
+    level, though failure outranks fumble. Otherwise the winner is the side
+    with the higher level, and `levels` is the number of steps between the
+    two (1-3), each worth one Combat Manoeuvre. Equal levels give nobody a
+    level.
+
+    The result is `None` and not STALEMATE when nobody wins: STALEMATE means
+    *roll again later* (p.45), while "--" here only means that no manoeuvre is
+    gained -- the attack may still have hit. A defender with no Combat Action
+    left, or who does not parry, is treated as having automatically rolled a
+    Failure (p.131): pass FAILURE for that side.
+
+    No die is rolled and the over-100% rule does not apply: attack against
+    parry is not an opposed test (Combat Design section 1, point 3; OQ-SC2).
+
+    Args:
+        attacker_level (str): CRITICAL, SUCCESS, FAILURE or FUMBLE.
+        defender_level (str): The same, for the defender.
+
+    Returns:
+        dict: {
+            "winner" (str or None): "attacker", "defender", or None.
+            "levels" (int): 0-3, the steps the winner gained (0 if None).
+        }
+
+    Raises:
+        ValueError: if either level is not one of the four constants.
+    """
+    for level in (attacker_level, defender_level):
+        if level not in _LEVEL_RANK:
+            raise ValueError(f"not a level of success: {level!r}")
+
+    if attacker_level not in _SUCCESSES and defender_level not in _SUCCESSES:
+        return {"winner": None, "levels": 0}
+
+    difference = _LEVEL_RANK[attacker_level] - _LEVEL_RANK[defender_level]
+    if difference == 0:
+        return {"winner": None, "levels": 0}
+    return {"winner": ATTACKER if difference > 0 else DEFENDER, "levels": abs(difference)}

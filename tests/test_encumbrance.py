@@ -86,9 +86,12 @@ before `enc` is set (objects.py:1975), so it is not the move under test.
                           site's call shape (positional or keyword) is bound
                           by signature, not guessed
     TestRollCensus        a new skill test that nobody decided about: the
-                          count of `skill_check(` / `opposed_check(` calls per
+                          count of calls to the names in `ROLL_NAMES` per
                           production module must stay the eight classified:
-                          W3.1's six, S3.3's awake test and S3.4's collapse
+                          W3.1's six, S3.3's awake test and S3.4's collapse;
+                          a public form added to world/skillcheck.py that is
+                          in neither `ROLL_NAMES` nor `NON_ROLL_NAMES`, so
+                          its calls would pass unseen (SC5)
 
   W3.2 -- the fatigue cost per room (Legend core p.86, Movement halved):
 
@@ -111,7 +114,7 @@ as its receipt.
 """
 
 import ast
-from inspect import signature
+from inspect import isfunction, signature
 from pathlib import Path
 from unittest import mock
 
@@ -143,6 +146,7 @@ from world.encumbrance import (
 )
 from world.harvest_templates import get_part
 from world.recipe_mastery import MASTERY_TRANSMIT_THRESHOLD
+from world import skillcheck
 from world.skillcheck import opposed_check, skill_check
 from world.survival_ticker import _check_survival_warnings
 from tests.names_fixture import describe, shown
@@ -973,8 +977,8 @@ class TestPenaltyReachesHarvest(_PenaltyFixture, EvenniaCommandTest):
 # The physical rolls, counted per module: the six W3.1 classified (Rev 5,
 # Q1-Q3), the awake test (Survival Loop S3.3) and the collapse test (S3.4),
 # which add the physical modifier and are physical too.
-# forage rolls nothing; world/skillcheck.py is the roll itself (opposed_check
-# calls skill_check twice) and is not a call site.
+# forage rolls nothing; world/skillcheck.py is the roll itself (its forms in
+# ROLL_NAMES call skill_check) and is not a call site.
 ROLL_SITES = {
     "commands/crafting_commands.py": 2,   # disassemble, scribe
     "commands/hunting_commands.py": 2,    # hunt (opposed), harvest
@@ -982,12 +986,16 @@ ROLL_SITES = {
     "world/crafting_base.py": 1,          # craft (do_craft)
     "world/fatigue.py": 2,                # awake_test (S3.3), collapse_test (S3.4)
 }
-ROLL_NAMES = ("skill_check", "opposed_check")
+ROLL_NAMES = ("skill_check", "opposed_check", "opposed_against")
+# The public forms of world/skillcheck.py that roll nothing, so a call to one
+# is no skill test (SC5). Every public function in that module stands in
+# exactly one of the two tuples (test_every_public_form_is_named).
+NON_ROLL_NAMES = ("compare_levels",)
 REPO = Path(__file__).resolve().parents[1]
 
 
 def _roll_census():
-    """Calls to skill_check / opposed_check per production module (ast, not grep)."""
+    """Calls to the names in ROLL_NAMES per production module (ast, not grep)."""
     counts = {}
     for top in ("commands", "world", "typeclasses"):
         for path in sorted((REPO / top).rglob("*.py")):
@@ -1025,6 +1033,25 @@ class TestRollCensus(EvenniaTest):
         source = (REPO / "commands/repair_commands.py").read_text(encoding="utf-8")
         self.assertGreater(source.count("skill_check"), 1)
         self.assertEqual(_roll_census()["commands/repair_commands.py"], 1)
+
+    def test_every_public_form_is_named(self):
+        # SC5: the census counts only the names it knows. A public function
+        # defined in world/skillcheck.py (by __module__, so the imported ceil
+        # and randint are not counted) must be declared a roll or not.
+        public = {
+            name
+            for name, obj in vars(skillcheck).items()
+            if isfunction(obj)
+            and obj.__module__ == skillcheck.__name__
+            and not name.startswith("_")
+        }
+        self.assertEqual(set(ROLL_NAMES) & set(NON_ROLL_NAMES), set())
+        self.assertEqual(
+            public,
+            set(ROLL_NAMES) | set(NON_ROLL_NAMES),
+            "a public form of world/skillcheck.py must be in exactly one of "
+            "ROLL_NAMES and NON_ROLL_NAMES: decide whether it rolls (SC5)",
+        )
 
 
 # --- W3.2 -- the fatigue cost per room ----------------------------------------
