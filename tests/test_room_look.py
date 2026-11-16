@@ -262,7 +262,8 @@ class TestOneHelper(EvenniaTest):
     def test_the_snapshot_reads_room_lists(self):
         with self._phantom():
             snap = client_state.room_snapshot(self.room1, self.char1)
-        self.assertEqual(snap["characters"], ["Obj2"])
+        # Names NM-T17 lock 2b: the name and the pose apart; Obj2 has none.
+        self.assertEqual(snap["characters"], [{"name": "Obj2", "pose": ""}])
         self.assertEqual(snap["things"], ["a phantom", "Obj"])
 
     def test_the_copy_in_client_state_is_gone(self):

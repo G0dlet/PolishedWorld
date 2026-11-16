@@ -66,7 +66,19 @@ MULTIPLAYER
 -----------
 A recog is written only on its owner, by its owner's command (Names UG6):
 two players recognising the same person write two different Attributes, and
-nothing ticks. The push to the webclient is NM-T17's.
+nothing ticks.
+
+THE ROOM PANEL (NM-T17)
+-----------------------
+The webclient's room panel shows each character as its reader knows them,
+with the pose (world/client_state.py room_snapshot). `recog` and `forget`
+change one reader's names and push that reader alone; `introduce` pushes each
+hearer whose recog it wrote; `pose` changes what everyone in the room reads
+and pushes the room. What a character wears is in the short description
+(OQ-NM9), so `cover` and `uncover` -- the contrib's, subclassed here -- forget
+the memo and push the room when a layer changed (lock 1 A); `wear` and
+`remove` do it in the garment's own methods (typeclasses/clothing.py). A
+gauge crossing pushes nothing: the panel catches up at the room's next push.
 """
 
 import re
@@ -75,6 +87,9 @@ import evennia
 from django.conf import settings
 from evennia import Command
 from evennia.commands.default.account import CmdWho as _EvenniaCmdWho
+from evennia.contrib.game_systems.clothing.clothing import CmdCover as _ContribCmdCover
+from evennia.contrib.game_systems.clothing.clothing import CmdUncover as _ContribCmdUncover
+from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 from evennia.contrib.rpg.rpsystem import rpsystem as _rp
 from evennia.contrib.rpg.rpsystem.rpsystem import CmdEmote as _ContribCmdEmote
 from evennia.contrib.rpg.rpsystem.rpsystem import CmdPose as _ContribCmdPose
@@ -82,6 +97,8 @@ from evennia.contrib.rpg.rpsystem.rpsystem import CmdSay as _ContribCmdSay
 from evennia.contrib.rpg.rpsystem.rpsystem import EmoteError, RecogError, SdescError
 from evennia.utils import ansi, logger
 from evennia.utils.utils import inherits_from
+
+from world import client_state
 
 _CHARACTER = "typeclasses.characters.Character"
 _MULTIMATCH_REGEX = re.compile(settings.SEARCH_MULTIMATCH_REGEX, re.I + re.U)
@@ -218,6 +235,8 @@ class CmdRecog(Command):
             caller.msg("The name will not stick just now.")
             return
         caller.msg(f"You will remember {known_as} as {label}.")
+        # Only the caller's names changed (NM-T17).
+        client_state.push(caller, "room")
 
     def list_names(self):
         caller = self.caller
@@ -248,12 +267,14 @@ def _remember(speaker, hearers):
     """
     Give each hearer the speaker's key as a recog, unless they already hold a
     name for the speaker (NM5). One hearer failing is logged and does not
-    stop the others.
+    stop the others. Each hearer whose recog was written gets their room
+    panel again (NM-T17); one who kept their own name reads nothing new.
     """
     for hearer in hearers:
         try:
             if hearer.recog.get(speaker) is None:
                 hearer.recog.add(speaker, speaker.key)
+                client_state.push(hearer, "room")
         except Exception:
             logger.log_trace(
                 f"Names: introduce could not write {hearer.dbref}'s recog of {speaker.dbref}"
@@ -412,6 +433,7 @@ class CmdForget(Command):
             caller.msg("The name will not leave you just now.")
             return
         caller.msg(f"You let the name {label} go.")
+        client_state.push(caller, "room")
 
 
 # --------------------------------------------------------------------------
@@ -575,7 +597,8 @@ class CmdPose(_ContribCmdPose):
         NM-T7): the references go through parse_emote, so a numbered one
         leaves no `/N`; and a reference that matches no one is the parser's
         line, not a traceback -- the contrib does not catch its EmoteError
-        (run 2026-11-15).
+        (run 2026-11-15). A new pose, or `pose reset`, pushes the room
+        (NM-T17); `pose default` changes nothing shown now and does not.
         """
         caller = self.caller
         pose = self.args
@@ -628,7 +651,57 @@ class CmdPose(_ContribCmdPose):
             target.db.pose = pose
 
         caller.msg(f"Pose will read '{target_name} {pose}'.")
+        # Everyone in the room reads the pose on the panel (NM-T17).
+        client_state.push_room(target.location)
 
+
+# -- cover and uncover: the layers in the short description (NM-T17) ---------
+
+def _layers(char):
+    """Each worn garment's id with the id of what covers it, or None."""
+    try:
+        return {
+            garment.id: getattr(garment.db.covered_by, "id", None)
+            for garment in get_worn_clothes(char)
+        }
+    except Exception:
+        logger.log_trace(f"Names: could not read the layers of {char.dbref}")
+        return None
+
+
+def _layers_changed(char, before):
+    """
+    After `cover` or `uncover`: if a layer changed, the garment others see
+    may have (OQ-NM9 (3)), so the memo is forgotten and the room pushed
+    (lock 1 A). A refused command changed nothing and pushes nothing.
+    """
+    if before is None or _layers(char) == before:
+        return
+    try:
+        char.sdesc.forget()
+    except Exception:
+        logger.log_trace(f"Names: could not forget the memo of {char.dbref}")
+    client_state.push_room(char.location)
+
+
+class CmdCover(_ContribCmdCover):
+    __doc__ = _ContribCmdCover.__doc__
+
+    def func(self):
+        """The contrib's cover (clothing.py:562-597), then the room panel."""
+        before = _layers(self.caller)
+        super().func()
+        _layers_changed(self.caller, before)
+
+
+class CmdUncover(_ContribCmdUncover):
+    __doc__ = _ContribCmdUncover.__doc__
+
+    def func(self):
+        """The contrib's uncover (clothing.py:616-639), then the room panel."""
+        before = _layers(self.caller)
+        super().func()
+        _layers_changed(self.caller, before)
 
 
 # -- who (NM-T14) ------------------------------------------------------------

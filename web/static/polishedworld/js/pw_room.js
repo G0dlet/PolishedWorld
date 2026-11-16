@@ -29,6 +29,12 @@
  * A list is rebuilt only when its entries change, and every name is
  * written with textContent: object keys can hold any characters.
  *
+ * A character is its name on the row and its pose under it, in the muted
+ * colour (Names NM-T17 lock 2b, which replaced NM-T8's lock 1B, look's
+ * whole line). The snapshot's `characters` are {name, pose}; the server
+ * leaves the pose "" when it is the contrib's *is here.*, and the panel
+ * shows a pose only when there is one. `look` keeps the whole line (K8).
+ *
  * The location picture (visual pass V3.4; Adam took every recommendation at
  * STOPP 0). The room's name gets data-picture, room_indoor or room_outdoor
  * by the snapshot's `indoor`, and the stylesheet draws the file as the
@@ -42,7 +48,8 @@
     var LISTS = ["exits", "characters", "things"];
 
     // The entries a list row shows for a snapshot: {text, key}, where key
-    // is what a click sends (exits only, null otherwise).
+    // is what a click sends (exits only, null otherwise); a character also
+    // has its pose, "" when none is shown.
     function listItems(snapshot, list) {
         if (!snapshot || snapshot.name === null) {
             return [];
@@ -50,6 +57,13 @@
         return snapshot[list].map(function (entry) {
             if (list === "exits") {
                 return { text: String(entry.name), key: String(entry.key) };
+            }
+            if (list === "characters") {
+                return {
+                    text: String(entry.name),
+                    key: null,
+                    pose: entry.pose ? String(entry.pose) : "",
+                };
             }
             return { text: String(entry), key: null };
         });
@@ -92,6 +106,12 @@
                 li.textContent = item.text;
             } else {
                 li.appendChild(exitLink(item));
+            }
+            if (item.pose) {
+                var pose = document.createElement("span");
+                pose.className = "pw-room-pose";
+                pose.textContent = item.pose;
+                li.appendChild(pose);
             }
             return li;
         }

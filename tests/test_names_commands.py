@@ -346,9 +346,12 @@ class _Introduce(_Names):
         return self.call(_introduce_cmd(), args, caller=self.char2)
 
     def lines(self, char):
+        """The text lines `char` got; a room-panel push (NM-T17) is no line."""
         out = []
         for call in char.msg.call_args_list:
-            text = call.kwargs.get("text")
+            if "text" not in call.kwargs and not call.args:
+                continue
+            text = call.kwargs.get("text", call.args[0] if call.args else None)
             out.append(text[0] if isinstance(text, tuple) else text)
         return out
 

@@ -322,8 +322,9 @@ class Room(ObjectParent, ExtendedRoom, DefaultRoom):
         A line per awake character, with its pose (Names K8, NM14; NM-T8).
 
         *A broad-shouldered man is here.* -- each line is
-        `room_text.character_line`, the one the webclient's room panel
-        shows too (NM-T8 lock 1B). Statues of logged-out characters are
+        `room_text.character_line`; the webclient's room panel shows the
+        same line in two parts, `room_text.character_parts` (NM-T17 lock
+        2b, which replaced NM-T8's lock 1B). Statues of logged-out characters are
         listed under 'You see:' by get_display_things instead (WC14). Which
         characters count is decided once, in `world.room_text.room_lists`.
         "" when `room_lists=False` is passed (W5.4).

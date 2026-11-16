@@ -36,8 +36,9 @@ pass up to DefaultCharacter's hooks. Looking at anything else -- an object,
 `room_lists` is the one place the room's lists are chosen (lock 4C): the
 Room's display hooks (typeclasses/rooms.py) format them for look, and the
 webclient's room snapshot (world/client_state.py) sends them as data.
-`character_line` is the one line an awake character gets in both (Names
-NM-T8): a line each, with its pose.
+`character_line` is the one line an awake character gets in look (Names
+NM-T8): a line each, with its pose; `character_parts` is the same line in
+two parts for the snapshot, the pose left out when it is *is here.* (NM-T17).
 """
 
 from django.conf import settings
@@ -96,6 +97,36 @@ def character_line(char, viewer, **kwargs):
         str: the line, with no colour of its own.
     """
     return char.get_display_name(viewer, **{**kwargs, "pose": True, "ref": "t"})
+
+
+# The contrib's default pose (rpsystem.py:1566, backfilled by NM-T4): it says
+# nothing a list of the people present does not, so the panel leaves it out.
+DEFAULT_POSE = "is here."
+
+
+def character_parts(char, viewer, **kwargs):
+    """
+    The room's line for one awake character in two parts, for the webclient's
+    location panel (Names NM-T17 lock 2b, which replaced NM-T8's lock 1B):
+    the name on its row, the pose under it.
+
+    The name is `character_line`'s without the pose, so whenever the pose is
+    shown, `name + " " + pose` is look's line. The pose is the one look shows
+    (`get_posed_sdesc`: the current one, else the default), or `""` when that
+    is the contrib's *is here.* -- a character's own default pose is shown,
+    as look shows it. `look` itself keeps *is here.* (K8).
+
+    Args:
+        char (Object): an awake character, from `room_lists(...)["characters"]`.
+        viewer (Object): who reads the line.
+        **kwargs: passed on to `get_display_name`.
+
+    Returns:
+        tuple[str, str]: `(name, pose)`, with no colour of their own.
+    """
+    name = char.get_display_name(viewer, **{**kwargs, "pose": False, "ref": "t"})
+    pose = char.db.pose or char.db.pose_default or ""
+    return name, ("" if pose == DEFAULT_POSE else pose)
 
 
 def room_lists(room, viewer, **kwargs):

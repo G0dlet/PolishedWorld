@@ -45,16 +45,19 @@ from commands.names_commands import (
     CmdSay,
     CmdPose,
     CmdWho,
+    CmdCover,
+    CmdUncover,
 )
 # Clothing commands. Verified: NOT re-exported from the package __init__, must
 # come from the submodule. We cherry-pick individual commands rather than adding
 # ClothedCharacterCmdSet, which subclasses Evennia's DEFAULT CharacterCmdSet
 # (clothing.py:702) and would re-run a foreign at_cmdset_creation on top of ours.
+# `cover` and `uncover` are the contrib's, subclassed in names_commands so the
+# room panel follows a changed layer (Names NM-T17); `wear` and `remove` push
+# from the garment's own methods (typeclasses/clothing.py).
 from evennia.contrib.game_systems.clothing.clothing import (
     CmdWear,
     CmdRemove,
-    CmdCover,
-    CmdUncover,
 )
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
