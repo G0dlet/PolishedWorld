@@ -7,7 +7,7 @@ Every expected number is the book's: Alaric's tale (DEX 13, INT 16; pp. 10,
 code under test.
 """
 
-from evennia.utils.test_resources import EvenniaTestCase
+from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
 from world import body
 from world.fatigue import LEVELS
@@ -97,3 +97,142 @@ class TestFatigueWords(EvenniaTestCase):
             body.combat_actions(13, 16, "weary")
         with self.assertRaises(ValueError):
             body.strike_rank(13, 16, 0, "weary")
+
+
+class TestDamageModifier(EvenniaTestCase):
+    """
+    Pressures the table typed from p. 10: a band shifted by one (BDM4), a
+    wrong row, and the refusal outside 1-100 (BDM5).
+    """
+
+    # Both ends of every row, typed from the book.
+    BOOK = (
+        (1, 5, "-1D8"), (6, 10, "-1D6"), (11, 15, "-1D4"), (16, 20, "-1D2"),
+        (21, 25, "+0"), (26, 30, "+1D2"), (31, 35, "+1D4"), (36, 40, "+1D6"),
+        (41, 45, "+1D8"), (46, 50, "+1D10"), (51, 60, "+1D12"),
+        (61, 70, "+2D6"), (71, 80, "+2D8"), (81, 90, "+2D10"),
+        (91, 100, "+2D12"),
+    )
+
+    def test_alaric(self):
+        # STR 12 + SIZ 14 = 26 -> +1D2 (p. 11).
+        self.assertEqual(body.damage_modifier(12, 14), (1, 1, 2))
+        self.assertEqual(body.damage_modifier_text(12, 14), "+1D2")
+
+    def test_every_row_at_both_ends(self):
+        for low, high, text in self.BOOK:
+            for total in (low, high):
+                with self.subTest(total=total):
+                    self.assertEqual(body.damage_modifier_text(total, 0), text)
+
+    def test_the_data_form(self):
+        self.assertEqual(body.damage_modifier(10, 10), (-1, 1, 2))
+        self.assertEqual(body.damage_modifier(12, 12), (0, 0, 0))
+        self.assertEqual(body.damage_modifier(50, 50), (1, 2, 12))
+
+    def test_refuses_outside_the_table(self):
+        for total in (0, 101):
+            with self.subTest(total=total):
+                with self.assertRaises(ValueError):
+                    body.damage_modifier(total, 0)
+
+
+class TestHitPointsMax(EvenniaTestCase):
+    """
+    Pressures the table on p. 11: the arm's flat first step (BDM6 gives it
+    the leg's row), a band shifted by one, and the "+5 -> +1" past 40.
+    """
+
+    # The book's eight columns per row, typed, not computed.
+    BOOK = {
+        "leg": (1, 2, 3, 4, 5, 6, 7, 8),
+        "abdomen": (2, 3, 4, 5, 6, 7, 8, 9),
+        "chest": (3, 4, 5, 6, 7, 8, 9, 10),
+        "arm": (1, 1, 2, 3, 4, 5, 6, 7),
+        "head": (1, 2, 3, 4, 5, 6, 7, 8),
+    }
+    ROW = {
+        "head": "head", "chest": "chest", "abdomen": "abdomen",
+        "right_arm": "arm", "left_arm": "arm",
+        "right_leg": "leg", "left_leg": "leg",
+    }
+
+    def test_seven_locations(self):
+        self.assertEqual(set(body.hit_points_max(10, 10)), set(self.ROW))
+        self.assertEqual(len(body.LOCATIONS), 7)
+
+    def test_alaric(self):
+        # CON 7 + SIZ 14 = 21 (p. 11).
+        self.assertEqual(body.hit_points_max(7, 14), {
+            "right_leg": 5, "left_leg": 5, "abdomen": 6, "chest": 7,
+            "right_arm": 4, "left_arm": 4, "head": 5,
+        })
+
+    def test_every_cell_at_both_ends_of_its_band(self):
+        for column in range(8):
+            for total in (5 * column + 1, 5 * column + 5):
+                result = body.hit_points_max(total, 0)
+                for location, row in self.ROW.items():
+                    with self.subTest(total=total, location=location):
+                        self.assertEqual(result[location], self.BOOK[row][column])
+
+    def test_past_forty(self):
+        for total in (41, 45):
+            with self.subTest(total=total):
+                self.assertEqual(body.hit_points_max(total, 0), {
+                    "head": 9, "chest": 11, "abdomen": 10,
+                    "right_arm": 8, "left_arm": 8,
+                    "right_leg": 9, "left_leg": 9,
+                })
+
+    def test_refuses_below_the_table(self):
+        with self.assertRaises(ValueError):
+            body.hit_points_max(0, 0)
+
+
+class TestDerived(EvenniaTest):
+    """
+    Pressures BD7's "read on every read": a value stored or cached would miss
+    the fatigue and the DEX changed after the first read. The placeholder
+    characteristics are all 10.
+    """
+
+    PLACEHOLDER_LOCATIONS = {
+        "head": 4, "chest": 6, "abdomen": 5,
+        "right_arm": 3, "left_arm": 3, "right_leg": 4, "left_leg": 4,
+    }
+
+    def test_the_placeholder_body(self):
+        self.assertEqual(self.char1.fatigue_desc(), "fresh")
+        self.assertEqual(body.derived(self.char1), {
+            "combat_actions": 2,
+            "strike_rank": 10,
+            "damage_modifier": (-1, 1, 2),
+            "hit_points": self.PLACEHOLDER_LOCATIONS,
+        })
+
+    def test_fatigue_is_read_from_the_gauge(self):
+        for value, actions, rank in ((10, 2, 6), (0, 1, 4)):
+            with self.subTest(fatigue=value):
+                self.char1.traits.fatigue.current = value
+                result = body.derived(self.char1)
+                self.assertEqual(result["combat_actions"], actions)
+                self.assertEqual(result["strike_rank"], rank)
+
+    def test_a_changed_characteristic_shows_on_the_next_read(self):
+        body.derived(self.char1)
+        self.char1.stats.dex.base = 16
+        self.assertEqual(body.derived(self.char1)["combat_actions"], 3)
+
+    def test_characteristics_are_read_with_their_modifier(self):
+        self.char1.stats.dex.mod = 6
+        self.assertEqual(body.derived(self.char1)["combat_actions"], 3)
+
+    def test_no_fatigue_gauge_reads_as_fresh(self):
+        self.char1.traits.remove("fatigue")
+        self.assertEqual(body.derived(self.char1)["strike_rank"], 10)
+
+    def test_a_body_without_a_characteristic_reads_none(self):
+        self.char1.stats.remove("siz")
+        self.assertIsNone(body.derived(self.char1))
+        self.assertIsNone(body.derived(self.room1))
