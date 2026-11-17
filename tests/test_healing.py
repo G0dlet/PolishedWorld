@@ -70,6 +70,37 @@ class TestResilience(HealingTestBase):
         self.assertEqual(self.interval, 48 * H)
 
 
+class TestResilienceThroughTheNet(HealingTestBase):
+    """
+    Pressures BD6: healing reads the Resilience trait when there is one and
+    CON x 2 when there is not. BDM7 (the trait ignored) fails the 45 test;
+    BDM8 (no trait, no value) fails the no-trait test and stops healing.
+    """
+
+    def _add_resilience(self, value):
+        self.char1.skills.add(
+            "resilience", "Resilience", trait_type="counter",
+            base=value, current=value, mod=0, min=0,
+        )
+
+    def test_without_the_trait_con_twice(self):
+        self.assertIsNone(self.char1.skills.get("resilience"))
+        self.assertEqual(healing.resilience(self.char1), 20)
+        self.assertEqual(healing.accrue(self.char1, 48 * H), 1)
+
+    def test_the_trait_chooses_the_row(self):
+        self._add_resilience(45)
+        self.assertEqual(healing.resilience(self.char1), 45)
+        self.assertEqual(healing.interval_for(healing.resilience(self.char1)), 36 * H)
+        # 36 hours heal a point at 45; at 20 they would not.
+        self.assertEqual(healing.accrue(self.char1, 36 * H), 1)
+
+    def test_neither_trait_nor_con_grants_nothing(self):
+        self.char1.stats.remove("con")
+        self.assertIsNone(healing.resilience(self.char1))
+        self.assertEqual(healing.accrue(self.char1, 500 * H), 0)
+
+
 class TestAccrue(HealingTestBase):
     """
     Pressures the counter: SL-M14 (remainder dropped on a grant), SL-M15

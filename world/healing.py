@@ -2,10 +2,10 @@
 Natural healing (survival loop S2.1, decisions SL6 and RP-L4).
 
 Legend's Natural Healing Table (core p. 86): one hit point per a number of
-hours, chosen by the Resilience value. No Resilience skill exists yet, so its
-base, CON x 2 (p. 53), stands in for it (Foraging RP-L4) -- `resilience()` is
-the one place that reads it, and the table below keeps the book's rows as
-printed, so a real skill later changes one line and not the table.
+hours, chosen by the Resilience value. `resilience()` is the one place that
+reads it, through `world.skill_base.value_of` (Body decomposition BD6): the
+trait's value once the character has the skill, its base CON x 2 (p. 14)
+until then. The table below keeps the book's rows as printed.
 
 The clock is game time: the survival tick hands `accrue()` the game seconds
 since its last run (`survival_ticker._tick_game_seconds`). Seconds collect in
@@ -20,7 +20,7 @@ healing is not an economic event (SL6).
 
 import math
 
-from world import client_state
+from world import client_state, skill_base
 from world.survival_buffs import Dehydrated, Starving
 
 HOUR = 3600
@@ -62,19 +62,22 @@ def interval_for(resilience):
 
 def resilience(char):
     """
-    The Resilience value the table is read with: CON x 2 (RP-L4).
+    The Resilience value the table is read with (BD6).
+
+    The Resilience trait's value if the character has it; its base, CON x 2
+    (p. 14), if not -- `skill_base.value_of`'s safety net, so a character a
+    backfill missed still heals. When Resilience improves, the character
+    heals faster: the table is the book's, keyed on the skill.
 
     Deliberately not `world.chargen.derive_health_max`, which is also CON x 2
     today: hit points and Resilience share the number by coincidence, and
     Stage 5's hit locations may change the hit-point formula.
 
     Returns:
-        int or None: None when the character has no CON.
+        int, float or None: None when the character has neither the trait
+            nor CON.
     """
-    con = char.stats.get("con")
-    if con is None:
-        return None
-    return int(con.value * 2)
+    return skill_base.value_of(char, "resilience")
 
 
 def is_blocked(char):
