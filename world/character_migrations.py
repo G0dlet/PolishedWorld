@@ -24,6 +24,7 @@ from evennia.contrib.rpg.rpsystem import RPSystemCmdSet
 from evennia.utils import logger
 
 from typeclasses.characters import Character
+from world import skill_base
 from world.sdesc import PLACEHOLDER
 
 
@@ -44,14 +45,8 @@ HUNTING_SKILL_DEFAULTS = {
     "current": 25,
     "mod": 0,
     "min": 0,
-    "descs": {
-        0: "helpless",
-        20: "novice",
-        40: "competent",
-        60: "tracker",
-        80: "hunter",
-        95: "master hunter",
-    },
+    # The same ladder creation stores (BD-T5b).
+    "descs": skill_base.ladder("hunting"),
 }
 
 
@@ -165,5 +160,140 @@ def backfill_names():
 
     return (
         f"backfill_names: changed {len(changed)} {changed}; "
+        f"unchanged {unchanged}; errors {len(errors)} {errors}."
+    )
+
+
+# ---------------------------------------------------------------------------
+# The body (Stage 5, BD-T5): Resilience, Evade, Unarmed and Brawn
+# ---------------------------------------------------------------------------
+
+
+def backfill_combat_skills():
+    """
+    Give every existing character the four combat skills it lacks.
+
+    Body decomposition BD-T5 (lock BD6; Legend core p. 14). For each
+    character in `Character.objects.all_family()` and each key of
+    `skill_base.COMBAT_SKILL_TRAITS` the character has no trait for, the
+    trait is added exactly as `Character.at_object_creation` adds it
+    (`skill_base.trait_kwargs`), with `base` and `current` at the sum of the
+    character's OWN characteristics. Not a flat default, as
+    `backfill_hunting` used before character creation existed: a character
+    who chose CON 14 gets Resilience 28.
+
+    A skill that is present is left as it is, whatever its value, which is
+    what makes a second run idle (the module docstring on `force=True`). A
+    character whose base cannot be worked out for a missing skill -- it has
+    no such characteristic -- is skipped whole and named, so no character is
+    left with three of the four. Until it is backfilled, every reader still
+    gets its base through `skill_base.value_of` (BD6's net).
+
+    Nothing is written to `skill_xp`: an absent entry is derived on read from
+    the skill's `.current` (CC5/CC7).
+
+    Multiplayer: one synchronous call on Twisted's single-threaded reactor;
+    no command runs between two of its writes. A connected character's
+    `skills` and `progress` show the four on the next read.
+
+    Returns:
+        str: a summary for `@py ...; self.msg(backfill_combat_skills())`.
+    """
+    changed, unchanged, skipped, errors = [], 0, [], []
+
+    for char in Character.objects.all_family():
+        try:
+            missing = [
+                key for key in skill_base.COMBAT_SKILL_TRAITS
+                if char.skills.get(key) is None
+            ]
+            if not missing:
+                unchanged += 1
+                continue
+
+            # Every base before the first write, so a refusal writes nothing.
+            kwargs = {key: skill_base.trait_kwargs(char, key) for key in missing}
+            no_base = [key for key in missing if kwargs[key] is None]
+            if no_base:
+                skipped.append(f"{char.key} (no base for {', '.join(no_base)})")
+                continue
+
+            for key in missing:
+                name = skill_base.COMBAT_SKILL_TRAITS[key]["name"]
+                char.skills.add(key, name, **kwargs[key])
+            changed.append(f"{char.key} ({', '.join(missing)})")
+        except Exception as err:
+            # One broken character must not abort the whole batch.
+            logger.log_trace(f"backfill_combat_skills: {getattr(char, 'key', char)!r}")
+            errors.append(f"{getattr(char, 'key', char)} (ERROR: {err})")
+
+    return (
+        f"backfill_combat_skills: changed {len(changed)} {changed}; "
+        f"unchanged {unchanged}; skipped {len(skipped)} {skipped}; "
+        f"errors {len(errors)} {errors}."
+    )
+
+
+# ---------------------------------------------------------------------------
+# The skill ladders (Stage 5, BD-T5b): bands that start where they say
+# ---------------------------------------------------------------------------
+
+
+def backfill_skill_ladders():
+    """
+    Give every existing character's skills the ladders creation stores now.
+
+    Body decomposition BD-T5b; BACKLOG *`descs` tables are read as upper
+    bounds but shaped like lower bounds*, decided for the skills 2026-11-22.
+    A skill's six words belong to the bands 0-19, 20-39, 40-59, 60-79, 80-94
+    and 95 upward. The traits contrib reads a `descs` key as an inclusive
+    upper bound, and the five older skills were keyed by band bottoms
+    (0/20/40/60/80/95), so they read one rung early. A trait keeps the table
+    it was created with; this writes `skill_base.ladder(key)` onto every
+    skill a character has whose stored table differs.
+
+    Only the table is written, through the trait's own `descs` setter:
+    `base`, `current` and `mod` are not touched, no trait is removed or
+    re-added (the module docstring on `force=True`), no skill is invented
+    for a character that lacks it, and nothing is written to `skill_xp`.
+    A skill whose table is already the ladder is left alone, so a second
+    run reports `changed 0`.
+
+    What a player sees change: the word beside a skill between two bands
+    (Athletics 25 read *capable*, now *weak*), and the "reaches a new tier"
+    line, which now comes at 20, 40, 60, 80 and 95. No roll reads a word.
+
+    Multiplayer: one synchronous call on Twisted's single-threaded reactor;
+    no command runs between two of its writes.
+
+    Returns:
+        str: a summary for `@py ...; self.msg(backfill_skill_ladders())`.
+    """
+    changed, unchanged, errors = [], 0, []
+
+    for char in Character.objects.all_family():
+        try:
+            done = []
+            for key in sorted(skill_base.SKILL_LADDERS):
+                skill = char.skills.get(key)
+                if skill is None:
+                    continue
+                wanted = skill_base.ladder(key)
+                stored = skill.descs
+                if stored is not None and list(stored.items()) == list(wanted.items()):
+                    continue
+                skill.descs = wanted
+                done.append(key)
+            if done:
+                changed.append(f"{char.key} ({', '.join(done)})")
+            else:
+                unchanged += 1
+        except Exception as err:
+            # One broken character must not abort the whole batch.
+            logger.log_trace(f"backfill_skill_ladders: {getattr(char, 'key', char)!r}")
+            errors.append(f"{getattr(char, 'key', char)} (ERROR: {err})")
+
+    return (
+        f"backfill_skill_ladders: changed {len(changed)} {changed}; "
         f"unchanged {unchanged}; errors {len(errors)} {errors}."
     )

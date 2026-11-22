@@ -31,15 +31,24 @@ MENU = "world.chargen_menu"
 START = {"str": 10, "dex": 10, "con": 10, "siz": 10, "int": 10, "pow": 10, "cha": 10}
 FIXTURE = {"str": 7, "dex": 9, "con": 14, "siz": 8, "int": 12, "pow": 17, "cha": 13}
 FIXTURE_LINE = "7 9 14 8 12 17 13"
+# STR 12, DEX 13, CON 7, SIZ 14, INT 16, POW 8, CHA 10: 80 points.
+BODY_LINE = "12 13 7 14 16 8 10"
+COMBAT_SENTENCE = "These three are read in combat, which is not in the game yet."
 
 # Derived by hand from FIXTURE: athletics STR+DEX, perception INT+POW,
-# stealth DEX+INT, craft DEX+INT, hunting INT+CON.
+# stealth DEX+INT, craft DEX+INT, hunting INT+CON; and the four combat skills
+# (BD5, p. 14): brawn STR+SIZ, evade DEX x 2, resilience CON x 2, unarmed
+# STR+DEX.
 EXPECTED_BASES = {
     "athletics": 16,
     "perception": 29,
     "stealth": 21,
     "craft": 21,
     "hunting": 26,
+    "brawn": 15,
+    "evade": 18,
+    "resilience": 28,
+    "unarmed": 16,
 }
 # The tanner's +10 craft on top.
 EXPECTED_FINAL = dict(EXPECTED_BASES, craft=31)
@@ -161,7 +170,36 @@ class TestAllocateNode(_MenuFixture):
         self.assertIn("Spent 70 of 80.", text)
         self.assertIn("10 left to spend", text)
         self.assertIn("Raw muscle", text)
-        self.assertIn("Feeds hunting, health.", text)
+        self.assertIn("Feeds hunting, resilience, health.", text)
+        # BD5: SIZ has its first reader, and DEX feeds Evade and Unarmed.
+        self.assertIn("Feeds brawn, Damage Modifier.", text)
+        self.assertIn(
+            "Feeds athletics, stealth, craft, evade, unarmed, "
+            "Combat Actions, Strike Rank.",
+            text,
+        )
+
+    def test_each_derived_value_is_named_by_both_its_characteristics(self):
+        # BD9: the choice cannot be redone, so the screen says what it feeds.
+        rows = {
+            line.split()[0]: line
+            for line in self.send("look").splitlines()
+            if line.split()
+            and line.split()[0] in ("STR", "DEX", "CON", "SIZ", "INT", "POW", "CHA")
+        }
+        for stat in ("DEX", "INT"):
+            with self.subTest(stat=stat):
+                self.assertIn("Combat Actions, Strike Rank.", rows[stat])
+                self.assertNotIn("Damage Modifier", rows[stat])
+        for stat in ("STR", "SIZ"):
+            with self.subTest(stat=stat):
+                self.assertIn("Damage Modifier.", rows[stat])
+                self.assertNotIn("Combat Actions", rows[stat])
+        for stat in ("CON", "POW", "CHA"):
+            with self.subTest(stat=stat):
+                self.assertNotIn("Combat Actions", rows[stat])
+                self.assertNotIn("Strike Rank", rows[stat])
+                self.assertNotIn("Damage Modifier", rows[stat])
 
     def test_illegal_line_stays_and_lists_every_violation(self):
         text = self.send("str 25 dex 3")
@@ -196,6 +234,33 @@ class TestConfirmScreens(_MenuFixture):
         self.assertIn(
             "athletics 16, perception 29, stealth 21, craft 21, hunting 26", text
         )
+
+    def test_allocation_confirm_shows_the_three_derived_values(self):
+        # The four characteristics that matter are Alaric's (core p. 9):
+        # STR 12, DEX 13, SIZ 14, INT 16. His own seven sum to 86, so the
+        # other three are lowered to make a legal 80.
+        text = self.send(BODY_LINE, "next")
+        self.assertEqual(self.node(), "node_confirm_allocation")
+        self.assertIn(
+            "Combat Actions 3, Strike Rank 15, Damage Modifier +1D2", text
+        )
+
+    def test_the_derived_line_stands_under_health_max(self):
+        lines = self.send(BODY_LINE, "next").splitlines()
+        at = lines.index("Health max: 14")
+        self.assertEqual(
+            lines[at + 1], "Combat Actions 3, Strike Rank 15, Damage Modifier +1D2"
+        )
+        self.assertEqual(lines[at + 2], COMBAT_SENTENCE)
+
+    def test_strike_rank_reads_int_as_well_as_dex(self):
+        # DEX 13 with INT 6: the average rounds up to 10, not 13.
+        text = self.send("13 13 13 13 6 11 11", "next")
+        self.assertIn("Combat Actions 2, Strike Rank 10, Damage Modifier +1D2", text)
+
+    def test_a_weak_small_body_reads_a_minus(self):
+        text = self.send(FIXTURE_LINE, "next")
+        self.assertIn("Combat Actions 2, Strike Rank 11, Damage Modifier -1D4", text)
 
     def test_back_keeps_the_draft(self):
         text = self.send(FIXTURE_LINE, "next", "back")

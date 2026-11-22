@@ -735,14 +735,28 @@ class TestFeedbackCopy(EvenniaTest):
         self.assertNotIn(_BAR_FULL, text)
 
     def test_a_tier_crossing_celebrates_exactly_once(self):
-        # Craft's desc bands put a boundary at 40 -> the tier changes on the tick
-        # that reaches 41. Crossings are strictly rarer after C.1, so this line
-        # is now the rarest thing the method can say -- and it must still fire.
+        # Craft's bands start a tier at 40 (BD-T5b: 40-59 is *apprentice*), so
+        # the tier changes on the tick that reaches 40. Crossings are strictly
+        # rarer after C.1, so this line is now the rarest thing the method can
+        # say -- and it must still fire.
+        self.craft.current = 39
+        self.char1.skill_xp.add("craft", xp_threshold(40) - 1 - xp_threshold(39))
+
+        text = self._feedback(1)
+
+        self.assertIn("40%", text)   # receipt: the tick levelled 39 -> 40
+        self.assertEqual(text.count("reaches a new tier"), 1)
+        self.assertIn("apprentice", text)
+
+    def test_a_level_inside_a_band_names_no_tier(self):
+        # 40 -> 41 stays in 40-59. Keyed by band bottoms (0/20/40/...), the
+        # contrib read 41 as the next tier and the line fired here.
         self.char1.skill_xp.add("craft", xp_threshold(41) - 1 - xp_threshold(40))
 
         text = self._feedback(1)
 
-        self.assertEqual(text.count("reaches a new tier"), 1)
+        self.assertIn("41%", text)
+        self.assertNotIn("reaches a new tier", text)
 
     def test_a_gated_out_attempt_says_nothing(self):
         self.assertEqual(self.char1._improvement_feedback(None), "")

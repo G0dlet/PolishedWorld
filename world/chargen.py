@@ -21,9 +21,15 @@ DERIVED SKILL BASES (decision CC5, Legend p.13-14)
 Athletics STR+DEX, Perception INT+POW, Stealth DEX+INT and Craft DEX+INT are
 Legend's own. Hunting is the project's skill; its pair is Legend's Track
 (INT+CON, p.65) -- the closest canonical analogue, a pair no other skill uses,
-and CON's only skill reader (OQ1, locked 2026-10-26). Derivation reads the
-allocation's integers, never a trait's `.value`: a StaticTrait's value is
-`(base + mod) * mult` with `mult = 1.0`, i.e. a float.
+and, until Resilience, CON's only skill reader (OQ1, locked 2026-10-26).
+
+Brawn STR+SIZ, Evade DEX x 2, Resilience CON x 2 and Unarmed STR+DEX are the
+four Common skills combat reads (Body decomposition BD5, p. 14). They are
+traits from creation (BD6); what a character's trait is called and how it
+reads lives in `world.skill_base.COMBAT_SKILL_TRAITS`, the pair lives here.
+
+Derivation reads the allocation's integers, never a trait's `.value`: a
+StaticTrait's value is `(base + mod) * mult` with `mult = 1.0`, i.e. a float.
 
 WHAT `apply_allocation()` DOES NOT DO
 -------------------------------------
@@ -55,13 +61,18 @@ CHAR_MAX = 18
 # The seven characteristics, keyed as in Character.at_object_creation.
 STAT_KEYS = ("str", "dex", "con", "siz", "int", "pow", "cha")
 
-# Skill -> the two characteristics its base is the sum of (CC5, OQ1).
+# Skill -> the two characteristics its base is the sum of (CC5, OQ1; BD5).
+# A characteristic named twice is the book's "x2" (p. 14).
 SKILL_BASE_PAIRS = {
     "athletics": ("str", "dex"),
     "perception": ("int", "pow"),
     "stealth": ("dex", "int"),
     "craft": ("dex", "int"),
     "hunting": ("int", "con"),
+    "brawn": ("str", "siz"),
+    "evade": ("dex", "dex"),
+    "resilience": ("con", "con"),
+    "unarmed": ("str", "dex"),
 }
 
 # The Attribute SkillXPHandler stores banked XP in (typeclasses/characters.py,
@@ -354,6 +365,13 @@ def start_or_resume_chargen(character):
     )
 
 
+def pair_text(first, second):
+    """A pair as the book prints it: "STR+DEX", or "CON x2" for one twice."""
+    if first == second:
+        return f"{first.upper()} x2"
+    return f"{first.upper()}+{second.upper()}"
+
+
 def help_text():
     """
     The full `help chargen` text, built from the values the menu enforces.
@@ -365,7 +383,7 @@ def help_text():
     """
     stats = " ".join(key.upper() for key in STAT_KEYS)
     skills = ", ".join(
-        f"{skill.capitalize()} ({first.upper()}+{second.upper()})"
+        f"{skill.capitalize()} ({pair_text(first, second)})"
         for skill, (first, second) in SKILL_BASE_PAIRS.items()
     )
     professions = ", ".join(sorted(PROFESSIONS))

@@ -31,6 +31,7 @@ from world import activity_log
 from world import gametime_utils
 from world import healing
 from world import sdesc as sdesc_rules
+from world import skill_base
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -454,6 +455,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         # numbers survive only on characters made without one (test
         # fixtures, a builder's `create`). Counter traits: `.base` is the
         # starting score, `.current` the score after improvement.
+        #
+        # The six words of each skill come from `skill_base.ladder()`, keyed
+        # by the top of each band (0-19, 20-39, ... 95 upward): the traits
+        # contrib reads a `descs` key as an inclusive upper bound (BD-T5b).
         self.skills.add(
             "perception", "Perception",
             trait_type="counter",
@@ -465,14 +470,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # OWN SETTER -- `.current = 105` on a max=100 trait silently stores
             # 100 -- which would break `.current == level_for_xp(total)` where no
             # reader could see it. The curve is the ceiling now, not this field.
-            descs={
-                0: "oblivious",
-                20: "unaware",
-                40: "attentive",
-                60: "observant",
-                80: "sharp",
-                95: "eagle-eyed"
-            }
+            descs=skill_base.ladder("perception"),
         )
         
         self.skills.add(
@@ -483,14 +481,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             mod=0,
             min=0,
             # No max (D.2, P-7) -- see the note on `perception` above.
-            descs={
-                0: "clumsy",
-                20: "obvious",
-                40: "careful",
-                60: "sneaky",
-                80: "stealthy",
-                95: "invisible"
-            }
+            descs=skill_base.ladder("stealth"),
         )
         
         self.skills.add(
@@ -501,14 +492,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             mod=0,
             min=0,
             # No max (D.2, P-7) -- see the note on `perception` above.
-            descs={
-                0: "feeble",
-                20: "weak",
-                40: "capable",
-                60: "athletic",
-                80: "strong",
-                95: "mighty"
-            }
+            descs=skill_base.ladder("athletics"),
         )
 
         # Generic Craft skill. Mongoose Legend: Craft is an Advanced skill with
@@ -528,14 +512,7 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # No max (D.2, P-7) -- see the note on `perception` above. The cap
             # this comment used to defer is lifted; skill_check() has always
             # handled >100 faithfully, and improvement_roll now does too.
-            descs={
-                0: "unskilled",
-                20: "novice",
-                40: "apprentice",
-                60: "journeyman",
-                80: "skilled",
-                95: "master",
-            },
+            descs=skill_base.ladder("craft"),
         )
 
         # Hunting skill. Custom PolishedWorld skill -- Legend has no "Hunting"
@@ -557,15 +534,22 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             mod=0,
             min=0,
             # No max (D.2, P-7) -- see the note on `perception` above.
-            descs={
-                0: "helpless",
-                20: "novice",
-                40: "competent",
-                60: "tracker",
-                80: "hunter",
-                95: "master hunter",
-            },
+            descs=skill_base.ladder("hunting"),
         )
+
+        # Resilience, Evade, Unarmed and Brawn: the four Common skills combat
+        # reads (Body decomposition BD5, BD6; Legend p. 14). Built from the
+        # one table the backfill also reads (world.character_migrations), so
+        # a backfilled character is identical to a fresh one. The placeholder
+        # is the placeholder characteristics' own sum, as `craft` above, so
+        # a fixture's Resilience is CON x 2 and natural healing's numbers do
+        # not move; the chargen menu re-derives all four (CC5).
+        # No max (D.2, P-7) -- see the note on `perception` above.
+        for skill_key, spec in skill_base.COMBAT_SKILL_TRAITS.items():
+            self.skills.add(
+                skill_key, spec["name"],
+                **skill_base.trait_kwargs(self, skill_key),
+            )
 
     def at_post_unpuppet(self, account=None, session=None, **kwargs):
         """
@@ -1095,9 +1079,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         not the bound: this reader keeps Evennia's own rule -- each key is an
         inclusive UPPER bound, anything above the top key takes the top label
         -- and only swaps the value for `percent()`. That keeps health on the
-        same reading as the other gauges and the skills, and leaves the open
-        question of which reading is meant (BACKLOG *`descs` tables are read
-        as upper bounds but shaped like lower bounds*) to its own entry.
+        same reading as the other gauges and the skills. Which bands the
+        tables mean (BACKLOG *`descs` tables are read as upper bounds but
+        shaped like lower bounds*) is decided for the skills (BD-T5b: keyed
+        by each band's top) and still open for hunger and thirst.
 
         Under that rule the stored table reads naturally: `dead` only at
         exactly 0, `near death` above 0 up to 10%, `healthy` above 90%. The
@@ -1331,9 +1316,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     # D.1, DISPLAY ONLY. Skill keys that some call-site actually routes through
     # attempt_skill_improvement, so `progress` can say "(not yet trainable)"
     # instead of drawing a bar that is guaranteed never to move. Perception,
-    # stealth and athletics have no call-site at all; an empty bar beside them
-    # reads as broken, and hiding the rows would hide the fact that three of
-    # five skills are untrained content.
+    # stealth and athletics have no call-site at all, and Resilience, Evade,
+    # Unarmed and Brawn none until Stage 5's WN and ML slices (BD8); an empty
+    # bar beside them reads as broken, and hiding the rows would hide the fact
+    # that seven of nine skills are untrained content.
     #
     # ⚠️ NOT A GATE. The policy of which uses teach is "which call-sites exist"
     # (P-6, six of them), and this set must never be read to decide whether a

@@ -147,7 +147,7 @@ class TestProgressCommand(EvenniaCommandTest):
     def test_an_untrainable_skill_says_so_instead_of_showing_a_dead_bar(self):
         """
         Stealth has no call-site, so its bar could never move. An empty bar there
-        reads as broken and a hidden row hides the fact that three of five skills
+        reads as broken and a hidden row hides the fact that seven of nine skills
         are untrained content; the caption is the third option.
         """
         out = self._output()
@@ -155,6 +155,19 @@ class TestProgressCommand(EvenniaCommandTest):
         self.assertIn("not yet trainable", out)
         stealth = self.char1.skills.get("stealth")
         self.assertNotIn(stealth.key, self.char1.improvable_skills)
+
+    def test_the_four_combat_skills_are_captioned_not_barred(self):
+        """
+        BD8: Resilience, Evade, Unarmed and Brawn have no call-site until WN
+        and ML, so each row carries the caption. One of them added to
+        `improvable_skills` early (BDM11) draws a bar that cannot move.
+        """
+        rows = self._output().splitlines()
+        for name in ("Brawn", "Evade", "Resilience", "Unarmed"):
+            with self.subTest(skill=name):
+                row = [line for line in rows if name in line]
+                self.assertEqual(len(row), 1, rows)
+                self.assertIn("not yet trainable", row[0])
 
     def test_a_skill_at_100_draws_a_bar_instead_of_a_caption(self):
         """
