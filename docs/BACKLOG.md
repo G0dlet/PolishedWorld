@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 117 · 2026-11-22** — one entry **added** and seven **annotated**, docs only, in the commit that closes Stage 5's slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`), with roadmap Rev 86 and README Rev 67. **New: *`sheet` and `skills` give a skill's name 14 characters*** (*UX & Item Identity*, OPEN): *Mace and Shield* is 15 and *Spear and Shield* 16. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* — decided for the skills (BD-T5b, the styles included), still OPEN for hunger and thirst; *Skill `descs` stop at 95* — the ladders stand in one place now, not three; **three triggers fired by the slice and found by searching for its data:** *Cultural Background* (a weapon-style skill exists, as data), *Characteristic improvement* (Damage Modifier and Strike Rank read characteristics) and *Free Skill Points* (more Common skills than five) — each stays BLOCKED with its reason restated and a new trigger; *Placeholder skill bases in `at_object_creation`* (four more on the placeholder sums); *Character panel: Legend combat state* (Combat Actions now exist, read on demand).
 > **Rev 116 · 2026-11-16** — one entry **closed**, one **added** and one **annotated**, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged), with roadmap Rev 84 and README Rev 65. ***`opposed_check` lets an automatic success win on a roll outside the skill range*** → DONE, with what shipped. **New: *Webclient: a quarry that flees stays in the location panel*** (*UX & Item Identity*, OPEN), seen in SC-T7's protocol. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — hunt's first tests of its outcomes (SC-T3).
 > **Rev 115 · 2026-11-16** — one entry **corrected and annotated**, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (Stage 5's slice SC decomposed), roadmap Rev 83 and README Rev 64. ***`opposed_check` lets an automatic success win on a roll outside the skill range***: its example was wrong — at a target of 60 a roll of 04 is a critical and wins — and is replaced by one that was run; the caller's line is `:99`; the entry names the decomposition and its tasks. Status unchanged (DECIDED, code SCHEDULED). No entry closed.
 > **Rev 114 · 2026-11-16** — one entry **closed**, one **added** and four **annotated**, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`), roadmap Rev 82 and README Rev 62. ***Strangers by description — `rpg/rpsystem`*** → DONE, with what shipped and what was left. **New: *Account names on the Public channel*** (*UX & Item Identity*, OPEN) — the slice's OQ-NM10, placed here and not decided (Adam: as recommended). **Annotated:** *First-steps hints* (the names hint, UP23, a candidate; Status unchanged), *A screen-reader pass* (what it now reads), *Webclient: players and NPCs apart* (its trigger (1) fired; the *Characters:* line is gone), and *`copper` is both a material and a denomination* (no longer *no name begins with a digit*: the form is `2-copper`).
@@ -1227,9 +1228,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** More Common skills than the alpha's five, or alpha close-out
   data showing the profession bonus alone leaves the cohort's skill spread too
   narrow.
+- **Annotation (2026-11-22, Body Decomposition BD-T4):** the first half of the trigger
+  has fired — a character has nine Common skills since BD-T4 (Resilience,
+  Evade, Unarmed and Brawn beside the five). **The deferral stands, with a new
+  reason:** the four are not trainable and nothing rolls them until WN and ML
+  (BD8), so points spent on them now would be a permanent choice of numbers no
+  player can see used — the blind choice BD9 exists to avoid. **New trigger:**
+  the four are read in play (WN for Resilience, ML for the others), or the
+  alpha close-out data above.
 - **Origin:** Character creation decomposition CC6 (2026-10-26). Shipped without
   it (decomposition Rev 2, 2026-10-29).
-- **Status:** BLOCKED (skill count / alpha data)
+- **Status:** BLOCKED (the four combat skills read in play / alpha data)
 
 ### Every knowledge-gated recipe has a profession grantor
 - **What:** `world/professions.py` grants five recipes across four professions;
@@ -1267,9 +1276,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   culture that changes no number is a label, and labels are not chargen.
 - **Trigger:** Culture / Lore skills exist (or a weapon-style skill does, at
   Stage 5).
+- **Annotation (2026-11-22, Body Decomposition BD-T6):** the second half of the trigger
+  has fired, as data only. Six Combat Styles exist in `world/combat_styles.py`,
+  but a style becomes a trait the first time it is used (BD3), nothing uses one
+  until ML, and none is trainable. A culture's style bonus would land on a
+  number no screen shows and no roll reads, so the entry's own rule — *a
+  culture that changes no number is a label* — still holds. **New trigger:**
+  ML makes a style trainable, or Culture / Lore skills exist.
 - **Origin:** Character creation decomposition CC2 (2026-10-26). Shipped without
   it (decomposition Rev 2, 2026-10-29).
-- **Status:** BLOCKED (skills for the bonuses to sit on)
+- **Status:** BLOCKED (a trainable style, or Culture / Lore skills)
 
 ### Cultural-Background gating of professions
 - **What:** In Legend RAW the only gate on which profession a character may take
@@ -1319,8 +1335,20 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Modifier or Strike Rank at Stage 5, encumbrance from STR+SIZ), or the
   improvement epic is reopened. Change `help chargen`'s sentence in the same
   commit.
+- **Annotation (2026-11-22, Body Decomposition BD-T1, BD-T2, BD-T7):** the first half
+  of the trigger has fired. `world/body.py` reads DEX, INT, STR, SIZ and CON on
+  every call for Combat Actions, Strike Rank, the Damage Modifier and Hit Points
+  per location, and `sheet` shows the first three — so *a rising characteristic
+  would change nothing a player sees* is no longer true. **The entry stays
+  BLOCKED for its other reason:** the improvement model here is XP per level on
+  skills, and nothing raises a characteristic. `help chargen`'s *Your
+  characteristics stay as you set them* is still true and is not changed.
+  **New trigger:** something is built that changes a characteristic, or the
+  improvement epic is reopened. A backfilled skill is a snapshot of the
+  characteristics at the time (BD §10 point 5), so the day this is picked up a
+  rule for the skills' bases is owed in the same task.
 - **Origin:** Character creation CC3.3 (B20), 2026-10-29.
-- **Status:** BLOCKED (a reader, or the improvement epic)
+- **Status:** BLOCKED (something that changes a characteristic, or the improvement epic)
 
 ### Chargen resume replays the last notice
 - **What:** A resumed chargen menu shows the node as the player left it,
@@ -1352,6 +1380,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Why deferred:** CC3.3 rewrote the comments, not the values (B22): the
   fixtures that hundreds of tests rely on would all move at once, for no player.
 - **Trigger:** Fixtures are meant to mirror a chargen character.
+- **Annotation (2026-11-22, Body Decomposition BD-T4):** four more skills are made in
+  `at_object_creation` — Resilience, Evade, Unarmed and Brawn — but not on fixed
+  numbers: each is the sum of the placeholder characteristics through
+  `skill_base.trait_kwargs`, so a fixture's four read 20, which is also what
+  chargen gives at 10s, and a fixture's Resilience is CON × 2, so natural
+  healing's numbers did not move. The old four keep their fixed placeholders;
+  nothing else changes.
 - **Origin:** Character creation CC3.3 (B22), 2026-10-29.
 - **Status:** BLOCKED (a reason for fixtures to mirror chargen)
 
@@ -1784,6 +1819,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   head, chest and abdomen risk unconsciousness
   (`docs/PolishedWorld_Combat_Design.md` WO1; roadmap Rev 80).
 - **Trigger:** Stage 5's locational Hit Points shipped and in-game verified.
+- **Annotation (2026-11-22, Body Decomposition BD7, BD9):** *the server holds none
+  of it* is no longer whole. Combat Actions are worked out on every read by
+  `world/body.py::derived(char)`, fatigue included, with Strike Rank, the Damage
+  Modifier and each location's *maximum* Hit Points; `sheet` shows the first
+  three. None of it is in the `char` snapshot (BD9), the current Hit Points per
+  location are WN's, and Hero Points are HE's. The trigger is unchanged.
 - **Origin:** Webclient decomposition Rev 1, 2026-11-06 (D5).
 - **Status:** BLOCKED (Stage 5 locational HP)
 
@@ -2885,6 +2926,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   in it.
 - **Trigger:** Either a player is observed above ~110, or another change is
   already migrating stored trait data and can carry this for free.
+- **Annotation (2026-11-22, Body Decomposition BD-T5b):** the entry below is decided for
+  the skills — keyed by each band's top (19/39/59/79/94/100), read as Evennia
+  reads them — so the Rev 35 warning's precondition is met. **The *three places*
+  of *Why deferred* are one now:** `world/skill_base.py::SKILL_LADDERS`, read by
+  `Character.at_object_creation`, `HUNTING_SKILL_DEFAULTS` and the migration
+  `backfill_skill_ladders()`, which re-keyed every stored skill table in BD and
+  is the template for the next. The premise stands: the last word covers 95
+  upward, 95 and 250 alike. The trigger is unchanged; the *free ride* it names
+  was BD-T5b's migration, which kept the words as they were.
 - **Origin:** Skill Progression decomp Rev 8 §6, D.2 locked decision 2.
 - ⚠️ **Rev 35 — the band arithmetic above reads the table as lower bounds.**
   The code does not: `Trait.desc()` and `tier_for()` both read
@@ -2955,7 +3005,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Origin:** Epic A TA1.3 in-game protocol, 2026-10-09 (the sheet's fatigue
   labels). Reading verified against `traits.py`, `improvement.py` and
   `survival_ticker.py`.
-- **Status:** OPEN
+- **Annotation (2026-11-22, Body Decomposition BD-T4, BD-T5b; Adam):** **decided for the
+  skills: upper bounds are the design.** Every skill's ladder — the nine Common
+  skills and, since BD-T6, the six styles — is keyed by each band's top
+  (19/39/59/79/94/100) in `world/skill_base.py`, and `backfill_skill_ladders()`
+  re-keyed every stored table; the readers (`Trait.desc()`, `tier_for()`,
+  `_bucket_index()`, `health_desc()`) were not touched. The tier-up line now
+  comes at 20, 40, 60, 80 and 95. **Still open for hunger and thirst,** which
+  keep the lower-bound shape and decide when the ticker warns (`_bucket_index`),
+  so they get a task of their own with their own protocol. Fatigue's word has
+  been read from `world/fatigue.py::LEVELS` since the survival loop (SL8), not
+  from its stored table. **New trigger:** before the next change to hunger's or
+  thirst's table, or to the ticker's warnings.
+- **Status:** OPEN (hunger and thirst)
 
 ### Health `descs` use a 0–100 scale against a max of `CON × 2`
 - **What:** Health's `descs` are keyed 0/10/25/50/75/90/100, and `desc()`
@@ -3622,6 +3684,24 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   TP6–TP7), or a player report of a stale panel.
 - **Origin:** Skill-check forms SC-T7, the in-game protocol's picture
   (2026-11-16).
+- **Status:** OPEN
+
+### `sheet` and `skills` give a skill's name 14 characters
+- **What:** Both commands print a skill's name in a field 14 wide
+  (`commands/character_commands.py:173` in `skills`, `:391` in `sheet`:
+  `f"{skill.name:14}"`). Every name fits today; two of BD's styles do not —
+  *Mace and Shield* is 15 characters and *Spear and Shield* 16 — so their rows
+  would push the number one or two columns right of the others.
+- **Why deferred:** Not visible: a style is a trait only after its first use
+  (BD3), and nothing uses one until ML. `stats` uses the same width for
+  characteristics, whose names are short.
+- **Smallest fix:** widen the field to the longest name among the skills and
+  `combat_styles.STYLES` (16), or compute it from the rows printed; a test that
+  a style's row lines up with Athletics'.
+- **Trigger:** ML, when a style first becomes a trait; or any new skill or
+  style whose name is longer than 14.
+- **Origin:** Body Decomposition BD-T6 (2026-11-22), noticed while the names
+  were written.
 - **Status:** OPEN
 
 ## Tooling & Process

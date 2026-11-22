@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 67 · 2026-11-22** — two rows changed, docs only, in the commit that closes Stage 5's slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`), with `docs/PolishedWorld_Lessons.md` Rev 12 (lessons 396–414): the Lessons register's row reads *1–414*, and the Body decomposition's row says it is done. No document added or removed; the directory-vs-list loop was run (64/0).
 > **Rev 66 · 2026-11-16** — index `PolishedWorld_Body_Decomposition.md` (Stage 5's third slice, BD: four Common skills, six Combat Styles over twelve weapon types, and the derived values read on demand — BD-T1–BD-T9). Added in the same commit as the document, with Combat Decomposition Rev 15 and roadmap Rev 85; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (64/0).
 > **Rev 65 · 2026-11-16** — one row changed, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged), with `docs/PolishedWorld_Lessons.md` Rev 11 (lessons 386–395): the Lessons register's row reads *1–395*. No document added or removed; the directory-vs-list loop was run (63/0).
 > **Rev 64 · 2026-11-16** — index `PolishedWorld_Skill_Check_Forms_Decomposition.md` (Stage 5's second slice, SC: the opposed test corrected by the book, the over-100 % rule, and the two forms combat needs of `world/skillcheck.py` — SC-T1–SC-T8). Added in the same commit as the document, with Combat Decomposition Rev 13, Combat Design Rev 3, the Hunting note Rev 3, BACKLOG Rev 115 and roadmap Rev 83; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (63/0).
@@ -118,7 +119,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–395) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–414) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
@@ -139,7 +140,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Arrival decomposition (the Newcomer note's Z1–Z2: a finished character arrives in the temple and it becomes home; the water chore names the spring) | tactical (feature tasks) | `docs/PolishedWorld_Arrival_Decomposition.md` |
 | Combat decomposition (Stage 5: the slice map for the whole stage, and the first slice's tasks — Names, `rpg/rpsystem` on the character) | tactical (stage map + feature tasks) | `docs/PolishedWorld_Combat_Decomposition.md` |
 | Skill-check forms decomposition (Stage 5, slice SC: the opposed test by the book, opposed skills over 100 %, `compare_levels` and `opposed_against`) | tactical (feature tasks) | `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` |
-| Body decomposition (Stage 5, slice BD: Resilience, Evade, Unarmed and Brawn; Combat Styles and weapon types as data; Combat Actions, Strike Rank, Damage Modifier and Hit Points per location read on demand) | tactical (feature tasks) | `docs/PolishedWorld_Body_Decomposition.md` |
+| Body decomposition (Stage 5, slice BD: Resilience, Evade, Unarmed and Brawn; Combat Styles and weapon types as data; Combat Actions, Strike Rank, Damage Modifier and Hit Points per location read on demand — done, merged as `22fb018`) | tactical (feature tasks) | `docs/PolishedWorld_Body_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |

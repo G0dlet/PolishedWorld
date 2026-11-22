@@ -1,5 +1,6 @@
 # PolishedWorld — Combat Design (Stage 5: the source verification, the first reading, and the decisions the decomposition is built on)
 
+> **Rev 5 · 2026-11-22** — notes and two rows, docs only, in the commit that closes slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`): §3.1 gains fatigue's Strike Rank penalty (p. 90), which the table had only half of; §3.6 says what the weapon tables' categories turned out to be; §4.10 says where CS1, CS2 and CS4 landed; §5 gains BD4's departure (players do not invent styles); §6's seam lines are dated with where they stand after BD; §7 loses the styles' starting list. No decision changes.
 > **Rev 4 · 2026-11-16** — two notes, docs only, in the commit that closes slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32): §4.14 says OC1–OC3 are built and where they stand in `world/skillcheck.py`; §6's seam line for that module says it was read before SC. No decision changes.
 > **Rev 3 · 2026-11-16** — three notes and one row, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (slice SC decomposed, locks SC1–SC6): HQ2 says what SC does to the hunt's outcome; §4.14 points to the decomposition and to what its reading found; §5 gains the one place where SC rules beyond the book (SC3). No decision changes.
 > **Rev 2 · 2026-11-16** — two notes in §6, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 12 (Names DONE; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`): the Names note is annotated (Rev 2), so the list of notes not annotated loses it; and the short description's state slot, which Names left for the wound slice (WO2), with `health` given no word. No decision changes.
@@ -99,6 +100,7 @@ Sides and PvP are room flags: `allow_combat` in `at_pre_command` (`combat_twitch
 | With no CA left, or no parry, the defender counts as having failed | p. 131 |
 | Combat is Heavy Activity: an Athletics test after CON Combat Actions, then every CON again | p. 89 |
 | Exhausted and Debilitated lower DEX by 5 and 10 for Combat Actions | p. 90 |
+| Wearied, Exhausted and Debilitated lower Strike Rank by 2, 4 and 6 *(Rev 5: the same row of the book, missing here until BD read it whole; built in `world/body.py`, `STRIKE_RANK_PENALTY`)* | p. 90 |
 
 ### 3.2 Attack, defence and damage
 
@@ -148,7 +150,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 
 ### 3.6 Not read
 
-- The weapon tables row by row (core pp. 101–109, and *Arms of Legend*'s).
+- The weapon tables row by row (core pp. 101–109, and *Arms of Legend*'s). *(Rev 5: BD read them for their categories and found none to use. Core defines a weapon's category (pp. 101, 105) but its tables print no such column (pp. 106–107, 109), and *Arms of Legend*'s column of that name is the hand, 1H or 2H (l. 1499, 1736–1768). So the twelve weapon types are the project's own list (Body Decomposition BD1–BD2, `world/combat_styles.py::WEAPON_TYPES`). The rows themselves — damage, AP/HP, reach per weapon — are still unread, and GR's.)*
 - *Monsters of Legend*, for creatures' own hit-location tables and statistics.
 - Evennia's single-threaded execution of commands and delayed calls, which the claim *every exchange resolves in one call* rests on; `typeclasses/durable.py:49` states the same property for wear.
 
@@ -308,6 +310,11 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 - **OC2 — The over-100 % rule is built with Stage 5** (p. 45). The function's docstring still says skills cap at 100.
 - **OC3 — Two new forms are needed:** a comparison of level of success alone, for attack against parry (pp. 129, 131), and an opposed test against a roll already made, for the wound tests (p. 145). `opposed_check` rolls both sides afresh (`world/skillcheck.py:127`).
 
+*(Rev 5: BD, `docs/PolishedWorld_Body_Decomposition.md`, merged as `22fb018`.)*
+- *CS1 is built:* Resilience, Evade, Unarmed and Brawn are traits from creation at the book's bases (p. 14), backfilled from each character's own characteristics on an older database (BD5, BD6). Persistence waits for magic. Every reader asks `world/skill_base.py::value_of`, which falls back to the base when a character lacks the trait; natural healing reads Resilience through it (`world/healing.py:80`), so *stand-in* is gone. A character has nine skills.
+- *CS2 is built as data:* six styles over twelve weapon types, in `world/combat_styles.py` (BD1–BD4). A style names types, never weapons, and becomes a trait the first time it is used (BD3); keys carry the prefix `style_` (OQ-BD3). The slice that adds the first weapon of a type adds its style. Nothing calls a style until ML.
+- *CS4 moved:* to WN for Resilience and to ML for the other three and the styles (BD8). `improvable_skills` is unchanged (`typeclasses/characters.py:1331`); `progress` captions the four *(not yet trainable)*.
+
 *(Rev 3: decomposed as slice SC, `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md`. Its reading found that the second form has more users than the wound tests — Bleed and Disarm oppose the original attack or parry roll (pp. 132–133) — that the levels table gives nobody a level when neither side succeeded (p. 131), and that `skill_check` needs no change for OC2: the rule is a modifier on the targets of an opposed test.)*
 
 *(Rev 4: built and merged as `d3d7ae1`, PR #32. OC1 and OC2 in `opposed_check` (`world/skillcheck.py:193`), OC3 as `opposed_against` (`:246`) and `compare_levels` (`:314`), with one private `_judge` (`:147`) under the two opposed forms; `skill_check` is now at `:60`. The docstring no longer says skills cap at 100, and the result reports `excess`.)*
@@ -334,6 +341,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 | SR3 | Disengaging: a free attack or an Evade contest (p. 140) | A free attack from every attacker with a Combat Action |
 | HP2–HP4 | Awards per story, several uses, no cap (pp. 87–88) | Earned by time played, cap 4, *Glancing Blow* only at first |
 | PV1 | — | Player against player is built and switched off |
+| BD4 | Players create their own combinations of weapons as styles (p. 124) | The list is the server's: six to start, and the slice that adds the first weapon of a type adds its style *(Rev 5)* |
 | OC3 (SC3) | The over-100 % rule is given for opposed tests (p. 45); nothing on an opposed test against a roll already made (p. 145) | The made roll keeps its level and its roll; whether it lies within the skill is measured against the lowered target, and the resisting side rolls against its own lowered target *(Rev 3)* |
 
 ---
@@ -349,6 +357,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 - `Character.refuse_if_collapsed()` and `at_pre_move` (`:1644`) — HB2, CT6, SR3.
 - `world/skillcheck.py`: `skill_check` (`:58`), `opposed_check` (`:127`) — OC1–OC3. *(Rev 4: read before SC; after it `:60` and `:193`, with `opposed_against` `:246` and `compare_levels` `:314`.)*
 - `world/timed_actions.py` — one slot per character; `is_current()` and `claim()` refuse a body without an account (§2.5, point 1).
+- *(Rev 5: dated. After BD, at `22fb018`: `improvable_skills` `typeclasses/characters.py:1331` (CS4 above), `physical_modifier()` `:1001`, `apply_health_damage` `:1623`, `at_character_death` `:1677`, `refuse_if_collapsed` `:1956` and `at_pre_move` `:1975`; `world/skillcheck.py` unchanged since Rev 4. The lines above are left as read at `baed99b`.)*
 - `tests/test_client_state.py::TestPushCensus` and the other census tests — every new push, every write to `.current` and every `.location =` is a row; TR4 adds one for names.
 
 **Calibration constants named here:** `ROUND_SECONDS` (CT2), the opening beat from Strike Rank (CT3), the bleed-out clocks (WO4), wear per use (IS5), the Hero Point rate (HP4), the time to death by starvation (WO7).
@@ -366,7 +375,7 @@ Two at creation; two at the close of a story (zero to four), and at most one mor
 - **The statue in the wild** — attacked by creatures or not: the series note *lodging & safe logout* (§4.2).
 - **Opening PvP** — its own decision, on PV6's conditions.
 - **Aiming at what one cannot see** — the Light note (§4.3).
-- **The starting lists:** combat styles (CS2), manoeuvres (CM2), armour clothing types (AR3).
+- **The starting lists:** manoeuvres (CM2), armour clothing types (AR3). *(Rev 5: combat styles (CS2) settled by BD4 — six, and a rule that fills the list.)*
 - **How a creature takes its turn** without the slot (§2.5), and how a creature decides to attack and to follow (SO2, SR1).
 - **Reconciling `hunt`** with the model (HQ2, CT).
 - **The rates:** Hero Points (HP4), wear per use (IS5), the clocks (WO4).
