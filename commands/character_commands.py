@@ -6,6 +6,7 @@ Commands for viewing character stats, skills, and vital status.
 
 from evennia import Command
 
+from world import body
 from world import fatigue as fatigue_rules
 from world.progression import progress_within_level, render_progress_bar
 
@@ -312,8 +313,9 @@ class CmdSheet(Command):
         character
         char
     
-    Shows all your character information: stats, skills, and vital status.
-    Only you can see this information.
+    Shows all your character information: stats, vital status, the three
+    values combat will read (Combat Actions, Strike Rank and the Damage
+    Modifier) and skills. Only you can see this information.
     """
     
     key = "sheet"
@@ -363,6 +365,19 @@ class CmdSheet(Command):
                     label = trait.desc()
                 msg += f"({trait.percent():>6}) - {label}\n"
         
+        # === COMBAT (BD9) ===
+        # Read now, never stored (BD7): fatigue lowers Combat Actions and
+        # Strike Rank, so the block follows the Fatigue row above it. A body
+        # without the characteristics gets no block.
+        derived = body.derived(char)
+        if derived is not None:
+            modifier = body.format_damage_modifier(derived["damage_modifier"])
+            msg += "\n|wCombat:|n\n"
+            msg += "|g" + "-" * 60 + "|n\n"
+            msg += f"  |y{'Combat Actions':16}|n {derived['combat_actions']:>5}\n"
+            msg += f"  |y{'Strike Rank':16}|n {derived['strike_rank']:>5}\n"
+            msg += f"  |y{'Damage Modifier':16}|n {modifier:>5}\n"
+
         # === SKILLS ===
         if hasattr(char, 'skills'):
             skill_keys = sorted(list(char.skills.all()))

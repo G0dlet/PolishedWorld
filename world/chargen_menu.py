@@ -55,6 +55,7 @@ from collections.abc import Mapping
 from evennia.utils import logger
 
 from world import arrival
+from world import body
 from world import chargen
 from world import client_state
 from world import professions
@@ -116,6 +117,21 @@ def _start_draft():
     return {key: _START_VALUE for key in chargen.STAT_KEYS}
 
 
+# The derived values each characteristic feeds (BD9; core pp. 10-13): the
+# average of DEX and INT sets Combat Actions and Strike Rank, STR + SIZ the
+# Damage Modifier. Written by hand: `world.body` has no table of readers.
+_DERIVED_FEEDS = {
+    "dex": ("Combat Actions", "Strike Rank"),
+    "int": ("Combat Actions", "Strike Rank"),
+    "str": ("Damage Modifier",),
+    "siz": ("Damage Modifier",),
+}
+
+# Under the derived values on the confirmation (BD9, Tone Guide section 5):
+# what they are for, and no promise of when.
+COMBAT_SENTENCE = "These three are read in combat, which is not in the game yet."
+
+
 def _feeds(stat):
     """What reads this characteristic in the alpha, for the allocate screen."""
     readers = [
@@ -125,9 +141,30 @@ def _feeds(stat):
     ]
     if stat == "con":
         readers.append("health")
+    readers.extend(_DERIVED_FEEDS.get(stat, ()))
     if not readers:
         return "Nothing reads it yet."
     return "Feeds " + ", ".join(readers) + "."
+
+
+def _derived_line(draft):
+    """
+    Combat Actions, Strike Rank and the Damage Modifier a draft would give.
+
+    Read from `world.body`'s pure functions, as a fresh body with no armour:
+    a draft has no fatigue gauge and wears nothing.
+
+    Args:
+        draft (Mapping): a legal allocation, characteristic -> value.
+
+    Returns:
+        str: one line for the confirmation screen.
+    """
+    return (
+        f"Combat Actions {body.combat_actions(draft['dex'], draft['int'])}, "
+        f"Strike Rank {body.strike_rank(draft['dex'], draft['int'])}, "
+        f"Damage Modifier {body.damage_modifier_text(draft['str'], draft['siz'])}"
+    )
 
 
 def _parse_line(text, draft):
@@ -403,7 +440,10 @@ def node_allocate(caller, raw_string, **kwargs):
 
 
 def node_confirm_allocation(caller, raw_string, **kwargs):
-    """Show what the allocation makes: health max and every skill base."""
+    """
+    Show what the allocation makes: health max, the three derived values
+    combat will read (BD9) and every skill base.
+    """
     draft = dict(kwargs.get("draft") or _start_draft())
     back = {
         "key": ("back", "b"),
@@ -422,6 +462,8 @@ def node_confirm_allocation(caller, raw_string, **kwargs):
             "  " + _stat_row(draft),
             "",
             f"Health max: {chargen.derive_health_max(draft['con'])}",
+            _derived_line(draft),
+            COMBAT_SENTENCE,
             "Skill bases: "
             + ", ".join(f"{skill} {base}" for skill, base in bases.items()),
             "",

@@ -167,12 +167,26 @@ def damage_modifier(str_, siz):
     raise ValueError(f"STR + SIZ {total} is above the table (1-100)")
 
 
-def damage_modifier_text(str_, siz):
-    """The Damage Modifier for display: "+1D2", "-1D4" or "+0"."""
-    sign, dice, sides = damage_modifier(str_, siz)
+def format_damage_modifier(modifier):
+    """
+    A Damage Modifier for display: "+1D2", "-1D4" or "+0".
+
+    Args:
+        modifier (tuple): (sign, dice, sides), as `damage_modifier` and
+            `derived(char)["damage_modifier"]` give it.
+
+    Returns:
+        str: the one spelling every screen uses.
+    """
+    sign, dice, sides = modifier
     if dice == 0:
         return "+0"
     return f"{'-' if sign < 0 else '+'}{dice}D{sides}"
+
+
+def damage_modifier_text(str_, siz):
+    """The Damage Modifier of STR and SIZ for display (see above)."""
+    return format_damage_modifier(damage_modifier(str_, siz))
 
 
 # --- Hit Points per location (core p. 11) ------------------------------------
