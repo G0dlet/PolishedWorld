@@ -21,22 +21,57 @@ character creation would have written (`chargen.apply_allocation` sets
 `.base`). A trait's `.value` is read, as every roll site and
 `world.fatigue` read a skill (OQ-BD2).
 
+Every pair lives in `chargen.SKILL_BASE_PAIRS`, and nowhere else (OQ-BD6:
+Resilience's stood here for one task, until its trait existed).
+
+COMBAT_SKILL_TRAITS is how the four Common skills combat reads (BD5) are
+made into traits: the name and the six words of the trait's ladder. Two
+writers read it and no others: `Character.at_object_creation` and the
+backfill (BD-T5), so a backfilled character cannot differ from a new one.
+The ladder's bands are 0-19, 20-39, 40-59, 60-79, 80-94 and 95 upward. The
+traits contrib reads a `descs` key as an UPPER bound, inclusive, and gives
+the last word to anything above the last key (`CounterTrait.desc`), so the
+keys are each band's top: 19, 39, 59, 79, 94, and 100 for the open band.
+Keyed 0/20/40/60/80/95 the ladder reads one rung early -- 21 as the third
+word, 81 as the last -- which is how the five older skills in
+`Character.at_object_creation` still read; they are corrected in a task of
+their own, because a trait keeps the ladder it was created with.
+
 Pure over the character's handlers: no Django query, nothing written.
 """
 
 from world.chargen import SKILL_BASE_PAIRS
 
-# Pairs the net reads before character creation writes the skill. Resilience
-# is here for one task (BD-T3) so that healing can read it through the net;
-# BD-T4 moves it into `chargen.SKILL_BASE_PAIRS` together with its trait and
-# removes it here (OQ-BD6). Keep it empty after that.
-PENDING_PAIRS = {
-    "resilience": ("con", "con"),  # CON x 2 (p. 14)
+COMBAT_SKILL_TRAITS = {
+    "brawn": {
+        "name": "Brawn",
+        "descs": {
+            19: "slight", 39: "wiry", 59: "sturdy",
+            79: "stout", 94: "burly", 100: "ox-strong",
+        },
+    },
+    "evade": {
+        "name": "Evade",
+        "descs": {
+            19: "flat-footed", 39: "slow", 59: "wary",
+            79: "nimble", 94: "quick", 100: "hard to hit",
+        },
+    },
+    "resilience": {
+        "name": "Resilience",
+        "descs": {
+            19: "frail", 39: "soft", 59: "sound",
+            79: "hardy", 94: "tough", 100: "unbroken",
+        },
+    },
+    "unarmed": {
+        "name": "Unarmed",
+        "descs": {
+            19: "harmless", 39: "clumsy", 59: "scrappy",
+            79: "practised", 94: "hard-fisted", 100: "dangerous",
+        },
+    },
 }
-
-
-def _pair_for(key):
-    return SKILL_BASE_PAIRS.get(key) or PENDING_PAIRS.get(key)
 
 
 def base_for(char, key):
@@ -51,7 +86,7 @@ def base_for(char, key):
         int or None: the sum of the two characteristics' `.base`; None when
             the key has no pair or the character lacks a characteristic.
     """
-    pair = _pair_for(key)
+    pair = SKILL_BASE_PAIRS.get(key)
     stats = getattr(char, "stats", None)
     if pair is None or stats is None:
         return None

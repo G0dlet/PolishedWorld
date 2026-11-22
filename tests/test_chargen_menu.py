@@ -33,13 +33,19 @@ FIXTURE = {"str": 7, "dex": 9, "con": 14, "siz": 8, "int": 12, "pow": 17, "cha":
 FIXTURE_LINE = "7 9 14 8 12 17 13"
 
 # Derived by hand from FIXTURE: athletics STR+DEX, perception INT+POW,
-# stealth DEX+INT, craft DEX+INT, hunting INT+CON.
+# stealth DEX+INT, craft DEX+INT, hunting INT+CON; and the four combat skills
+# (BD5, p. 14): brawn STR+SIZ, evade DEX x 2, resilience CON x 2, unarmed
+# STR+DEX.
 EXPECTED_BASES = {
     "athletics": 16,
     "perception": 29,
     "stealth": 21,
     "craft": 21,
     "hunting": 26,
+    "brawn": 15,
+    "evade": 18,
+    "resilience": 28,
+    "unarmed": 16,
 }
 # The tanner's +10 craft on top.
 EXPECTED_FINAL = dict(EXPECTED_BASES, craft=31)
@@ -161,7 +167,10 @@ class TestAllocateNode(_MenuFixture):
         self.assertIn("Spent 70 of 80.", text)
         self.assertIn("10 left to spend", text)
         self.assertIn("Raw muscle", text)
-        self.assertIn("Feeds hunting, health.", text)
+        self.assertIn("Feeds hunting, resilience, health.", text)
+        # BD5: SIZ has its first reader, and DEX feeds Evade and Unarmed.
+        self.assertIn("Feeds brawn.", text)
+        self.assertIn("Feeds athletics, stealth, craft, evade, unarmed.", text)
 
     def test_illegal_line_stays_and_lists_every_violation(self):
         text = self.send("str 25 dex 3")

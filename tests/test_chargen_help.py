@@ -64,6 +64,17 @@ class TestHelpChargen(EvenniaCommandTest):
                 self.assertIn("80 points", out)
                 self.assertIn("No do-overs", out)
 
+    def test_a_pair_of_one_characteristic_reads_x2(self):
+        # BD-T4: Resilience is CON x 2 and Evade DEX x 2 (p. 14); printed as
+        # every other pair they would read CON+CON and DEX+DEX (BDM10).
+        text = chargen.help_text()
+        self.assertIn("Resilience (CON x2)", text)
+        self.assertIn("Evade (DEX x2)", text)
+        self.assertIn("Brawn (STR+SIZ)", text)
+        self.assertIn("Athletics (STR+DEX)", text)
+        self.assertNotIn("CON+CON", text)
+        self.assertNotIn("DEX+DEX", text)
+
     def test_registered_once(self):
         from world.help_entries import HELP_ENTRY_DICTS
 

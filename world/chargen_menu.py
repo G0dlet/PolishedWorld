@@ -403,7 +403,7 @@ def node_allocate(caller, raw_string, **kwargs):
 
 
 def node_confirm_allocation(caller, raw_string, **kwargs):
-    """Show what the allocation makes: health max and the five skill bases."""
+    """Show what the allocation makes: health max and every skill base."""
     draft = dict(kwargs.get("draft") or _start_draft())
     back = {
         "key": ("back", "b"),

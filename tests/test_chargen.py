@@ -17,8 +17,8 @@ THE FIXTURE (lesson 74)
 -----------------------
 VALID has seven distinct values, none of them 10 and CON not 10, so that every
 read-back differs from the default character's 10s; and its derived bases
-(16/29/21/21/26) differ from today's fixed 25/25/20/20/25 and from each other
-where the pairs differ. Under all-10s every pair sums to 20 and a wrong pair,
+(16/29/21/21/26, and the four combat skills' 15/18/28/16, BD5) differ from
+the placeholder bases and from each other where the pairs differ. Under all-10s every pair sums to 20 and a wrong pair,
 a skipped write or a skipped health recalculation would all pass unseen. The
 expected bases are written out by hand below, never recomputed from
 SKILL_BASE_PAIRS -- a test that read the table it checks would prove nothing.
@@ -48,6 +48,24 @@ EXPECTED_BASES = {
     "stealth": 21,     # DEX 9 + INT 12
     "craft": 21,       # DEX 9 + INT 12
     "hunting": 26,     # INT 12 + CON 14 (Track; INT+POW would give 29)
+    "brawn": 15,       # STR 7 + SIZ 8 (STR+DEX would give 16)
+    "evade": 18,       # DEX 9 x 2
+    "resilience": 28,  # CON 14 x 2
+    "unarmed": 16,     # STR 7 + DEX 9, Athletics' pair by the book (p. 14)
+}
+
+# Alaric the Brave (Legend core p. 9) and the book's own answers for him
+# (p. 14), typed from the page. Not a legal Points Build (86 points), which
+# `derive_skill_bases` does not ask about.
+ALARIC = {"str": 12, "dex": 13, "con": 7, "siz": 14, "int": 16, "pow": 14, "cha": 10}
+ALARIC_BY_THE_BOOK = {
+    "athletics": 25,
+    "perception": 30,
+    "stealth": 29,
+    "brawn": 26,
+    "evade": 26,
+    "resilience": 14,
+    "unarmed": 25,
 }
 
 ALL_TENS_PLUS_TWENTY = {key: 10 for key in STAT_KEYS} | {"cha": 20}
@@ -136,6 +154,15 @@ class TestDeriveSkillBases(EvenniaTestCase):
 
     def test_each_skill_reads_its_own_pair(self):
         self.assertEqual(derive_skill_bases(VALID), EXPECTED_BASES)
+
+    def test_the_books_own_adventurer(self):
+        # BD5: the four combat skills at p. 14's bases, beside the three
+        # Common skills the book also prints for Alaric. Brawn read as
+        # STR + DEX (BDM9) gives 25 here, not 26.
+        derived = derive_skill_bases(ALARIC)
+        for skill, base in ALARIC_BY_THE_BOOK.items():
+            with self.subTest(skill=skill):
+                self.assertEqual(derived[skill], base)
 
     def test_integers_in_integers_out(self):
         for skill, base in derive_skill_bases(VALID).items():

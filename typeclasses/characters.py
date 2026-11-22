@@ -31,6 +31,7 @@ from world import activity_log
 from world import gametime_utils
 from world import healing
 from world import sdesc as sdesc_rules
+from world import skill_base
 from world.progression import (
     level_for_xp,
     progress_within_level,
@@ -566,6 +567,26 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 95: "master hunter",
             },
         )
+
+        # Resilience, Evade, Unarmed and Brawn: the four Common skills combat
+        # reads (Body decomposition BD5, BD6; Legend p. 14). Built from the
+        # one table the backfill also reads (world.character_migrations), so
+        # a backfilled character is identical to a fresh one. The placeholder
+        # is the placeholder characteristics' own sum, as `craft` above, so
+        # a fixture's Resilience is CON x 2 and natural healing's numbers do
+        # not move; the chargen menu re-derives all four (CC5).
+        for skill_key, spec in skill_base.COMBAT_SKILL_TRAITS.items():
+            placeholder = skill_base.base_for(self, skill_key)
+            self.skills.add(
+                skill_key, spec["name"],
+                trait_type="counter",
+                base=placeholder,
+                current=placeholder,
+                mod=0,
+                min=0,
+                # No max (D.2, P-7) -- see the note on `perception` above.
+                descs=dict(spec["descs"]),
+            )
 
     def at_post_unpuppet(self, account=None, session=None, **kwargs):
         """
@@ -1331,9 +1352,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     # D.1, DISPLAY ONLY. Skill keys that some call-site actually routes through
     # attempt_skill_improvement, so `progress` can say "(not yet trainable)"
     # instead of drawing a bar that is guaranteed never to move. Perception,
-    # stealth and athletics have no call-site at all; an empty bar beside them
-    # reads as broken, and hiding the rows would hide the fact that three of
-    # five skills are untrained content.
+    # stealth and athletics have no call-site at all, and Resilience, Evade,
+    # Unarmed and Brawn none until Stage 5's WN and ML slices (BD8); an empty
+    # bar beside them reads as broken, and hiding the rows would hide the fact
+    # that seven of nine skills are untrained content.
     #
     # ⚠️ NOT A GATE. The policy of which uses teach is "which call-sites exist"
     # (P-6, six of them), and this set must never be read to decide whether a

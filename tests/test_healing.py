@@ -2,8 +2,9 @@
 Tests for natural healing on the survival tick (survival loop S2.1).
 
 Locks: A1 (`healing.accrue` writes health and pushes `char`), B1 (the table is
-keyed on Resilience, CON x 2 standing in -- RP-L4), C1 (`at_post_puppet`
-clears the tick's stamp), D1 (one line per tick in which a point lands).
+keyed on Resilience -- RP-L4; a trait since BD-T4, CON x 2 stood in before),
+C1 (`at_post_puppet` clears the tick's stamp), D1 (one line per tick in which
+a point lands).
 
 Mutations each class is meant to kill are named in its docstring (SL-M13..M17,
 SL-M42, SL-M43).
@@ -55,15 +56,23 @@ class HealingTestBase(EvenniaTest):
 
 class TestResilience(HealingTestBase):
     """
-    Pressures B1: the row is chosen from CON x 2, so CON 5 and 6 straddle the
-    first edge and CON 15 and 16 the second (decomp S2.1's edges).
+    Pressures B1: the row is chosen from Resilience, so 10 and 11 straddle
+    the first edge and 30 and 31 the second -- the numbers CON 5, 6, 15 and 16
+    gave while CON x 2 stood in (decomp S2.1's edges). The skill is set, not
+    CON: a trait does not follow its characteristic (BD-T4).
     """
 
-    def test_con_edges_pick_their_rows(self):
-        for con, hours in ((5, 72), (6, 48), (15, 48), (16, 36)):
-            with self.subTest(con=con):
-                self.char1.stats.con.base = con
+    def test_resilience_edges_pick_their_rows(self):
+        for value, hours in ((10, 72), (11, 48), (30, 48), (31, 36)):
+            with self.subTest(resilience=value):
+                self.char1.skills.resilience.current = value
                 self.assertEqual(healing.interval_for(healing.resilience(self.char1)), hours * H)
+
+    def test_con_alone_moves_nothing_once_the_trait_exists(self):
+        # The receipt for the rewrite above: with the trait, CON 16 still
+        # heals at Resilience 20's row.
+        self.char1.stats.con.base = 16
+        self.assertEqual(healing.resilience(self.char1), 20)
 
     def test_fixture_interval(self):
         self.assertEqual(healing.resilience(self.char1), 20)
@@ -75,27 +84,27 @@ class TestResilienceThroughTheNet(HealingTestBase):
     Pressures BD6: healing reads the Resilience trait when there is one and
     CON x 2 when there is not. BDM7 (the trait ignored) fails the 45 test;
     BDM8 (no trait, no value) fails the no-trait test and stops healing.
+
+    A character has the trait from creation since BD-T4, so the tests of the
+    net take it away first -- a character the backfill missed -- and the test
+    of the trait sets the one that is there.
     """
 
-    def _add_resilience(self, value):
-        self.char1.skills.add(
-            "resilience", "Resilience", trait_type="counter",
-            base=value, current=value, mod=0, min=0,
-        )
-
     def test_without_the_trait_con_twice(self):
+        self.char1.skills.remove("resilience")
         self.assertIsNone(self.char1.skills.get("resilience"))
         self.assertEqual(healing.resilience(self.char1), 20)
         self.assertEqual(healing.accrue(self.char1, 48 * H), 1)
 
     def test_the_trait_chooses_the_row(self):
-        self._add_resilience(45)
+        self.char1.skills.resilience.current = 45
         self.assertEqual(healing.resilience(self.char1), 45)
         self.assertEqual(healing.interval_for(healing.resilience(self.char1)), 36 * H)
         # 36 hours heal a point at 45; at 20 they would not.
         self.assertEqual(healing.accrue(self.char1, 36 * H), 1)
 
     def test_neither_trait_nor_con_grants_nothing(self):
+        self.char1.skills.remove("resilience")
         self.char1.stats.remove("con")
         self.assertIsNone(healing.resilience(self.char1))
         self.assertEqual(healing.accrue(self.char1, 500 * H), 0)
