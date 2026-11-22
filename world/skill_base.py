@@ -11,6 +11,7 @@ out. One function answers for every reader:
     base_for(char, key)  -> the base from the characteristics, or None
     value_of(char, key)  -> the trait's value if the trait exists, else the base
     trait_kwargs(char, key) -> how one of COMBAT_SKILL_TRAITS is added
+    ensure_style(char, key) -> a Combat Style's trait, made if missing
 
 Why a safety net (BD6): a reader that went to the trait directly would get
 nothing for a character a backfill missed -- `healing.accrue` would grant
@@ -22,8 +23,11 @@ character creation would have written (`chargen.apply_allocation` sets
 `.base`). A trait's `.value` is read, as every roll site and
 `world.fatigue` read a skill (OQ-BD2).
 
-Every pair lives in `chargen.SKILL_BASE_PAIRS`, and nowhere else (OQ-BD6:
-Resilience's stood here for one task, until its trait existed).
+Every Common skill's pair lives in `chargen.SKILL_BASE_PAIRS`, and nowhere
+else (OQ-BD6: Resilience's stood here for one task, until its trait
+existed). A Combat Style's pair is read from `world.combat_styles` and must
+stay out of that table: `chargen.apply_allocation` refuses a character with
+a pair and no trait, and a style has no trait until it is used (BD3).
 
 SKILL_LADDERS holds the six words every skill reads as, and `ladder(key)`
 makes the `descs` table a trait stores. The bands are 0-19, 20-39, 40-59,
@@ -45,9 +49,18 @@ others, both through `trait_kwargs`: `Character.at_object_creation` and
 `world.character_migrations.backfill_combat_skills` (BD-T5), so a backfilled
 character cannot differ from a new one.
 
-Pure over the character's handlers: no Django query, nothing written.
+Combat Styles (BD-T6; BD3, BD4). `base_for` and `value_of` answer for a
+style's key with no trait on the character, and `ensure_style` makes the
+trait at the base the first time a style is used. All six styles share one
+ladder, and each has a row in SKILL_LADDERS so that `ladder(key)` and the
+ladder migration cover a style trait like any other. Nothing in production
+calls `ensure_style` until ML rolls a style.
+
+Pure over the character's handlers, except `ensure_style`, which writes
+one trait: no Django query.
 """
 
+from world import combat_styles
 from world.chargen import SKILL_BASE_PAIRS
 
 # The top of each band, inclusive; 100 stands for "95 upward", since
@@ -55,8 +68,8 @@ from world.chargen import SKILL_BASE_PAIRS
 LADDER_TOPS = (19, 39, 59, 79, 94, 100)
 
 # Skill -> its six words, in band order (Tone Guide section 5: concrete,
-# nothing epic). One table for all nine skills: creation, both backfills
-# and the ladder migration read it.
+# nothing epic). One table for the nine skills and, below it, the styles:
+# creation, both backfills, `ensure_style` and the ladder migration read it.
 SKILL_LADDERS = {
     "athletics": ("feeble", "weak", "capable", "athletic", "strong", "mighty"),
     "perception": (
@@ -76,6 +89,10 @@ SKILL_LADDERS = {
         "harmless", "clumsy", "scrappy", "practised", "hard-fisted", "dangerous",
     ),
 }
+# Every Combat Style reads the same six words (BD-T6).
+SKILL_LADDERS.update(
+    {style_key: combat_styles.STYLE_LADDER for style_key in combat_styles.STYLES}
+)
 
 
 def ladder(key):
@@ -110,13 +127,17 @@ def base_for(char, key):
 
     Args:
         char: a typeclassed object with a `stats` handler.
-        key (str): the skill's trait key, e.g. "resilience".
+        key (str): the skill's trait key, e.g. "resilience", or a Combat
+            Style's, e.g. "style_knife".
 
     Returns:
         int or None: the sum of the two characteristics' `.base`; None when
-            the key has no pair or the character lacks a characteristic.
+            the key has no pair or the character lacks a characteristic. A
+            style's pair is STR + DEX in close combat and DEX x 2 at range.
     """
     pair = SKILL_BASE_PAIRS.get(key)
+    if pair is None and key in combat_styles.STYLES:
+        pair = combat_styles.pair_for(key)
     stats = getattr(char, "stats", None)
     if pair is None or stats is None:
         return None
@@ -167,6 +188,11 @@ def trait_kwargs(char, key):
         KeyError: `key` is not one of COMBAT_SKILL_TRAITS.
     """
     COMBAT_SKILL_TRAITS[key]   # KeyError for anything but the four
+    return _counter_kwargs(char, key)
+
+
+def _counter_kwargs(char, key):
+    """The shape of a skill trait at its base; None when there is no base."""
     base = base_for(char, key)
     if base is None:
         return None
@@ -178,3 +204,38 @@ def trait_kwargs(char, key):
         "min": 0,
         "descs": ladder(key),
     }
+
+
+def ensure_style(char, style_key):
+    """
+    A Combat Style's trait, made at its base if the character lacks it (BD3).
+
+    The first use of a style is what turns it into a trait. An existing
+    trait is returned as it is: a trained value is never written over.
+
+    Multiplayer: the read and the write are one synchronous stretch on
+    Twisted's single-threaded reactor, so two calls cannot both find the
+    trait missing.
+
+    Args:
+        char: a typeclassed object with `skills` and `stats` handlers.
+        style_key (str): a key of `combat_styles.STYLES`.
+
+    Returns:
+        Trait or None: the style's trait; None when the trait is missing
+            and its base cannot be worked out (a characteristic is absent),
+            in which case nothing is written.
+
+    Raises:
+        KeyError: `style_key` is not a Combat Style (a Common skill's key
+            included: those are made at creation).
+    """
+    style = combat_styles.STYLES[style_key]
+    existing = char.skills.get(style_key)
+    if existing is not None:
+        return existing
+    kwargs = _counter_kwargs(char, style_key)
+    if kwargs is None:
+        return None
+    char.skills.add(style_key, style["name"], **kwargs)
+    return char.skills.get(style_key)

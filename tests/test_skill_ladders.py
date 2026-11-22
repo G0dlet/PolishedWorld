@@ -86,10 +86,17 @@ def _backfill():
 
 class TestTheTable(EvenniaTest):
     def test_nine_skills_with_these_words(self):
+        # The Combat Styles' rows (BD-T6) share one ladder and are pressed
+        # in tests/test_combat_styles.py; every other row is one of the nine.
         self.assertEqual(
-            {key: tuple(words) for key, words in skill_base.SKILL_LADDERS.items()},
+            {
+                key: tuple(words)
+                for key, words in skill_base.SKILL_LADDERS.items()
+                if not key.startswith("style_")
+            },
             LADDERS,
         )
+        self.assertEqual(len(skill_base.SKILL_LADDERS), 9 + 6)
 
     def test_a_ladder_is_keyed_by_the_top_of_each_band(self):
         for key, words in LADDERS.items():
