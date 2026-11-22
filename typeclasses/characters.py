@@ -575,17 +575,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         # is the placeholder characteristics' own sum, as `craft` above, so
         # a fixture's Resilience is CON x 2 and natural healing's numbers do
         # not move; the chargen menu re-derives all four (CC5).
+        # No max (D.2, P-7) -- see the note on `perception` above.
         for skill_key, spec in skill_base.COMBAT_SKILL_TRAITS.items():
-            placeholder = skill_base.base_for(self, skill_key)
             self.skills.add(
                 skill_key, spec["name"],
-                trait_type="counter",
-                base=placeholder,
-                current=placeholder,
-                mod=0,
-                min=0,
-                # No max (D.2, P-7) -- see the note on `perception` above.
-                descs=dict(spec["descs"]),
+                **skill_base.trait_kwargs(self, skill_key),
             )
 
     def at_post_unpuppet(self, account=None, session=None, **kwargs):

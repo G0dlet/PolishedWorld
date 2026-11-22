@@ -10,6 +10,7 @@ out. One function answers for every reader:
 
     base_for(char, key)  -> the base from the characteristics, or None
     value_of(char, key)  -> the trait's value if the trait exists, else the base
+    trait_kwargs(char, key) -> how one of COMBAT_SKILL_TRAITS is added
 
 Why a safety net (BD6): a reader that went to the trait directly would get
 nothing for a character a backfill missed -- `healing.accrue` would grant
@@ -26,8 +27,10 @@ Resilience's stood here for one task, until its trait existed).
 
 COMBAT_SKILL_TRAITS is how the four Common skills combat reads (BD5) are
 made into traits: the name and the six words of the trait's ladder. Two
-writers read it and no others: `Character.at_object_creation` and the
-backfill (BD-T5), so a backfilled character cannot differ from a new one.
+writers read it and no others, both through `trait_kwargs`:
+`Character.at_object_creation` and
+`world.character_migrations.backfill_combat_skills` (BD-T5), so a backfilled
+character cannot differ from a new one.
 The ladder's bands are 0-19, 20-39, 40-59, 60-79, 80-94 and 95 upward. The
 traits contrib reads a `descs` key as an UPPER bound, inclusive, and gives
 the last word to anything above the last key (`CounterTrait.desc`), so the
@@ -115,3 +118,36 @@ def value_of(char, key):
     if trait is not None:
         return trait.value
     return base_for(char, key)
+
+
+def trait_kwargs(char, key):
+    """
+    What `char.skills.add(key, name, **kwargs)` takes for a combat skill.
+
+    The one place the shape of the four traits is written, for creation and
+    for the backfill. No `max`: a CounterTrait with a max clamps inside its
+    own setter (D.2, P-7).
+
+    Args:
+        char: a typeclassed object with a `stats` handler.
+        key (str): a key of COMBAT_SKILL_TRAITS.
+
+    Returns:
+        dict or None: the keyword arguments, with `base` and `current` at
+            `base_for(char, key)`; None when that base cannot be worked out.
+
+    Raises:
+        KeyError: `key` is not one of COMBAT_SKILL_TRAITS.
+    """
+    spec = COMBAT_SKILL_TRAITS[key]
+    base = base_for(char, key)
+    if base is None:
+        return None
+    return {
+        "trait_type": "counter",
+        "base": base,
+        "current": base,
+        "mod": 0,
+        "min": 0,
+        "descs": dict(spec["descs"]),
+    }

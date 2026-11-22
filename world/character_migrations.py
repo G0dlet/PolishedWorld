@@ -24,6 +24,7 @@ from evennia.contrib.rpg.rpsystem import RPSystemCmdSet
 from evennia.utils import logger
 
 from typeclasses.characters import Character
+from world import skill_base
 from world.sdesc import PLACEHOLDER
 
 
@@ -166,4 +167,74 @@ def backfill_names():
     return (
         f"backfill_names: changed {len(changed)} {changed}; "
         f"unchanged {unchanged}; errors {len(errors)} {errors}."
+    )
+
+
+# ---------------------------------------------------------------------------
+# The body (Stage 5, BD-T5): Resilience, Evade, Unarmed and Brawn
+# ---------------------------------------------------------------------------
+
+
+def backfill_combat_skills():
+    """
+    Give every existing character the four combat skills it lacks.
+
+    Body decomposition BD-T5 (lock BD6; Legend core p. 14). For each
+    character in `Character.objects.all_family()` and each key of
+    `skill_base.COMBAT_SKILL_TRAITS` the character has no trait for, the
+    trait is added exactly as `Character.at_object_creation` adds it
+    (`skill_base.trait_kwargs`), with `base` and `current` at the sum of the
+    character's OWN characteristics. Not a flat default, as
+    `backfill_hunting` used before character creation existed: a character
+    who chose CON 14 gets Resilience 28.
+
+    A skill that is present is left as it is, whatever its value, which is
+    what makes a second run idle (the module docstring on `force=True`). A
+    character whose base cannot be worked out for a missing skill -- it has
+    no such characteristic -- is skipped whole and named, so no character is
+    left with three of the four. Until it is backfilled, every reader still
+    gets its base through `skill_base.value_of` (BD6's net).
+
+    Nothing is written to `skill_xp`: an absent entry is derived on read from
+    the skill's `.current` (CC5/CC7).
+
+    Multiplayer: one synchronous call on Twisted's single-threaded reactor;
+    no command runs between two of its writes. A connected character's
+    `skills` and `progress` show the four on the next read.
+
+    Returns:
+        str: a summary for `@py ...; self.msg(backfill_combat_skills())`.
+    """
+    changed, unchanged, skipped, errors = [], 0, [], []
+
+    for char in Character.objects.all_family():
+        try:
+            missing = [
+                key for key in skill_base.COMBAT_SKILL_TRAITS
+                if char.skills.get(key) is None
+            ]
+            if not missing:
+                unchanged += 1
+                continue
+
+            # Every base before the first write, so a refusal writes nothing.
+            kwargs = {key: skill_base.trait_kwargs(char, key) for key in missing}
+            no_base = [key for key in missing if kwargs[key] is None]
+            if no_base:
+                skipped.append(f"{char.key} (no base for {', '.join(no_base)})")
+                continue
+
+            for key in missing:
+                name = skill_base.COMBAT_SKILL_TRAITS[key]["name"]
+                char.skills.add(key, name, **kwargs[key])
+            changed.append(f"{char.key} ({', '.join(missing)})")
+        except Exception as err:
+            # One broken character must not abort the whole batch.
+            logger.log_trace(f"backfill_combat_skills: {getattr(char, 'key', char)!r}")
+            errors.append(f"{getattr(char, 'key', char)} (ERROR: {err})")
+
+    return (
+        f"backfill_combat_skills: changed {len(changed)} {changed}; "
+        f"unchanged {unchanged}; skipped {len(skipped)} {skipped}; "
+        f"errors {len(errors)} {errors}."
     )
