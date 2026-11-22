@@ -177,7 +177,7 @@ def tier_for(value, descs):
         value (int): the skill score to classify (a permanent .current level).
             int()-coerced, mirroring improvement_roll's defensive coercion.
         descs (dict or None): the trait's {upper_bound_inclusive: label} map,
-            e.g. {0: "helpless", 20: "novice", 40: "competent", ...}. Iterated
+            e.g. {19: "helpless", 39: "novice", 59: "competent", ...}. Iterated
             in insertion order -- exactly as Evennia does -- and our maps are
             declared ascending, so order is meaningful and correct.
 

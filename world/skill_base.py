@@ -25,55 +25,82 @@ character creation would have written (`chargen.apply_allocation` sets
 Every pair lives in `chargen.SKILL_BASE_PAIRS`, and nowhere else (OQ-BD6:
 Resilience's stood here for one task, until its trait existed).
 
+SKILL_LADDERS holds the six words every skill reads as, and `ladder(key)`
+makes the `descs` table a trait stores. The bands are 0-19, 20-39, 40-59,
+60-79, 80-94 and 95 upward. The traits contrib reads a `descs` key as an
+UPPER bound, inclusive, and gives the last word to anything above the last
+key (`CounterTrait.desc`; `world.improvement.tier_for` and the skills'
+"reaches a new tier" line follow the same rule), so a ladder is keyed by
+each band's top: LADDER_TOPS. Keyed by band bottoms (0/20/40/60/80/95), as
+the five older skills were until BD-T5b, a ladder reads one rung early: 21
+as the third word, 81 as the last. A trait keeps the table it was created
+with, so `world.character_migrations.backfill_skill_ladders` rewrites it on
+older characters. (BACKLOG *`descs` tables are read as upper bounds but
+shaped like lower bounds*, decided for the skills 2026-11-22; hunger and
+thirst are still keyed the old way.)
+
 COMBAT_SKILL_TRAITS is how the four Common skills combat reads (BD5) are
-made into traits: the name and the six words of the trait's ladder. Two
-writers read it and no others, both through `trait_kwargs`:
-`Character.at_object_creation` and
+made into traits: the name and the ladder. Two writers read it and no
+others, both through `trait_kwargs`: `Character.at_object_creation` and
 `world.character_migrations.backfill_combat_skills` (BD-T5), so a backfilled
 character cannot differ from a new one.
-The ladder's bands are 0-19, 20-39, 40-59, 60-79, 80-94 and 95 upward. The
-traits contrib reads a `descs` key as an UPPER bound, inclusive, and gives
-the last word to anything above the last key (`CounterTrait.desc`), so the
-keys are each band's top: 19, 39, 59, 79, 94, and 100 for the open band.
-Keyed 0/20/40/60/80/95 the ladder reads one rung early -- 21 as the third
-word, 81 as the last -- which is how the five older skills in
-`Character.at_object_creation` still read; they are corrected in a task of
-their own, because a trait keeps the ladder it was created with.
 
 Pure over the character's handlers: no Django query, nothing written.
 """
 
 from world.chargen import SKILL_BASE_PAIRS
 
+# The top of each band, inclusive; 100 stands for "95 upward", since
+# anything above the last key reads the last word.
+LADDER_TOPS = (19, 39, 59, 79, 94, 100)
+
+# Skill -> its six words, in band order (Tone Guide section 5: concrete,
+# nothing epic). One table for all nine skills: creation, both backfills
+# and the ladder migration read it.
+SKILL_LADDERS = {
+    "athletics": ("feeble", "weak", "capable", "athletic", "strong", "mighty"),
+    "perception": (
+        "oblivious", "unaware", "attentive", "observant", "sharp", "eagle-eyed",
+    ),
+    "stealth": ("clumsy", "obvious", "careful", "sneaky", "stealthy", "invisible"),
+    "craft": (
+        "unskilled", "novice", "apprentice", "journeyman", "skilled", "master",
+    ),
+    "hunting": (
+        "helpless", "novice", "competent", "tracker", "hunter", "master hunter",
+    ),
+    "brawn": ("slight", "wiry", "sturdy", "stout", "burly", "ox-strong"),
+    "evade": ("flat-footed", "slow", "wary", "nimble", "quick", "hard to hit"),
+    "resilience": ("frail", "soft", "sound", "hardy", "tough", "unbroken"),
+    "unarmed": (
+        "harmless", "clumsy", "scrappy", "practised", "hard-fisted", "dangerous",
+    ),
+}
+
+
+def ladder(key):
+    """
+    The `descs` table for a skill's trait: {top of band: word}, rising.
+
+    A new dict on every call, because a trait stores what it is given.
+
+    Args:
+        key (str): a key of SKILL_LADDERS.
+
+    Returns:
+        dict: six entries keyed by LADDER_TOPS.
+
+    Raises:
+        KeyError: the skill has no ladder.
+    """
+    return dict(zip(LADDER_TOPS, SKILL_LADDERS[key]))
+
+
 COMBAT_SKILL_TRAITS = {
-    "brawn": {
-        "name": "Brawn",
-        "descs": {
-            19: "slight", 39: "wiry", 59: "sturdy",
-            79: "stout", 94: "burly", 100: "ox-strong",
-        },
-    },
-    "evade": {
-        "name": "Evade",
-        "descs": {
-            19: "flat-footed", 39: "slow", 59: "wary",
-            79: "nimble", 94: "quick", 100: "hard to hit",
-        },
-    },
-    "resilience": {
-        "name": "Resilience",
-        "descs": {
-            19: "frail", 39: "soft", 59: "sound",
-            79: "hardy", 94: "tough", 100: "unbroken",
-        },
-    },
-    "unarmed": {
-        "name": "Unarmed",
-        "descs": {
-            19: "harmless", 39: "clumsy", 59: "scrappy",
-            79: "practised", 94: "hard-fisted", 100: "dangerous",
-        },
-    },
+    "brawn": {"name": "Brawn", "descs": ladder("brawn")},
+    "evade": {"name": "Evade", "descs": ladder("evade")},
+    "resilience": {"name": "Resilience", "descs": ladder("resilience")},
+    "unarmed": {"name": "Unarmed", "descs": ladder("unarmed")},
 }
 
 
@@ -139,7 +166,7 @@ def trait_kwargs(char, key):
     Raises:
         KeyError: `key` is not one of COMBAT_SKILL_TRAITS.
     """
-    spec = COMBAT_SKILL_TRAITS[key]
+    COMBAT_SKILL_TRAITS[key]   # KeyError for anything but the four
     base = base_for(char, key)
     if base is None:
         return None
@@ -149,5 +176,5 @@ def trait_kwargs(char, key):
         "current": base,
         "mod": 0,
         "min": 0,
-        "descs": dict(spec["descs"]),
+        "descs": ladder(key),
     }

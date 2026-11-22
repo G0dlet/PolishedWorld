@@ -45,14 +45,8 @@ HUNTING_SKILL_DEFAULTS = {
     "current": 25,
     "mod": 0,
     "min": 0,
-    "descs": {
-        0: "helpless",
-        20: "novice",
-        40: "competent",
-        60: "tracker",
-        80: "hunter",
-        95: "master hunter",
-    },
+    # The same ladder creation stores (BD-T5b).
+    "descs": skill_base.ladder("hunting"),
 }
 
 
@@ -237,4 +231,69 @@ def backfill_combat_skills():
         f"backfill_combat_skills: changed {len(changed)} {changed}; "
         f"unchanged {unchanged}; skipped {len(skipped)} {skipped}; "
         f"errors {len(errors)} {errors}."
+    )
+
+
+# ---------------------------------------------------------------------------
+# The skill ladders (Stage 5, BD-T5b): bands that start where they say
+# ---------------------------------------------------------------------------
+
+
+def backfill_skill_ladders():
+    """
+    Give every existing character's skills the ladders creation stores now.
+
+    Body decomposition BD-T5b; BACKLOG *`descs` tables are read as upper
+    bounds but shaped like lower bounds*, decided for the skills 2026-11-22.
+    A skill's six words belong to the bands 0-19, 20-39, 40-59, 60-79, 80-94
+    and 95 upward. The traits contrib reads a `descs` key as an inclusive
+    upper bound, and the five older skills were keyed by band bottoms
+    (0/20/40/60/80/95), so they read one rung early. A trait keeps the table
+    it was created with; this writes `skill_base.ladder(key)` onto every
+    skill a character has whose stored table differs.
+
+    Only the table is written, through the trait's own `descs` setter:
+    `base`, `current` and `mod` are not touched, no trait is removed or
+    re-added (the module docstring on `force=True`), no skill is invented
+    for a character that lacks it, and nothing is written to `skill_xp`.
+    A skill whose table is already the ladder is left alone, so a second
+    run reports `changed 0`.
+
+    What a player sees change: the word beside a skill between two bands
+    (Athletics 25 read *capable*, now *weak*), and the "reaches a new tier"
+    line, which now comes at 20, 40, 60, 80 and 95. No roll reads a word.
+
+    Multiplayer: one synchronous call on Twisted's single-threaded reactor;
+    no command runs between two of its writes.
+
+    Returns:
+        str: a summary for `@py ...; self.msg(backfill_skill_ladders())`.
+    """
+    changed, unchanged, errors = [], 0, []
+
+    for char in Character.objects.all_family():
+        try:
+            done = []
+            for key in sorted(skill_base.SKILL_LADDERS):
+                skill = char.skills.get(key)
+                if skill is None:
+                    continue
+                wanted = skill_base.ladder(key)
+                stored = skill.descs
+                if stored is not None and list(stored.items()) == list(wanted.items()):
+                    continue
+                skill.descs = wanted
+                done.append(key)
+            if done:
+                changed.append(f"{char.key} ({', '.join(done)})")
+            else:
+                unchanged += 1
+        except Exception as err:
+            # One broken character must not abort the whole batch.
+            logger.log_trace(f"backfill_skill_ladders: {getattr(char, 'key', char)!r}")
+            errors.append(f"{getattr(char, 'key', char)} (ERROR: {err})")
+
+    return (
+        f"backfill_skill_ladders: changed {len(changed)} {changed}; "
+        f"unchanged {unchanged}; errors {len(errors)} {errors}."
     )
