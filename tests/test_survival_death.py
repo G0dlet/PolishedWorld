@@ -61,9 +61,12 @@ WEATHER = "world.survival_ticker.apply_thermal_stress"
 
 
 def _hurt(char):
-    """How much hurt the body carries, as one number (WN-T5 rewrites this)."""
-    health = char.traits.health
-    return health.max - health.current
+    """
+    How much hurt the body carries, as one number: the largest damage on
+    any location (WN-T5). Starvation's points land on every location, so on
+    the fixture's body it is the head's.
+    """
+    return max((char.db.body_damage or {}).values(), default=0)
 
 
 class _Tick(EvenniaTest):
@@ -111,8 +114,9 @@ class TestBothGaugesAtTheirMinimum(_Tick):
         self.assertEqual(_hurt(self.char1), 2)   # receipt: the call went through
 
     def test_one_point_from_death_dies_once(self):
-        self.char1.apply_health_damage(19, location=wounds.ALL)   # 20 -> 1
-        self.assertEqual(_hurt(self.char1), 19)   # receipt: one point from death
+        # The fixture's head is 4 (CON + SIZ 20): a Major Wound at 8.
+        self.char1.apply_health_damage(7, location=wounds.ALL)
+        self.assertEqual(wounds.health_of(self.char1), (1, 8, 12.5))   # receipt
         self.hunger.current = self.hunger.min
         self.thirst.current = self.thirst.min
         self.tick()

@@ -9,18 +9,23 @@ The arithmetic works from numbers alone, and the module imports nothing
 from Evennia. The functions that read and write a character are the seam:
 `health_of` for every reader (WN-T3), and four doors for every writer --
 `damage`, `heal`, `room_to_heal`, `restore_at_respawn` -- with `is_dead`
-beside them (WN-T4). Until WN-T5 all of them reach the `health` trait, and
-only through `_health_trait`; WN-T5 changes what is behind them.
+beside them (WN-T4). Behind them is the stored damage (WN-T5): one
+Attribute, `db.body_damage`, a plain dict from location to a whole number,
+holding only hurt locations. A missing Attribute is an unhurt body (WN1).
+Readers test for a `Mapping`, never a `dict` (a stored dict comes back as a
+`_SaverDict`); writers assign a fresh dict and never change one in place, and
+remove the Attribute when nothing is left. The `health` trait is not read.
 
 The damage is what is stored (WN1); Hit Points are worked out from it on
 every read, against the maximum `world.body.hit_points_max` gives for the
 character's CON + SIZ now. A location with no damage has no key.
 """
 
-import math
+from collections.abc import Mapping
 from fractions import Fraction
+from random import randint
 
-from world.body import LOCATIONS
+from world.body import LOCATIONS, hit_points_max
 
 # Head, chest and abdomen: a Serious Wound there knocks out, a Major Wound
 # kills at once on a lost test, and the clock is counted in rounds (p. 146).
@@ -29,7 +34,7 @@ VITAL = ("head", "chest", "abdomen")
 
 # Where damage lands, besides a key of `body.LOCATIONS` (WO5): every
 # location at once (starvation, thirst; WN5, WN6), or one the hit location
-# table picks. Checked from WN-T4; used from WN-T5.
+# table picks (pp. 144-145).
 ALL = "all"
 RANDOM = "random"
 
@@ -157,13 +162,30 @@ def check_location(location):
     )
 
 
-def _health_trait(char):
+def maxima_of(char):
     """
-    The `health` trait, or None. The module's one reach into it (WN-T3's
-    census), so WN-T5 removes one line and not six.
+    The seven locations' maximum Hit Points for the character's CON + SIZ
+    now (BD7, `body.hit_points_max`), or None for an object without both.
     """
-    traits = getattr(char, "traits", None)
-    return traits.get("health") if traits is not None else None
+    stats = getattr(char, "stats", None)
+    if stats is None:
+        return None
+    con, siz = stats.get("con"), stats.get("siz")
+    if con is None or siz is None:
+        return None
+    return hit_points_max(int(con.value), int(siz.value))
+
+
+def damage_of(char):
+    """
+    The stored damage as a plain dict, location -> int; empty when unhurt.
+
+    Only hurt locations are kept, so a key with 0 is never returned.
+    """
+    stored = char.attributes.get("body_damage") if hasattr(char, "attributes") else None
+    if not isinstance(stored, Mapping):
+        return {}
+    return {key: int(value) for key, value in stored.items() if value}
 
 
 def health_of(char):
@@ -171,33 +193,40 @@ def health_of(char):
     What the screens print for a character's health: (current, max, percent).
 
     The one reader of health for `status`, `sheet`, the `char` snapshot and
-    `Character.health_desc()` (WN-T3). It reads the `health` trait for now;
-    WN-T5 changes what is behind it and nothing in front. Current and max
-    are whole numbers, truncated as `status` has always printed them; the
-    percentage is not rounded (the screens format it).
+    `Character.health_desc()` (WN-T3). Since WN-T5 it is WN2's figure: the
+    worst location's margin to a Major Wound, out of twice its maximum, from
+    the stored damage and the maxima for CON + SIZ now. The old trait is not
+    read, so a character made before WN with its trait at 3/20 and no damage
+    reads 100 % (WN2b).
 
     Callers reach it as `wounds.health_of(...)`, through the module, so a
     test can stand in for it at one place.
 
     Returns:
-        tuple or None: (int, int, float); None for an object with no health
+        tuple or None: (int, int, float); None for an object with no body
             to read.
     """
-    trait = _health_trait(char)
-    if trait is None:
+    maxima = maxima_of(char)
+    if maxima is None:
         return None
-    return int(trait.value), int(trait.max), trait.percent(formatting=None)
+    return health(maxima, damage_of(char))
 
 
 def is_dead(char):
     """
-    True when the body's hurt is fatal: today the trait at its minimum.
+    True when a vital location -- head, chest or abdomen -- is at a Major
+    Wound (WO7, WN5). A limb at a Major Wound is not death.
 
-    WN-T5 makes it a vital location at a Major Wound from an `ALL` source
-    (WO7, WN5). An object with no body to read is not dead.
+    Today the only sources are `ALL` ones (starvation, thirst). What a
+    blow's Major Wound does -- the Resilience test, death at once or
+    unconsciousness and a clock -- is WN-T8's, which changes this function.
+    An object with no body to read is not dead.
     """
-    trait = _health_trait(char)
-    return trait is not None and trait.current <= trait.min
+    maxima = maxima_of(char)
+    if maxima is None:
+        return False
+    damages = damage_of(char)
+    return any(level(maxima[key], damages.get(key, 0)) == MAJOR for key in VITAL)
 
 
 def damage(char, amount, location):
@@ -207,8 +236,13 @@ def damage(char, amount, location):
     The door behind `Character.apply_health_damage`, its one caller in
     production; the writer runs the death and pushes (tests/test_client_state
     holds both). The place is checked first, before the amount is looked at,
-    so a wrong place fails on every call. Until WN-T5 every place lands on
-    the trait whole: the policy is checked and not yet used.
+    so a wrong place fails on every call.
+
+    `ALL` adds the amount to every location, a limb stopping at its maximum
+    (Hit Points 0, WO7; a limb already past it from a blow keeps what it
+    has). A key of `body.LOCATIONS` adds to that location; `RANDOM` to the
+    one the hit location table names for a 1D20. No state is set here (WN5;
+    a blow's state is WN-T8's).
 
     Nothing is written for an amount of 0 or less, an object with no body,
     or a body already dead -- a death in progress or resolved this tick.
@@ -222,55 +256,66 @@ def damage(char, amount, location):
     check_location(location)
     if amount <= 0:
         return False
-    trait = _health_trait(char)
-    if trait is None or trait.current <= trait.min:
+    maxima = maxima_of(char)
+    if maxima is None or is_dead(char):
         return False
-    trait.current -= amount
+    damages = damage_of(char)
+    if location == ALL:
+        for key in LOCATIONS:
+            total = damages.get(key, 0) + amount
+            if key not in VITAL:
+                total = min(total, max(damages.get(key, 0), maxima[key]))
+            damages[key] = total
+    else:
+        key = location_for(randint(1, 20)) if location == RANDOM else location
+        damages[key] = damages.get(key, 0) + amount
+    char.db.body_damage = {key: value for key, value in damages.items() if value}
     return True
 
 
 def room_to_heal(char):
     """
-    How many points natural healing could still give: 0 when unhurt, None
-    for an object with no body to read (WN10 makes it the largest damage on
-    any location, at WN-T5).
+    How many intervals natural healing could still use: the largest damage
+    on any location (WN10), 0 when unhurt, None for an object with no body
+    to read.
     """
-    trait = _health_trait(char)
-    if trait is None:
+    if maxima_of(char) is None:
         return None
-    return max(0, math.ceil(trait.max - trait.current))
+    return max(damage_of(char).values(), default=0)
 
 
 def heal(char, points):
     """
-    Mend up to `points`, never past an unhurt body; returns what landed.
+    Mend `points` intervals' worth: a point from every hurt location per
+    interval, never below unhurt (WN10); returns the intervals that landed.
 
     The door behind `world.healing.accrue`, which keeps the counter and
-    pushes. The trait would clamp at its maximum on its own; the cap here is
-    what keeps the returned number true, since callers report it.
+    pushes. What is returned is what callers report -- one for an interval
+    that mended seven locations, since it is one interval's line.
 
     Returns:
-        int: points mended (0 or more).
+        int: intervals that mended something (0 or more).
     """
     room = room_to_heal(char)
     if not room or points <= 0:
         return 0
     landed = min(points, room)
-    trait = _health_trait(char)
-    trait.current = trait.current + landed
+    left = {key: value - landed for key, value in damage_of(char).items() if value > landed}
+    if left:
+        char.db.body_damage = left
+    else:
+        char.attributes.remove("body_damage")
     return landed
 
 
 def restore_at_respawn(char):
     """
-    What death gives back of the body: today, full health (WN9 at WN-T5 and
-    WN-T8: the damage emptied, *maimed* and *severed* kept). Called from the
-    restore block of `Character.at_character_death`, whose push_soon of all
-    four domains sends it.
+    What death gives back of the body (WN9): the damage is emptied. The
+    states, which WN-T8 stores beside it, are not this task's. Called from
+    the restore block of `Character.at_character_death`, whose push_soon of
+    all four domains sends it.
     """
-    trait = _health_trait(char)
-    if trait is not None:
-        trait.current = trait.max
+    char.attributes.remove("body_damage")
 
 
 def location_for(roll):

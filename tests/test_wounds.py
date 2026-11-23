@@ -55,13 +55,31 @@ The door (WN-T4):
   ValueError raised before the trait is touched, and raised for an amount
   of 0 too -- the tick calls with a sum that is usually 0, and a wrong
   place must fail on the first tick, not on the first starving one. `ALL`,
-  `RANDOM` and a named key are accepted and, until WN-T5, all land on the
-  trait whole.
-- `TestTheDoors`: `heal` stops at the maximum and returns what landed (what
-  `accrue` reports); `room_to_heal` is the room left, 0 at full and None for
-  an object with no body; `restore_at_respawn` fills; `damage` says
-  whether it wrote, and writes nothing on a body already at 0 (a death in
-  progress); `is_dead` at 0 and not at 1.
+  `RANDOM` and a named key are accepted (`TestStoredDamage` shows where
+  each lands).
+- `TestTheDoors`, on the fixture's body (head 4): `heal` stops at an unhurt
+  body and returns what landed (what `accrue` reports); `room_to_heal` is
+  the largest damage, 0 unhurt and None for an object with no body;
+  `restore_at_respawn` removes the damage; `damage` says whether it wrote,
+  and writes nothing on a body already dead (a death in progress);
+  `is_dead` at eight points on the head and not at seven.
+
+The storage (WN-T5):
+
+- `TestStoredDamage`, at CON 10 and SIZ 11: five points of `ALL` stop the
+  arms at their maximum (WO7) and read 5 of 10, 50 % -- the row that read
+  15 of 20, 75 % while the trait was what was written; nine leave the head
+  one point from a Major Wound and ten kill, once, and the body comes back
+  with no damage. A named key hurts that location alone; `RANDOM` hurts
+  what the table names for the roll. A heal takes a point from every hurt
+  location, drops a mended one, and removes the Attribute with the last
+  point: an unhurt body has none (WN1). A raised CON keeps the damage and
+  gains Hit Points. **The old trait at 3 of 20 with no damage reads
+  100 %** -- WN2b's promise to every character made before WN. Only a vital
+  location at a Major Wound is death (WO7, WN5), and a stored dict is read
+  as the `_SaverDict` it comes back as.
+- `TestHealthOf`: the fixture's unhurt body reads 8 of 8; an object without
+  CON and SIZ reads None.
 
 The maxima at CON + SIZ 21 are taken from `body.hit_points_max(10, 11)` and
 not typed, so these tests follow BD's table if it is ever corrected.
@@ -79,6 +97,7 @@ from django.test import SimpleTestCase
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.character_commands import CmdSheet, CmdStatus
+from typeclasses.corpse import PlayerCorpse
 from world import body, client_state, wounds
 
 MAXIMA = body.hit_points_max(10, 11)   # head 5, chest 7, abdomen 6, arms 4, legs 5
@@ -210,79 +229,178 @@ class TestWordsMatchTheTrait(EvenniaTest):
         self.assertEqual(dict(self.char1.traits.health.descs), wounds.HEALTH_WORDS)
 
 
-class TestHealthOf(EvenniaTest):
-    def test_the_trait_read_whole(self):
-        self.char1.traits.health.current = 5
-        self.assertEqual(wounds.health_of(self.char1), (5, 20, 25.0))
+def _stored(char):
+    """The stored damage as a plain dict; None when there is no Attribute."""
+    if not char.attributes.has("body_damage"):
+        return None
+    return dict(char.db.body_damage)
 
-    def test_an_object_with_no_health_trait_reads_none(self):
+
+class TestHealthOf(EvenniaTest):
+    def test_an_unhurt_fixture_reads_full(self):
+        # The fixture is CON 10, SIZ 10: a head of 4, whole at 8.
+        self.assertEqual(wounds.health_of(self.char1), (8, 8, 100.0))
+
+    def test_an_object_without_a_body_reads_none(self):
         self.assertIsNone(wounds.health_of(self.obj1))
+
+    def test_a_body_missing_siz_reads_none(self):
+        self.char1.stats.remove("siz")
+        self.assertIsNone(wounds.health_of(self.char1))
+
+
+class TestStoredDamage(EvenniaTest):
+    """CON 10, SIZ 11: the book's column 21-25 -- head 5, arms 4 (WN-T5)."""
+
+    def setUp(self):
+        super().setUp()
+        self.char1.stats.siz.base = 11
+        self.char1.db.respawn_location = self.room2
+
+    def test_five_points_of_all_stop_the_arms_and_read_half(self):
+        self.char1.apply_health_damage(5, location=wounds.ALL)
+        self.assertEqual(_stored(self.char1), {
+            "head": 5, "chest": 5, "abdomen": 5,
+            "right_arm": 4, "left_arm": 4, "right_leg": 5, "left_leg": 5,
+        })
+        self.assertEqual(wounds.health_of(self.char1), (5, 10, 50.0))
+
+    def test_nine_points_of_all_leave_the_head_one_from_a_major_wound(self):
+        self.char1.apply_health_damage(9, location=wounds.ALL)
+        self.assertFalse(wounds.is_dead(self.char1))
+        self.assertEqual(wounds.health_of(self.char1), (1, 10, 10.0))
+        self.assertEqual(self.char1.location, self.room1)
+
+    def test_ten_points_of_all_kill_once_and_the_body_comes_back_unhurt(self):
+        self.char1.apply_health_damage(10, location=wounds.ALL)
+        corpses = [o for o in self.room1.contents if isinstance(o, PlayerCorpse)]
+        self.assertEqual(len(corpses), 1)
+        self.assertEqual(self.char1.location, self.room2)
+        self.assertIsNone(_stored(self.char1))
+
+    def test_a_named_leg_is_the_only_location_hurt(self):
+        self.char1.apply_health_damage(3, location="left_leg")
+        self.assertEqual(_stored(self.char1), {"left_leg": 3})
+        self.assertEqual(wounds.health_of(self.char1), (7, 10, 70.0))
+
+    def test_random_hurts_the_location_the_table_names(self):
+        with mock.patch("world.wounds.randint", return_value=20) as roll:
+            self.char1.apply_health_damage(2, location=wounds.RANDOM)
+        roll.assert_called_once_with(1, 20)
+        self.assertEqual(_stored(self.char1), {"head": 2})
+
+    def test_all_adds_to_what_a_location_already_has(self):
+        self.char1.apply_health_damage(2, location="chest")
+        self.char1.apply_health_damage(1, location=wounds.ALL)
+        self.assertEqual(_stored(self.char1)["chest"], 3)
+        self.assertEqual(_stored(self.char1)["head"], 1)
+
+    def test_a_heal_mends_every_hurt_location_by_one_and_returns_one(self):
+        self.char1.apply_health_damage(5, location=wounds.ALL)
+        self.assertEqual(wounds.heal(self.char1, 1), 1)
+        self.assertEqual(_stored(self.char1), {
+            "head": 4, "chest": 4, "abdomen": 4,
+            "right_arm": 3, "left_arm": 3, "right_leg": 4, "left_leg": 4,
+        })
+
+    def test_a_heal_leaves_out_what_is_mended_and_the_last_point_removes_it(self):
+        self.char1.apply_health_damage(1, location="head")
+        self.char1.apply_health_damage(3, location="chest")
+        self.assertEqual(wounds.heal(self.char1, 1), 1)
+        self.assertEqual(_stored(self.char1), {"chest": 2})
+        self.assertEqual(wounds.heal(self.char1, 5), 2)
+        self.assertIsNone(_stored(self.char1))
+
+    def test_an_unhurt_character_has_no_attribute(self):
+        self.assertIsNone(_stored(self.char1))
+        self.char1.apply_health_damage(3, location=wounds.ALL)
+        wounds.restore_at_respawn(self.char1)
+        self.assertIsNone(_stored(self.char1))
+
+    def test_raised_con_keeps_the_damage_and_gains_hit_points(self):
+        self.char1.apply_health_damage(5, location=wounds.ALL)
+        self.char1.stats.con.base = 15   # CON + SIZ 26: head 6
+        self.assertEqual(_stored(self.char1)["head"], 5)
+        left, whole, _percent = wounds.health_of(self.char1)
+        self.assertEqual((left, whole), (7, 12))
+
+    def test_the_old_trait_at_3_of_20_and_no_damage_reads_full(self):
+        # WN2b's promise to every character made before WN.
+        self.char1.traits.health.current = 3
+        self.assertEqual(wounds.health_of(self.char1), (10, 10, 100.0))
+        self.assertEqual(self.char1.health_desc(), "healthy")
+
+    def test_only_a_vital_location_at_a_major_wound_is_death(self):
+        # A premise no ALL source can make: limbs past their maximum.
+        self.char1.db.body_damage = {"left_arm": 8, "right_leg": 10}
+        self.assertFalse(wounds.is_dead(self.char1))
+        self.char1.db.body_damage = {"abdomen": 11}
+        self.assertFalse(wounds.is_dead(self.char1))
+        self.char1.db.body_damage = {"abdomen": 12}
+        self.assertTrue(wounds.is_dead(self.char1))
+
+    def test_a_stored_dict_is_read_as_a_mapping(self):
+        # A stored dict comes back as a _SaverDict, not a dict.
+        self.char1.apply_health_damage(2, location="head")
+        self.assertNotEqual(type(self.char1.db.body_damage), dict)
+        self.assertEqual(wounds.health_of(self.char1), (8, 10, 80.0))
 
 
 class TestTheWriterNamesItsLocation(EvenniaTest):
-    def health(self):
-        return self.char1.traits.health.current
-
     def test_a_call_that_does_not_say_where_is_refused(self):
         with self.assertRaises(TypeError) as caught:
             self.char1.apply_health_damage(1)
         self.assertIn("location", str(caught.exception))
-        self.assertEqual(self.health(), 20)
+        self.assertIsNone(_stored(self.char1))
 
     def test_an_unknown_place_is_refused_before_anything_is_written(self):
         for place in ("arm", "ALL", "Head", "", None):
             with self.subTest(place=place):
                 with self.assertRaises(ValueError):
                     self.char1.apply_health_damage(3, location=place)
-                self.assertEqual(self.health(), 20)
+                self.assertIsNone(_stored(self.char1))
 
     def test_an_unknown_place_is_refused_when_there_is_no_damage(self):
         with self.assertRaises(ValueError):
             self.char1.apply_health_damage(0, location="arm")
 
-    def test_all_random_and_a_named_key_land_whole_for_now(self):
-        self.char1.apply_health_damage(1, location=wounds.ALL)
-        self.char1.apply_health_damage(2, location=wounds.RANDOM)
-        self.char1.apply_health_damage(3, location="left_leg")
-        self.assertEqual(self.health(), 14)
-
 
 class TestTheDoors(EvenniaTest):
-    def health(self):
-        return self.char1.traits.health.current
+    """The fixture's body, CON + SIZ 20: head 4, chest 6, abdomen 5, arms 3, legs 4."""
 
-    def test_heal_stops_at_the_maximum_and_returns_what_landed(self):
+    def test_heal_stops_at_an_unhurt_body_and_returns_what_landed(self):
         self.char1.apply_health_damage(3, location=wounds.ALL)
         self.assertEqual(wounds.heal(self.char1, 5), 3)
-        self.assertEqual(self.health(), 20)
+        self.assertIsNone(_stored(self.char1))
         self.assertEqual(wounds.heal(self.char1, 1), 0)
 
     def test_heal_of_less_than_the_room(self):
         self.char1.apply_health_damage(3, location=wounds.ALL)
         self.assertEqual(wounds.heal(self.char1, 2), 2)
-        self.assertEqual(self.health(), 19)
+        self.assertEqual(set(_stored(self.char1).values()), {1})
 
-    def test_room_to_heal(self):
+    def test_room_to_heal_is_the_largest_damage(self):
         self.assertEqual(wounds.room_to_heal(self.char1), 0)
-        self.char1.apply_health_damage(3, location=wounds.ALL)
+        self.char1.apply_health_damage(2, location="chest")
+        self.char1.apply_health_damage(1, location=wounds.ALL)
         self.assertEqual(wounds.room_to_heal(self.char1), 3)
         self.assertIsNone(wounds.room_to_heal(self.obj1))
 
-    def test_restore_at_respawn_fills(self):
+    def test_restore_at_respawn_removes_the_damage(self):
         self.char1.apply_health_damage(7, location=wounds.ALL)
         wounds.restore_at_respawn(self.char1)
-        self.assertEqual(self.health(), 20)
+        self.assertIsNone(_stored(self.char1))
 
-    def test_is_dead_at_the_minimum_and_not_above(self):
+    def test_is_dead_at_a_major_wound_on_the_head_and_not_one_before(self):
         # The door itself, not the writer: the writer would run the death
-        # and the restore, and the body would never be seen at 0.
+        # and the restore, and the body would never be seen dead.
         self.assertFalse(wounds.is_dead(self.char1))
-        self.assertTrue(wounds.damage(self.char1, 19, wounds.ALL))
+        self.assertTrue(wounds.damage(self.char1, 7, wounds.ALL))
         self.assertFalse(wounds.is_dead(self.char1))
         self.assertTrue(wounds.damage(self.char1, 1, wounds.ALL))
         self.assertTrue(wounds.is_dead(self.char1))
         self.assertFalse(wounds.damage(self.char1, 1, wounds.ALL))   # a death in progress
-        self.assertEqual(self.health(), 0)
+        self.assertEqual(_stored(self.char1)["head"], 8)
         self.assertFalse(wounds.is_dead(self.obj1))
 
 
@@ -313,13 +431,12 @@ class TestScreensReadTheModule(EvenniaCommandTest):
 class TestHealthTraitCensus(SimpleTestCase):
     """The reaches into the `health` trait, per module (WN2b's door)."""
 
-    # After WN-T4: the writer, the healer and the restore reach the trait
-    # through the wound module, and the module through one helper. WN-T5
-    # removes the helper's reach; WN-T6 empties the table.
+    # After WN-T5: the wound module reads and writes the stored damage and
+    # never the trait. What is left is the trait's creation and rescaling,
+    # and chargen's refusal; WN-T6 empties the table.
     EXPECTED = {
         "typeclasses/characters.py": 4,   # creation 1, update_health_max 3
         "world/chargen.py": 1,            # the refusal of a body with no trait
-        "world/wounds.py": 1,             # _health_trait, every door's one reach
     }
 
     @staticmethod

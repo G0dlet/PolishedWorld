@@ -72,13 +72,16 @@ class TestCharSnapshot(EvenniaTest):
         self.assertEqual(_json_roundtrip(snap), snap)
 
     def test_health_reads_like_status(self):
-        health = self.char1.traits.health
+        # Five points on every location of the fixture's body (head 4, arms
+        # stopped at 3): the head reads 3 of 8, 37.5 %. The old trait, never
+        # written since WN-T5, still reads 20/20 -- the case that tells the
+        # two readers apart.
+        self.char1.apply_health_damage(5, location=wounds.ALL)
         snap = client_state.char_snapshot(self.char1)["health"]
-        self.assertEqual(snap["current"], _whole(health.value))
-        self.assertEqual(snap["max"], _whole(health.max))
+        self.assertEqual((snap["current"], snap["max"]), (3, 8))
         self.assertEqual(snap["desc"], self.char1.health_desc())
-        # The fixture is the case that tells the two readers apart.
-        self.assertNotEqual(health.desc(), self.char1.health_desc())
+        self.assertEqual(snap["desc"], "badly hurt")
+        self.assertEqual(self.char1.traits.health.value, 20)
 
     def test_name_is_plain(self):
         self.assertEqual(client_state.char_snapshot(self.char1)["name"], "Char")
@@ -91,8 +94,11 @@ class TestCharSnapshot(EvenniaTest):
                                 "band": encumbrance.band(25, limit)})
         self.assertEqual(snap["band"], encumbrance.OVERLOADED)
 
-    def test_missing_health_is_null(self):
-        self.char1.traits.remove("health")
+    def test_a_body_without_con_has_null_health(self):
+        # Since WN-T5 health is read from CON + SIZ and the stored damage,
+        # not the trait: a body that cannot be read is the null case. (Not
+        # SIZ: the encumbrance limit reads it too.)
+        self.char1.stats.remove("con")
         snap = client_state.char_snapshot(self.char1)
         self.assertIsNone(snap["health"])
         self.assertEqual(set(snap), {"name", "health", "encumbrance", "inventory"})
@@ -834,8 +840,7 @@ class TestHookSites(ReactorMixin, EvenniaTest):
         with mock.patch.object(client_state, "push_soon") as soon, \
                 mock.patch.object(client_state, "push_room_soon") as room_soon, \
                 mock.patch.object(client_state, "push"):
-            self.char1.apply_health_damage(
-                self.char1.traits.health.current, location=wounds.ALL)
+            self.char1.apply_health_damage(8, location=wounds.ALL)   # the head's Major Wound
         self.assertEqual(self.char1.location, self.room2)
         self.assertIn(mock.call(self.char1, *client_state.DOMAINS), soon.call_args_list)
         rooms = {c.args[0] for c in room_soon.call_args_list}
@@ -1070,12 +1075,17 @@ class TestPushCensus(EvenniaTest):
     # nothing; each has one caller in production, and the caller pushes --
     # the writer after its death check, so a fatal blow sends the refilled
     # value (W4.2), and the death through its push_soon of all four.
+    # WN-T5 (choice A): what they write is the stored damage, an assignment
+    # to `db.body_damage` or the Attribute's removal, and the census reads
+    # both as writes; without that the door would leave the census unseen.
     DOOR_WRITES = {
-        ("world/wounds.py", "damage", "trait.current"):
+        ("world/wounds.py", "damage", "char.db.body_damage"):
             ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
-        ("world/wounds.py", "heal", "trait.current"):
+        ("world/wounds.py", "heal", "char.db.body_damage"):
             ("world/healing.py", "accrue", "char"),
-        ("world/wounds.py", "restore_at_respawn", "trait.current"):
+        ("world/wounds.py", "heal", "char.attributes.remove('body_damage')"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('body_damage')"):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
     }
 
@@ -1117,13 +1127,16 @@ class TestPushCensus(EvenniaTest):
                         if door:
                             key = (door, rel, qual)
                             self.door_calls[key] = self.door_calls.get(key, 0) + 1
+                        if self._removes_body_damage(node):
+                            self.writes.add((rel, qual, ast.unparse(node)))
                     targets = []
                     if isinstance(node, ast.Assign):
                         targets = node.targets
                     elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
                         targets = [node.target]
                     for target in targets:
-                        if isinstance(target, ast.Attribute) and target.attr == "current":
+                        if isinstance(target, ast.Attribute) and target.attr in (
+                                "current", "body_damage"):
                             self.writes.add((rel, qual, ast.unparse(target)))
                         if isinstance(target, ast.Attribute) and target.attr in (
                                 "location", "db_location"):
@@ -1141,6 +1154,17 @@ class TestPushCensus(EvenniaTest):
         if isinstance(func, ast.Name) and func.id in cls.DOORS and func.id in imported:
             return func.id
         return None
+
+    @staticmethod
+    def _removes_body_damage(call):
+        """`X.attributes.remove("body_damage")`: the stored damage taken away."""
+        func = call.func
+        return (
+            isinstance(func, ast.Attribute) and func.attr == "remove"
+            and isinstance(func.value, ast.Attribute) and func.value.attr == "attributes"
+            and len(call.args) == 1 and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == "body_damage"
+        )
 
     def test_push_sites_are_pinned(self):
         self.assertEqual(self.sites, self.SITES)
