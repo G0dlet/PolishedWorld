@@ -131,6 +131,30 @@ def health(maxima, damages):
     return left, whole, 100 * left / whole
 
 
+def health_of(char):
+    """
+    What the screens print for a character's health: (current, max, percent).
+
+    The one reader of health for `status`, `sheet`, the `char` snapshot and
+    `Character.health_desc()` (WN-T3). It reads the `health` trait for now;
+    WN-T5 changes what is behind it and nothing in front. Current and max
+    are whole numbers, truncated as `status` has always printed them; the
+    percentage is not rounded (the screens format it).
+
+    Callers reach it as `wounds.health_of(...)`, through the module, so a
+    test can stand in for it at one place.
+
+    Returns:
+        tuple or None: (int, int, float); None for an object with no health
+            to read.
+    """
+    traits = getattr(char, "traits", None)
+    trait = traits.get("health") if traits is not None else None
+    if trait is None:
+        return None
+    return int(trait.value), int(trait.max), trait.percent(formatting=None)
+
+
 def location_for(roll):
     """
     The location a 1D20 roll names on the humanoid table (p. 145).

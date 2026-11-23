@@ -7,6 +7,7 @@ Commands for viewing character stats, skills, and vital status.
 from evennia import Command
 
 from world import body
+from world import wounds
 from world import fatigue as fatigue_rules
 from world.progression import progress_within_level, render_progress_bar
 
@@ -24,6 +25,15 @@ def _whole(number):
     `progress` and `Character.update_health_max()` already do.
     """
     return int(number)
+
+
+def _percent(value):
+    """
+    A percentage as a gauge's `percent()` prints it by default: one decimal
+    and a sign (`"{:3.1f}%"`, evennia/contrib/rpg/traits/traits.py), so a row
+    read through the wound module looks as a trait's row does.
+    """
+    return f"{value:3.1f}%"
 
 
 class CmdStatus(Command):
@@ -56,11 +66,10 @@ class CmdStatus(Command):
         msg = "\n|wVital Status:|n\n"
         msg += "|g" + "=" * 40 + "|n\n"
         
-        # Health
-        health = char.traits.health
-        msg += f"  |yHealth:|n  {_whole(health.value):>3}/{_whole(health.max):<3} "
-        # health_desc(): the label follows percent(), not the absolute value
-        msg += f"({health.percent():>6}) - {char.health_desc()}\n"
+        # Health: read through the wound module (WN-T3), never the trait.
+        current, maximum, percent = wounds.health_of(char)
+        msg += f"  |yHealth:|n  {current:>3}/{maximum:<3} "
+        msg += f"({_percent(percent):>6}) - {char.health_desc()}\n"
         
         # Hunger
         hunger = char.traits.hunger
@@ -351,15 +360,17 @@ class CmdSheet(Command):
             msg += "\n|wVital Status:|n\n"
             msg += "|g" + "-" * 60 + "|n\n"
             
-            for trait_key in ['health', 'hunger', 'thirst', 'fatigue']:
+            # Health through the wound module (WN-T3), as `status` reads it.
+            current, maximum, percent = wounds.health_of(char)
+            msg += f"  |y{'Health':14}|n {current:>3}/{maximum:<3} "
+            msg += f"({_percent(percent):>6}) - {char.health_desc()}\n"
+
+            for trait_key in ['hunger', 'thirst', 'fatigue']:
                 trait = getattr(char.traits, trait_key)
                 msg += f"  |y{trait.name:14}|n {_whole(trait.value):>3}/{_whole(trait.max):<3} "
-                # Health's max is CON x 2, so its label follows percent();
-                # fatigue's is Legend's level, read from the one table
+                # Fatigue's label is Legend's level, read from the one table
                 # (S3.1); hunger and thirst keep the trait's own desc().
-                if trait_key == "health":
-                    label = char.health_desc()
-                elif trait_key == "fatigue":
+                if trait_key == "fatigue":
                     label = char.fatigue_desc()
                 else:
                     label = trait.desc()

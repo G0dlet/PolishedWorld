@@ -78,10 +78,6 @@ class TestHealthDescBands(EvenniaTest):
         # 19/20 = 95%. A lower-bound reading puts 90-99% under key 90.
         self.assertEqual(self._at(10, 19), "healthy")
 
-    def test_no_descs_reads_empty(self):
-        self.char1.traits.health.descs = None
-        self.assertEqual(self.char1.health_desc(), "")
-
 
 class TestHealthDescCallSites(EvenniaCommandTest):
     """`status` and `sheet` show the percent label, at a state where it differs."""

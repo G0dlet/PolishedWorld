@@ -30,6 +30,7 @@ from world import timed_actions
 from world import activity_log
 from world import gametime_utils
 from world import healing
+from world import wounds
 from world import sdesc as sdesc_rules
 from world import skill_base
 from world.progression import (
@@ -1070,42 +1071,23 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
 
     def health_desc(self):
         """
-        The health label, read against the gauge's percent -- not its value.
+        The health word, for the percentage `health` shows.
 
-        Health's `descs` are keyed 0-100, but its max is CON x 2 (12-36 once
-        character creation varies CON). `GaugeTrait.desc()` compares the keys
-        with the absolute value, so a full 20/20 read `critically wounded`
-        (BACKLOG *Health `descs` use a 0-100 scale*). The scale was the bug,
-        not the bound: this reader keeps Evennia's own rule -- each key is an
-        inclusive UPPER bound, anything above the top key takes the top label
-        -- and only swaps the value for `percent()`. That keeps health on the
-        same reading as the other gauges and the skills. Which bands the
-        tables mean (BACKLOG *`descs` tables are read as upper bounds but
-        shaped like lower bounds*) is decided for the skills (BD-T5b: keyed
-        by each band's top) and still open for hunger and thirst.
-
-        Under that rule the stored table reads naturally: `dead` only at
-        exactly 0, `near death` above 0 up to 10%, `healthy` above 90%. The
-        stored table is already percent-shaped, so no character's data
-        changes -- existing characters read right with no migration.
-
-        Keys are walked in sorted order rather than trusting the stored
-        order, so a table written out of order still reads correctly.
+        Read through the wound module (WN-T3): the numbers from
+        `wounds.health_of()`, the word from `wounds.word_for()`, whose table
+        is the `health` trait's `descs` copied (WN2b). The rule is the one
+        this method has kept since BACKLOG *Health `descs` use a 0-100
+        scale*: the word follows the percentage, never the absolute value
+        (a full 20/20 once read `critically wounded`), each key an inclusive
+        upper bound, the top word above the top key.
 
         Returns:
-            str: the label, or "" if the trait carries no `descs`.
+            str: the word, or "" for a body with no health to read.
         """
-        health = self.traits.health
-        descs = health.descs
-        if not descs:
+        reading = wounds.health_of(self)
+        if reading is None:
             return ""
-        pct = health.percent(formatting=None)
-        label = ""
-        for bound in sorted(descs):
-            label = descs[bound]
-            if pct <= bound:
-                return label
-        return label
+        return wounds.word_for(reading[2])
 
     def fatigue_desc(self):
         """

@@ -28,6 +28,25 @@ WHAT EACH TEST PUTS PRESSURE ON
   `descs` for as long as the trait is created (WN-T6 removes the test with
   the trait).
 
+The seam (WN-T3):
+
+- `TestHealthOf`: what the screens print comes from one function, which for
+  now reads the trait -- current and max as whole numbers, the percentage
+  unrounded -- and gives None for an object with no body to read. The
+  reading at 5/20 is the one where current and max differ.
+- `TestScreensReadTheModule`: `wounds.health_of` is patched to a reading no
+  trait gives (7 of 9, 77.7 %), and `status`, `sheet` and the `char`
+  snapshot must show it. This is the only test that sees `sheet`'s road,
+  which reaches the trait through `getattr(char.traits, key)` -- a name the
+  census below cannot read.
+- `TestHealthTraitCensus`: the reaches into the `health` trait per module,
+  read by AST (calls and attribute access, never docstrings), held against
+  a table the next tasks shrink. Three shapes count: `X.traits.health`,
+  `X.traits.<method>("health", ...)` and `_trait(X, "health")` /
+  `getattr(X.traits, "health")`, with a local named `traits` standing for
+  `X.traits`. A bare "health" string does not: the
+  snapshot's key and chargen's *Feeds health* are words, not reads.
+
 The maxima at CON + SIZ 21 are taken from `body.hit_points_max(10, 11)` and
 not typed, so these tests follow BD's table if it is ever corrected.
 
@@ -36,10 +55,15 @@ HOW TO RUN
     evennia test --settings settings.py tests.test_wounds
 """
 
-from django.test import SimpleTestCase
-from evennia.utils.test_resources import EvenniaTest
+import ast
+from pathlib import Path
+from unittest import mock
 
-from world import body, wounds
+from django.test import SimpleTestCase
+from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
+
+from commands.character_commands import CmdSheet, CmdStatus
+from world import body, client_state, wounds
 
 MAXIMA = body.hit_points_max(10, 11)   # head 5, chest 7, abdomen 6, arms 4, legs 5
 
@@ -168,3 +192,100 @@ class TestWordFor(SimpleTestCase):
 class TestWordsMatchTheTrait(EvenniaTest):
     def test_the_copied_table_is_the_traits(self):
         self.assertEqual(dict(self.char1.traits.health.descs), wounds.HEALTH_WORDS)
+
+
+class TestHealthOf(EvenniaTest):
+    def test_the_trait_read_whole(self):
+        self.char1.traits.health.current = 5
+        self.assertEqual(wounds.health_of(self.char1), (5, 20, 25.0))
+
+    def test_an_object_with_no_health_trait_reads_none(self):
+        self.assertIsNone(wounds.health_of(self.obj1))
+
+
+class TestScreensReadTheModule(EvenniaCommandTest):
+    READING = (7, 9, 77.7)   # no trait at 20/20 gives this; the word is "bruised"
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("world.wounds.health_of", return_value=self.READING)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_status(self):
+        out = self.call(CmdStatus(), "", caller=self.char1)
+        self.assertIn("Health:    7/9   ( 77.7%) - bruised", out)
+
+    def test_sheet(self):
+        out = self.call(CmdSheet(), "", caller=self.char1)
+        self.assertIn("Health           7/9   ( 77.7%) - bruised", out)
+
+    def test_the_char_snapshot(self):
+        self.assertEqual(
+            client_state.char_snapshot(self.char1)["health"],
+            {"current": 7, "max": 9, "desc": "bruised"},
+        )
+
+
+class TestHealthTraitCensus(SimpleTestCase):
+    """The reaches into the `health` trait, per module (WN2b's door)."""
+
+    # After WN-T3. WN-T4 moves the writer, the healer and the restore behind
+    # the wound module; WN-T5 leaves the creation and chargen; WN-T6 empties it.
+    EXPECTED = {
+        "typeclasses/characters.py": 6,   # creation 1, update_health_max 3, writer 1, restore 1
+        "world/chargen.py": 1,            # the refusal of a body with no trait
+        "world/healing.py": 1,            # accrue
+        "world/wounds.py": 1,             # health_of
+    }
+
+    @staticmethod
+    def _is_traits(node):
+        # `X.traits`, or a local named `traits` (`traits = char.traits`):
+        # health_of reads through such a local, and a census that saw only
+        # the attribute was blind to it.
+        return (
+            (isinstance(node, ast.Attribute) and node.attr == "traits")
+            or (isinstance(node, ast.Name) and node.id == "traits")
+        )
+
+    @classmethod
+    def _reaches(cls, tree):
+        count = 0
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute):
+                if node.attr == "health" and cls._is_traits(node.value):
+                    count += 1
+            elif isinstance(node, ast.Call):
+                func, args = node.func, node.args
+                named = (
+                    len(args) >= 1 and isinstance(args[0], ast.Constant)
+                    and args[0].value == "health"
+                )
+                second = (
+                    len(args) >= 2 and isinstance(args[1], ast.Constant)
+                    and args[1].value == "health"
+                )
+                if isinstance(func, ast.Attribute) and cls._is_traits(func.value) and named:
+                    count += 1
+                elif isinstance(func, ast.Name) and func.id == "_trait" and second:
+                    count += 1
+                elif (
+                    isinstance(func, ast.Name) and func.id == "getattr" and second
+                    and cls._is_traits(args[0])
+                ):
+                    count += 1
+        return count
+
+    def test_the_readers_of_the_health_trait(self):
+        root = Path(__file__).resolve().parent.parent
+        found = {}
+        for package in ("commands", "server", "typeclasses", "web", "world"):
+            for path in sorted((root / package).rglob("*.py")):
+                n = self._reaches(ast.parse(path.read_text()))
+                if n:
+                    found[path.relative_to(root).as_posix()] = n
+        self.assertEqual(
+            found, self.EXPECTED,
+            "A new reach into the health trait: go through world.wounds (WN2b).",
+        )
