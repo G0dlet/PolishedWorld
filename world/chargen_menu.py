@@ -37,7 +37,7 @@ ONE PLACE WRITES
 `node_done` is the only node that changes the character, so leaving the menu
 anywhere before it -- `quit`, a disconnect, a crash -- changes nothing. The
 rules have one home each: `chargen.validate_allocation()` judges the draft,
-`chargen.derive_skill_bases()` and `chargen.derive_health_max()` make the
+`chargen.derive_skill_bases()` and `chargen.hit_points_text()` make the
 numbers the confirmation screens show, and `chargen.apply_allocation()` /
 `professions.grant_profession()` write them. The appearance's vocabulary is
 `world.sdesc`'s, and so is the line its confirmation shows
@@ -124,7 +124,8 @@ _DERIVED_FEEDS = {
     "dex": ("Combat Actions", "Strike Rank"),
     "int": ("Combat Actions", "Strike Rank"),
     "str": ("Damage Modifier",),
-    "siz": ("Damage Modifier",),
+    "siz": ("Damage Modifier", "Hit Points"),
+    "con": ("Hit Points",),
 }
 
 # Under the derived values on the confirmation (BD9, Tone Guide section 5):
@@ -139,8 +140,6 @@ def _feeds(stat):
         for skill, pair in chargen.SKILL_BASE_PAIRS.items()
         if stat in pair
     ]
-    if stat == "con":
-        readers.append("health")
     readers.extend(_DERIVED_FEEDS.get(stat, ()))
     if not readers:
         return "Nothing reads it yet."
@@ -461,7 +460,7 @@ def node_confirm_allocation(caller, raw_string, **kwargs):
             "|wYour characteristics|n",
             "  " + _stat_row(draft),
             "",
-            f"Health max: {chargen.derive_health_max(draft['con'])}",
+            f"Hit Points: {chargen.hit_points_text(draft['con'], draft['siz'])}",
             _derived_line(draft),
             COMBAT_SENTENCE,
             "Skill bases: "

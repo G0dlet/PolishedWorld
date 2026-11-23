@@ -22,7 +22,7 @@ def _whole(number):
     GaugeTrait). The one exception: a gauge whose `.base` is an int rounds
     its own `.current` on read (`GaugeTrait._update_current`), so a hunger of
     99.6 already reads 100 before it gets here. Truncated, not rounded, as
-    `progress` and `Character.update_health_max()` already do.
+    `progress` already does.
     """
     return int(number)
 

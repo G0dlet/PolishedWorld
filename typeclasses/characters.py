@@ -41,7 +41,7 @@ from world.progression import (
 )
 from world.skill_xp import SkillXPHandler
 from world.recipe_mastery import RecipeMasteryHandler
-from world.chargen import derive_health_max, start_or_resume_chargen
+from world.chargen import start_or_resume_chargen
 
 import re
 
@@ -430,24 +430,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             descs=dict(fatigue_rules.DESCS),
         )
         
-        self.traits.add(
-            "health", "Health",
-            trait_type="gauge",
-            # Base health derived from CON (Mongoose Legend: HP based on CON)
-            base=derive_health_max(self.stats.con.value),
-            mod=0,
-            min=0,
-            rate=0,  # natural healing is world/healing.py, on the survival tick
-            descs={
-                0: "dead",
-                10: "near death",
-                25: "critically wounded",
-                50: "badly hurt",
-                75: "injured",
-                90: "bruised",
-                100: "healthy"
-            }
-        )
+        # Health is not a trait (Wounds WN-T6, WN2b): the body's Hit Points
+        # follow CON + SIZ per location and the damage is stored on them
+        # (world/wounds.py). Characters made before keep a `health` trait
+        # that nothing reads.
 
         # === SKILLS ===
         # Placeholder bases. A character born through an account has every
@@ -1056,18 +1042,6 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         self.login_skill_snapshot = {
             key: self.skills.get(key).current for key in self.skills.all()
         }
-
-    def update_health_max(self):
-        """
-        Helper method to recalculate max health when CON changes.
-        Should be called whenever CON is modified.
-        """
-        new_max = derive_health_max(self.stats.con.value)
-        current_percent = self.traits.health.percent(formatting=None)
-        
-        self.traits.health.base = new_max
-        self.traits.health.current = int(new_max * current_percent / 100)
-        client_state.push(self, "char")   # W4.2: max and current both moved
 
     def health_desc(self):
         """

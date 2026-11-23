@@ -67,9 +67,9 @@ def resilience(char):
     backfill missed still heals. When Resilience improves, the character
     heals faster: the table is the book's, keyed on the skill.
 
-    Deliberately not `world.chargen.derive_health_max`, which is also CON x 2
-    today: hit points and Resilience share the number by coincidence, and
-    Stage 5's hit locations may change the hit-point formula.
+    Hit Points are another number: since Wounds they follow CON + SIZ per
+    location (`world.body.hit_points_max`), and the CON x 2 they once shared
+    with this safety net was a coincidence.
 
     Returns:
         int, float or None: None when the character has neither the trait

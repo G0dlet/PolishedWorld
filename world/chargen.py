@@ -51,6 +51,7 @@ from collections.abc import Mapping
 from evennia.utils import logger
 from evennia.utils.evmenu import EvMenu
 
+from world.body import hit_points_max
 from world.professions import PROFESSIONS
 
 # Legend p.9 -- rules, not knobs.
@@ -180,27 +181,21 @@ def derive_skill_bases(stats):
 
 
 
-def derive_health_max(con):
+def hit_points_text(con, siz):
     """
-    Hit Points maximum from Constitution (decision CC9: CON x 2).
+    The Hit Points the confirmation and `help chargen` show, e.g.
+    "head 5, chest 7, abdomen 6, arms 4, legs 5" (Wounds WN-T6).
 
-    The one home of the formula: `Character.at_object_creation`,
-    `Character.update_health_max()` and the chargen menu's confirmation
-    screen all call it, so the number the player is shown is the number the
-    character gets. Legend's CON+SIZ table belongs to hit locations (p.11,
-    Stage 5). Always an int: callers pass a trait's `.value`, which is a
-    float, and the stored `health.base` must stay whole -- the survival
-    ticker's integer damage relies on it (world/survival_ticker.py,
-    STARVE_DAMAGE). A fractional CON is truncated, as `_whole()` truncates
-    for display.
-
-    Args:
-        con (int or float): the Constitution value.
-
-    Returns:
-        int: the maximum.
+    From `body.hit_points_max`, the one home of the table (p. 11). The two
+    arms and the two legs are equal at every legal CON + SIZ, which is what
+    lets the line name each pair once (tests/test_chargen.py holds it).
     """
-    return int(con * 2)
+    maxima = hit_points_max(int(con), int(siz))
+    return (
+        f"head {maxima['head']}, chest {maxima['chest']}, "
+        f"abdomen {maxima['abdomen']}, arms {maxima['right_arm']}, "
+        f"legs {maxima['right_leg']}"
+    )
 
 def apply_allocation(character, alloc):
     """
@@ -208,10 +203,9 @@ def apply_allocation(character, alloc):
 
     All checks run before the first write. Then: each characteristic's
     `.base` (StaticTrait -- it has no `.current`, and a written `.current`
-    would be stored silently as an extra key), health via the existing
-    `update_health_max()` helper (after the stats, since it reads CON), and
-    each skill's `.base` AND `.current` (CounterTrait: a later `.base = N`
-    does not move `.current`).
+    would be stored silently as an extra key), and each skill's `.base` AND
+    `.current` (CounterTrait: a later `.base = N` does not move `.current`).
+    Hit Points need nothing: they are read from CON + SIZ (Wounds WN-T6).
 
     Args:
         character (Character): the character being created.
@@ -248,8 +242,6 @@ def apply_allocation(character, alloc):
     derived = derive_skill_bases(alloc)
 
     absent = [key for key in STAT_KEYS if character.stats.get(key) is None]
-    if character.traits.get("health") is None:
-        absent.append("health")
     absent += [key for key in derived if character.skills.get(key) is None]
     if absent:
         raise ValueError(
@@ -258,8 +250,6 @@ def apply_allocation(character, alloc):
 
     for key in STAT_KEYS:
         character.stats.get(key).base = alloc[key]
-
-    character.update_health_max()
 
     for key, base in derived.items():
         skill = character.skills.get(key)
@@ -394,8 +384,9 @@ def help_text():
         f"|wCharacteristics|n: spread {DESIGN_POINTS} points over the seven "
         f"characteristics ({stats}). Each must end between {CHAR_MIN} and "
         f"{CHAR_MAX}, and every point must be spent. Your skills start from "
-        f"them -- {skills} -- and your Hit Points follow your CON (CON 10 "
-        f"gives {derive_health_max(10)}).\n\n"
+        f"them -- {skills} -- and your Hit Points follow your CON and SIZ, "
+        f"location by location (CON 10 and SIZ 10 give "
+        f"{hit_points_text(10, 10)}).\n\n"
         f"|wProfession|n: choose one of {professions}. It teaches you its "
         "recipes and adds its skill bonus.\n\n"
         "|wAppearance|n: choose your sex, an age and one feature. Strangers "

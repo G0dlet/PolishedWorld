@@ -34,6 +34,7 @@ from evennia.utils.utils import callables_from_module, group_objects_by_key_and_
 from commands.character_commands import _whole
 from server.conf import inputfuncs
 from tests.names_fixture import describe, shown
+from tests.wounds_fixture import made_before_wn
 from world import client_state, encumbrance, gametime_utils, weather, wounds
 
 
@@ -73,9 +74,10 @@ class TestCharSnapshot(EvenniaTest):
 
     def test_health_reads_like_status(self):
         # Five points on every location of the fixture's body (head 4, arms
-        # stopped at 3): the head reads 3 of 8, 37.5 %. The old trait, never
-        # written since WN-T5, still reads 20/20 -- the case that tells the
-        # two readers apart.
+        # stopped at 3): the head reads 3 of 8, 37.5 %. A character made
+        # before WN keeps the old trait, never written since WN-T5, at 20/20
+        # -- the case that tells the two readers apart.
+        made_before_wn(self.char1)
         self.char1.apply_health_damage(5, location=wounds.ALL)
         snap = client_state.char_snapshot(self.char1)["health"]
         self.assertEqual((snap["current"], snap["max"]), (3, 8))
@@ -885,11 +887,11 @@ class TestImmediateSites(EvenniaTest):
         warn.assert_not_called()   # receipt: the FREE return stopped it
         push.assert_not_called()
 
-    def test_health_max_and_damage_push_char(self):
+    def test_damage_pushes_char(self):
+        # `update_health_max` and its push went with the trait (WN-T6).
         with mock.patch.object(client_state, "push") as push:
-            self.char1.update_health_max()
             self.char1.apply_health_damage(1, location=wounds.ALL)
-        self.assertEqual(self._pushed(push), [(self.char1, "char"), (self.char1, "char")])
+        self.assertEqual(self._pushed(push), [(self.char1, "char")])
 
     def test_weather_change_reaches_indoors_even_without_a_message(self):
         self.room1.db.is_indoor = True
@@ -999,7 +1001,6 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.at_post_unpuppet", "push_room_soon"): 1,
         ("typeclasses/characters.py", "Character.at_post_puppet", "push"): 1,
         ("typeclasses/characters.py", "Character.at_post_puppet", "push_room_soon"): 1,
-        ("typeclasses/characters.py", "Character.update_health_max", "push"): 1,
         ("typeclasses/characters.py", "Character.apply_health_damage", "push"): 1,
         ("typeclasses/characters.py", "Character.at_character_death", "push_soon"): 1,
         ("typeclasses/characters.py", "Character.at_character_death", "push_room_soon"): 2,
@@ -1059,7 +1060,6 @@ class TestPushCensus(EvenniaTest):
         ("commands/consumption_commands.py", "CmdEat.func", "caller.traits.hunger.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink.func", "caller.traits.thirst.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "caller.traits.thirst.current"): "survival",
-        ("typeclasses/characters.py", "Character.update_health_max", "self.traits.health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
         # Survival Loop S3.5 (lock A1): respawn sets fatigue to Wearied
         ("typeclasses/characters.py", "Character.at_character_death", "fatigue.current"): "survival",

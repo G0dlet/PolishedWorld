@@ -31,6 +31,7 @@ same kind as before: 1/12 and 11/12 lie between the table's keys.
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.character_commands import CmdSheet, CmdStatus
+from tests.wounds_fixture import made_before_wn
 from world import wounds
 
 
@@ -87,7 +88,7 @@ class TestHealthDescCallSites(EvenniaCommandTest):
     """`status` and `sheet` show the percent label, at a state where it differs."""
 
     def _premise(self):
-        health = self.char1.traits.health
+        health = made_before_wn(self.char1)   # a character made before WN
         self.assertEqual((health.value, health.max), (20, 20))
         self.assertEqual(health.desc(), "critically wounded")
 

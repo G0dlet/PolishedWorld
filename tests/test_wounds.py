@@ -24,9 +24,9 @@ WHAT EACH TEST PUTS PRESSURE ON
 - `TestWordFor`: the health words read as `Character.health_desc()` reads
   them today -- each key an inclusive upper bound, anything above the top
   key the top word -- tested on every boundary and just above it.
-- `TestWordsMatchTheTrait`: the copied table equals the `health` trait's own
-  `descs` for as long as the trait is created (WN-T6 removes the test with
-  the trait).
+- (`TestWordsMatchTheTrait`, which held the copied table to the `health`
+  trait's own `descs`, went with the trait in WN-T6: the table has one
+  home now.)
 
 The seam (WN-T3):
 
@@ -98,6 +98,7 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.character_commands import CmdSheet, CmdStatus
 from typeclasses.corpse import PlayerCorpse
+from tests.wounds_fixture import made_before_wn
 from world import body, client_state, wounds
 
 MAXIMA = body.hit_points_max(10, 11)   # head 5, chest 7, abdomen 6, arms 4, legs 5
@@ -224,16 +225,18 @@ class TestWordFor(SimpleTestCase):
                 self.assertEqual(wounds.word_for(percent), expected)
 
 
-class TestWordsMatchTheTrait(EvenniaTest):
-    def test_the_copied_table_is_the_traits(self):
-        self.assertEqual(dict(self.char1.traits.health.descs), wounds.HEALTH_WORDS)
-
-
 def _stored(char):
     """The stored damage as a plain dict; None when there is no Attribute."""
     if not char.attributes.has("body_damage"):
         return None
     return dict(char.db.body_damage)
+
+
+class TestANewCharacter(EvenniaTest):
+    def test_has_no_health_trait_and_reads_its_body(self):
+        # WN-T6: nothing creates the trait; the fixture is made after it.
+        self.assertIsNone(self.char1.traits.get("health"))
+        self.assertEqual(wounds.health_of(self.char1), (8, 8, 100.0))
 
 
 class TestHealthOf(EvenniaTest):
@@ -326,7 +329,7 @@ class TestStoredDamage(EvenniaTest):
 
     def test_the_old_trait_at_3_of_20_and_no_damage_reads_full(self):
         # WN2b's promise to every character made before WN.
-        self.char1.traits.health.current = 3
+        made_before_wn(self.char1).current = 3
         self.assertEqual(wounds.health_of(self.char1), (10, 10, 100.0))
         self.assertEqual(self.char1.health_desc(), "healthy")
 
@@ -431,13 +434,9 @@ class TestScreensReadTheModule(EvenniaCommandTest):
 class TestHealthTraitCensus(SimpleTestCase):
     """The reaches into the `health` trait, per module (WN2b's door)."""
 
-    # After WN-T5: the wound module reads and writes the stored damage and
-    # never the trait. What is left is the trait's creation and rescaling,
-    # and chargen's refusal; WN-T6 empties the table.
-    EXPECTED = {
-        "typeclasses/characters.py": 4,   # creation 1, update_health_max 3
-        "world/chargen.py": 1,            # the refusal of a body with no trait
-    }
+    # After WN-T6: nothing creates, rescales, asks for or reads the trait.
+    # Characters made before WN keep theirs, and it stays unread (WN2b).
+    EXPECTED = {}
 
     @staticmethod
     def _is_traits(node):
@@ -487,5 +486,6 @@ class TestHealthTraitCensus(SimpleTestCase):
                     found[path.relative_to(root).as_posix()] = n
         self.assertEqual(
             found, self.EXPECTED,
-            "A new reach into the health trait: go through world.wounds (WN2b).",
+            "A reach into the health trait, which nothing may read since WN2b: "
+            "a character made before WN keeps a stale one. Go through world.wounds.",
         )

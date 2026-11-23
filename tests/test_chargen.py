@@ -35,8 +35,10 @@ from world.chargen import (
     STAT_KEYS,
     apply_allocation,
     derive_skill_bases,
+    hit_points_text,
     validate_allocation,
 )
+from world import body, wounds
 from world.professions import grant_profession
 from world.progression import xp_threshold
 
@@ -199,10 +201,11 @@ class TestApplyAllocation(EvenniaTest):
                 self.assertEqual(skill.base, base)
                 self.assertEqual(skill.current, base)
 
-    def test_health_max_is_con_times_two_and_full(self):
-        health = self.char1.traits.health
-        self.assertEqual(health.max, VALID["con"] * 2)  # 28, not the default 20
-        self.assertEqual(health.current, health.max)
+    def test_finishes_without_a_health_trait_and_reads_its_body(self):
+        # WN-T6: the fixture has no trait, and nothing asks for one. CON 14 +
+        # SIZ 8 = 22: a head of 5, whole at 10, unhurt.
+        self.assertIsNone(self.char1.traits.get("health"))
+        self.assertEqual(wounds.health_of(self.char1), (10, 10, 100.0))
 
     def test_accepts_a_saverdict(self):
         self.char1.db.chargen_alloc = VALID
@@ -221,7 +224,6 @@ class TestApplyRefuses(EvenniaTest):
             {key: self.char1.stats.get(key).base for key in STAT_KEYS},
             {key: (self.char1.skills.get(key).base, self.char1.skills.get(key).current)
              for key in EXPECTED_BASES if self.char1.skills.get(key) is not None},
-            self.char1.traits.health.max,
         )
 
     def test_invalid_allocation_raises_and_writes_nothing(self):
@@ -282,3 +284,24 @@ class TestApplyDoesNotWriteXP(EvenniaTest):
             with self.subTest(skill=key):
                 self.assertEqual(self.char1.skill_xp.get(key), xp_threshold(base))
         self.assertFalse(self.char1.attributes.has("skill_xp"))
+
+
+class TestHitPointsText(EvenniaTestCase):
+    """The confirmation's line, and why it may name the arms and legs once (WN-T6)."""
+
+    def test_the_line_at_con_14_siz_8(self):
+        self.assertEqual(
+            hit_points_text(14, 8), "head 5, chest 7, abdomen 6, arms 4, legs 5"
+        )
+
+    def test_the_line_at_con_10_siz_10(self):
+        self.assertEqual(
+            hit_points_text(10, 10), "head 4, chest 6, abdomen 5, arms 3, legs 4"
+        )
+
+    def test_both_arms_and_both_legs_are_equal_at_every_legal_sum(self):
+        for total in range(2 * CHAR_MIN, 2 * CHAR_MAX + 1):
+            with self.subTest(total=total):
+                maxima = body.hit_points_max(total - CHAR_MIN, CHAR_MIN)
+                self.assertEqual(maxima["right_arm"], maxima["left_arm"])
+                self.assertEqual(maxima["right_leg"], maxima["left_leg"])
