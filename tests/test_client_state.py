@@ -34,7 +34,7 @@ from evennia.utils.utils import callables_from_module, group_objects_by_key_and_
 from commands.character_commands import _whole
 from server.conf import inputfuncs
 from tests.names_fixture import describe, shown
-from world import client_state, encumbrance, gametime_utils, weather
+from world import client_state, encumbrance, gametime_utils, weather, wounds
 
 
 def _json_roundtrip(snapshot):
@@ -834,7 +834,8 @@ class TestHookSites(ReactorMixin, EvenniaTest):
         with mock.patch.object(client_state, "push_soon") as soon, \
                 mock.patch.object(client_state, "push_room_soon") as room_soon, \
                 mock.patch.object(client_state, "push"):
-            self.char1.apply_health_damage(self.char1.traits.health.current)
+            self.char1.apply_health_damage(
+                self.char1.traits.health.current, location=wounds.ALL)
         self.assertEqual(self.char1.location, self.room2)
         self.assertIn(mock.call(self.char1, *client_state.DOMAINS), soon.call_args_list)
         rooms = {c.args[0] for c in room_soon.call_args_list}
@@ -882,7 +883,7 @@ class TestImmediateSites(EvenniaTest):
     def test_health_max_and_damage_push_char(self):
         with mock.patch.object(client_state, "push") as push:
             self.char1.update_health_max()
-            self.char1.apply_health_damage(1)
+            self.char1.apply_health_damage(1, location=wounds.ALL)
         self.assertEqual(self._pushed(push), [(self.char1, "char"), (self.char1, "char")])
 
     def test_weather_change_reaches_indoors_even_without_a_message(self):
@@ -1054,8 +1055,6 @@ class TestPushCensus(EvenniaTest):
         ("commands/consumption_commands.py", "CmdDrink.func", "caller.traits.thirst.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "caller.traits.thirst.current"): "survival",
         ("typeclasses/characters.py", "Character.update_health_max", "self.traits.health.current"): "char",
-        ("typeclasses/characters.py", "Character.apply_health_damage", "health.current"): "char",
-        ("typeclasses/characters.py", "Character.at_character_death", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
         # Survival Loop S3.5 (lock A1): respawn sets fatigue to Wearied
         ("typeclasses/characters.py", "Character.at_character_death", "fatigue.current"): "survival",
@@ -1065,7 +1064,19 @@ class TestPushCensus(EvenniaTest):
         ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
         # Survival Loop S3.3 (lock B1): a failed awake test, written by the tick
         ("world/survival_ticker.py", "_deplete_character", "gauge.current"): "survival",
-        ("world/healing.py", "accrue", "health.current"): "char",
+    }
+
+    # Wounds WN-T4 (choice A): the wound module's doors write health and push
+    # nothing; each has one caller in production, and the caller pushes --
+    # the writer after its death check, so a fatal blow sends the refilled
+    # value (W4.2), and the death through its push_soon of all four.
+    DOOR_WRITES = {
+        ("world/wounds.py", "damage", "trait.current"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "heal", "trait.current"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "restore_at_respawn", "trait.current"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
     }
 
     # Skill writes: no panel yet (inventory/skills is W7's); chargen's is
@@ -1082,7 +1093,14 @@ class TestPushCensus(EvenniaTest):
         self.writes = set()
         self.locations = set()
         self.pushes = {}
+        self.door_calls = {}
         for rel, tree in _production_trees():
+            imported = {
+                alias.asname or alias.name
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.module == "world.wounds"
+                for alias in node.names
+            }
             for qual, func in _functions(tree):
                 calls = list(_push_calls(func))
                 nested = {id(n) for _q, inner in _functions(func) for n in ast.walk(inner)}
@@ -1094,6 +1112,11 @@ class TestPushCensus(EvenniaTest):
                 for node in ast.walk(func):
                     if id(node) in nested:
                         continue
+                    if isinstance(node, ast.Call):
+                        door = self._door_called(node, imported)
+                        if door:
+                            key = (door, rel, qual)
+                            self.door_calls[key] = self.door_calls.get(key, 0) + 1
                     targets = []
                     if isinstance(node, ast.Assign):
                         targets = node.targets
@@ -1106,11 +1129,40 @@ class TestPushCensus(EvenniaTest):
                                 "location", "db_location"):
                             self.locations.add((rel, qual, ast.unparse(target)))
 
+    DOORS = ("damage", "heal", "restore_at_respawn")
+
+    @classmethod
+    def _door_called(cls, call, imported):
+        """The door a call reaches: `wounds.<door>(...)`, or a bare name imported from it."""
+        func = call.func
+        if (isinstance(func, ast.Attribute) and func.attr in cls.DOORS
+                and isinstance(func.value, ast.Name) and func.value.id == "wounds"):
+            return func.attr
+        if isinstance(func, ast.Name) and func.id in cls.DOORS and func.id in imported:
+            return func.id
+        return None
+
     def test_push_sites_are_pinned(self):
         self.assertEqual(self.sites, self.SITES)
 
     def test_every_current_write_is_known(self):
-        self.assertEqual(self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL)
+        self.assertEqual(
+            self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL | set(self.DOOR_WRITES))
+
+    def test_every_door_has_one_caller_and_it_pushes(self):
+        self.assertEqual(
+            self.door_calls,
+            {(door, caller_rel, caller_qual): 1
+             for (_rel, door, _t), (caller_rel, caller_qual, _d)
+             in self.DOOR_WRITES.items()},
+            "A new caller of a wound door: it must push, or go through the one that does (WN-T4).",
+        )
+        for (_rel, _door, _t), (caller_rel, caller_qual, domain) in self.DOOR_WRITES.items():
+            with self.subTest(site=f"{caller_rel}::{caller_qual}"):
+                named = set()
+                for call in self.pushes.get((caller_rel, caller_qual), []):
+                    named |= _domains(call)
+                self.assertIn(domain, named)
 
     def _named(self, rel, qual):
         named = set()

@@ -47,6 +47,22 @@ The seam (WN-T3):
   `X.traits`. A bare "health" string does not: the
   snapshot's key and chargen's *Feeds health* are words, not reads.
 
+The door (WN-T4):
+
+- `TestTheWriterNamesItsLocation`: `apply_health_damage` has no default for
+  `location` (WO5), so a call that does not say where is a TypeError; a
+  place that is neither `ALL`, `RANDOM` nor a key of `body.LOCATIONS` is a
+  ValueError raised before the trait is touched, and raised for an amount
+  of 0 too -- the tick calls with a sum that is usually 0, and a wrong
+  place must fail on the first tick, not on the first starving one. `ALL`,
+  `RANDOM` and a named key are accepted and, until WN-T5, all land on the
+  trait whole.
+- `TestTheDoors`: `heal` stops at the maximum and returns what landed (what
+  `accrue` reports); `room_to_heal` is the room left, 0 at full and None for
+  an object with no body; `restore_at_respawn` fills; `damage` says
+  whether it wrote, and writes nothing on a body already at 0 (a death in
+  progress); `is_dead` at 0 and not at 1.
+
 The maxima at CON + SIZ 21 are taken from `body.hit_points_max(10, 11)` and
 not typed, so these tests follow BD's table if it is ever corrected.
 
@@ -203,6 +219,73 @@ class TestHealthOf(EvenniaTest):
         self.assertIsNone(wounds.health_of(self.obj1))
 
 
+class TestTheWriterNamesItsLocation(EvenniaTest):
+    def health(self):
+        return self.char1.traits.health.current
+
+    def test_a_call_that_does_not_say_where_is_refused(self):
+        with self.assertRaises(TypeError) as caught:
+            self.char1.apply_health_damage(1)
+        self.assertIn("location", str(caught.exception))
+        self.assertEqual(self.health(), 20)
+
+    def test_an_unknown_place_is_refused_before_anything_is_written(self):
+        for place in ("arm", "ALL", "Head", "", None):
+            with self.subTest(place=place):
+                with self.assertRaises(ValueError):
+                    self.char1.apply_health_damage(3, location=place)
+                self.assertEqual(self.health(), 20)
+
+    def test_an_unknown_place_is_refused_when_there_is_no_damage(self):
+        with self.assertRaises(ValueError):
+            self.char1.apply_health_damage(0, location="arm")
+
+    def test_all_random_and_a_named_key_land_whole_for_now(self):
+        self.char1.apply_health_damage(1, location=wounds.ALL)
+        self.char1.apply_health_damage(2, location=wounds.RANDOM)
+        self.char1.apply_health_damage(3, location="left_leg")
+        self.assertEqual(self.health(), 14)
+
+
+class TestTheDoors(EvenniaTest):
+    def health(self):
+        return self.char1.traits.health.current
+
+    def test_heal_stops_at_the_maximum_and_returns_what_landed(self):
+        self.char1.apply_health_damage(3, location=wounds.ALL)
+        self.assertEqual(wounds.heal(self.char1, 5), 3)
+        self.assertEqual(self.health(), 20)
+        self.assertEqual(wounds.heal(self.char1, 1), 0)
+
+    def test_heal_of_less_than_the_room(self):
+        self.char1.apply_health_damage(3, location=wounds.ALL)
+        self.assertEqual(wounds.heal(self.char1, 2), 2)
+        self.assertEqual(self.health(), 19)
+
+    def test_room_to_heal(self):
+        self.assertEqual(wounds.room_to_heal(self.char1), 0)
+        self.char1.apply_health_damage(3, location=wounds.ALL)
+        self.assertEqual(wounds.room_to_heal(self.char1), 3)
+        self.assertIsNone(wounds.room_to_heal(self.obj1))
+
+    def test_restore_at_respawn_fills(self):
+        self.char1.apply_health_damage(7, location=wounds.ALL)
+        wounds.restore_at_respawn(self.char1)
+        self.assertEqual(self.health(), 20)
+
+    def test_is_dead_at_the_minimum_and_not_above(self):
+        # The door itself, not the writer: the writer would run the death
+        # and the restore, and the body would never be seen at 0.
+        self.assertFalse(wounds.is_dead(self.char1))
+        self.assertTrue(wounds.damage(self.char1, 19, wounds.ALL))
+        self.assertFalse(wounds.is_dead(self.char1))
+        self.assertTrue(wounds.damage(self.char1, 1, wounds.ALL))
+        self.assertTrue(wounds.is_dead(self.char1))
+        self.assertFalse(wounds.damage(self.char1, 1, wounds.ALL))   # a death in progress
+        self.assertEqual(self.health(), 0)
+        self.assertFalse(wounds.is_dead(self.obj1))
+
+
 class TestScreensReadTheModule(EvenniaCommandTest):
     READING = (7, 9, 77.7)   # no trait at 20/20 gives this; the word is "bruised"
 
@@ -230,13 +313,13 @@ class TestScreensReadTheModule(EvenniaCommandTest):
 class TestHealthTraitCensus(SimpleTestCase):
     """The reaches into the `health` trait, per module (WN2b's door)."""
 
-    # After WN-T3. WN-T4 moves the writer, the healer and the restore behind
-    # the wound module; WN-T5 leaves the creation and chargen; WN-T6 empties it.
+    # After WN-T4: the writer, the healer and the restore reach the trait
+    # through the wound module, and the module through one helper. WN-T5
+    # removes the helper's reach; WN-T6 empties the table.
     EXPECTED = {
-        "typeclasses/characters.py": 6,   # creation 1, update_health_max 3, writer 1, restore 1
+        "typeclasses/characters.py": 4,   # creation 1, update_health_max 3
         "world/chargen.py": 1,            # the refusal of a body with no trait
-        "world/healing.py": 1,            # accrue
-        "world/wounds.py": 1,             # health_of
+        "world/wounds.py": 1,             # _health_trait, every door's one reach
     }
 
     @staticmethod

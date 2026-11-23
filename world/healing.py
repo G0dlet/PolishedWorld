@@ -18,9 +18,7 @@ stays at `Character.apply_health_damage`. It writes no activity-log line:
 healing is not an economic event (SL6).
 """
 
-import math
-
-from world import client_state, skill_base
+from world import client_state, skill_base, wounds
 from world.survival_buffs import Dehydrated, Starving
 
 HOUR = 3600
@@ -98,11 +96,13 @@ def accrue(char, game_seconds):
          the remainder is carried. Reaching max zeroes the counter (2's rule,
          applied at once).
 
-    The trait clamps `current` at max on its own (GaugeTrait's setter), so
-    the cap here is what keeps the return value honest: callers say a line
-    and S2.2 reports a login total from it.
+    The body is reached through the wound module (Wounds WN-T4): the room
+    left from `wounds.room_to_heal`, the points through `wounds.heal`, which
+    caps at the room and returns what landed -- the number callers say in a
+    line and S2.2 reports as a login total.
 
-    Pushes `char` when a point lands (the writer pushes, W4.2's census).
+    Pushes `char` when a point lands (the door's one caller pushes, W4.2's
+    census and WN-T4's).
 
     Args:
         char (Character): the character.
@@ -111,10 +111,10 @@ def accrue(char, game_seconds):
     Returns:
         int: hit points granted (0 or more).
     """
-    health = char.traits.get("health")
-    if health is None or is_blocked(char):
+    room = wounds.room_to_heal(char)
+    if room is None or is_blocked(char):
         return 0
-    if health.current >= health.max:
+    if room <= 0:
         char.db.heal_progress = 0
         return 0
     res = resilience(char)
@@ -123,12 +123,11 @@ def accrue(char, game_seconds):
     interval = interval_for(res)
     progress = (char.db.heal_progress or 0) + max(0, int(game_seconds))
     whole, remainder = divmod(progress, interval)
-    room = math.ceil(health.max - health.current)
     points = min(whole, room)
     if points <= 0:
         char.db.heal_progress = remainder
         return 0
-    health.current = health.current + points
-    char.db.heal_progress = 0 if health.current >= health.max else remainder
+    landed = wounds.heal(char, points)
+    char.db.heal_progress = 0 if wounds.room_to_heal(char) == 0 else remainder
     client_state.push(char, "char")
-    return points
+    return landed

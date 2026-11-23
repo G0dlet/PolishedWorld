@@ -15,7 +15,7 @@ from unittest import mock
 from django.test import SimpleTestCase
 from evennia.utils.test_resources import EvenniaTest
 
-from world import client_state, healing, survival_ticker
+from world import client_state, healing, survival_ticker, wounds
 from world.survival_buffs import Dehydrated, Starving
 
 H = healing.HOUR
@@ -49,7 +49,7 @@ class HealingTestBase(EvenniaTest):
         self.char1.stats.con.base = 10
         self.char1.update_health_max()
         self.health = self.char1.traits.health
-        self.health.current = self.health.max - 3
+        self.char1.apply_health_damage(3, location=wounds.ALL)
         self.char1.db.heal_progress = 0
         self.interval = healing.interval_for(healing.resilience(self.char1))
 
@@ -137,18 +137,18 @@ class TestAccrue(HealingTestBase):
         self.assertEqual(self.health.current, start + 2)
 
     def test_stops_at_max_and_says_so(self):
-        self.health.current = self.health.max - 1
+        wounds.heal(self.char1, 2)   # 3 hurt -> 1
         self.assertEqual(healing.accrue(self.char1, 3 * self.interval + 7), 1)
         self.assertEqual(self.health.current, self.health.max)
         self.assertEqual(self.char1.db.heal_progress, 0)
 
     def test_full_health_zeroes_the_counter(self):
-        self.health.current = self.health.max
+        wounds.heal(self.char1, 3)   # 3 hurt -> full
         self.char1.db.heal_progress = self.interval - 1
         self.assertEqual(healing.accrue(self.char1, 10), 0)
         self.assertEqual(self.char1.db.heal_progress, 0)
         # Receipt that the zero matters: a new wound does not heal at once.
-        self.health.current = self.health.max - 1
+        self.char1.apply_health_damage(1, location=wounds.ALL)
         self.assertEqual(healing.accrue(self.char1, 1), 0)
 
     def test_float_health_base_still_gains_whole_points(self):

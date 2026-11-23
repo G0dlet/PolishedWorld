@@ -1602,10 +1602,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
     rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
     
-    def apply_health_damage(self, amount, source=None):
+    def apply_health_damage(self, amount, *, location, source=None):
         """
-        Single chokepoint for all HP loss. Subtracts `amount` from health and
-        fires at_character_death() if that reaches the health minimum (0).
+        Single chokepoint for all HP loss. Puts `amount` on the body through
+        `wounds.damage` and fires at_character_death() if the body is then
+        dead (`wounds.is_dead`).
 
         Every damage source -- survival conditions now, combat later -- must
         route through here so death can never be bypassed, and so the future
@@ -1614,21 +1615,24 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         Args:
             amount (int): HP to remove. <= 0 is a no-op, so callers can pass a
                 summed total without special-casing a zero-damage tick.
+            location (str): where it lands -- `wounds.ALL`, `wounds.RANDOM` or
+                a key of `body.LOCATIONS`. Keyword-only with no default (WO5):
+                a damage source cannot leave out where it hits.
             source (Object | str | None): what dealt the damage; forwarded to
                 at_character_death as `killer` for future attribution/logging.
+
+        Raises:
+            ValueError: for any other `location`, before anything is written
+                and whatever the amount (Wounds WN-T4, choice C).
         """
-        if amount <= 0:
+        # The door writes nothing for an amount <= 0, a body with no health,
+        # or a body already dead: a death in progress or already resolved
+        # this tick. That last is defense-in-depth for future direct callers
+        # (combat); the summation in the ticker is the primary double-death
+        # guard.
+        if not wounds.damage(self, amount, location):
             return
-        health = self.traits.get("health")
-        if health is None:
-            return
-        # Already at/below min: a death is in progress or already resolved this
-        # tick. Do nothing. This is defense-in-depth for future direct callers
-        # (combat); the summation in the ticker is the primary double-death guard.
-        if health.current <= health.min:
-            return
-        health.current -= amount
-        if health.current <= health.min:
+        if wounds.is_dead(self):
             # GaugeTrait has no min-callback, so we detect the threshold crossing
             # explicitly rather than relying on the trait to notify us.
             self.at_character_death(killer=source)
@@ -1768,9 +1772,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 self.reset_pose()
 
             # Restore vitals (decision 2: reset hunger/thirst -- fed and watered).
-            health = self.traits.get("health")
-            if health:
-                health.current = health.max
+            # The body through the wound module (WN9; Wounds WN-T4).
+            wounds.restore_at_respawn(self)
             for gauge_key in ("hunger", "thirst"):
                 gauge = self.traits.get(gauge_key)
                 if gauge:

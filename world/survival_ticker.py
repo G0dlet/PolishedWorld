@@ -13,6 +13,7 @@ from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
+from world import wounds
 from world import client_state, fatigue, gametime_utils, healing, timed_actions
 
 # Base depletion per tick, before buff modifiers. Tunable.
@@ -174,7 +175,7 @@ def _apply_survival_conditions(char):
             char.buffs.remove(buffclass.key)
 
     if total_damage:
-        char.apply_health_damage(total_damage, source="survival")
+        char.apply_health_damage(total_damage, location=wounds.ALL, source="survival")
 
 def _check_survival_warnings(char):
     """

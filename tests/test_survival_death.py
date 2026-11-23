@@ -54,7 +54,7 @@ from unittest import mock
 from evennia.utils.test_resources import EvenniaTest
 
 from typeclasses.corpse import PlayerCorpse
-from world import survival_ticker
+from world import survival_ticker, wounds
 from world.survival_buffs import Dehydrated, Starving
 
 WEATHER = "world.survival_ticker.apply_thermal_stress"
@@ -107,12 +107,12 @@ class TestBothGaugesAtTheirMinimum(_Tick):
             self.char1, "apply_health_damage", wraps=self.char1.apply_health_damage
         ) as writer:
             self.tick()
-        writer.assert_called_once_with(2, source="survival")
+        writer.assert_called_once_with(2, location=wounds.ALL, source="survival")
         self.assertEqual(_hurt(self.char1), 2)   # receipt: the call went through
 
     def test_one_point_from_death_dies_once(self):
-        health = self.char1.traits.health
-        health.current = health.min + 1
+        self.char1.apply_health_damage(19, location=wounds.ALL)   # 20 -> 1
+        self.assertEqual(_hurt(self.char1), 19)   # receipt: one point from death
         self.hunger.current = self.hunger.min
         self.thirst.current = self.thirst.min
         self.tick()
