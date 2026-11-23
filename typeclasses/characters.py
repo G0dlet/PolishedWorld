@@ -543,12 +543,33 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         Override default: keep character in room as statue instead
         of removing them from the world. The visual statue presentation
         is handled by get_display_name and return_appearance overrides.
-        The last session out also stamps `db.away_since` for the healing
-        credited at the next puppet (S2.2).
+
+        A body a wound holds -- a running clock, or a wound's unconsciousness
+        -- does not turn to stone yet (WN4; OQ-WN6, Wounds WN-T9 choice C): it
+        lies where it fell, a body and not a statue, and `turn_to_stone` runs
+        when the hold ends -- from the waking, `wounds.stop_clock` or the
+        death (Wounds WN-T10, choice B).
         """
         # Bail if any sessions are still puppeting (multisession scenarios)
         if self.sessions.count():
             return
+        if wounds.holds_body(self):
+            return
+        self.turn_to_stone()
+
+    def turn_to_stone(self, announce=True):
+        """
+        The statue begins (Wounds WN-T10, choice B): the stamp for time away
+        and, with `announce`, the line and the room's push. Called by
+        `at_post_unpuppet` when nothing holds the body, by the wound module
+        when a hold ends on a body with no player, and quietly by
+        `at_character_death` for a body that died with no player -- it comes
+        to the temple without a word, and the death pushes the rooms.
+
+        The last session out stamps `db.away_since` for the healing credited
+        at the next puppet (S2.2): time away is the statue's time, so a body
+        that lay where it fell is not credited for it -- no tick ran on it.
+        """
         # S2.2 (SL7): stamp when the character went away, for the healing
         # credited at the next puppet -- or None while a condition stops
         # healing: the gauges are frozen while away, so the state at logout
@@ -560,11 +581,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             None if healing.is_blocked(self) else gametime_utils.get_absolute_gametime()
         )
     
-        # Note: we deliberately do NOT call super() here.
+        # Note: we deliberately do NOT call super() in at_post_unpuppet.
         # Default behavior would set self.location = None, which would
         # break the statue logout system.
-    
-        if self.location:
+
+        if announce and self.location:
             self.db.prelogout_location = self.location  # safety, behåll konventionen
             # Already a statue here: the sleeper is named by `living_name`
             # (`_Sleeper`, Names NM-T11 lock 1 A).
@@ -576,7 +597,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 mapping={"sleeper": _Sleeper(self)},
             )
             # W4.2: the others' room lists move this character from the
-            # awake list to the statues (is_statue reads the sessions).
+            # awake list to the statues (is_statue reads the sessions and
+            # the wound module's hold).
             client_state.push_room_soon(self.location)
 
     def at_post_puppet(self, **kwargs):
@@ -944,10 +966,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     @property
     def is_statue(self):
         """
-        True when no account is currently puppeting this character.
-        Used by display/appearance overrides for the statue logout system.
+        True when no account is currently puppeting this character and no
+        wound holds the body (WN4; Wounds WN-T10). Used by display/appearance
+        overrides for the statue logout system. `wounds.holds_body` only
+        reads -- this is read while others look, and must wake or kill no one
+        (choice C). "Has a player" is `has_account`.
         """
-        return not self.has_account
+        return not self.has_account and not wounds.holds_body(self)
 
     @property
     def carried_enc(self):
@@ -1621,12 +1646,18 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # outcome.
             self.at_character_death(killer=source)
         else:
-            # WN-T9: a wound's unconsciousness with a length (a vital Serious
-            # Wound or a limb's Major Wound, lost). A vital Major Wound's
-            # lasts as long as its clock, which is WN-T10's.
+            # What the wound calls for. WN-T10: a Major Wound's clock; a vital
+            # one survived is unconscious until the clock's deadline (choice
+            # A). WN-T9: a wound's unconsciousness with a length (a vital
+            # Serious Wound or a limb's Major Wound, lost).
             for wound in outcome["wounds"]:
-                if wound["unconscious"] and wound["minutes"]:
-                    wounds.knock_out(self, wound["location"], wound["minutes"])
+                minutes = wound["minutes"]
+                if wound["clock"]:
+                    deadline = wounds.start_clock(self, wound["location"])
+                    if minutes is None:
+                        minutes = wounds.minutes_until(deadline)
+                if wound["unconscious"] and minutes:
+                    wounds.knock_out(self, wound["location"], minutes)
         # W4.2: after the death check, so a fatal blow sends the refilled
         # value (death also schedules all four).
         client_state.push(self, "char")
@@ -1799,6 +1830,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # stack with a fresh duration on re-death (buffs.add otherwise stacks).
             self.buffs.remove(DeathWeakness.key)
             self.buffs.add(DeathWeakness)
+            # Wounds WN-T10 (choice B): a body that died with no player -- a
+            # clock ran out after its player left -- becomes a statue where it
+            # came back, without a line: it arrived without one.
+            if not self.has_account:
+                self.turn_to_stone(announce=False)
             # W4.2: the relocation above runs with move_hooks=False, so no
             # room hook pushed: the room where they fell (the body gone, the
             # corpse there) and the respawn room are pushed here, and the

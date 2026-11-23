@@ -12,8 +12,9 @@ for every writer -- `damage`, `heal`, `room_to_heal`, `restore_at_respawn`
 the locations that have something: `db.body_damage`, location to a whole
 number (WN-T5), and `db.wound_states`, location to `DISABLED`, `MAIMED` or
 `SEVERED` (WN-T8). A third, `db.wound_unconscious`, holds a wound's
-unconsciousness while it lasts (WN-T9). A missing Attribute is an unhurt,
-unmarked, waking body. Readers
+unconsciousness while it lasts (WN-T9), and a fourth, `db.wound_clocks`, a
+Major Wound's deadline per location (WN-T10). A missing Attribute is an
+unhurt, unmarked, waking body with no clock. Readers
 test for a `Mapping`, never a `dict` (a stored dict comes back as a
 `_SaverDict`); writers assign a fresh dict and never change one in place, and
 remove the Attribute when nothing is left. The `health` trait is not read.
@@ -79,6 +80,13 @@ COME_TO_ROOM = "$You() stirs and comes to."
 # Every refusal while out, whatever line the caller passed: the collapse's
 # "Your hands will not obey you." is a waking body's (Wounds WN-T9, choice D).
 OUT_COLD = "You lie senseless where you fell."
+
+# A Major Wound's clock (WN-T10; OQ-WN5's lines, Adam 2026-11-23): said when
+# it starts -- until WN-T11 nothing else tells a player one runs -- and
+# when it runs out, before the death's own lines.
+CLOCK_START = "Blood comes fast, and it will not stop on its own."
+CLOCK_OUT = "The cold spreads from the wound, and you stop fighting it."
+CLOCK_OUT_ROOM = "$You() gives a last shudder and is still."
 
 # WN3: a minute is 60 real seconds. Not twelve combat rounds of CT2's
 # ROUND_SECONDS: that constant is the dial for a fight's text volume, and
@@ -412,18 +420,22 @@ def damage(char, amount, location, made=None):
 def room_to_heal(char):
     """
     How many intervals natural healing could still use: the largest damage
-    on any location (WN10), 0 when unhurt, None for an object with no body
-    to read.
+    on any location without a running clock (WN10; p. 87, a Major Wound does
+    not heal until treated, and stopping the clock is the treatment), 0 when
+    nothing of that is hurt, None for an object with no body to read.
     """
     if maxima_of(char) is None:
         return None
-    return max(damage_of(char).values(), default=0)
+    clocked = clocks_of(char)
+    return max((value for key, value in damage_of(char).items() if key not in clocked),
+               default=0)
 
 
 def heal(char, points):
     """
     Mend `points` intervals' worth: a point from every hurt location per
-    interval, never below unhurt (WN10); returns the intervals that landed.
+    interval, never below unhurt (WN10), and none from a location whose clock
+    runs (WN-T10); returns the intervals that landed.
 
     The door behind `world.healing.accrue`, which keeps the counter and
     pushes. What is returned is what callers report -- one for an interval
@@ -436,7 +448,10 @@ def heal(char, points):
     if not room or points <= 0:
         return 0
     landed = min(points, room)
-    left = {key: value - landed for key, value in damage_of(char).items() if value > landed}
+    clocked = clocks_of(char)
+    left = {key: value if key in clocked else value - landed
+            for key, value in damage_of(char).items()
+            if key in clocked or value > landed}
     if left:
         char.db.body_damage = left
     else:
@@ -467,6 +482,7 @@ def restore_at_respawn(char):
     """
     char.attributes.remove("body_damage")
     char.attributes.remove("wound_unconscious")
+    char.attributes.remove("wound_clocks")
     states = states_of(char)
     kept = {key: state for key, state in states.items() if state != DISABLED}
     if kept != states:
@@ -554,11 +570,119 @@ def _wake_due(char, until):
 
 
 def _come_to(char):
-    """The body wakes: the Attribute goes first, then the lines."""
+    """
+    The body wakes: the Attribute goes first, then the lines; a body whose
+    player has gone turns to stone once nothing holds it (WN-T10, choice B).
+    """
     char.attributes.remove("wound_unconscious")
     char.msg(COME_TO)
     if char.location:
         char.location.msg_contents(COME_TO_ROOM, from_obj=char, exclude=char)
+    _stone_if_released(char)
+
+
+def _stone_if_released(char):
+    """A body with no player and no hold becomes the statue it would have been."""
+    if not getattr(char, "has_account", True) and not holds_body(char):
+        turn = getattr(char, "turn_to_stone", None)
+        if turn is not None:
+            turn()
+
+
+def holds_body(char):
+    """
+    True while a wound holds the body in the world: a running clock, or a
+    wound's unconsciousness whose time has not passed (WN4; OQ-WN6). Only
+    reads -- it is `is_statue`'s question, asked while others look, and it
+    wakes and kills no one (Wounds WN-T10, choice C).
+    """
+    if clocks_of(char):
+        return True
+    record = _unconscious_record(char)
+    return record is not None and time.time() < record["until"]
+
+
+def minutes_until(deadline):
+    """Real minutes from now to `deadline` (a `time.time()`), never below 0."""
+    return max(0.0, (deadline - time.time()) / MINUTE)
+
+
+def clocks_of(char):
+    """The running clocks as a plain dict, location -> deadline (`time.time()`)."""
+    stored = char.attributes.get("wound_clocks") if hasattr(char, "attributes") else None
+    if not isinstance(stored, Mapping):
+        return {}
+    return {key: float(value) for key, value in stored.items() if value is not None}
+
+
+def start_clock(char, location):
+    """
+    A Major Wound's clock starts (p. 146; WN4): (CON + POW) minutes for a
+    limb, half (CON + POW) rounds for head, chest and abdomen, as a stored
+    deadline in `db.wound_clocks`, with a persistent alarm to `_clock_due`
+    carrying the deadline. A location whose clock already runs keeps its
+    earlier deadline: a second wound does not buy time.
+
+    The door behind `Character.apply_health_damage`, its one caller in
+    production, which pushes.
+
+    Returns:
+        float: the location's deadline.
+    """
+    clocks = clocks_of(char)
+    if location in clocks:
+        return clocks[location]
+    now = time.time()
+    seconds = clock_seconds(int(char.stats.con.value), int(char.stats.pow.value), location)
+    deadline = now + seconds
+    clocks[location] = deadline
+    char.db.wound_clocks = clocks
+    delay(seconds, _clock_due, char, location, deadline, persistent=True)
+    char.msg(CLOCK_START)
+    return deadline
+
+
+def _clock_due(char, location, deadline):
+    """
+    The alarm (persistent; module-level). It reads the deadline again and
+    does nothing unless that location's stored deadline is still the one it
+    was set for and has passed -- a stopped clock, a death or a later clock
+    has made it stale. Then the body is told and dies (WO3); the death's
+    restore removes every clock, so a second alarm finds nothing and the
+    body is not killed again where it came back (WN9).
+    """
+    if clocks_of(char).get(location) != deadline:
+        return
+    left = deadline - time.time()
+    if left > 0:   # the alarm's clock ran a little ahead of time.time()
+        delay(left, _clock_due, char, location, deadline, persistent=True)
+        return
+    char.msg(CLOCK_OUT)
+    if char.location:
+        char.location.msg_contents(CLOCK_OUT_ROOM, from_obj=char, exclude=char)
+    char.at_character_death(killer="wound")
+
+
+def stop_clock(char, location):
+    """
+    Stop a location's clock: the deadline is removed, so its alarm finds
+    nothing (§2's second choice). The function slice HL calls (treatment,
+    p. 87); nothing calls it in WN. A body with no player turns to stone once
+    nothing holds it.
+
+    Returns:
+        bool: True when there was a clock.
+    """
+    clocks = clocks_of(char)
+    if location not in clocks:
+        return False
+    del clocks[location]
+    if clocks:
+        char.db.wound_clocks = clocks
+    else:
+        char.attributes.remove("wound_clocks")
+    _stone_if_released(char)
+    return True
 
 
 def revive(char):

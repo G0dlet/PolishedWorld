@@ -259,7 +259,7 @@ def _awake_characters(location, caller):
     return [
         obj
         for obj in location.contents
-        if obj != caller and inherits_from(obj, _CHARACTER) and not obj.is_statue
+        if obj != caller and inherits_from(obj, _CHARACTER) and obj.has_account
     ]
 
 
@@ -346,7 +346,7 @@ class CmdIntroduce(Command):
             target = caller.search(wanted, candidates=candidates)
             if not target:
                 return  # the search has told the caller
-            if target.is_statue:
+            if not target.has_account:   # a statue, or a body a wound holds
                 caller.msg("They cannot hear you now.")
                 return
             hearers = [target]

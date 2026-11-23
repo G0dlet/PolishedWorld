@@ -998,7 +998,8 @@ class TestPushCensus(EvenniaTest):
         ("commands/consumption_commands.py", "CmdEat.func", "push"): 1,
         ("commands/consumption_commands.py", "CmdDrink.func", "push"): 1,
         ("server/conf/inputfuncs.py", "pw_state", "push"): 1,
-        ("typeclasses/characters.py", "Character.at_post_unpuppet", "push_room_soon"): 1,
+        # Wounds WN-T10: the statue line and its push moved to turn_to_stone.
+        ("typeclasses/characters.py", "Character.turn_to_stone", "push_room_soon"): 1,
         ("typeclasses/characters.py", "Character.at_post_puppet", "push"): 1,
         ("typeclasses/characters.py", "Character.at_post_puppet", "push_room_soon"): 1,
         ("typeclasses/characters.py", "Character.apply_health_damage", "push"): 1,
@@ -1087,7 +1088,10 @@ class TestPushCensus(EvenniaTest):
     # caller, the writer, pushes); the waking (`_come_to`) is not -- it is
     # reached by the alarm and by whoever reads the time first -- and the
     # `char` snapshot shows nothing of it, so its write is in NOT_PANEL.
-    WOUND_ATTRIBUTES = ("body_damage", "wound_states", "wound_unconscious")
+    # WN-T10: the clocks. `start_clock` is a door (the writer pushes);
+    # `stop_clock` is HL's entry point with no caller in WN, and nothing in
+    # the snapshot moves when a clock stops, so its writes are NOT_PANEL.
+    WOUND_ATTRIBUTES = ("body_damage", "wound_states", "wound_unconscious", "wound_clocks")
     DOOR_WRITES = {
         ("world/wounds.py", "damage", "char.db.body_damage"):
             ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
@@ -1107,6 +1111,10 @@ class TestPushCensus(EvenniaTest):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
         ("world/wounds.py", "knock_out", "char.db.wound_unconscious"):
             ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "start_clock", "char.db.wound_clocks"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_clocks')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.db.wound_states"):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_states')"):
@@ -1120,6 +1128,8 @@ class TestPushCensus(EvenniaTest):
         ("world/chargen.py", "apply_allocation", "skill.current"),
         ("world/professions.py", "grant_profession", "skill.current"),
         ("world/wounds.py", "_come_to", "char.attributes.remove('wound_unconscious')"),
+        ("world/wounds.py", "stop_clock", "char.db.wound_clocks"),
+        ("world/wounds.py", "stop_clock", "char.attributes.remove('wound_clocks')"),
     }
 
     def setUp(self):
@@ -1167,7 +1177,7 @@ class TestPushCensus(EvenniaTest):
                                 "location", "db_location"):
                             self.locations.add((rel, qual, ast.unparse(target)))
 
-    DOORS = ("damage", "heal", "restore_at_respawn", "knock_out")
+    DOORS = ("damage", "heal", "restore_at_respawn", "knock_out", "start_clock")
 
     @classmethod
     def _door_called(cls, call, imported):
