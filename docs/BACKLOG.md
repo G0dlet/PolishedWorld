@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 120 · 2026-11-23** — one entry **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 4 (WN-T8–WN-T10 shipped on `feature/wounds`), Combat Design Rev 7 and README Rev 71. ***A collapsed body's instant commands***: a wound's unconsciousness (WN-T9) is refused where a collapse is and lets the same commands through, for minutes rather than ninety seconds; no play knocks a body out before ML.
 > **Rev 119 · 2026-11-23** — two entries **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 3 (WN-T4–WN-T7 shipped on `feature/wounds`) and README Rev 70. ***Survival loop tuning***: Adam's question at WN-T7 — should starvation's death use the whole body's Hit Points? — with what the book and WN2b say, for the alpha's data. ***Dev characters keep a float `health.base`***: WN-T6 shipped (`8e3beb7`); still closed in WN-T13.
 > **Rev 118 · 2026-11-23** — two entries **added** and seven **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 1 (Stage 5's slice WN decomposed), Combat Design Rev 6 (locks WN1–WN11), Combat Decomposition Rev 17, roadmap Rev 87 and README Rev 68. **New, both in *Health & Injury*: *Time away heals vs the statue as a snapshot*** (BLOCKED on slice HL: the statue is a snapshot, Adam 2026-11-23, and SL7's credit is the one exception left) and ***Natural healing: the row lost to strenuous activity*** (BLOCKED on ML; core p. 87, not built by WN10). **Annotated:** *`at_character_death()` restore block vs persistent wound tiers* → SCHEDULED (WN-T8); *Dev characters keep a float `health.base`* → SCHEDULED (WN-T6 ends it); *Two-stage healing* (it is slice HL, before ML, both halves); *Character panel: Legend combat state* (WN ships the data, CL the panel); *Survival loop tuning* (what WN keeps and what it moves); *Free Skill Points* (Resilience's training comes with ML); *Characteristic improvement* (WN1 needs no writer). The search of this file on the names the slice touches was run before a lock was taken (lessons 238 and 408) and found sixteen entries naming it; these nine are the ones it changes.
 > **Rev 117 · 2026-11-22** — one entry **added** and seven **annotated**, docs only, in the commit that closes Stage 5's slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`), with roadmap Rev 86 and README Rev 67. **New: *`sheet` and `skills` give a skill's name 14 characters*** (*UX & Item Identity*, OPEN): *Mace and Shield* is 15 and *Spear and Shield* 16. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* — decided for the skills (BD-T5b, the styles included), still OPEN for hunger and thirst; *Skill `descs` stop at 95* — the ladders stand in one place now, not three; **three triggers fired by the slice and found by searching for its data:** *Cultural Background* (a weapon-style skill exists, as data), *Characteristic improvement* (Damage Modifier and Strike Rank read characteristics) and *Free Skill Points* (more Common skills than five) — each stays BLOCKED with its reason restated and a new trigger; *Placeholder skill bases in `at_object_creation`* (four more on the placeholder sums); *Character panel: Legend combat state* (Combat Actions now exist, read on demand).
@@ -2269,6 +2270,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   consequence is decided — a collapsed body is helpless, and `attack` and
   `hunt` are refused (`docs/PolishedWorld_Combat_Design.md` HB1, HB2). The
   rest of the list stays with Rest slice 2.
+- **Annotation (2026-11-23, Wounds WN-T9, choice B):** a wound's
+  unconsciousness shares the collapse's one refusal (WN11) and so its list:
+  a walk, `eat`, `drink`, `empty` and every timed action are refused
+  (`timed_actions.start` asks for it, since the wound leaves the slot
+  empty); `look`, `hunt`, `get`, `say` and the other instant commands go
+  through. It lasts the damage in minutes, or until a vital Major Wound's
+  clock runs out, not ninety seconds. Before ML nothing in play knocks a
+  body out (WN5), so the gap is first met with the blow; HB's helpless body
+  is where it is decided for both states.
 - **Status:** OPEN
 
 ---

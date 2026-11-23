@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 71 · 2026-11-23** — one row changed, docs only, with BACKLOG Rev 120 and Combat Design Rev 7: `PolishedWorld_Wounds_Decomposition.md` is in progress (Rev 4; WN-T1–WN-T10 shipped on `feature/wounds`).
 > **Rev 70 · 2026-11-23** — one row changed, docs only, with BACKLOG Rev 119: `PolishedWorld_Wounds_Decomposition.md` is in progress (Rev 3; WN-T1–WN-T7 shipped on `feature/wounds`).
 > **Rev 69 · 2026-11-23** — one row changed, docs only: `PolishedWorld_Wounds_Decomposition.md` is in progress (Rev 2; WN-T1–WN-T3 shipped on `feature/wounds`).
 > **Rev 68 · 2026-11-23** — index `PolishedWorld_Wounds_Decomposition.md` (Stage 5's fourth slice, WN: damage stored per location, `health` as a display, the wound's Resilience test, the two clocks, starvation's rate, healing per location and what respawn keeps — WN-T1–WN-T13). Added in the same commit as the document, with Combat Design Rev 6, Combat Decomposition Rev 17, roadmap Rev 87 and BACKLOG Rev 118; the directory-vs-list loop was run after the file existed in the tree, as Rev 9 requires (65/0).
@@ -144,7 +145,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Combat decomposition (Stage 5: the slice map for the whole stage, and the first slice's tasks — Names, `rpg/rpsystem` on the character) | tactical (stage map + feature tasks) | `docs/PolishedWorld_Combat_Decomposition.md` |
 | Skill-check forms decomposition (Stage 5, slice SC: the opposed test by the book, opposed skills over 100 %, `compare_levels` and `opposed_against`) | tactical (feature tasks) | `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` |
 | Body decomposition (Stage 5, slice BD: Resilience, Evade, Unarmed and Brawn; Combat Styles and weapon types as data; Combat Actions, Strike Rank, Damage Modifier and Hit Points per location read on demand — done, merged as `22fb018`) | tactical (feature tasks) | `docs/PolishedWorld_Body_Decomposition.md` |
-| Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — in progress, WN-T1–WN-T7 shipped) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
+| Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — in progress, WN-T1–WN-T10 shipped) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
