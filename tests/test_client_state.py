@@ -1078,14 +1078,30 @@ class TestPushCensus(EvenniaTest):
     # WN-T5 (choice A): what they write is the stored damage, an assignment
     # to `db.body_damage` or the Attribute's removal, and the census reads
     # both as writes; without that the door would leave the census unseen.
+    # WN-T8 (choice C): the census reads every Attribute the wound module
+    # keeps by the names in WOUND_ATTRIBUTES, and
+    # test_every_attribute_the_wound_module_writes_is_named holds the tuple
+    # to what world/wounds.py writes -- a census that knew one name would go
+    # blind the day the storage gains another (lesson 18).
+    WOUND_ATTRIBUTES = ("body_damage", "wound_states")
     DOOR_WRITES = {
         ("world/wounds.py", "damage", "char.db.body_damage"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "damage", "char.db.wound_states"):
             ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
         ("world/wounds.py", "heal", "char.db.body_damage"):
             ("world/healing.py", "accrue", "char"),
         ("world/wounds.py", "heal", "char.attributes.remove('body_damage')"):
             ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "heal", "char.db.wound_states"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "heal", "char.attributes.remove('wound_states')"):
+            ("world/healing.py", "accrue", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('body_damage')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.db.wound_states"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_states')"):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
     }
 
@@ -1127,7 +1143,7 @@ class TestPushCensus(EvenniaTest):
                         if door:
                             key = (door, rel, qual)
                             self.door_calls[key] = self.door_calls.get(key, 0) + 1
-                        if self._removes_body_damage(node):
+                        if self._removes_wound_attribute(node):
                             self.writes.add((rel, qual, ast.unparse(node)))
                     targets = []
                     if isinstance(node, ast.Assign):
@@ -1136,7 +1152,7 @@ class TestPushCensus(EvenniaTest):
                         targets = [node.target]
                     for target in targets:
                         if isinstance(target, ast.Attribute) and target.attr in (
-                                "current", "body_damage"):
+                                ("current",) + self.WOUND_ATTRIBUTES):
                             self.writes.add((rel, qual, ast.unparse(target)))
                         if isinstance(target, ast.Attribute) and target.attr in (
                                 "location", "db_location"):
@@ -1155,16 +1171,38 @@ class TestPushCensus(EvenniaTest):
             return func.id
         return None
 
-    @staticmethod
-    def _removes_body_damage(call):
-        """`X.attributes.remove("body_damage")`: the stored damage taken away."""
+    @classmethod
+    def _removes_wound_attribute(cls, call):
+        """`X.attributes.remove("<a WOUND_ATTRIBUTES name>")`: a wound Attribute taken away."""
         func = call.func
         return (
             isinstance(func, ast.Attribute) and func.attr == "remove"
             and isinstance(func.value, ast.Attribute) and func.value.attr == "attributes"
             and len(call.args) == 1 and isinstance(call.args[0], ast.Constant)
-            and call.args[0].value == "body_damage"
+            and call.args[0].value in cls.WOUND_ATTRIBUTES
         )
+
+    def test_every_attribute_the_wound_module_writes_is_named(self):
+        # What world/wounds.py stores, read by AST: every `X.db.<name> = ...`
+        # and every `X.attributes.remove/add("<name>", ...)`. A new Attribute
+        # there must be named in WOUND_ATTRIBUTES, or its writes would pass
+        # the census unseen (WN-T8, choice C).
+        tree = ast.parse((ROOT / "world/wounds.py").read_text(encoding="utf-8"))
+        written = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+                for target in getattr(node, "targets", None) or [node.target]:
+                    if (isinstance(target, ast.Attribute)
+                            and isinstance(target.value, ast.Attribute)
+                            and target.value.attr == "db"):
+                        written.add(target.attr)
+            elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and node.func.attr in ("remove", "add")
+                  and isinstance(node.func.value, ast.Attribute)
+                  and node.func.value.attr == "attributes"
+                  and node.args and isinstance(node.args[0], ast.Constant)):
+                written.add(node.args[0].value)
+        self.assertEqual(written, set(self.WOUND_ATTRIBUTES))
 
     def test_push_sites_are_pinned(self):
         self.assertEqual(self.sites, self.SITES)

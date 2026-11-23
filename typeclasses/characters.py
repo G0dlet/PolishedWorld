@@ -1004,11 +1004,12 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         modifier follows the load and the gauge (a timed craft reads it when
         it completes, not when it starts).
 
-        The eight physical rolls add this to their own modifiers: craft
+        The nine physical rolls add this to their own modifiers: craft
         (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
         `hunt` (as `attacker_mod`), `harvest`, the awake test
-        (`world.fatigue.awake_test`, S3.3) and the collapse test
-        (`world.fatigue.collapse_test`, S3.4). A new skill test decides
+        (`world.fatigue.awake_test`, S3.3), the collapse test
+        (`world.fatigue.collapse_test`, S3.4) and the wound's Resilience test
+        (`wounds.resilience_test`, WN7). A new skill test decides
         whether it is physical (the census in tests/test_encumbrance.py).
         A later penalty of the same kind is added here too, so the call sites
         never change.
@@ -1576,11 +1577,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
     rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
     
-    def apply_health_damage(self, amount, *, location, source=None):
+    def apply_health_damage(self, amount, *, location, source=None, made=None):
         """
         Single chokepoint for all HP loss. Puts `amount` on the body through
-        `wounds.damage` and fires at_character_death() if the body is then
-        dead (`wounds.is_dead`).
+        `wounds.damage` and fires at_character_death() if the call's outcome
+        says this blow kills (Wounds WN-T8, choice A: a won Resilience test
+        at a vital Major Wound leaves the same damage as a lost one, so the
+        stored body cannot answer).
 
         Every damage source -- survival conditions now, combat later -- must
         route through here so death can never be bypassed, and so the future
@@ -1594,21 +1597,28 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 a damage source cannot leave out where it hits.
             source (Object | str | None): what dealt the damage; forwarded to
                 at_character_death as `killer` for future attribution/logging.
+            made (dict | None): the attack roll's successful `skill_check`
+                dict, which a Serious or Major Wound is tested against
+                (p. 145). None for a source with no attack roll: no test
+                (OQ-WN1).
 
         Raises:
-            ValueError: for any other `location`, before anything is written
-                and whatever the amount (Wounds WN-T4, choice C).
+            ValueError: for any other `location`, a `made` that is not a
+                success, or a `made` with `wounds.ALL` -- before anything is
+                written and whatever the amount (Wounds WN-T4, choice C;
+                WN-T8, choice B).
         """
         # The door writes nothing for an amount <= 0, a body with no health,
-        # or a body already dead: a death in progress or already resolved
-        # this tick. That last is defense-in-depth for future direct callers
-        # (combat); the summation in the ticker is the primary double-death
-        # guard.
-        if not wounds.damage(self, amount, location):
+        # or a body whose death is in progress (`ndb._dying`). That last is
+        # defense-in-depth for future direct callers (combat); the summation
+        # in the ticker is the primary double-death guard.
+        outcome = wounds.damage(self, amount, location, made)
+        if not outcome:
             return
-        if wounds.is_dead(self):
-            # GaugeTrait has no min-callback, so we detect the threshold crossing
-            # explicitly rather than relying on the trait to notify us.
+        if outcome["dies"]:
+            # The blow's answer, not a read of the body: what WN-T9 and
+            # WN-T10 carry out (unconsciousness, the clock) is in the same
+            # outcome.
             self.at_character_death(killer=source)
         # W4.2: after the death check, so a fatal blow sends the refilled
         # value (death also schedules all four).

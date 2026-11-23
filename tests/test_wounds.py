@@ -61,8 +61,9 @@ The door (WN-T4):
   body and returns what landed (what `accrue` reports); `room_to_heal` is
   the largest damage, 0 unhurt and None for an object with no body;
   `restore_at_respawn` removes the damage; `damage` says whether it wrote,
-  and writes nothing on a body already dead (a death in progress);
-  `is_dead` at eight points on the head and not at seven.
+  and writes nothing on a body whose death is in progress (`ndb._dying`,
+  WN-T8); its outcome kills at eight points of `ALL` on the head and not
+  at seven.
 
 The storage (WN-T5):
 
@@ -75,9 +76,10 @@ The storage (WN-T5):
   location, drops a mended one, and removes the Attribute with the last
   point: an unhurt body has none (WN1). A raised CON keeps the damage and
   gains Hit Points. **The old trait at 3 of 20 with no damage reads
-  100 %** -- WN2b's promise to every character made before WN. Only a vital
-  location at a Major Wound is death (WO7, WN5), and a stored dict is read
-  as the `_SaverDict` it comes back as.
+  100 %** -- WN2b's promise to every character made before WN. For an
+  `ALL` source only a vital location at a Major Wound is death (WO7, WN5),
+  read from the door's outcome since WN-T8, and a stored dict is read as
+  the `_SaverDict` it comes back as.
 - `TestHealthOf`: the fixture's unhurt body reads 8 of 8; an object without
   CON and SIZ reads None.
 
@@ -270,7 +272,6 @@ class TestStoredDamage(EvenniaTest):
 
     def test_nine_points_of_all_leave_the_head_one_from_a_major_wound(self):
         self.char1.apply_health_damage(9, location=wounds.ALL)
-        self.assertFalse(wounds.is_dead(self.char1))
         self.assertEqual(wounds.health_of(self.char1), (1, 10, 10.0))
         self.assertEqual(self.char1.location, self.room1)
 
@@ -334,13 +335,14 @@ class TestStoredDamage(EvenniaTest):
         self.assertEqual(self.char1.health_desc(), "healthy")
 
     def test_only_a_vital_location_at_a_major_wound_is_death(self):
-        # A premise no ALL source can make: limbs past their maximum.
+        # A premise no ALL source can make: limbs past their maximum, which
+        # one more point of ALL leaves where they are (WO7).
         self.char1.db.body_damage = {"left_arm": 8, "right_leg": 10}
-        self.assertFalse(wounds.is_dead(self.char1))
+        self.assertFalse(wounds.damage(self.char1, 1, wounds.ALL)["dies"])
+        self.char1.db.body_damage = {"abdomen": 10}
+        self.assertFalse(wounds.damage(self.char1, 1, wounds.ALL)["dies"])   # 11
         self.char1.db.body_damage = {"abdomen": 11}
-        self.assertFalse(wounds.is_dead(self.char1))
-        self.char1.db.body_damage = {"abdomen": 12}
-        self.assertTrue(wounds.is_dead(self.char1))
+        self.assertTrue(wounds.damage(self.char1, 1, wounds.ALL)["dies"])    # 12
 
     def test_a_stored_dict_is_read_as_a_mapping(self):
         # A stored dict comes back as a _SaverDict, not a dict.
@@ -394,17 +396,15 @@ class TestTheDoors(EvenniaTest):
         wounds.restore_at_respawn(self.char1)
         self.assertIsNone(_stored(self.char1))
 
-    def test_is_dead_at_a_major_wound_on_the_head_and_not_one_before(self):
+    def test_all_kills_at_a_major_wound_on_the_head_and_not_one_before(self):
         # The door itself, not the writer: the writer would run the death
         # and the restore, and the body would never be seen dead.
-        self.assertFalse(wounds.is_dead(self.char1))
-        self.assertTrue(wounds.damage(self.char1, 7, wounds.ALL))
-        self.assertFalse(wounds.is_dead(self.char1))
-        self.assertTrue(wounds.damage(self.char1, 1, wounds.ALL))
-        self.assertTrue(wounds.is_dead(self.char1))
-        self.assertFalse(wounds.damage(self.char1, 1, wounds.ALL))   # a death in progress
+        self.assertFalse(wounds.damage(self.char1, 7, wounds.ALL)["dies"])
+        self.assertTrue(wounds.damage(self.char1, 1, wounds.ALL)["dies"])
+        self.char1.ndb._dying = True                                   # a death in progress
+        self.assertIsNone(wounds.damage(self.char1, 1, wounds.ALL))
         self.assertEqual(_stored(self.char1)["head"], 8)
-        self.assertFalse(wounds.is_dead(self.obj1))
+        self.assertIsNone(wounds.damage(self.obj1, 1, wounds.ALL))
 
 
 class TestScreensReadTheModule(EvenniaCommandTest):

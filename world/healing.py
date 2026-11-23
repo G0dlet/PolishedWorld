@@ -2,10 +2,10 @@
 Natural healing (survival loop S2.1, decisions SL6 and RP-L4).
 
 Legend's Natural Healing Table (core p. 86): one hit point per a number of
-hours, chosen by the Resilience value. `resilience()` is the one place that
-reads it, through `world.skill_base.value_of` (Body decomposition BD6): the
-trait's value once the character has the skill, its base CON x 2 (p. 14)
-until then. The table below keeps the book's rows as printed.
+hours, chosen by the Resilience value. `resilience()` is the one place here
+that reads it, through `world.skill_base.value_of` (Body decomposition BD6):
+the trait's value once the character has the skill, its base CON x 2 (p. 14)
+until then. The wound's test reads it the same way (`wounds.resilience_test`). The table below keeps the book's rows as printed.
 
 The clock is game time: the survival tick hands `accrue()` the game seconds
 since its last run (`survival_ticker._tick_game_seconds`). Seconds collect in

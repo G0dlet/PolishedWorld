@@ -975,8 +975,9 @@ class TestPenaltyReachesHarvest(_PenaltyFixture, EvenniaCommandTest):
 
 
 # The physical rolls, counted per module: the six W3.1 classified (Rev 5,
-# Q1-Q3), the awake test (Survival Loop S3.3) and the collapse test (S3.4),
-# which add the physical modifier and are physical too.
+# Q1-Q3), the awake test (Survival Loop S3.3), the collapse test (S3.4) and
+# the wound's Resilience test (Wounds WN-T8), which add the physical modifier
+# and are physical too.
 # forage rolls nothing; world/skillcheck.py is the roll itself (its forms in
 # ROLL_NAMES call skill_check) and is not a call site.
 ROLL_SITES = {
@@ -985,6 +986,9 @@ ROLL_SITES = {
     "commands/repair_commands.py": 1,     # repair
     "world/crafting_base.py": 1,          # craft (do_craft)
     "world/fatigue.py": 2,                # awake_test (S3.3), collapse_test (S3.4)
+    # resilience_test: W3.1's question asked and answered -- physical, the
+    # whole physical_modifier() (WN7, closing OQ-SC1).
+    "world/wounds.py": 1,
 }
 ROLL_NAMES = ("skill_check", "opposed_check", "opposed_against")
 # The public forms of world/skillcheck.py that roll nothing, so a call to one

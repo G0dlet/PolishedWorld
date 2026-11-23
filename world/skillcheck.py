@@ -271,8 +271,8 @@ def opposed_against(made, skill, modifier=0):
     section 5): one blow has one level, and a resisting skill above 100% is
     worth more than one of 100.
 
-    `modifier` is the caller's to compose, as with skill_check (whether a
-    wound's Resilience takes the physical modifier is OQ-SC1).
+    `modifier` is the caller's to compose, as with skill_check (a wound's
+    Resilience takes the whole physical modifier, WN7: `wounds.resilience_test`).
 
     Args:
         made (dict): A successful skill_check result, the roll being resisted.
