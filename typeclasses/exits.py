@@ -9,6 +9,8 @@ for allowing Characters to traverse the exit to its destination.
 
 from evennia.objects.objects import DefaultExit
 
+from world import wounds
+
 from .objects import ObjectParent
 
 
@@ -25,12 +27,16 @@ class Exit(ObjectParent, DefaultExit):
 
     def at_failed_traverse(self, traversing_object, **kwargs):
         """
-        Say nothing to a collapsed body (Survival Loop S3.4, lock B1).
+        Say nothing to a collapsed body (Survival Loop S3.4, lock B1), or to
+        one a wound has knocked out (Wounds WN-T9).
 
         `Character.at_pre_move` refused its walk and already said why (*Your
-        legs will not carry you.*); Evennia's *You cannot go there.* after it
-        would be a second, wrong reason. Every other failure keeps it.
+        legs will not carry you.*, *You lie senseless where you fell.*);
+        Evennia's *You cannot go there.* after it would be a second, wrong
+        reason. Every other failure keeps it.
         """
         if traversing_object.attributes.get("collapsed"):
+            return
+        if wounds.unconscious(traversing_object):
             return
         super().at_failed_traverse(traversing_object, **kwargs)

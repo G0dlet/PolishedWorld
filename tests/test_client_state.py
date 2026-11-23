@@ -1083,7 +1083,11 @@ class TestPushCensus(EvenniaTest):
     # test_every_attribute_the_wound_module_writes_is_named holds the tuple
     # to what world/wounds.py writes -- a census that knew one name would go
     # blind the day the storage gains another (lesson 18).
-    WOUND_ATTRIBUTES = ("body_damage", "wound_states")
+    # WN-T9: the wound's unconsciousness. `knock_out` is a door (its one
+    # caller, the writer, pushes); the waking (`_come_to`) is not -- it is
+    # reached by the alarm and by whoever reads the time first -- and the
+    # `char` snapshot shows nothing of it, so its write is in NOT_PANEL.
+    WOUND_ATTRIBUTES = ("body_damage", "wound_states", "wound_unconscious")
     DOOR_WRITES = {
         ("world/wounds.py", "damage", "char.db.body_damage"):
             ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
@@ -1099,6 +1103,10 @@ class TestPushCensus(EvenniaTest):
             ("world/healing.py", "accrue", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('body_damage')"):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_unconscious')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "knock_out", "char.db.wound_unconscious"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.db.wound_states"):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_states')"):
@@ -1111,6 +1119,7 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.improve_skill_on_use", "skill.current"),
         ("world/chargen.py", "apply_allocation", "skill.current"),
         ("world/professions.py", "grant_profession", "skill.current"),
+        ("world/wounds.py", "_come_to", "char.attributes.remove('wound_unconscious')"),
     }
 
     def setUp(self):
@@ -1158,7 +1167,7 @@ class TestPushCensus(EvenniaTest):
                                 "location", "db_location"):
                             self.locations.add((rel, qual, ast.unparse(target)))
 
-    DOORS = ("damage", "heal", "restore_at_respawn")
+    DOORS = ("damage", "heal", "restore_at_respawn", "knock_out")
 
     @classmethod
     def _door_called(cls, call, imported):

@@ -1620,6 +1620,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # WN-T10 carry out (unconsciousness, the clock) is in the same
             # outcome.
             self.at_character_death(killer=source)
+        else:
+            # WN-T9: a wound's unconsciousness with a length (a vital Serious
+            # Wound or a limb's Major Wound, lost). A vital Major Wound's
+            # lasts as long as its clock, which is WN-T10's.
+            for wound in outcome["wounds"]:
+                if wound["unconscious"] and wound["minutes"]:
+                    wounds.knock_out(self, wound["location"], wound["minutes"])
         # W4.2: after the death check, so a fatal blow sends the refilled
         # value (death also schedules all four).
         client_state.push(self, "char")
@@ -1907,8 +1914,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         gone -- a reload empties `ndb`, a statue logout clears the slot -- by
         the survival tick, `at_post_puppet` and every refusal. Anything else in
         the slot (a rest or a chore started while the slot stood empty) is
-        interrupted first.
+        interrupted first. Nothing starts while a wound keeps the body out
+        (Wounds WN-T9): `timed_actions.start` would refuse it aloud.
         """
+        if wounds.unconscious(self):
+            # A wound has the body (Wounds WN-T9, choice A): the recovery
+            # starts when it comes to, from the next refusal or tick.
+            return
         record = timed_actions.is_busy(self)
         if record is not None and record.key == fatigue_rules.COLLAPSE_KEY:
             return
@@ -1924,17 +1936,26 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
 
     def refuse_if_collapsed(self, line):
         """
-        Refuse an action a collapsed body cannot take (S3.4, SL11).
+        Refuse an action a collapsed body cannot take (S3.4, SL11), or a body
+        a wound has knocked out (Wounds WN-T9; WN11: one refusal, two causes).
 
-        Says `line` and re-arms the recovery if a reload left the slot empty
-        (lock H1). The commands call it first, before parsing anything.
+        A wound's unconsciousness is asked first: the body is told
+        `wounds.OUT_COLD`, whatever `line` says, and nothing is armed -- its
+        waking is its own stored time, not fatigue's recovery (§2's third
+        choice), so this refusal leaves the timed-action slot as it was.
+        Otherwise a collapse: says `line` and re-arms the recovery if a
+        reload left the slot empty (lock H1). The commands call it first,
+        before parsing anything.
 
         Args:
-            line (str): what the body is told.
+            line (str): what a collapsed body is told.
 
         Returns:
             bool: True when refused (the caller returns), False otherwise.
         """
+        if wounds.unconscious(self):
+            self.msg(wounds.OUT_COLD)
+            return True
         if not self.db.collapsed:
             return False
         self.msg(line)
@@ -1971,7 +1992,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         (lock A1, OQ-S2): `teleport` (staff `@tel`, `home`, a deleted room),
         a bare `move` and `move_hooks=False` paths go through. The exit's own
         *You cannot go there.* is silenced for a collapsed body
-        (`Exit.at_failed_traverse`, lock B1).
+        (`Exit.at_failed_traverse`, lock B1). A body a wound has knocked out
+        is refused the same walk through the same refusal (Wounds WN-T9).
         """
         if move_type == "traverse" and self.refuse_if_collapsed(fatigue_rules.CANNOT_MOVE):
             return False

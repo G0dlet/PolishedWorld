@@ -11,7 +11,9 @@ for every writer -- `damage`, `heal`, `room_to_heal`, `restore_at_respawn`
 (WN-T4). Behind them are two Attributes (WN1), each a plain dict holding only
 the locations that have something: `db.body_damage`, location to a whole
 number (WN-T5), and `db.wound_states`, location to `DISABLED`, `MAIMED` or
-`SEVERED` (WN-T8). A missing Attribute is an unhurt, unmarked body. Readers
+`SEVERED` (WN-T8). A third, `db.wound_unconscious`, holds a wound's
+unconsciousness while it lasts (WN-T9). A missing Attribute is an unhurt,
+unmarked, waking body. Readers
 test for a `Mapping`, never a `dict` (a stored dict comes back as a
 `_SaverDict`); writers assign a fresh dict and never change one in place, and
 remove the Attribute when nothing is left. The `health` trait is not read.
@@ -27,11 +29,14 @@ at a vital Major Wound leaves the same damage as a lost one and only the
 lost one is death (Wounds WN-T8, choice A).
 """
 
+import time
 from collections.abc import Mapping
 from fractions import Fraction
 from random import randint
 
-from world import skill_base
+from evennia.utils.utils import delay
+
+from world import skill_base, timed_actions
 from world.body import LOCATIONS, hit_points_max
 from world.skillcheck import opposed_against
 
@@ -64,6 +69,16 @@ _STATE_WEIGHT = {DISABLED: 1, MAIMED: 2, SEVERED: 3}
 # roadmap Rev 20: *severed* is built and switched off. On, a limb's Major
 # Wound gives it in place of *maimed* (WO2); off, every Major Wound maims.
 SEVERED_ENABLED = False
+
+# A wound's unconsciousness (WN-T9; OQ-WN5's lines, Adam 2026-11-23). Room
+# lines name the body through `$You()`, as the collapse's do (world/fatigue.py).
+KNOCKED_OUT = "The pain closes over you, and the world goes dark."
+KNOCKED_OUT_ROOM = "$You() crumples and lies still."
+COME_TO = "You come to on the cold ground, the pain still there."
+COME_TO_ROOM = "$You() stirs and comes to."
+# Every refusal while out, whatever line the caller passed: the collapse's
+# "Your hands will not obey you." is a waking body's (Wounds WN-T9, choice D).
+OUT_COLD = "You lie senseless where you fell."
 
 # WN3: a minute is 60 real seconds. Not twelve combat rounds of CT2's
 # ROUND_SECONDS: that constant is the dial for a fight's text volume, and
@@ -443,13 +458,15 @@ def heal(char, points):
 
 def restore_at_respawn(char):
     """
-    What death gives back of the body (WN9): the damage is emptied and
-    *disabled* is cleared, since every location is whole again; *maimed*
-    and *severed* stay. Called from the restore block of
-    `Character.at_character_death`, which knows neither Attribute and whose
-    push_soon of all four domains sends it.
+    What death gives back of the body (WN9): the damage is emptied,
+    *disabled* is cleared, since every location is whole again, and a
+    wound's unconsciousness ends without a waking line -- the death says
+    what happened; *maimed* and *severed* stay. Called from the restore
+    block of `Character.at_character_death`, which knows none of the
+    Attributes and whose push_soon of all four domains sends it.
     """
     char.attributes.remove("body_damage")
+    char.attributes.remove("wound_unconscious")
     states = states_of(char)
     kept = {key: state for key, state in states.items() if state != DISABLED}
     if kept != states:
@@ -457,6 +474,106 @@ def restore_at_respawn(char):
             char.db.wound_states = kept
         else:
             char.attributes.remove("wound_states")
+
+
+def knock_out(char, location, minutes):
+    """
+    A wound knocks the body out for `minutes` real minutes (p. 145; WN3).
+
+    The door behind `Character.apply_health_damage`, its one caller in
+    production, which pushes. The time it ends is stored in
+    `db.wound_unconscious` -- {"location", "until"}, `until` a `time.time()`
+    -- and that stored time is the truth (§2's second choice): the alarm,
+    `delay(..., persistent=True)` to `_wake_due`, only wakes the check. It
+    is not `db.collapsed`, whose refusal arms fatigue's recovery (§2's third
+    choice): a wound's waking is its own.
+
+    Whatever the timed-action slot held is interrupted, as `collapse()`
+    does. A body already out stays out until the later of the two times,
+    and is not told it goes dark a second time.
+
+    Returns:
+        bool: True when the body was not already out.
+    """
+    now = time.time()
+    until = now + minutes * MINUTE
+    current = _unconscious_record(char)
+    already = current is not None and current["until"] > now
+    if already and current["until"] >= until:
+        return False
+    timed_actions.interrupt(char)
+    char.db.wound_unconscious = {"location": location, "until": until}
+    delay(until - now, _wake_due, char, until, persistent=True)
+    if not already:
+        char.msg(KNOCKED_OUT)
+        if char.location:
+            char.location.msg_contents(KNOCKED_OUT_ROOM, from_obj=char, exclude=char)
+    return not already
+
+
+def _unconscious_record(char):
+    """The stored unconsciousness as a plain dict, or None."""
+    stored = char.attributes.get("wound_unconscious") if hasattr(char, "attributes") else None
+    if not isinstance(stored, Mapping) or "until" not in stored:
+        return None
+    return dict(stored)
+
+
+def unconscious(char):
+    """
+    True while a wound keeps the body out (WN-T9).
+
+    Answered from the stored time, so nothing depends on the alarm having
+    fired: a time that has passed is cleared here, and the body comes to
+    (`_come_to`) -- the first reader after the time is the one that wakes it.
+    """
+    record = _unconscious_record(char)
+    if record is None:
+        return False
+    if time.time() < record["until"]:
+        return True
+    _come_to(char)
+    return False
+
+
+def _wake_due(char, until):
+    """
+    The alarm (persistent; a module-level function, so the task handler can
+    save it). It reads the stored time again and does nothing unless the
+    time it was set for is still the stored one and has passed: a later
+    knock-out, a death or a revive has made it stale.
+    """
+    record = _unconscious_record(char)
+    if record is None or record["until"] != until:
+        return
+    left = until - time.time()
+    if left > 0:   # the alarm's clock ran a little ahead of time.time()
+        delay(left, _wake_due, char, until, persistent=True)
+        return
+    unconscious(char)
+
+
+def _come_to(char):
+    """The body wakes: the Attribute goes first, then the lines."""
+    char.attributes.remove("wound_unconscious")
+    char.msg(COME_TO)
+    if char.location:
+        char.location.msg_contents(COME_TO_ROOM, from_obj=char, exclude=char)
+
+
+def revive(char):
+    """
+    Bring a body knocked out by a wound round now (p. 87: *the restoration
+    of a single Hit Point ... will revive them*). Written here for slice HL;
+    nothing calls it in WN.
+
+    Returns:
+        bool: True when there was a body to revive.
+    """
+    if _unconscious_record(char) is None:
+        return False
+    _come_to(char)
+    return True
 
 
 def location_for(roll):
