@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 118 · 2026-11-23** — two entries **added** and seven **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 1 (Stage 5's slice WN decomposed), Combat Design Rev 6 (locks WN1–WN11), Combat Decomposition Rev 17, roadmap Rev 87 and README Rev 68. **New, both in *Health & Injury*: *Time away heals vs the statue as a snapshot*** (BLOCKED on slice HL: the statue is a snapshot, Adam 2026-11-23, and SL7's credit is the one exception left) and ***Natural healing: the row lost to strenuous activity*** (BLOCKED on ML; core p. 87, not built by WN10). **Annotated:** *`at_character_death()` restore block vs persistent wound tiers* → SCHEDULED (WN-T8); *Dev characters keep a float `health.base`* → SCHEDULED (WN-T6 ends it); *Two-stage healing* (it is slice HL, before ML, both halves); *Character panel: Legend combat state* (WN ships the data, CL the panel); *Survival loop tuning* (what WN keeps and what it moves); *Free Skill Points* (Resilience's training comes with ML); *Characteristic improvement* (WN1 needs no writer). The search of this file on the names the slice touches was run before a lock was taken (lessons 238 and 408) and found sixteen entries naming it; these nine are the ones it changes.
 > **Rev 117 · 2026-11-22** — one entry **added** and seven **annotated**, docs only, in the commit that closes Stage 5's slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`), with roadmap Rev 86 and README Rev 67. **New: *`sheet` and `skills` give a skill's name 14 characters*** (*UX & Item Identity*, OPEN): *Mace and Shield* is 15 and *Spear and Shield* 16. **Annotated:** *`descs` tables are read as upper bounds but shaped like lower bounds* — decided for the skills (BD-T5b, the styles included), still OPEN for hunger and thirst; *Skill `descs` stop at 95* — the ladders stand in one place now, not three; **three triggers fired by the slice and found by searching for its data:** *Cultural Background* (a weapon-style skill exists, as data), *Characteristic improvement* (Damage Modifier and Strike Rank read characteristics) and *Free Skill Points* (more Common skills than five) — each stays BLOCKED with its reason restated and a new trigger; *Placeholder skill bases in `at_object_creation`* (four more on the placeholder sums); *Character panel: Legend combat state* (Combat Actions now exist, read on demand).
 > **Rev 116 · 2026-11-16** — one entry **closed**, one **added** and one **annotated**, docs only, in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged), with roadmap Rev 84 and README Rev 65. ***`opposed_check` lets an automatic success win on a roll outside the skill range*** → DONE, with what shipped. **New: *Webclient: a quarry that flees stays in the location panel*** (*UX & Item Identity*, OPEN), seen in SC-T7's protocol. **Annotated:** *Repair, disassemble and hunt have no command tests of their own* — hunt's first tests of its outcomes (SC-T3).
 > **Rev 115 · 2026-11-16** — one entry **corrected and annotated**, docs only, with `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 1 (Stage 5's slice SC decomposed), roadmap Rev 83 and README Rev 64. ***`opposed_check` lets an automatic success win on a roll outside the skill range***: its example was wrong — at a target of 60 a roll of 04 is a critical and wins — and is replaced by one that was run; the caller's line is `:99`; the entry names the decomposition and its tasks. Status unchanged (DECIDED, code SCHEDULED). No entry closed.
@@ -1238,6 +1239,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   alpha close-out data above.
 - **Origin:** Character creation decomposition CC6 (2026-10-26). Shipped without
   it (decomposition Rev 2, 2026-10-29).
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** the trigger's
+  *Resilience read in play (WN)* is put right: WN builds the wound's
+  Resilience test, and no play reaches it before ML, so Resilience's
+  improvement call lands with ML beside Evade, Unarmed and Brawn (Combat
+  Design WN8). What reads Resilience in play today is natural healing
+  (`world/healing.py`), and the test will read it with the whole physical
+  modifier (WN7).
 - **Status:** BLOCKED (the four combat skills read in play / alpha data)
 
 ### Every knowledge-gated recipe has a profession grantor
@@ -1348,6 +1356,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   characteristics at the time (BD §10 point 5), so the day this is picked up a
   rule for the skills' bases is owed in the same task.
 - **Origin:** Character creation CC3.3 (B20), 2026-10-29.
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** the wounds need no
+  writer when CON or SIZ changes. What is stored is the damage on each
+  location, and Hit Points are the maximum — read from CON + SIZ on every
+  call — less the damage (Combat Design WN1). `update_health_max()`, the one
+  rescaling writer the body had, goes with the `health` trait (WN-T6).
 - **Status:** BLOCKED (something that changes a characteristic, or the improvement epic)
 
 ### Chargen resume replays the last notice
@@ -1370,7 +1383,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Never, if the alpha database is wiped as planned; otherwise
   before the first real player — one migration over `health.base`.
 - **Origin:** Character creation CC3.3 (B21), 2026-10-29.
-- **Status:** BLOCKED (only if the alpha database survives)
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** the entry ends
+  with **WN-T6**: the `health` trait is no longer created and nothing reads
+  it (Combat Design WN2b), so a float in an old character's `health.base` is
+  a number nobody asks for, and `update_health_max()` goes with the trait. No
+  migration: old characters keep the trait, unread. Closed in WN-T13.
+- **Status:** SCHEDULED (Stage 5 slice WN, task WN-T6 — the trait stops being read)
 
 ### Placeholder skill bases in `at_object_creation`
 - **What:** `at_object_creation` still creates the skills on the old fixed
@@ -1712,7 +1730,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   them.
 - **Origin:** Death-consequence policy session (2026-10-17), answering the
   hit-location entry's sub-question (a).
-- **Status:** BLOCKED (Stage 5 wound tiers)
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** scheduled as
+  task **WN-T8**, the task that writes the states, as the Trigger asks. The
+  restore block calls one function of the wound module,
+  `wounds.restore_at_respawn`, and knows neither Attribute: the damage and
+  the states are stored apart (Combat Design WN1) so that emptying one cannot
+  empty the other. The function removes the damage and *disabled*, keeps
+  *maimed* and *severed*, and — new with the clocks — stops a running clock
+  and a wound's unconsciousness, since a deadline that outlived the body
+  would kill it again at its respawn point (WN9). A mutation that clears
+  *maimed* at respawn is in the task's table and must be killed.
+- **Status:** SCHEDULED (Stage 5 slice WN, task WN-T8)
 
 ### `DeathWeakness` debuff → `fatigue_rate`
 - **What:** Point the death-weakness debuff at `fatigue_rate` (its intended
@@ -1792,6 +1820,22 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   location First Aid heals 1D3 (p. 50), which is the row the design proposes.
   Stabilising, surgery, the healer's kit and the Healing skill stay here, and
   the Trigger is unchanged.
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** **this entry is
+  now a slice of Stage 5's map, HL, and comes before ML** — both halves
+  (Combat Decomposition Rev 17, row 8b; Combat Design §7). The map had it
+  unblocked at the close-out, after close combat, dangerous rooms and
+  projectiles. Two things found while WN was designed moved it: nothing but
+  *Stabilise* stops a clock, so until it exists every Major Wound a body
+  survives is a death (WN4); and nothing but *Repair* cures *maimed*, which
+  persists through respawn, so until it exists the state has no cure — the
+  reason *severed* was gated (roadmap Rev 20; WN9). WN writes the two entry
+  points with no caller: `wounds.stop_clock(char, location)`, which is also
+  what lets the location heal naturally again (WN10), and
+  `wounds.revive(char)` for the single Hit Point that wakes an unconscious
+  body (core p. 87). The clocks are stored deadlines in real time, (CON + POW)
+  × 60 s for a limb and (CON + POW) / 2 × 5 s for head, chest and abdomen.
+  HL's design session also takes *Time away heals vs the statue as a
+  snapshot* (below). The Trigger's first half reads: WN merged.
 - **Status:** BLOCKED (Stage 5 wound tiers)
 
 ### Character panel: Legend combat state
@@ -1826,6 +1870,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   three. None of it is in the `char` snapshot (BD9), the current Hit Points per
   location are WN's, and Hero Points are HE's. The trigger is unchanged.
 - **Origin:** Webclient decomposition Rev 1, 2026-11-06 (D5).
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** WN ships what the
+  Trigger names — damage per location, the wound level derived, the state
+  stored (`world/wounds.py`; `wounds.report(char)` is the list `status`
+  prints) — and none of it joins the `char` snapshot: the snapshot's
+  `health` keeps its three keys and carries the worst location's margin to a
+  Major Wound (Combat Design WN2, WN11). The panel is slice CL, which waits
+  for ML as well, so the Trigger firing at WN's merge starts nothing by
+  itself.
 - **Status:** BLOCKED (Stage 5 locational HP)
 
 ### Hero Points in a persistent world
@@ -1851,6 +1903,41 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (HP4). The cap and the earning rule are the project's, since the book has
   neither in a form a MUD can cite.
 - **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5)
+
+### Time away heals vs the statue as a snapshot
+- **What:** Decide what replaces the credit of time away to natural healing
+  (Survival Loop SL7; `Character._credit_time_away`,
+  `typeclasses/characters.py:656`), and remove the credit. **The principle is
+  decided** (Adam, 2026-11-23; Combat Design §4.2): a logged-out body is a
+  statue and a statue is a snapshot — nothing harms it, and nothing mends it.
+  Hunger and thirst already stop for it, no creature attacks it, and a body
+  with a running clock does not turn to stone until the clock is settled
+  (WN4). SL7 is the one thing left that changes a statue.
+- **Why deferred:** SL7 exists for a number: on the tick alone a
+  five-hour-a-week player heals 0.4 points a week, and with one point to
+  every location per interval (WN10) a half-starved body would need twelve
+  and a half weeks of play. The alpha has no other healing. Removing the
+  credit without its replacement would leave a tester at 50 % for months.
+  **The direction is chosen** (Adam, same day): the table is made faster for
+  time at the keyboard, and healing becomes a service between players; a
+  third way, a bed that mends faster (Rest NP20), was not taken up.
+- **Trigger:** Slice HL's design session (Combat Decomposition row 8b) —
+  healing is designed whole there: the natural rate, the service, and this.
+- **Origin:** Wounds design session, 2026-11-23, from Adam's question about
+  damage to a statue.
+- **Status:** BLOCKED (Stage 5 slice HL)
+
+### Natural healing: the row lost to strenuous activity
+- **What:** *Legend* core p. 87: a body that does *anything strenuous* heals
+  one row lower on the Natural Healing Table for as long as it does. Not
+  built: `world/healing.py` reads the row from Resilience alone.
+- **Why deferred:** It needs a definition of *strenuous* that the server can
+  read. Combat is the clear case and does not exist; timed work and an
+  overloaded walk are the unclear ones.
+- **Trigger:** ML's decomposition (the first thing that is plainly
+  strenuous), or slice HL's design session if it sets the table anew.
+- **Origin:** Combat Design WN10, 2026-11-23.
+- **Status:** BLOCKED (Stage 5 slice ML or HL)
 
 ---
 
@@ -2109,6 +2196,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   spring.
 - **Origin:** `docs/PolishedWorld_Survival_Loop_Decomposition.md` OQ-S3,
   archived at S4.2 (2026-11-14).
+- **Annotation (2026-11-23, Wounds Decomposition Rev 1):** what WN does to the
+  values this entry watches. **Kept:** the time from a gauge at zero to death
+  for the standard body, 3 h 20 min — one point from every location per two
+  ticks, ten points to a head of 5 (Combat Design WN6); the book's one point
+  a day was rejected because the tick runs only for characters with a
+  session. **Moved by the mechanism, not by a decision about balance:** the
+  time now follows CON + SIZ through the head's Hit Points (2 h at a head of
+  3, 5 h 20 min at 8) and no longer CON alone; and natural healing gives a
+  point to every hurt location per interval (WN10), so a half-starved body
+  mends in ten game days at Resilience 20 where it took twenty. Both are for
+  the alpha's data to judge. `STARVE_DAMAGE` becomes
+  `STARVE_TICKS_PER_POINT` (WN-T7).
 - **Status:** OPEN
 
 ### A `rate` multiplier below ×1.5 is lost to the gauges' rounding
