@@ -258,7 +258,7 @@ class TestTickHeals(HealingTestBase):
         start = self.hurt()
         lines = self._tick()
         self.assertTrue(self.char1.buffs.has(Dehydrated))  # receipt: the condition landed
-        self.assertEqual(self.hurt(), start + survival_ticker.STARVE_DAMAGE)
+        self.assertEqual(self.hurt(), start)   # one tick of one condition: no point yet (WN6)
         self.assertEqual(self.char1.db.heal_progress, self.interval - 2400)
         self.assertNotIn(healing.HEALED, lines)
 

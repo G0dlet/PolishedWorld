@@ -21,15 +21,21 @@ body's hurt is read through one helper, `_hurt`, so the task that moves the
 damage onto the locations (WN-T5) changes one function and not every
 assertion.
 
-- A gauge at its minimum hurts by one and puts its condition on, for hunger
-  and for thirst (both rows of `HEALTH_CONDITIONS`). The one is typed, not
-  read from `STARVE_DAMAGE`: an assertion that reads the constant reads the
-  value a mutation of it changes, and passes at 0 = 0.
-- Both gauges at their minimum hurt by two in ONE call of the writer. The
-  spy is the only test that tells a sum from a call per condition: under a
-  call per condition the second call never happens on a fatal tick (the
-  loop reads thirst again after the respawn has filled it), so the death
-  test alone would still see one corpse.
+- A gauge at its minimum puts its condition on at once and hurts by one on
+  the second tick, for hunger and for thirst (both rows of
+  `HEALTH_CONDITIONS`): a point from every location per two ticks, per
+  condition (WN6, Wounds WN-T7). The one is typed, not read from a
+  constant: an assertion that reads the constant reads the value a
+  mutation of it changes, and passes at 0 = 0.
+- Both gauges at their minimum hurt by one a tick, in ONE call of the
+  writer. The spy is the only test that tells a sum from a call per
+  condition: under a call per condition the second call never happens on a
+  fatal tick (the loop reads thirst again after the respawn has filled it),
+  so the death test alone would still see one corpse.
+- A meal between two ticks empties the counter: the next hunger needs two
+  ticks again (the Attribute is gone, not 0).
+- One condition kills at the head's Major Wound, after twice its points in
+  ticks: the 20th tick at head 5, the 12th at head 3 -- and not one before.
 - A body one point from death under both conditions dies once: one corpse
   where it fell, the body at its respawn point, unhurt, both conditions
   gone. The respawn point is room2, since the fixture's fallback (`home`) is
@@ -87,31 +93,47 @@ class _Tick(EvenniaTest):
 
 
 class TestAGaugeAtItsMinimum(_Tick):
-    def test_hunger_at_zero_hurts_one_and_starves(self):
+    def test_hunger_at_zero_starves_at_once_and_hurts_one_on_the_second_tick(self):
         self.hunger.current = self.hunger.min
         self.tick()
-        self.assertEqual(_hurt(self.char1), 1)
+        self.assertEqual(_hurt(self.char1), 0)
         self.assertTrue(self.char1.buffs.has(Starving))
         self.assertFalse(self.char1.buffs.has(Dehydrated))
-
-    def test_thirst_at_zero_hurts_one_and_dehydrates(self):
-        self.thirst.current = self.thirst.min
         self.tick()
         self.assertEqual(_hurt(self.char1), 1)
+
+    def test_thirst_at_zero_dehydrates_at_once_and_hurts_one_on_the_second_tick(self):
+        self.thirst.current = self.thirst.min
+        self.tick()
+        self.assertEqual(_hurt(self.char1), 0)
         self.assertTrue(self.char1.buffs.has(Dehydrated))
         self.assertFalse(self.char1.buffs.has(Starving))
+        self.tick()
+        self.assertEqual(_hurt(self.char1), 1)
+
+    def test_a_meal_between_two_ticks_empties_the_counter(self):
+        self.hunger.current = self.hunger.min
+        self.tick()
+        self.hunger.current = 50
+        self.tick()
+        self.assertFalse(self.char1.attributes.has("starve_progress"))
+        self.hunger.current = self.hunger.min
+        self.tick()
+        self.assertEqual(_hurt(self.char1), 0)   # two ticks again, not one
+        self.tick()
+        self.assertEqual(_hurt(self.char1), 1)
 
 
 class TestBothGaugesAtTheirMinimum(_Tick):
-    def test_two_points_in_one_call_of_the_writer(self):
+    def test_one_point_a_tick_in_one_call_of_the_writer(self):
         self.hunger.current = self.hunger.min
         self.thirst.current = self.thirst.min
         with mock.patch.object(
             self.char1, "apply_health_damage", wraps=self.char1.apply_health_damage
         ) as writer:
             self.tick()
-        writer.assert_called_once_with(2, location=wounds.ALL, source="survival")
-        self.assertEqual(_hurt(self.char1), 2)   # receipt: the call went through
+        writer.assert_called_once_with(1, location=wounds.ALL, source="survival")
+        self.assertEqual(_hurt(self.char1), 1)   # receipt: the call went through
 
     def test_one_point_from_death_dies_once(self):
         # The fixture's head is 4 (CON + SIZ 20): a Major Wound at 8.
@@ -125,6 +147,32 @@ class TestBothGaugesAtTheirMinimum(_Tick):
         self.assertEqual(_hurt(self.char1), 0)
         self.assertFalse(self.char1.buffs.has(Starving))
         self.assertFalse(self.char1.buffs.has(Dehydrated))
+
+
+class TestOneConditionToADeath(_Tick):
+    """Twice the head's Hit Points in ticks; the head reaches Major then."""
+
+    def starve(self, con, siz, ticks):
+        self.char1.stats.con.base = con
+        self.char1.stats.siz.base = siz
+        self.hunger.current = self.hunger.min
+        for _ in range(ticks):
+            self.tick()
+
+    def test_head_5_lives_19_ticks_and_dies_on_the_20th(self):
+        self.starve(10, 11, 19)
+        self.assertEqual(self.corpses(), [])
+        self.assertEqual(_hurt(self.char1), 9)
+        self.tick()
+        self.assertEqual(len(self.corpses()), 1)
+        self.assertEqual(self.char1.location, self.room2)
+
+    def test_head_3_lives_11_ticks_and_dies_on_the_12th(self):
+        self.starve(5, 10, 11)
+        self.assertEqual(self.corpses(), [])
+        self.assertEqual(_hurt(self.char1), 5)
+        self.tick()
+        self.assertEqual(len(self.corpses()), 1)
 
 
 class TestAFedBody(_Tick):
