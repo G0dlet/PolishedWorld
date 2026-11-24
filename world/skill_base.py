@@ -51,7 +51,7 @@ character cannot differ from a new one.
 
 Combat Styles (BD-T6; BD3, BD4). `base_for` and `value_of` answer for a
 style's key with no trait on the character, and `ensure_style` makes the
-trait at the base the first time a style is used. All six styles share one
+trait at the base the first time a style is used. Every style shares one
 ladder, and each has a row in SKILL_LADDERS so that `ladder(key)` and the
 ladder migration cover a style trait like any other. Nothing in production
 calls `ensure_style` until ML rolls a style.

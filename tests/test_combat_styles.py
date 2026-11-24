@@ -1,7 +1,8 @@
 """
 Tests for world.combat_styles and the style half of world.skill_base --
-twelve weapon types and six Combat Styles as data (Body decomposition
-BD-T6; locks BD1-BD4, CS2; OQ-BD3; Legend core pp. 14, 124).
+twelve weapon types and seven Combat Styles as data (Body decomposition
+BD-T6; locks BD1-BD4, CS2; OQ-BD3; Gear decomposition GR-T1, lock GR15;
+Legend core pp. 14, 124; Arms of Legend pp. 71 ff.).
 
 The fixture's characteristics are the placeholder 10s, so a close style and
 a ranged one both start at 20; a test that must tell STR + DEX from DEX x 2
@@ -24,15 +25,20 @@ TWELVE = [
 ]
 
 # key: (name, main type, hand, second-hand type, ranged)
-SIX = {
+SEVEN = {
     "style_knife": ("Knife", "knife", "1H", None, False),
     "style_mace_shield": ("Mace and Shield", "bludgeon", "1H", "shield", False),
     "style_axe_shield": ("Axe and Shield", "axe", "1H", "shield", False),
     "style_spear_shield": ("Spear and Shield", "spear", "1H", "shield", False),
     "style_bow": ("Bow", "bow", "2H", None, True),
     "style_sling": ("Sling", "sling", "1H", None, True),
+    # GR15: the quarterstaff is two-handed in AoL's close combat table.
+    "style_staff": ("Staff", "bludgeon", "2H", None, False),
 }
-CLOSE = ["style_axe_shield", "style_knife", "style_mace_shield", "style_spear_shield"]
+CLOSE = [
+    "style_axe_shield", "style_knife", "style_mace_shield", "style_spear_shield",
+    "style_staff",
+]
 RANGED = ["style_bow", "style_sling"]
 
 WORDS = ("untried", "green", "drilled", "steady", "seasoned", "deadly")
@@ -62,12 +68,12 @@ class TestTheVocabulary(TestCase):
     def test_unarmed_is_no_weapon_type(self):
         self.assertNotIn("unarmed", combat_styles.WEAPON_TYPES)
 
-    def test_the_six_styles_as_locked(self):
+    def test_the_seven_styles_as_locked(self):
         got = {
             key: (row["name"], row["main"], row["hand"], row["second"], row["ranged"])
             for key, row in combat_styles.STYLES.items()
         }
-        self.assertEqual(got, SIX)
+        self.assertEqual(got, SEVEN)
 
     def test_every_style_names_types_from_the_list(self):
         for key, row in combat_styles.STYLES.items():
@@ -130,7 +136,7 @@ class TestAStyleNobodyHasUsed(EvenniaTest):
     character_typeclass = "typeclasses.characters.Character"
 
     def test_every_style_is_twenty_on_the_placeholders(self):
-        for key in SIX:
+        for key in SEVEN:
             with self.subTest(style=key):
                 self.assertEqual(skill_base.value_of(self.char1, key), 20)
                 self.assertEqual(skill_base.base_for(self.char1, key), 20)
@@ -158,7 +164,7 @@ class TestAStyleNobodyHasUsed(EvenniaTest):
         self.assertEqual(skill_base.value_of(self.char1, "style_bow"), 20)
 
     def test_reading_makes_no_trait(self):
-        for key in SIX:
+        for key in SEVEN:
             skill_base.value_of(self.char1, key)
         self.assertEqual(sorted(self.char1.skills.all()), NINE)
 
@@ -189,7 +195,7 @@ class TestEnsureStyle(EvenniaTest):
         self.assertEqual((ranged.base, ranged.current, ranged.mod), (26, 26, 0))
 
     def test_the_trait_carries_the_styles_name(self):
-        for key, row in SIX.items():
+        for key, row in SEVEN.items():
             with self.subTest(style=key):
                 trait = skill_base.ensure_style(self.char1, key)
                 self.assertEqual(trait.name, row[0])
@@ -265,7 +271,7 @@ class TestAStyleAmongTheSkills(EvenniaTest):
         )
 
     def test_every_style_has_the_shared_ladder(self):
-        for key in SIX:
+        for key in SEVEN:
             with self.subTest(style=key):
                 self.assertEqual(tuple(skill_base.SKILL_LADDERS[key]), WORDS)
                 self.assertEqual(

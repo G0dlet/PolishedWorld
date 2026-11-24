@@ -1,0 +1,52 @@
+# GR-T1 -- the weapon and armour tables, their readers, and the Staff style
+# (Gear decomposition §6).
+# Run: python3 tools/mutate.py tools/mutants/gr_t1.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM1  3 -- the name is not the key; bone armour (its key, "bone armour",
+#              is no row's); two tags (one name, so one row, and no warning)
+#   GRM2  1 -- the club's row, cell by cell
+#   GRM3  1 -- the hauberk's row, cell by cell; the abdomen keeps the trews,
+#              so every location still has a piece
+#   GRM4  2 -- the seven styles as locked; the quarterstaff's (bludgeon, 2H)
+#              has no style
+#
+# No GR-T1 mutant touches world/skill_base.py: its one change is prose.
+
+modules = ["tests.test_gear", "tests.test_combat_styles"]
+
+[[mutant]]
+id = "GRM1"
+file = "world/gear.py"
+old = '''    keys = obj.tags.get(category=PROTOTYPE_TAG_CATEGORY, return_list=True)
+'''
+new = '''    keys = [obj.key]
+'''
+expect = ["test_the_name_is_not_the_key", "test_bone_armour_reads_the_armour_row"]
+
+[[mutant]]
+id = "GRM2"
+file = "world/gear.py"
+old = '''        "bludgeon", ONE_HAND, "1D6", 7, None, "M", "S", (STUN_LOCATION,), 4, 4),
+'''
+new = '''        "bludgeon", ONE_HAND, "1D8", 7, None, "M", "S", (STUN_LOCATION,), 4, 4),
+'''
+expect = "test_each_row_cell_by_cell"
+
+[[mutant]]
+id = "GRM3"
+file = "world/gear.py"
+old = '''        2, ("chest", "abdomen"), ARMOUR_FLEXIBLE, "hard leather"),
+'''
+new = '''        2, ("chest",), ARMOUR_FLEXIBLE, "hard leather"),
+'''
+expect = "test_each_row_cell_by_cell"
+
+[[mutant]]
+id = "GRM4"
+file = "world/combat_styles.py"
+old = '''        "main": "bludgeon", "hand": "2H", "second": None, "ranged": False,
+'''
+new = '''        "main": "bludgeon", "hand": "1H", "second": None, "ranged": False,
+'''
+expect = ["test_the_seven_styles_as_locked", "test_every_weapon_type_in_a_row_has_a_style_for_its_hand"]
