@@ -158,3 +158,31 @@ def set_glancing(char, on):
     else:
         char.db.hero_glancing_off = True
     return True
+
+
+def take_for_glancing(char):
+    """
+    Spend a Hero Point on *Glancing Blow*, if the character has one and has
+    not switched it off (HP2, HE1, HE6 a).
+
+    The module's third door; its one caller in production is
+    `wounds.damage`, which asks only for a blow that would take a location
+    from below a Major Wound to one, after every refusal, and trims the blow
+    when the answer is True. The point is taken here, in the same call that
+    answers, so a point taken and a blow trimmed cannot come apart. The last
+    point leaves a stored 0 (HE6 b). Nothing is pushed (HE7); the writer
+    behind `wounds.damage` pushes `char` for the blow.
+
+    Args:
+        char (Character): the character the blow lands on.
+
+    Returns:
+        bool: True when a point was taken (the blow is to be trimmed);
+            False, with nothing written, when there is none or the switch is
+            off.
+    """
+    held = points(char)
+    if held <= 0 or not glancing_on(char):
+        return False
+    char.db.hero_points = held - 1
+    return True

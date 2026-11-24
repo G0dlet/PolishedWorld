@@ -302,11 +302,11 @@ class TestHeroCensus(SimpleTestCase):
 
     # What world/hero_points.py stores.
     HERO_ATTRIBUTES = ("hero_points", "hero_progress", "hero_glancing_off")
-    # door -> its one production caller (file, qualified name). HE-T6 adds
-    # take_for_glancing.
+    # door -> its one production caller (file, qualified name).
     DOORS = {
         "accrue": ("world/survival_ticker.py", "_deplete_character"),
         "set_glancing": ("commands/character_commands.py", "CmdHero.func"),
+        "take_for_glancing": ("world/wounds.py", "damage"),
     }
 
     def test_every_attribute_the_module_writes_is_named(self):

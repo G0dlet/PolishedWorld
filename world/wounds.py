@@ -37,7 +37,7 @@ from random import randint
 
 from evennia.utils.utils import delay
 
-from world import skill_base, timed_actions
+from world import hero_points, skill_base, timed_actions
 from world.body import LOCATIONS, hit_points_max
 from world.skillcheck import opposed_against
 
@@ -373,7 +373,7 @@ def resilience_test(char, made):
     )
 
 
-def _wound(char, key, maximum, damage_now, amount, made):
+def _wound(char, key, maximum, damage_now, amount, made, *, glancing):
     """
     What one blow's wound on one location calls for (pp. 145-146), or None
     for a location the blow left above 0 Hit Points.
@@ -386,6 +386,13 @@ def _wound(char, key, maximum, damage_now, amount, made):
     wound gives whatever the test still comes: *maimed*, and a Major Wound's
     unconsciousness and clock (Wounds WN-T8, choice B).
 
+    `amount` is the damage this blow wrote, after any *Glancing Blow* trim
+    (HE1 b). A trimmed 0 -- a location already one short of a Major Wound,
+    hit again -- is still a wound to answer for: the test is made, and a
+    lost one knocks no one out, since nothing was sustained (HE1 c).
+    `glancing` (keyword-only, no default) says whether this blow was
+    trimmed, and is carried into the outcome for ML to read.
+
     Returns:
         dict: {
             "location", "level",
@@ -395,6 +402,8 @@ def _wound(char, key, maximum, damage_now, amount, made):
                 as the clock runs (WN-T9 carries it out),
             "clock" (bool): a Major Wound's clock (WN-T10 starts it),
             "dies" (bool): a vital Major Wound and a lost test,
+            "glancing" (bool): a Hero Point turned a Major Wound into this
+                Serious one (HE1),
         }
     """
     wound_level = level(maximum, damage_now)
@@ -404,11 +413,14 @@ def _wound(char, key, maximum, damage_now, amount, made):
     lost = test is not None and not test["resisted"]
     vital = key in VITAL
     outcome = {"location": key, "level": wound_level, "test": test, "state": None,
-               "unconscious": False, "minutes": None, "clock": False, "dies": False}
+               "unconscious": False, "minutes": None, "clock": False, "dies": False,
+               "glancing": glancing}
     if wound_level == SERIOUS:
         if vital:
-            # Unconscious for the damage of the attack, in minutes (WN3).
-            outcome.update(unconscious=lost, minutes=amount if lost else None)
+            # Unconscious for the damage of the attack, in minutes (WN3) --
+            # the damage written, so none for a trimmed 0 (HE1 b, c).
+            knocked = lost and amount > 0
+            outcome.update(unconscious=knocked, minutes=amount if knocked else None)
         elif lost:
             outcome["state"] = DISABLED
         return outcome
@@ -441,6 +453,14 @@ def damage(char, amount, location, made=None):
     a 1D20. A location such a blow leaves at 0 Hit Points or below is a
     wound to answer for (`_wound`): its state is stored, the heavier
     replacing the lighter, and only a lost test at a vital Major Wound kills.
+
+    *Glancing Blow* (HE1, HE2, HE6 a): a blow to a named or random location
+    that would take it from below a Major Wound to one asks
+    `hero_points.take_for_glancing`, after every refusal above; on True the
+    blow is trimmed so the location stands one short of a Major Wound
+    (2 x max - 1, core p. 88), and the trimmed amount is what is written and
+    what `_wound` answers for. A location already at a Major Wound, a blow
+    that stays below one, and `ALL` do not ask.
 
     Nothing is written for an amount of 0 or less, an object with no body,
     or a body whose death is in progress (`ndb._dying`).
@@ -480,9 +500,16 @@ def damage(char, amount, location, made=None):
         char.db.body_damage = {key: value for key, value in damages.items() if value}
         return {"dies": _vital_major(maxima, damages), "wounds": []}
     key = location_for(randint(1, 20)) if location == RANDOM else location
-    damages[key] = damages.get(key, 0) + amount
+    before = damages.get(key, 0)
+    glancing = (level(maxima[key], before) != MAJOR
+                and level(maxima[key], before + amount) == MAJOR
+                and hero_points.take_for_glancing(char))
+    if glancing:
+        # One Hit Point less than a Major Wound would need (p. 88; HE1).
+        amount = 2 * maxima[key] - 1 - before
+    damages[key] = before + amount
     char.db.body_damage = {name: value for name, value in damages.items() if value}
-    wound = _wound(char, key, maxima[key], damages[key], amount, made)
+    wound = _wound(char, key, maxima[key], damages[key], amount, made, glancing=glancing)
     if wound is None:
         return {"dies": False, "wounds": []}
     if wound["state"]:
