@@ -1,0 +1,51 @@
+# HE-T5 -- the net under the wound tests (Hero Points decomposition §4, §8).
+# Run: python3 tools/mutate.py tools/mutants/he_t5.toml --parallel 2
+#
+# P1 is not a mistake to be killed; it is the simplest Glancing Blow, the
+# prototype of §4, kept here so that the net's proof can be run again. It
+# trims a blow that would give a location a Major Wound to 2 x max - 1 and
+# takes the point in place, from world/wounds.py -- the shortcut HE6 (a)
+# refuses.
+#
+# Read its line by the count, not by the word KILLED:
+#   - on the wound tests as they were before HE-T5: 36 fail -- 34 in
+#     test_wound_clocks (17), test_wound_states (11), test_wound_report (5)
+#     and test_wound_unconscious (1), and the two censuses below;
+#   - with the net in place (the four base classes switch Glancing Blow
+#     off): 2 fail, the two censuses only. That 2 is the net holding.
+# The censuses fail because world/wounds.py writes `hero_points`: an
+# Attribute the wound census does not name, and a hero_ Attribute written
+# outside world/hero_points.py. HE-T6 goes through the module's door.
+
+modules = [
+    "tests.test_wounds",
+    "tests.test_wound_states",
+    "tests.test_wound_clocks",
+    "tests.test_wound_report",
+    "tests.test_wound_unconscious",
+    "tests.test_client_state",
+    "tests.test_survival_death",
+    "tests.test_names_statue_body",
+    "tests.test_sheet_combat",
+    "tests.test_hero_points",
+]
+
+[[mutant]]
+id = "P1"
+file = "world/wounds.py"
+old = '''    key = location_for(randint(1, 20)) if location == RANDOM else location
+    damages[key] = damages.get(key, 0) + amount
+'''
+new = '''    key = location_for(randint(1, 20)) if location == RANDOM else location
+    before = damages.get(key, 0)
+    held = 2 if char.db.hero_points is None else char.db.hero_points
+    if (level(maxima[key], before) != MAJOR and level(maxima[key], before + amount) == MAJOR
+            and held > 0 and not char.db.hero_glancing_off):
+        amount = 2 * maxima[key] - 1 - before
+        char.db.hero_points = held - 1
+    damages[key] = damages.get(key, 0) + amount
+'''
+expect = [
+    "test_every_attribute_the_wound_module_writes_is_named",
+    "test_no_other_file_writes_a_hero_attribute",
+]

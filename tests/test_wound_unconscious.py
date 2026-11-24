@@ -50,7 +50,7 @@ from tests.names_fixture import describe
 from tests.test_fatigue import SEEN
 from tests.test_wound_states import LOSE, MADE, ROLL, WIN
 from typeclasses.characters import _rest_tick
-from world import timed_actions, wounds
+from world import hero_points, timed_actions, wounds
 
 NOW = 1_000_000.0
 
@@ -68,6 +68,10 @@ class _Out(EvenniaCommandTest):
         super().setUp()
         self.char1.traits.fatigue.current = 100
         self.char1.db.respawn_location = self.room2
+        # Glancing Blow off: these tests drive Major Wounds, and a body with
+        # Hero Points would have each one trimmed to a Serious Wound (HE1;
+        # Hero Points decomposition §4, P1, and HE-T5).
+        hero_points.set_glancing(self.char1, False)
         describe(self.char1, self.char2)
         clock = mock.patch("world.wounds.time")
         self.time = clock.start()

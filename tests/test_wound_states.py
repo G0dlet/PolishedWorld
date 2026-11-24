@@ -62,7 +62,7 @@ from evennia.utils.test_resources import EvenniaTest
 
 from tests import test_improvement_engine
 from typeclasses.corpse import PlayerCorpse
-from world import skill_base, skillcheck, wounds
+from world import hero_points, skill_base, skillcheck, wounds
 
 MADE = {"result": "success", "success": True, "roll": 5, "target": 60,
         "margin": 55, "crit_score": 6}
@@ -89,6 +89,10 @@ class _Body(EvenniaTest):
         super().setUp()
         self.char1.traits.fatigue.current = 100
         self.char1.db.respawn_location = self.room2
+        # Glancing Blow off: these tests drive Major Wounds, and a body with
+        # Hero Points would have each one trimmed to a Serious Wound (HE1;
+        # Hero Points decomposition §4, P1, and HE-T5).
+        hero_points.set_glancing(self.char1, False)
 
     def blow(self, amount, location, roll, made=MADE):
         """The door, with the die fixed: returns its outcome."""

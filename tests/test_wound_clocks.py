@@ -56,7 +56,7 @@ from tests.names_fixture import describe
 from tests.test_fatigue import SEEN
 from tests.test_wound_states import MADE, ROLL, WIN
 from typeclasses.corpse import PlayerCorpse
-from world import healing, wounds
+from world import healing, hero_points, wounds
 
 NOW = 1_000_000.0
 STONE = "turns to weathered stone"
@@ -79,6 +79,10 @@ class _Clock(EvenniaTest):
             char.stats.pow.base = 11
             char.traits.fatigue.current = 100
             char.db.respawn_location = self.room2
+            # Glancing Blow off: these tests drive Major Wounds, and a body with
+            # Hero Points would have each one trimmed to a Serious Wound (HE1;
+            # Hero Points decomposition §4, P1, and HE-T5).
+            hero_points.set_glancing(char, False)
         describe(self.char1, self.char2)
         clock = mock.patch("world.wounds.time")
         self.time = clock.start()
