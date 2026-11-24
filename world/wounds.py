@@ -542,11 +542,22 @@ def unconscious(char):
     Answered from the stored time, so nothing depends on the alarm having
     fired: a time that has passed is cleared here, and the body comes to
     (`_come_to`) -- the first reader after the time is the one that wakes it.
+
+    Except while a clock is due: a body whose clock has run out is dying,
+    and it stays out until the clock's own alarm (`_clock_due`) kills it. A
+    survived vital Major Wound is out until its deadline (WN-T10, choice A),
+    so the waking and the death fall due together, and two alarms due
+    together fire in either order -- WN-T10's in-game check heard the body
+    come to before it died. Any location's clock counts, not only the one
+    that knocked the body out. Nothing is woken and nothing is killed here.
     """
     record = _unconscious_record(char)
     if record is None:
         return False
-    if time.time() < record["until"]:
+    now = time.time()
+    if now < record["until"]:
+        return True
+    if any(deadline <= now for deadline in clocks_of(char).values()):
         return True
     _come_to(char)
     return False
@@ -557,7 +568,9 @@ def _wake_due(char, until):
     The alarm (persistent; a module-level function, so the task handler can
     save it). It reads the stored time again and does nothing unless the
     time it was set for is still the stored one and has passed: a later
-    knock-out, a death or a revive has made it stale.
+    knock-out, a death or a revive has made it stale. A body with a clock
+    due is not woken but left to that clock's alarm (`unconscious`), and
+    this alarm is not set again: the death removes what it would read.
     """
     record = _unconscious_record(char)
     if record is None or record["until"] != until:

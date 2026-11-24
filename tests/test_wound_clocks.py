@@ -36,6 +36,12 @@ WHAT EACH TEST PUTS PRESSURE ON
   body that dies with no player becomes a statue where it comes back,
   stamped and without a line. `holds_body` only reads: a passed
   unconsciousness is not woken by it (choice C).
+- `TestNoWakingWhileAClockIsDue` (the fix WN-T10's in-game check asked
+  for): the waking alarm fired first at a survived head's deadline wakes no
+  one and the clock's alarm kills, once; a command typed at the deadline,
+  before the alarm, is refused and wakes no one; any clock due keeps the
+  body down, not only the knocked-out location's; a stopped clock lets the
+  body come to at its time.
 
 HOW TO RUN
 ----------
@@ -254,3 +260,57 @@ class TestTheStatue(_Clock):
         self.at(60)
         self.assertFalse(wounds.holds_body(self.char2))
         self.assertTrue(self.char2.attributes.has("wound_unconscious"))   # not woken by the read
+
+
+class TestNoWakingWhileAClockIsDue(_Clock):
+    """
+    The fix after WN-T10's in-game check: a survived vital Major Wound is out
+    until its clock's deadline (choice A), so the waking and the death fall
+    due together, and two alarms due together fire in either order. A body
+    with a clock due dies; it does not come to first -- whichever of the two
+    alarms, or a command typed, asks before the clock's own alarm.
+    """
+
+    def test_the_waking_alarm_first_at_the_deadline_wakes_no_one_and_the_clock_kills(self):
+        self.blow(8, "head")
+        self.at(52.5)
+        with mock.patch.object(self.char1, "msg") as mine, \
+                mock.patch.object(self.char2, "msg") as theirs:
+            wounds._wake_due(self.char1, NOW + 52.5)
+            self.assertTrue(wounds.unconscious(self.char1))
+            wounds._clock_due(self.char1, "head", NOW + 52.5)
+        self.assertNotIn(wounds.COME_TO, _said(mine))
+        self.assertEqual(_said(mine)[0], wounds.CLOCK_OUT)
+        self.assertNotIn("comes to", "\n".join(_said(theirs)))
+        self.assertEqual(len(_corpses(self.room1)), 1)
+        self.assertEqual(self.char1.location, self.room2)
+
+    def test_a_command_at_the_deadline_before_the_alarm_is_refused_and_wakes_no_one(self):
+        self.blow(8, "head")
+        self.at(53)
+        with mock.patch.object(self.char1, "msg") as mine:
+            self.assertTrue(self.char1.refuse_if_collapsed("unused"))
+        self.assertEqual(_said(mine), [wounds.OUT_COLD])
+        self.assertTrue(self.char1.attributes.has("wound_unconscious"))
+
+    def test_any_clock_due_keeps_the_body_down_not_only_the_knocked_out_location(self):
+        self.blow(6, "left_arm")   # won: no unconsciousness, a clock to NOW + 1260
+        self.at(1200)
+        wounds.knock_out(self.char1, "head", 1)   # out until NOW + 1260
+        self.at(1260)
+        with mock.patch.object(self.char1, "msg") as mine:
+            wounds._wake_due(self.char1, NOW + 1260)
+            self.assertTrue(wounds.unconscious(self.char1))
+            wounds._clock_due(self.char1, "left_arm", NOW + 1260)
+        self.assertNotIn(wounds.COME_TO, _said(mine))
+        self.assertEqual(len(_corpses(self.room1)), 1)
+
+    def test_a_stopped_clock_lets_the_body_come_to_at_its_time(self):
+        self.blow(8, "head")
+        self.assertTrue(wounds.stop_clock(self.char1, "head"))
+        self.at(52.5)
+        with mock.patch.object(self.char1, "msg") as mine:
+            wounds._wake_due(self.char1, NOW + 52.5)
+        self.assertIn(wounds.COME_TO, _said(mine))
+        self.assertFalse(self.char1.attributes.has("wound_unconscious"))
+        self.assertEqual(self.char1.location, self.room1)
