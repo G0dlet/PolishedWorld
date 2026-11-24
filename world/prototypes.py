@@ -412,13 +412,16 @@ TREE = {
 
 CLUB = {
     "prototype_key": "club",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "club",
     "aliases": ["cudgel"],
     "desc": "A length of wood shaped to a heavy, knotted head and a grip worn smooth.",
-    # SOURCE: ClubRecipe (wood). SINK: none in the alpha -- no combat (AD5's
-    # "use in alpha" column; Q1 decides inert goods in AC4.0).
+    # SOURCE: ClubRecipe (wood). SINK: repair (wood; a knife) once a fight
+    # wears it -- nothing wears a weapon before ML (GR19).
     "enc": 1,   # Legend core p. 106: Club, ENC 1
+    # GR24: what mends it (commands/repair_commands.py reads both).
+    "repair_materials": ("wood",),
+    "repair_tool_tag": "knife",
 }
 
 # --- Clay chain: clay, clay bank, sling bullet (AC2.3) ---
@@ -812,57 +815,69 @@ BONE_ARMOUR = {
 
 SLING = {
     "prototype_key": "sling",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "sling",
     "aliases": ["leather sling"],
     "desc": (
         "A supple leather pouch tapering into two long cords, one looped for a "
         "finger and the other left free to release."
     ),
-    # SOURCE: SlingRecipe (leather). SINK: none in the alpha (combat, Stage 5).
+    # SOURCE: SlingRecipe (leather). SINK: repair (leather; a knife) once a
+    # fight wears it -- nothing wears a weapon before ML (GR19).
     "enc": 0,   # Legend core p. 109: Sling, ENC "—" -- too light to score
+    "repair_materials": ("leather",),   # GR24
+    "repair_tool_tag": "knife",
 }
 
 # --- Wood and stone goods (AC4.3) ---
 
 QUARTERSTAFF = {
     "prototype_key": "quarterstaff",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "quarterstaff",
     "aliases": ["long staff"],
     "desc": (
         "A tall wooden staff, shaped and smoothed along its full length, with "
         "a balanced grip at its middle."
     ),
-    # SOURCE: QuarterstaffRecipe (wood x2). SINK: none in the alpha (combat, Stage 5).
+    # SOURCE: QuarterstaffRecipe (wood x2). SINK: repair (wood; a knife) once a
+    # fight wears it -- nothing wears a weapon before ML (GR19).
     "enc": 2,   # Legend core p. 107: Quarter staff, ENC 2
+    "repair_materials": ("wood",),      # GR24
+    "repair_tool_tag": "knife",
 }
 
 SPEAR = {
     "prototype_key": "spear",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "spear",
     "aliases": ["short spear"],
     "desc": (
         "A bone point seated on a long wooden shaft and bound fast with twine. "
         "Simple, light and balanced for a firm grip."
     ),
-    # SOURCE: SpearRecipe (wood x2 + bone + twine). SINK: none in the alpha
-    # (combat, Stage 5).
+    # SOURCE: SpearRecipe (wood x2 + bone + twine). SINK: repair (wood and
+    # twine; a knife) once a fight wears it -- nothing wears a weapon before
+    # ML (GR19).
     "enc": 2,   # Legend core p. 107: Short spear, ENC 2
+    "repair_materials": ("wood", "twine"),   # GR24
+    "repair_tool_tag": "knife",
 }
 
 BOW = {
     "prototype_key": "bow",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "bow",
     "aliases": ["short bow"],
     "desc": (
         "A supple wooden stave bent into a short bow and strung with taut "
         "plant-fibre twine."
     ),
-    # SOURCE: BowRecipe (wood + twine). SINK: none in the alpha (combat, Stage 5).
+    # SOURCE: BowRecipe (wood + twine). SINK: repair (twine) once a fight
+    # wears it -- nothing wears a weapon before ML (GR19).
     "enc": 1,   # Legend core p. 109: Short bow, ENC 1
+    "repair_materials": ("twine",),     # GR24: restrung by hand
+    "repair_tool_tag": "",              # no tool -- unset would mean a needle
 }
 
 MILLING_STONES = {

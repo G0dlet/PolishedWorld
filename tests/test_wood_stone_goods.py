@@ -26,6 +26,7 @@ from evennia.prototypes.spawner import spawn
 from evennia.utils.test_resources import EvenniaTest
 
 from typeclasses.objects import Object
+from typeclasses.weapons import Weapon
 from world.knowledge import render_recipe_detail_by_name
 
 
@@ -34,21 +35,21 @@ from world.knowledge import render_recipe_detail_by_name
 WOOD_STONE_GOODS = (
     {
         "prototype": "quarterstaff", "recipe": "quarterstaff",
-        "key": "quarterstaff", "typeclass": Object,
+        "key": "quarterstaff", "typeclass": Weapon,
         "materials": (("wood", 2),), "tool": "knife",
         "tool_prototype": "stone_knife", "enc": 2, "duration": 30,
         "learnable": False, "min_skill": 20,
     },
     {
         "prototype": "spear", "recipe": "spear", "key": "spear",
-        "typeclass": Object,
+        "typeclass": Weapon,
         "materials": (("wood", 2), ("bone", 1), ("twine", 1)),
         "tool": "knife", "tool_prototype": "stone_knife", "enc": 2,
         "duration": 30, "learnable": False, "min_skill": 20,
     },
     {
         "prototype": "bow", "recipe": "bow", "key": "bow",
-        "typeclass": Object, "materials": (("wood", 1), ("twine", 1)),
+        "typeclass": Weapon, "materials": (("wood", 1), ("twine", 1)),
         "tool": "knife", "tool_prototype": "stone_knife", "enc": 1,
         "duration": 45, "learnable": False, "min_skill": 60,
     },

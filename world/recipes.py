@@ -65,7 +65,10 @@ _WATERSKIN_STATS_BY_BAND = {   # band -> (max_charges, start condition)
 }
 
 
-GARMENT_CONDITION_BY_BAND = {  # band -> start condition on the 0-100 wear axis
+# Band -> start condition on the 0-100 wear axis, for garments and for the
+# pure weapons (GR21: the book's "fewer Hit Points", AoL p. 43, on one axis).
+# Tools are not in it: their start condition is the prototype's.
+CONDITION_BY_BAND = {
     SUPERIOR: 100,
     SERVICEABLE: 90,
     POOR: 70,
@@ -73,21 +76,24 @@ GARMENT_CONDITION_BY_BAND = {  # band -> start condition on the 0-100 wear axis
 }
 
 
-def _apply_garment_quality(obj):
-    """Shared garment _finalize_item body: quality -> start condition + alias.
+def _apply_quality_condition(obj):
+    """Shared _finalize_item body: quality -> start condition + alias.
 
     A plain module-level function, NOT a CraftingRecipe subclass, so Evennia's
     _load_recipes() (which registers only issubclass(CraftingRecipeBase) classes
     *defined* in this module) never picks it up as a phantom recipe. Called from
-    each garment recipe (every ClothingWithBuffs output) so all garments share
-    one quality->condition mapping instead of duplicating branches.
+    each garment recipe (every ClothingWithBuffs output) and each pure weapon's
+    (every Weapon output, GR21), so they share one quality->condition mapping
+    instead of duplicating branches. Named for both since GR-T2; it was
+    _apply_garment_quality, and the table GARMENT_CONDITION_BY_BAND.
 
     Writing obj.db.condition overrides the DurableObject autocreate default
     (100); the write lands on the very Attribute apply_wear / is_broken /
-    condition_line read back, so a shoddy garment is born already half-worn.
+    condition_line read back, so a shoddy garment or club is born already
+    half-worn.
     """
     band = quality_band(obj.db.quality)
-    obj.db.condition = GARMENT_CONDITION_BY_BAND[band]
+    obj.db.condition = CONDITION_BY_BAND[band]
     alias = band_alias(band, obj.key)
     if alias:
         obj.aliases.add(alias)
@@ -98,7 +104,7 @@ def _apply_tool_quality(obj):
 
     A plain module-level function, NOT a CraftingRecipe subclass, so Evennia's
     _load_recipes() never registers it as a phantom recipe (same reason as
-    _apply_garment_quality).
+    _apply_quality_condition).
 
     Unlike garments, a tool's start condition is PROTOTYPE-driven (STONE_KNIFE 40,
     BONE_NEEDLE 30, STONE_AXE 40 -- the D.5 wear tuning), so this deliberately does NOT touch
@@ -204,7 +210,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
         # E.3: quality -> garment start-condition (+ superior alias) via the
         # shared helper. Reads obj.db.quality stamped by the base; superior
         # starts pristine (100), shoddy already worn-in (50).
-        _apply_garment_quality(obj)
+        _apply_quality_condition(obj)
 
 
 class LeatherBootsRecipe(MongooseCraftRecipe):
@@ -222,8 +228,8 @@ class LeatherBootsRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # E.3: same shared quality -> start-condition + superior alias as the
-        # linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class BreechesRecipe(MongooseCraftRecipe):
@@ -240,8 +246,8 @@ class BreechesRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class RobeRecipe(MongooseCraftRecipe):
@@ -258,8 +264,8 @@ class RobeRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class HoodRecipe(MongooseCraftRecipe):
@@ -276,8 +282,8 @@ class HoodRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class ReversibleClothesRecipe(MongooseCraftRecipe):
@@ -294,8 +300,8 @@ class ReversibleClothesRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class LinenCuirassRecipe(MongooseCraftRecipe):
@@ -312,8 +318,8 @@ class LinenCuirassRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class SackRecipe(MongooseCraftRecipe):
@@ -382,8 +388,8 @@ class ShoesRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class BandolierRecipe(MongooseCraftRecipe):
@@ -400,8 +406,8 @@ class BandolierRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class BoneArmourRecipe(MongooseCraftRecipe):
@@ -418,8 +424,8 @@ class BoneArmourRecipe(MongooseCraftRecipe):
 
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
-        # mapping as the linen shirt. See _apply_garment_quality.
-        _apply_garment_quality(obj)
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class SlingRecipe(MongooseCraftRecipe):
@@ -433,6 +439,11 @@ class SlingRecipe(MongooseCraftRecipe):
     craft_duration = 30
     min_skill = 20                               # E.1 rung 20 (AC5.1)
 
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
 
 class QuarterstaffRecipe(MongooseCraftRecipe):
     """Shape two lengths of wood into a balanced quarterstaff."""
@@ -444,6 +455,11 @@ class QuarterstaffRecipe(MongooseCraftRecipe):
     tool_tag = "knife"
     craft_duration = 30
     min_skill = 20                               # E.1 rung 20 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class SpearRecipe(MongooseCraftRecipe):
@@ -457,6 +473,11 @@ class SpearRecipe(MongooseCraftRecipe):
     craft_duration = 30
     min_skill = 20                               # E.1 rung 20 (AC5.1)
 
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
 
 class BowRecipe(MongooseCraftRecipe):
     """Shape a wooden stave and string it with twine: a short bow."""
@@ -468,6 +489,11 @@ class BowRecipe(MongooseCraftRecipe):
     tool_tag = "knife"
     craft_duration = 45
     min_skill = 60                               # E.1 rung 60 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 
 class MillingStonesRecipe(MongooseCraftRecipe):
@@ -603,6 +629,11 @@ class ClubRecipe(MongooseCraftRecipe):
     tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
     craft_duration = 30
     min_skill = 20                               # E.1 rung 20 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
 
 class SlingBulletRecipe(MongooseCraftRecipe):
     """Roll a lump of clay into a sling bullet and dry it: clay's first consumer (AC2.3).

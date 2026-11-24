@@ -1,7 +1,9 @@
 """
 Tests for world.gear -- the weapon and armour tables and their two readers
 (Gear decomposition GR-T1; locks IS1, IS2, GR8, GR12-GR16; Legend core
-pp. 94-109; Arms of Legend pp. 48-50, 71 ff.).
+pp. 94-109; Arms of Legend pp. 48-50, 71 ff.) -- and for the Weapon class
+and the five pure weapons on the wear axis (GR-T2; GR13, GR21, GR24;
+Arms of Legend p. 43).
 
 Every expected row is typed here by hand from the decomposition's §3, not
 read from the module, so a row that drifts from the book fails by its cell.
@@ -12,10 +14,14 @@ from unittest import TestCase, mock
 
 from evennia.prototypes.spawner import spawn
 from evennia.utils import create
-from evennia.utils.test_resources import EvenniaTest
+from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
+from commands.repair_commands import CmdRepair
+from typeclasses.tools import Tool
+from typeclasses.weapons import Weapon
 from world import body, combat_styles, gear
 from world import prototypes as world_prototypes
+from world import recipes
 
 WEAPON_FIELDS = (
     "weapon_type", "hand", "damage", "str_min", "dex_min", "size", "reach",
@@ -291,3 +297,103 @@ class TestTheReaders(EvenniaTest):
             gear.weapon(club)
             gear.weapon(self.obj1)
         warn.assert_not_called()
+
+
+# GR-T2. The five pure weapons: their recipe, and what mends them (§3).
+PURE_WEAPONS = {
+    "club": (recipes.ClubRecipe, ("wood",), "knife"),
+    "quarterstaff": (recipes.QuarterstaffRecipe, ("wood",), "knife"),
+    "spear": (recipes.SpearRecipe, ("wood", "twine"), "knife"),
+    "bow": (recipes.BowRecipe, ("twine",), ""),
+    "sling": (recipes.SlingRecipe, ("leather",), "knife"),
+}
+
+# Quality stamped by the craft -> start condition (GR21; the garments' table):
+# superior, serviceable, poor, shoddy.
+BY_QUALITY = ((105, 100), (100, 90), (50, 70), (0, 50))
+
+
+class TestThePureWeapons(EvenniaTest):
+    """
+    Pressures GR13 and GR21: a weapon without the durable mixin (GRM5), a
+    recipe that skips the quality call (GRM6), repair data that is missing
+    or wrong (GRM7, the club's tool unset), and the two tool-weapons
+    dragged onto the weapons' starting table.
+    """
+
+    def _spawn(self, key):
+        obj = spawn(key)[0]
+        self.addCleanup(obj.delete)
+        return obj
+
+    def test_each_spawns_as_a_weapon_at_100(self):
+        for key in PURE_WEAPONS:
+            with self.subTest(item=key):
+                obj = self._spawn(key)
+                self.assertIs(type(obj), Weapon)
+                self.assertEqual(obj.condition, 100)
+                # A real Attribute, not the property's default (P2).
+                self.assertTrue(obj.attributes.has("condition"))
+                self.assertTrue(obj.mendable)
+                self.assertIsNotNone(gear.weapon(obj))
+
+    def test_each_names_what_mends_it(self):
+        for key, (_, materials, tool) in PURE_WEAPONS.items():
+            with self.subTest(item=key):
+                obj = self._spawn(key)
+                self.assertEqual(tuple(obj.db.repair_materials), materials)
+                # "" is no tool; None would fall back to a needle.
+                self.assertEqual(obj.db.repair_tool_tag, tool)
+
+    def test_quality_sets_the_start_condition(self):
+        for key, (recipe, _, _) in PURE_WEAPONS.items():
+            for quality, start in BY_QUALITY:
+                with self.subTest(item=key, quality=quality):
+                    obj = self._spawn(key)
+                    obj.db.quality = quality
+                    recipe._finalize_item(mock.Mock(), obj, None)
+                    self.assertEqual(obj.condition, start)
+
+    def test_a_superior_weapon_is_called_so(self):
+        club = self._spawn("club")
+        club.db.quality = 105
+        recipes.ClubRecipe._finalize_item(mock.Mock(), club, None)
+        self.assertIn("superior club", club.aliases.all())
+
+    def test_the_stone_knife_and_axe_keep_their_prototypes_condition(self):
+        # GR21's exception: their condition is the prototype's (BACKLOG
+        # Superior-tool longevity), at every band.
+        for key, recipe in (("stone_knife", recipes.StoneKnifeRecipe),
+                            ("stone_axe", recipes.StoneAxeRecipe)):
+            for quality, _ in BY_QUALITY:
+                with self.subTest(item=key, quality=quality):
+                    obj = self._spawn(key)
+                    obj.db.quality = quality
+                    recipe._finalize_item(mock.Mock(), obj, None)
+                    self.assertIs(type(obj), Tool)
+                    self.assertEqual(obj.condition, 40)
+
+
+class TestMendingAWeapon(EvenniaCommandTest):
+    """
+    Pressures GR24's repair data through the command a player types: a club
+    mended with the garments' cloth and twine (the red receipt), and a bow
+    eased or hindered by a needle.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def test_each_asks_for_its_own_materials(self):
+        for key, (_, materials, _) in PURE_WEAPONS.items():
+            with self.subTest(item=key):
+                obj = spawn(key)[0]
+                self.addCleanup(obj.delete)
+                obj.location = self.char1
+                obj.condition = 60
+                self.call(
+                    CmdRepair(), key,
+                    f"You need {' and '.join(materials)} to mend your {key}.",
+                    caller=self.char1,
+                )
+                self.assertEqual(obj.condition, 60)
+                obj.location = None
