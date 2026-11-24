@@ -215,7 +215,7 @@ class TestClocks(SimpleTestCase):
 class TestWordFor(SimpleTestCase):
     def test_every_boundary_and_just_above_it(self):
         for percent, expected in (
-            (0, "dead"), (0.1, "near death"),
+            (0, "grievously wounded"), (0.1, "near death"),
             (10, "near death"), (10.1, "critically wounded"),
             (25, "critically wounded"), (25.1, "badly hurt"),
             (50, "badly hurt"), (50.1, "injured"),
@@ -418,16 +418,16 @@ class TestScreensReadTheModule(EvenniaCommandTest):
 
     def test_status(self):
         out = self.call(CmdStatus(), "", caller=self.char1)
-        self.assertIn("Health:    7/9   ( 77.7%) - bruised", out)
+        self.assertIn("Health:   77/100 ( 77.7%) - bruised", out)   # 7/9 out of 100 (WN-T11)
 
     def test_sheet(self):
         out = self.call(CmdSheet(), "", caller=self.char1)
-        self.assertIn("Health           7/9   ( 77.7%) - bruised", out)
+        self.assertIn("Health          77/100 ( 77.7%) - bruised", out)
 
     def test_the_char_snapshot(self):
         self.assertEqual(
             client_state.char_snapshot(self.char1)["health"],
-            {"current": 7, "max": 9, "desc": "bruised"},
+            {"current": 77, "max": 100, "desc": "bruised"},
         )
 
 

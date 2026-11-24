@@ -109,12 +109,13 @@ _HIT_LOCATION_TABLE = (
     (20, "head"),
 )
 
-# The health words, copied from the `health` trait's `descs`
-# (typeclasses/characters.py, at_object_creation). Each key is an inclusive
-# upper bound on the percentage `health` shows; above the top key, the top
-# word. The trait goes in WN-T6 (WN2b) and the table lives on here.
+# The health words, first the `health` trait's `descs` (gone with the trait,
+# WN-T6, WN2b). Each key is an inclusive upper bound on the percentage
+# `health` shows; above the top key, the top word. 0 % is a Major Wound
+# somewhere (WN2), which a living body can carry since WN-T8 -- and still
+# after a clock is stopped -- so its word is not *dead* (OQ-WN5, WN-T11).
 HEALTH_WORDS = {
-    0: "dead",
+    0: "grievously wounded",
     10: "near death",
     25: "critically wounded",
     50: "badly hurt",
@@ -189,6 +190,81 @@ def health(maxima, damages):
     return left, whole, 100 * left / whole
 
 
+def health_shown(char):
+    """
+    What the screens print for health: (shown, 100, percent) -- `status`,
+    `sheet` and the `char` snapshot's `current` and `max` (OQ-WN8 (a),
+    Wounds WN-T11).
+
+    `health_of`'s pair is the worst location's margin, and its whole is
+    twice that location's maximum, so it changed its whole with the
+    location it named (*8/8* to *5/6*, and *3/6* to *4/8* as a body got
+    worse). Out of 100 it reads like the gauges beside it; where the hurt
+    is, `report` says. The percentage is rounded down, so 100 is only an
+    unhurt body and 0 only a Major Wound.
+
+    Returns:
+        tuple or None: (int, 100, float); None for an object with no body.
+    """
+    reading = health_of(char)
+    if reading is None:
+        return None
+    left, whole, percent = reading
+    return left * 100 // whole, 100, percent
+
+
+# What `report` calls a location's level and state (OQ-WN5, WN-T11).
+# Minor and intact have no word: the Hit Points say it.
+LEVEL_WORDS = {SERIOUS: "serious wound", MAJOR: "major wound"}
+STATE_WORDS = {DISABLED: "useless", MAIMED: "maimed", SEVERED: "severed"}
+BLEEDING = "bleeding out"
+
+
+def _left(deadline):
+    """A running clock's time left, as the player reads it: whole minutes."""
+    minutes = int(minutes_until(deadline))
+    return f"{minutes} min" if minutes >= 1 else "under a minute"
+
+
+def report(char):
+    """
+    Where a body is badly hurt, one line per location (WN11, Wounds WN-T11).
+
+    A location is listed when it is at a Serious Wound or worse, has a
+    state, or has a running clock -- in `body.LOCATIONS`' order, never the
+    stored damage's. A body with only Minor Wounds has no line: a starving
+    body has seven, and the health figure already says so. Each line is the
+    location's name, its Hit Points (the book's, below 0 if so) and what is
+    worth saying: the level, the state, the clock.
+
+        left arm    -1/4  serious wound, useless
+
+    Only reads: `status` and `sheet` call it while the body may be out.
+
+    Returns:
+        list of str: empty for an unhurt body or an object with no body.
+    """
+    maxima = maxima_of(char)
+    if maxima is None:
+        return []
+    damages, states, clocks = damage_of(char), states_of(char), clocks_of(char)
+    lines = []
+    for key in LOCATIONS:
+        hurt = damages.get(key, 0)
+        word = LEVEL_WORDS.get(level(maxima[key], hurt))
+        parts = [word] if word else []
+        if key in states:
+            parts.append(STATE_WORDS[states[key]])
+        if key in clocks:
+            parts.append(f"{BLEEDING} ({_left(clocks[key])})")
+        if not parts:
+            continue
+        name = key.replace("_", " ")
+        lines.append(f"{name:<11}{hit_points(maxima[key], hurt):>3}/{maxima[key]:<3}"
+                     + ", ".join(parts))
+    return lines
+
+
 def check_location(location):
     """
     Refuse a place damage cannot land on (WO5).
@@ -235,7 +311,8 @@ def health_of(char):
     """
     What the screens print for a character's health: (current, max, percent).
 
-    The one reader of health for `status`, `sheet`, the `char` snapshot and
+    The one reader of health for `status`, `sheet`, the `char` snapshot
+    (through `health_shown`, out of 100 since WN-T11) and
     `Character.health_desc()` (WN-T3). Since WN-T5 it is WN2's figure: the
     worst location's margin to a Major Wound, out of twice its maximum, from
     the stored damage and the maxima for CON + SIZ now. The old trait is not

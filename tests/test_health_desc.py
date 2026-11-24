@@ -6,7 +6,9 @@ Each class presses one bug:
     TestHealthDescReadsPercent  the label read from the absolute value instead
                                 of percent() -- the BACKLOG bug itself
     TestHealthDescBands         the wrong bound: a lower-bound reading of the
-                                same table labels a living character `dead`
+                                same table labels a lightly hurt character
+                                with the 0 % word (*dead* until WN-T11,
+                                *grievously wounded* since: OQ-WN5)
     TestHealthDescCallSites     a command still calling the trait's own desc()
 
 THE DISCRIMINATING STATE (lesson 74)
@@ -72,11 +74,11 @@ class TestHealthDescBands(EvenniaTest):
         self.assertEqual(self._at(10, 10, 4), "badly hurt")   # 4/8
         self.assertEqual(self._at(18, 10, 6), "badly hurt")   # 6/12
 
-    def test_zero_reads_dead(self):
-        self.assertEqual(self._at(10, 10, 8), "dead")         # 0/8
+    def test_zero_reads_grievously_wounded(self):
+        self.assertEqual(self._at(10, 10, 8), "grievously wounded")   # 0/8
 
-    def test_eight_percent_is_near_death_not_dead(self):
-        # 1/12. A lower-bound reading puts 0-9% under key 0: `dead`.
+    def test_eight_percent_is_near_death_not_the_zero_word(self):
+        # 1/12. A lower-bound reading puts 0-9% under key 0's word.
         self.assertEqual(self._at(18, 10, 11), "near death")
 
     def test_ninety_two_percent_is_healthy_not_bruised(self):

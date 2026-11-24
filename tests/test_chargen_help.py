@@ -125,7 +125,7 @@ class TestWholeNumbers(EvenniaCommandTest):
     def test_sheet(self):
         out = self.call(CmdSheet(), "", caller=self.char1)
         self._stats_lines_whole(out)
-        self.assertRegex(out, r"10/10(?![.\d])")         # health: CON 14 + SIZ 8, head 5 (WN2)
+        self.assertRegex(out, r"Health\s+100/100(?![.\d])")   # out of 100 (WN-T11)
         self.assertRegex(out, r"Crafting\s+21%")         # DEX 9 + INT 12
 
     def test_stats(self):
@@ -139,7 +139,7 @@ class TestWholeNumbers(EvenniaCommandTest):
 
     def test_status(self):
         out = self.call(CmdStatus(), "", caller=self.char1)
-        self.assertRegex(out, r"Health:\s+10/10(?![.\d])")   # CON 14 + SIZ 8, head 5 (WN2)
+        self.assertRegex(out, r"Health:\s+100/100(?![.\d])")   # out of 100 (WN-T11)
         self.assertNotRegex(out, r"\d\.\d+/")         # no gauge reads 99.0/
         self.assertNotRegex(out, r"/\d+\.\d")         # nor /100.0
 

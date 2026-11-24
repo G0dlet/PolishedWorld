@@ -80,7 +80,7 @@ class TestCharSnapshot(EvenniaTest):
         made_before_wn(self.char1)
         self.char1.apply_health_damage(5, location=wounds.ALL)
         snap = client_state.char_snapshot(self.char1)["health"]
-        self.assertEqual((snap["current"], snap["max"]), (3, 8))
+        self.assertEqual((snap["current"], snap["max"]), (37, 100))   # 3/8 out of 100 (WN-T11)
         self.assertEqual(snap["desc"], self.char1.health_desc())
         self.assertEqual(snap["desc"], "badly hurt")
         self.assertEqual(self.char1.traits.health.value, 20)

@@ -36,6 +36,14 @@ def _percent(value):
     return f"{value:3.1f}%"
 
 
+def _wound_lines(char):
+    """
+    The wounded locations under the health line, one indented line each
+    (`wounds.report`, WN11); nothing for a body with only Minor Wounds.
+    """
+    return "".join(f"    {line}\n" for line in wounds.report(char))
+
+
 class CmdStatus(Command):
     """
     View your vital status
@@ -45,6 +53,8 @@ class CmdStatus(Command):
         vitals
     
     Shows your current health, hunger, thirst, and fatigue levels.
+    Under health, a line for each badly wounded part of your body: its
+    Hit Points, the wound, and what it does to you.
     Only you can see this information.
     """
     
@@ -66,10 +76,12 @@ class CmdStatus(Command):
         msg = "\n|wVital Status:|n\n"
         msg += "|g" + "=" * 40 + "|n\n"
         
-        # Health: read through the wound module (WN-T3), never the trait.
-        current, maximum, percent = wounds.health_of(char)
+        # Health: read through the wound module (WN-T3), never the trait;
+        # out of 100, and where the hurt is on the lines under it (WN-T11).
+        current, maximum, percent = wounds.health_shown(char)
         msg += f"  |yHealth:|n  {current:>3}/{maximum:<3} "
         msg += f"({_percent(percent):>6}) - {char.health_desc()}\n"
+        msg += _wound_lines(char)
         
         # Hunger
         hunger = char.traits.hunger
@@ -361,9 +373,10 @@ class CmdSheet(Command):
             msg += "|g" + "-" * 60 + "|n\n"
             
             # Health through the wound module (WN-T3), as `status` reads it.
-            current, maximum, percent = wounds.health_of(char)
+            current, maximum, percent = wounds.health_shown(char)
             msg += f"  |y{'Health':14}|n {current:>3}/{maximum:<3} "
             msg += f"({_percent(percent):>6}) - {char.health_desc()}\n"
+            msg += _wound_lines(char)
 
             for trait_key in ['hunger', 'thirst', 'fatigue']:
                 trait = getattr(char.traits, trait_key)

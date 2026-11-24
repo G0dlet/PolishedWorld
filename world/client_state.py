@@ -121,12 +121,13 @@ def char_snapshot(char):
     Name, health, the encumbrance band (WC12) and what is carried and worn
     (W7.1 lock 1: one snapshot, so the lists and the figure always agree).
 
-    Health is read through `wounds.health_of()` as `status` reads it
-    (WN-T3), with `char.health_desc()` as its word. The encumbrance numbers
+    Health is read through `wounds.health_shown()` as `status` reads it
+    (WN-T3; out of 100 since WN-T11, OQ-WN8 (a)), with `char.health_desc()`
+    as its word. The encumbrance numbers
     are read once each and the band is computed from those reads, as the
     `inventory` command does, so the three can never disagree.
     """
-    health = wounds.health_of(char)
+    health = wounds.health_shown(char)
     carried = encumbrance.carried_enc(char)
     limit = encumbrance.enc_limit(char)
     return {
