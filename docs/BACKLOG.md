@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 122 · 2026-11-24** — **three entries annotated**, docs only, in the commit that decomposes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 1; Combat Design Rev 9). BACKLOG was searched first for `hero`, `Glancing`, `Major Wound`, `respawn`, `played`, `away_since` and `cap` (lessons 238 and 408); five entries name *Glancing Blow* or a Major Wound and none says how a downgrade is done. **Annotated:** *Hero Points in a persistent world* (the eight locks, and the cap against the book's Heroic Abilities, OQ-HE1), *Character panel: Legend combat state* (where the panel will read Hero Points, and the push CL owes) and *A collapsed body's instant commands* (`hero` is answered). No entry is added: the open questions are the Combat Design's and the decomposition's.
 > **Rev 121 · 2026-11-24** — **two entries DONE, nine annotated, one new**, docs only, in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`). BACKLOG was searched first for the twelve names the slice touched (WN-T13; lessons 238 and 408): twenty-five entries name one, and each was read against the merge. **DONE:** *`at_character_death()` restore block vs persistent wound tiers* (WN-T8–WN-T10) and *Dev characters keep a float `health.base`* (WN-T6, closed by the trait's removal). **Annotated with what shipped:** *Free Skill Points*, *Characteristic improvement*, *Two-stage healing* (status now BLOCKED on HL's design session), *Character panel: Legend combat state* (BLOCKED on CL), *Survival loop tuning*, *A collapsed body's instant commands* (the clock fix), *`descs` tables…* (WN-T11 changed health's key-0 word, not its reading; the trigger did not fire), *Runnable seam checker*, *Persistent alpha instance* and *Hero Points in a persistent world*. **New:** *Others cannot tell a body lies senseless* (OQ-WN5's last word, BLOCKED on ML with OQ-WN3). The other fourteen are done, unchanged by WN, or already say what WN did.
 > **Rev 120 · 2026-11-23** — one entry **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 4 (WN-T8–WN-T10 shipped on `feature/wounds`), Combat Design Rev 7 and README Rev 71. ***A collapsed body's instant commands***: a wound's unconsciousness (WN-T9) is refused where a collapse is and lets the same commands through, for minutes rather than ninety seconds; no play knocks a body out before ML.
 > **Rev 119 · 2026-11-23** — two entries **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 3 (WN-T4–WN-T7 shipped on `feature/wounds`) and README Rev 70. ***Survival loop tuning***: Adam's question at WN-T7 — should starvation's death use the whole body's Hit Points? — with what the book and WN2b say, for the alpha's data. ***Dev characters keep a float `health.base`***: WN-T6 shipped (`8e3beb7`); still closed in WN-T13.
@@ -1919,6 +1920,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   out of 100 in its three keys (Combat Design OQ-WN8, answered (a)), and
   `wounds.report(char)` is the per-location list a panel would show. The
   panel itself stays slice CL's.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 1):** after HE the
+  panel reads Hero Points from `hero_points.points(char)` and the cap from
+  `hero_points.CAP`; HE puts neither in the `char` snapshot (HE7, WC12). When
+  CL does, the survival tick must push `char` when a point lands and the
+  `hero` command when the switch moves — today neither needs to.
 - **Status:** BLOCKED (Stage 5 slice CL; the locational Hit Points shipped in `c3df740`)
 
 ### Hero Points in a persistent world
@@ -1947,7 +1953,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   What a Hero Point would downgrade now exists: a Major Wound is a level
   derived from the stored damage (`wounds.level`), and the states and clocks
   follow from the Resilience test (`wounds.damage`, WN-T8).
-- **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5)
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 1):** HE is decomposed
+  (`docs/PolishedWorld_Hero_Points_Decomposition.md`, HE-T1–HE-T9) on eight
+  locks, Combat Design HE1–HE8: *Glancing Blow* trims the blow's damage to one
+  short of a Major Wound and answers a blow to a location only, so no play
+  spends a point before ML; the command `hero` shows the points and carries
+  the switch; a point is earned per game day played (6 real hours), from the
+  survival tick; death touches none of it; a missing Attribute is two points.
+  **The cap meets the book here:** its Heroic Abilities cost 8, 10 or 12 Hero
+  Points (pp. 218–219), more than four — Combat Design OQ-HE1, closed when
+  Heroic Abilities are designed.
+- **Status:** DECIDED (roadmap Rev 80) · decomposed (Rev 122) · code SCHEDULED (Stage 5 slice HE)
 
 ### Time away heals vs the statue as a snapshot
 - **What:** Decide what replaces the credit of time away to natural healing
@@ -2347,6 +2363,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   clock's deadline and its alarm is refused, not woken (the fix before WN-T11,
   `079abd8`): `wounds.unconscious` answers `True` while any clock is due, so
   the refusal holds until the clock's alarm kills the body.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 1):** `hero`, new with
+  slice HE, is answered to a collapsed or senseless body, the switch included
+  (Combat Design HE3): it is a choice and not an act. One more instant command
+  for this entry's list when it is decided.
 - **Status:** OPEN
 
 ---
