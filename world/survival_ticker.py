@@ -13,6 +13,7 @@ from evennia import SESSION_HANDLER
 from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
+from world import wounds
 from world import client_state, fatigue, gametime_utils, healing, timed_actions
 
 # Base depletion per tick, before buff modifiers. Tunable.
@@ -26,10 +27,15 @@ BASE_RATES = {"hunger": 1, "thirst": 2}
 # the drained two and fatigue, which the awake test lowers.
 WARNED = ("hunger", "thirst", "fatigue")
 
-# HP lost per tick while a starvation/dehydration condition is active.
-# Integer on purpose: health.base is an int (con*2), so a fractional value
-# would risk the same round()-to-even "stuck" behavior we hit with fatigue.
-STARVE_DAMAGE = 1
+# Starvation and thirst take one point from every location per two survival
+# ticks, per condition (WN6, Wounds WN-T7): 1200 real seconds, 80 game
+# minutes. Legend's one point a day (p. 90) would be sixty hours at the
+# keyboard, since the tick runs only for characters with a session, and
+# would kill no one. At CON + SIZ 21 the head (5) reaches a Major Wound after
+# ten points, 3 h 20 min -- the time before WN. What changes is what it
+# follows: the head's Hit Points, from 2 h at head 3 to 5 h 20 min at head 8.
+# BACKLOG *Survival loop tuning* owns the number.
+STARVE_TICKS_PER_POINT = 2
 
 # (gauge key, condition buff) pairs that damage health at zero.
 # Fatigue is deliberately absent: in Legend, exhaustion is skill penalties
@@ -149,9 +155,15 @@ def _apply_survival_conditions(char):
     damage through the death chokepoint.
 
     At gauge minimum: ensure the condition buff is present (at_apply fires its
-    onset message once, thanks to the has() guard) and accrue STARVE_DAMAGE.
-    Above minimum: remove() the condition by key (no-ops if absent, only fires
+    onset message once, thanks to the has() guard) and count the tick. Above
+    minimum: remove() the condition by key (no-ops if absent, only fires
     at_remove the tick it actually clears).
+
+    The count is `db.starve_progress` (WN6): one a tick for each condition
+    that is on; whole multiples of STARVE_TICKS_PER_POINT become points on
+    every location and the remainder is carried. The first tick with no
+    condition on removes the Attribute, so a body that has eaten starts its
+    next hunger from nothing.
 
     We SUM across conditions and make a SINGLE apply_health_damage call. This
     keeps "one fatal tick -> one corpse" correct independently of two other
@@ -159,9 +171,9 @@ def _apply_survival_conditions(char):
     apply_health_damage): a per-condition reroute would only stay single-death
     by accident of those, and would silently start double-killing the day either
     changed. Summation makes the intent explicit -- a character both starving
-    and dehydrated takes 2 damage and dies once.
+    and dehydrated takes its point in one call and dies once.
     """
-    total_damage = 0
+    conditions = 0
     for key, buffclass in HEALTH_CONDITIONS:
         trait = char.traits.get(key)
         if trait is None:
@@ -169,12 +181,18 @@ def _apply_survival_conditions(char):
         if trait.current <= trait.min:
             if not char.buffs.has(buffclass):
                 char.buffs.add(buffclass)
-            total_damage += STARVE_DAMAGE
+            conditions += 1
         else:
             char.buffs.remove(buffclass.key)
 
+    if not conditions:
+        if char.attributes.has("starve_progress"):
+            char.attributes.remove("starve_progress")
+        return
+    progress = (char.db.starve_progress or 0) + conditions
+    total_damage, char.db.starve_progress = divmod(progress, STARVE_TICKS_PER_POINT)
     if total_damage:
-        char.apply_health_damage(total_damage, source="survival")
+        char.apply_health_damage(total_damage, location=wounds.ALL, source="survival")
 
 def _check_survival_warnings(char):
     """

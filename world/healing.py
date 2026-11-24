@@ -2,10 +2,10 @@
 Natural healing (survival loop S2.1, decisions SL6 and RP-L4).
 
 Legend's Natural Healing Table (core p. 86): one hit point per a number of
-hours, chosen by the Resilience value. `resilience()` is the one place that
-reads it, through `world.skill_base.value_of` (Body decomposition BD6): the
-trait's value once the character has the skill, its base CON x 2 (p. 14)
-until then. The table below keeps the book's rows as printed.
+hours, chosen by the Resilience value. `resilience()` is the one place here
+that reads it, through `world.skill_base.value_of` (Body decomposition BD6):
+the trait's value once the character has the skill, its base CON x 2 (p. 14)
+until then. The wound's test reads it the same way (`wounds.resilience_test`). The table below keeps the book's rows as printed.
 
 The clock is game time: the survival tick hands `accrue()` the game seconds
 since its last run (`survival_ticker._tick_game_seconds`). Seconds collect in
@@ -18,9 +18,7 @@ stays at `Character.apply_health_damage`. It writes no activity-log line:
 healing is not an economic event (SL6).
 """
 
-import math
-
-from world import client_state, skill_base
+from world import client_state, skill_base, wounds
 from world.survival_buffs import Dehydrated, Starving
 
 HOUR = 3600
@@ -69,9 +67,9 @@ def resilience(char):
     backfill missed still heals. When Resilience improves, the character
     heals faster: the table is the book's, keyed on the skill.
 
-    Deliberately not `world.chargen.derive_health_max`, which is also CON x 2
-    today: hit points and Resilience share the number by coincidence, and
-    Stage 5's hit locations may change the hit-point formula.
+    Hit Points are another number: since Wounds they follow CON + SIZ per
+    location (`world.body.hit_points_max`), and the CON x 2 they once shared
+    with this safety net was a coincidence.
 
     Returns:
         int, float or None: None when the character has neither the trait
@@ -98,11 +96,13 @@ def accrue(char, game_seconds):
          the remainder is carried. Reaching max zeroes the counter (2's rule,
          applied at once).
 
-    The trait clamps `current` at max on its own (GaugeTrait's setter), so
-    the cap here is what keeps the return value honest: callers say a line
-    and S2.2 reports a login total from it.
+    The body is reached through the wound module (Wounds WN-T4): the room
+    left from `wounds.room_to_heal`, the points through `wounds.heal`, which
+    caps at the room and returns what landed -- the number callers say in a
+    line and S2.2 reports as a login total.
 
-    Pushes `char` when a point lands (the writer pushes, W4.2's census).
+    Pushes `char` when a point lands (the door's one caller pushes, W4.2's
+    census and WN-T4's).
 
     Args:
         char (Character): the character.
@@ -111,10 +111,10 @@ def accrue(char, game_seconds):
     Returns:
         int: hit points granted (0 or more).
     """
-    health = char.traits.get("health")
-    if health is None or is_blocked(char):
+    room = wounds.room_to_heal(char)
+    if room is None or is_blocked(char):
         return 0
-    if health.current >= health.max:
+    if room <= 0:
         char.db.heal_progress = 0
         return 0
     res = resilience(char)
@@ -123,12 +123,11 @@ def accrue(char, game_seconds):
     interval = interval_for(res)
     progress = (char.db.heal_progress or 0) + max(0, int(game_seconds))
     whole, remainder = divmod(progress, interval)
-    room = math.ceil(health.max - health.current)
     points = min(whole, room)
     if points <= 0:
         char.db.heal_progress = remainder
         return 0
-    health.current = health.current + points
-    char.db.heal_progress = 0 if health.current >= health.max else remainder
+    landed = wounds.heal(char, points)
+    char.db.heal_progress = 0 if wounds.room_to_heal(char) == 0 else remainder
     client_state.push(char, "char")
-    return points
+    return landed

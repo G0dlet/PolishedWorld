@@ -7,6 +7,7 @@ Commands for viewing character stats, skills, and vital status.
 from evennia import Command
 
 from world import body
+from world import wounds
 from world import fatigue as fatigue_rules
 from world.progression import progress_within_level, render_progress_bar
 
@@ -21,9 +22,26 @@ def _whole(number):
     GaugeTrait). The one exception: a gauge whose `.base` is an int rounds
     its own `.current` on read (`GaugeTrait._update_current`), so a hunger of
     99.6 already reads 100 before it gets here. Truncated, not rounded, as
-    `progress` and `Character.update_health_max()` already do.
+    `progress` already does.
     """
     return int(number)
+
+
+def _percent(value):
+    """
+    A percentage as a gauge's `percent()` prints it by default: one decimal
+    and a sign (`"{:3.1f}%"`, evennia/contrib/rpg/traits/traits.py), so a row
+    read through the wound module looks as a trait's row does.
+    """
+    return f"{value:3.1f}%"
+
+
+def _wound_lines(char):
+    """
+    The wounded locations under the health line, one indented line each
+    (`wounds.report`, WN11); nothing for a body with only Minor Wounds.
+    """
+    return "".join(f"    {line}\n" for line in wounds.report(char))
 
 
 class CmdStatus(Command):
@@ -35,6 +53,8 @@ class CmdStatus(Command):
         vitals
     
     Shows your current health, hunger, thirst, and fatigue levels.
+    Under health, a line for each badly wounded part of your body: its
+    Hit Points, the wound, and what it does to you.
     Only you can see this information.
     """
     
@@ -56,11 +76,12 @@ class CmdStatus(Command):
         msg = "\n|wVital Status:|n\n"
         msg += "|g" + "=" * 40 + "|n\n"
         
-        # Health
-        health = char.traits.health
-        msg += f"  |yHealth:|n  {_whole(health.value):>3}/{_whole(health.max):<3} "
-        # health_desc(): the label follows percent(), not the absolute value
-        msg += f"({health.percent():>6}) - {char.health_desc()}\n"
+        # Health: read through the wound module (WN-T3), never the trait;
+        # out of 100, and where the hurt is on the lines under it (WN-T11).
+        current, maximum, percent = wounds.health_shown(char)
+        msg += f"  |yHealth:|n  {current:>3}/{maximum:<3} "
+        msg += f"({_percent(percent):>6}) - {char.health_desc()}\n"
+        msg += _wound_lines(char)
         
         # Hunger
         hunger = char.traits.hunger
@@ -351,15 +372,18 @@ class CmdSheet(Command):
             msg += "\n|wVital Status:|n\n"
             msg += "|g" + "-" * 60 + "|n\n"
             
-            for trait_key in ['health', 'hunger', 'thirst', 'fatigue']:
+            # Health through the wound module (WN-T3), as `status` reads it.
+            current, maximum, percent = wounds.health_shown(char)
+            msg += f"  |y{'Health':14}|n {current:>3}/{maximum:<3} "
+            msg += f"({_percent(percent):>6}) - {char.health_desc()}\n"
+            msg += _wound_lines(char)
+
+            for trait_key in ['hunger', 'thirst', 'fatigue']:
                 trait = getattr(char.traits, trait_key)
                 msg += f"  |y{trait.name:14}|n {_whole(trait.value):>3}/{_whole(trait.max):<3} "
-                # Health's max is CON x 2, so its label follows percent();
-                # fatigue's is Legend's level, read from the one table
+                # Fatigue's label is Legend's level, read from the one table
                 # (S3.1); hunger and thirst keep the trait's own desc().
-                if trait_key == "health":
-                    label = char.health_desc()
-                elif trait_key == "fatigue":
+                if trait_key == "fatigue":
                     label = char.fatigue_desc()
                 else:
                     label = trait.desc()

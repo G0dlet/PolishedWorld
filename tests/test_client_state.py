@@ -34,7 +34,8 @@ from evennia.utils.utils import callables_from_module, group_objects_by_key_and_
 from commands.character_commands import _whole
 from server.conf import inputfuncs
 from tests.names_fixture import describe, shown
-from world import client_state, encumbrance, gametime_utils, weather
+from tests.wounds_fixture import made_before_wn
+from world import client_state, encumbrance, gametime_utils, weather, wounds
 
 
 def _json_roundtrip(snapshot):
@@ -72,13 +73,17 @@ class TestCharSnapshot(EvenniaTest):
         self.assertEqual(_json_roundtrip(snap), snap)
 
     def test_health_reads_like_status(self):
-        health = self.char1.traits.health
+        # Five points on every location of the fixture's body (head 4, arms
+        # stopped at 3): the head reads 3 of 8, 37.5 %. A character made
+        # before WN keeps the old trait, never written since WN-T5, at 20/20
+        # -- the case that tells the two readers apart.
+        made_before_wn(self.char1)
+        self.char1.apply_health_damage(5, location=wounds.ALL)
         snap = client_state.char_snapshot(self.char1)["health"]
-        self.assertEqual(snap["current"], _whole(health.value))
-        self.assertEqual(snap["max"], _whole(health.max))
+        self.assertEqual((snap["current"], snap["max"]), (37, 100))   # 3/8 out of 100 (WN-T11)
         self.assertEqual(snap["desc"], self.char1.health_desc())
-        # The fixture is the case that tells the two readers apart.
-        self.assertNotEqual(health.desc(), self.char1.health_desc())
+        self.assertEqual(snap["desc"], "badly hurt")
+        self.assertEqual(self.char1.traits.health.value, 20)
 
     def test_name_is_plain(self):
         self.assertEqual(client_state.char_snapshot(self.char1)["name"], "Char")
@@ -91,8 +96,11 @@ class TestCharSnapshot(EvenniaTest):
                                 "band": encumbrance.band(25, limit)})
         self.assertEqual(snap["band"], encumbrance.OVERLOADED)
 
-    def test_missing_health_is_null(self):
-        self.char1.traits.remove("health")
+    def test_a_body_without_con_has_null_health(self):
+        # Since WN-T5 health is read from CON + SIZ and the stored damage,
+        # not the trait: a body that cannot be read is the null case. (Not
+        # SIZ: the encumbrance limit reads it too.)
+        self.char1.stats.remove("con")
         snap = client_state.char_snapshot(self.char1)
         self.assertIsNone(snap["health"])
         self.assertEqual(set(snap), {"name", "health", "encumbrance", "inventory"})
@@ -834,7 +842,7 @@ class TestHookSites(ReactorMixin, EvenniaTest):
         with mock.patch.object(client_state, "push_soon") as soon, \
                 mock.patch.object(client_state, "push_room_soon") as room_soon, \
                 mock.patch.object(client_state, "push"):
-            self.char1.apply_health_damage(self.char1.traits.health.current)
+            self.char1.apply_health_damage(8, location=wounds.ALL)   # the head's Major Wound
         self.assertEqual(self.char1.location, self.room2)
         self.assertIn(mock.call(self.char1, *client_state.DOMAINS), soon.call_args_list)
         rooms = {c.args[0] for c in room_soon.call_args_list}
@@ -879,11 +887,11 @@ class TestImmediateSites(EvenniaTest):
         warn.assert_not_called()   # receipt: the FREE return stopped it
         push.assert_not_called()
 
-    def test_health_max_and_damage_push_char(self):
+    def test_damage_pushes_char(self):
+        # `update_health_max` and its push went with the trait (WN-T6).
         with mock.patch.object(client_state, "push") as push:
-            self.char1.update_health_max()
-            self.char1.apply_health_damage(1)
-        self.assertEqual(self._pushed(push), [(self.char1, "char"), (self.char1, "char")])
+            self.char1.apply_health_damage(1, location=wounds.ALL)
+        self.assertEqual(self._pushed(push), [(self.char1, "char")])
 
     def test_weather_change_reaches_indoors_even_without_a_message(self):
         self.room1.db.is_indoor = True
@@ -990,10 +998,10 @@ class TestPushCensus(EvenniaTest):
         ("commands/consumption_commands.py", "CmdEat.func", "push"): 1,
         ("commands/consumption_commands.py", "CmdDrink.func", "push"): 1,
         ("server/conf/inputfuncs.py", "pw_state", "push"): 1,
-        ("typeclasses/characters.py", "Character.at_post_unpuppet", "push_room_soon"): 1,
+        # Wounds WN-T10: the statue line and its push moved to turn_to_stone.
+        ("typeclasses/characters.py", "Character.turn_to_stone", "push_room_soon"): 1,
         ("typeclasses/characters.py", "Character.at_post_puppet", "push"): 1,
         ("typeclasses/characters.py", "Character.at_post_puppet", "push_room_soon"): 1,
-        ("typeclasses/characters.py", "Character.update_health_max", "push"): 1,
         ("typeclasses/characters.py", "Character.apply_health_damage", "push"): 1,
         ("typeclasses/characters.py", "Character.at_character_death", "push_soon"): 1,
         ("typeclasses/characters.py", "Character.at_character_death", "push_room_soon"): 2,
@@ -1053,9 +1061,6 @@ class TestPushCensus(EvenniaTest):
         ("commands/consumption_commands.py", "CmdEat.func", "caller.traits.hunger.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink.func", "caller.traits.thirst.current"): "survival",
         ("commands/consumption_commands.py", "CmdDrink._drink_from_source", "caller.traits.thirst.current"): "survival",
-        ("typeclasses/characters.py", "Character.update_health_max", "self.traits.health.current"): "char",
-        ("typeclasses/characters.py", "Character.apply_health_damage", "health.current"): "char",
-        ("typeclasses/characters.py", "Character.at_character_death", "health.current"): "char",
         ("typeclasses/characters.py", "Character.at_character_death", "gauge.current"): "survival",
         # Survival Loop S3.5 (lock A1): respawn sets fatigue to Wearied
         ("typeclasses/characters.py", "Character.at_character_death", "fatigue.current"): "survival",
@@ -1065,7 +1070,55 @@ class TestPushCensus(EvenniaTest):
         ("world/survival_ticker.py", "_deplete_character", "trait.current"): "survival",
         # Survival Loop S3.3 (lock B1): a failed awake test, written by the tick
         ("world/survival_ticker.py", "_deplete_character", "gauge.current"): "survival",
-        ("world/healing.py", "accrue", "health.current"): "char",
+    }
+
+    # Wounds WN-T4 (choice A): the wound module's doors write health and push
+    # nothing; each has one caller in production, and the caller pushes --
+    # the writer after its death check, so a fatal blow sends the refilled
+    # value (W4.2), and the death through its push_soon of all four.
+    # WN-T5 (choice A): what they write is the stored damage, an assignment
+    # to `db.body_damage` or the Attribute's removal, and the census reads
+    # both as writes; without that the door would leave the census unseen.
+    # WN-T8 (choice C): the census reads every Attribute the wound module
+    # keeps by the names in WOUND_ATTRIBUTES, and
+    # test_every_attribute_the_wound_module_writes_is_named holds the tuple
+    # to what world/wounds.py writes -- a census that knew one name would go
+    # blind the day the storage gains another (lesson 18).
+    # WN-T9: the wound's unconsciousness. `knock_out` is a door (its one
+    # caller, the writer, pushes); the waking (`_come_to`) is not -- it is
+    # reached by the alarm and by whoever reads the time first -- and the
+    # `char` snapshot shows nothing of it, so its write is in NOT_PANEL.
+    # WN-T10: the clocks. `start_clock` is a door (the writer pushes);
+    # `stop_clock` is HL's entry point with no caller in WN, and nothing in
+    # the snapshot moves when a clock stops, so its writes are NOT_PANEL.
+    WOUND_ATTRIBUTES = ("body_damage", "wound_states", "wound_unconscious", "wound_clocks")
+    DOOR_WRITES = {
+        ("world/wounds.py", "damage", "char.db.body_damage"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "damage", "char.db.wound_states"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "heal", "char.db.body_damage"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "heal", "char.attributes.remove('body_damage')"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "heal", "char.db.wound_states"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "heal", "char.attributes.remove('wound_states')"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('body_damage')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_unconscious')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "knock_out", "char.db.wound_unconscious"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "start_clock", "char.db.wound_clocks"):
+            ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_clocks')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.db.wound_states"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_states')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
     }
 
     # Skill writes: no panel yet (inventory/skills is W7's); chargen's is
@@ -1074,6 +1127,9 @@ class TestPushCensus(EvenniaTest):
         ("typeclasses/characters.py", "Character.improve_skill_on_use", "skill.current"),
         ("world/chargen.py", "apply_allocation", "skill.current"),
         ("world/professions.py", "grant_profession", "skill.current"),
+        ("world/wounds.py", "_come_to", "char.attributes.remove('wound_unconscious')"),
+        ("world/wounds.py", "stop_clock", "char.db.wound_clocks"),
+        ("world/wounds.py", "stop_clock", "char.attributes.remove('wound_clocks')"),
     }
 
     def setUp(self):
@@ -1082,7 +1138,14 @@ class TestPushCensus(EvenniaTest):
         self.writes = set()
         self.locations = set()
         self.pushes = {}
+        self.door_calls = {}
         for rel, tree in _production_trees():
+            imported = {
+                alias.asname or alias.name
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.module == "world.wounds"
+                for alias in node.names
+            }
             for qual, func in _functions(tree):
                 calls = list(_push_calls(func))
                 nested = {id(n) for _q, inner in _functions(func) for n in ast.walk(inner)}
@@ -1094,23 +1157,93 @@ class TestPushCensus(EvenniaTest):
                 for node in ast.walk(func):
                     if id(node) in nested:
                         continue
+                    if isinstance(node, ast.Call):
+                        door = self._door_called(node, imported)
+                        if door:
+                            key = (door, rel, qual)
+                            self.door_calls[key] = self.door_calls.get(key, 0) + 1
+                        if self._removes_wound_attribute(node):
+                            self.writes.add((rel, qual, ast.unparse(node)))
                     targets = []
                     if isinstance(node, ast.Assign):
                         targets = node.targets
                     elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
                         targets = [node.target]
                     for target in targets:
-                        if isinstance(target, ast.Attribute) and target.attr == "current":
+                        if isinstance(target, ast.Attribute) and target.attr in (
+                                ("current",) + self.WOUND_ATTRIBUTES):
                             self.writes.add((rel, qual, ast.unparse(target)))
                         if isinstance(target, ast.Attribute) and target.attr in (
                                 "location", "db_location"):
                             self.locations.add((rel, qual, ast.unparse(target)))
 
+    DOORS = ("damage", "heal", "restore_at_respawn", "knock_out", "start_clock")
+
+    @classmethod
+    def _door_called(cls, call, imported):
+        """The door a call reaches: `wounds.<door>(...)`, or a bare name imported from it."""
+        func = call.func
+        if (isinstance(func, ast.Attribute) and func.attr in cls.DOORS
+                and isinstance(func.value, ast.Name) and func.value.id == "wounds"):
+            return func.attr
+        if isinstance(func, ast.Name) and func.id in cls.DOORS and func.id in imported:
+            return func.id
+        return None
+
+    @classmethod
+    def _removes_wound_attribute(cls, call):
+        """`X.attributes.remove("<a WOUND_ATTRIBUTES name>")`: a wound Attribute taken away."""
+        func = call.func
+        return (
+            isinstance(func, ast.Attribute) and func.attr == "remove"
+            and isinstance(func.value, ast.Attribute) and func.value.attr == "attributes"
+            and len(call.args) == 1 and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value in cls.WOUND_ATTRIBUTES
+        )
+
+    def test_every_attribute_the_wound_module_writes_is_named(self):
+        # What world/wounds.py stores, read by AST: every `X.db.<name> = ...`
+        # and every `X.attributes.remove/add("<name>", ...)`. A new Attribute
+        # there must be named in WOUND_ATTRIBUTES, or its writes would pass
+        # the census unseen (WN-T8, choice C).
+        tree = ast.parse((ROOT / "world/wounds.py").read_text(encoding="utf-8"))
+        written = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+                for target in getattr(node, "targets", None) or [node.target]:
+                    if (isinstance(target, ast.Attribute)
+                            and isinstance(target.value, ast.Attribute)
+                            and target.value.attr == "db"):
+                        written.add(target.attr)
+            elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and node.func.attr in ("remove", "add")
+                  and isinstance(node.func.value, ast.Attribute)
+                  and node.func.value.attr == "attributes"
+                  and node.args and isinstance(node.args[0], ast.Constant)):
+                written.add(node.args[0].value)
+        self.assertEqual(written, set(self.WOUND_ATTRIBUTES))
+
     def test_push_sites_are_pinned(self):
         self.assertEqual(self.sites, self.SITES)
 
     def test_every_current_write_is_known(self):
-        self.assertEqual(self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL)
+        self.assertEqual(
+            self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL | set(self.DOOR_WRITES))
+
+    def test_every_door_has_one_caller_and_it_pushes(self):
+        self.assertEqual(
+            self.door_calls,
+            {(door, caller_rel, caller_qual): 1
+             for (_rel, door, _t), (caller_rel, caller_qual, _d)
+             in self.DOOR_WRITES.items()},
+            "A new caller of a wound door: it must push, or go through the one that does (WN-T4).",
+        )
+        for (_rel, _door, _t), (caller_rel, caller_qual, domain) in self.DOOR_WRITES.items():
+            with self.subTest(site=f"{caller_rel}::{caller_qual}"):
+                named = set()
+                for call in self.pushes.get((caller_rel, caller_qual), []):
+                    named |= _domains(call)
+                self.assertIn(domain, named)
 
     def _named(self, rel, qual):
         named = set()

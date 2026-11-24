@@ -14,10 +14,6 @@ Each class names the bug it pressures:
                                keep (characteristics do not improve in play)
     TestWholeNumbers           a rendering line left on a raw `.value`, which
                                is `(...) * mult` and so always a float (`7.0`)
-    TestHealthIsInt            `derive_health_max()` handing a float to
-                               `health.base`: the gauge then stops rounding
-                               its own `.current`, which the survival ticker's
-                               integer damage assumes
 
 The expected numbers are written out by hand, never computed from the code
 under test (lesson 74).
@@ -27,7 +23,7 @@ import re
 from unittest import mock
 
 from evennia.commands.default.help import CmdHelp
-from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
+from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands.character_commands import (
     CmdSheet,
@@ -38,7 +34,7 @@ from commands.character_commands import (
 )
 from commands.default_cmdsets import CharacterCmdSet
 from world import chargen
-from world.chargen import apply_allocation, derive_health_max
+from world.chargen import apply_allocation
 
 # chargen's fixture (tests/test_chargen.py), repeated on purpose: a test module
 # importing another test module couples the two suites.
@@ -95,7 +91,9 @@ class TestHelpChargen(EvenniaCommandTest):
         text = chargen.help_text()
         self.assertIn("80 points", text)
         self.assertIn("between 6 and 18", text)
-        self.assertIn("CON 10 gives 20", text)
+        self.assertIn(
+            "CON 10 and SIZ 10 give head 4, chest 6, abdomen 5, arms 3, legs 4", text
+        )
         for name in ("weaver", "tanner", "cobbler", "generalist"):
             self.assertIn(name, text)
 
@@ -127,7 +125,7 @@ class TestWholeNumbers(EvenniaCommandTest):
     def test_sheet(self):
         out = self.call(CmdSheet(), "", caller=self.char1)
         self._stats_lines_whole(out)
-        self.assertRegex(out, r"28/28(?![.\d])")         # health, CON 14 x 2
+        self.assertRegex(out, r"Health\s+100/100(?![.\d])")   # out of 100 (WN-T11)
         self.assertRegex(out, r"Crafting\s+21%")         # DEX 9 + INT 12
 
     def test_stats(self):
@@ -141,7 +139,7 @@ class TestWholeNumbers(EvenniaCommandTest):
 
     def test_status(self):
         out = self.call(CmdStatus(), "", caller=self.char1)
-        self.assertRegex(out, r"Health:\s+28/28(?![.\d])")
+        self.assertRegex(out, r"Health:\s+100/100(?![.\d])")   # out of 100 (WN-T11)
         self.assertNotRegex(out, r"\d\.\d+/")         # no gauge reads 99.0/
         self.assertNotRegex(out, r"/\d+\.\d")         # nor /100.0
 
@@ -162,26 +160,3 @@ class TestSkillBreakdownWhole(EvenniaCommandTest):
         craft.mod = 5
         out = self.call(CmdSkills(), "", caller=self.char1)
         self.assertRegex(out, r"base 20 \+ current\s+\+0 \+ mod\s+\+5")
-
-
-class TestHealthIsInt(EvenniaTest):
-    def test_derive_returns_int(self):
-        self.assertIs(type(derive_health_max(14.0)), int)
-        self.assertEqual(derive_health_max(14.0), 28)
-
-    def test_fresh_character(self):
-        self.assertIs(type(self.char1.traits.health.base), int)
-        self.assertEqual(self.char1.traits.health.base, 20)
-
-    def test_int_base_makes_the_gauge_read_whole(self):
-        # Evennia's GaugeTrait rounds `.current` on read only when `.base` is
-        # an int -- the behaviour the survival ticker's STARVE_DAMAGE comment
-        # is written against. A float base would let 17.6 through.
-        self.char1.traits.health.current = 17.6
-        self.assertEqual(repr(self.char1.traits.health.current), "18")
-
-    def test_after_update_health_max(self):
-        self.char1.stats.con.base = 13
-        self.char1.update_health_max()
-        self.assertIs(type(self.char1.traits.health.base), int)
-        self.assertEqual(self.char1.traits.health.base, 26)

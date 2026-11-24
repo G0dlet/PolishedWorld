@@ -324,7 +324,9 @@ def _introduce_cmd():
 class _Introduce(_Names):
     """
     char2 introduces. char1 and char3 are awake, char4 is a statue: the
-    test patches `is_statue` (it reads the sessions, which tests do not have).
+    test patches `has_account` (it reads the sessions, which tests do not
+    have), which is what `introduce` asks since Wounds WN-T10 -- "has a
+    player", not "is not stone" -- and what `is_statue` reads.
     Every character's `msg` is a Mock so the lines each reader got can be read.
     """
 
@@ -335,7 +337,7 @@ class _Introduce(_Names):
         from typeclasses.characters import Character
 
         patcher = mock.patch.object(
-            Character, "is_statue", new=property(lambda c: c.key not in self.AWAKE)
+            Character, "has_account", new=property(lambda c: c.key in self.AWAKE)
         )
         patcher.start()
         self.addCleanup(patcher.stop)

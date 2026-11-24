@@ -6,7 +6,9 @@ Each class presses one bug:
     TestHealthDescReadsPercent  the label read from the absolute value instead
                                 of percent() -- the BACKLOG bug itself
     TestHealthDescBands         the wrong bound: a lower-bound reading of the
-                                same table labels a living character `dead`
+                                same table labels a lightly hurt character
+                                with the 0 % word (*dead* until WN-T11,
+                                *grievously wounded* since: OQ-WN5)
     TestHealthDescCallSites     a command still calling the trait's own desc()
 
 THE DISCRIMINATING STATE (lesson 74)
@@ -19,75 +21,76 @@ is the state where the two paths disagree, and each test that relies on it
 first asserts that the old reader really does say something else there.
 
 Labels are written out by hand, never read back from the stored table.
+
+Since Wounds WN-T5 the percentage is `health`'s: the worst location's margin
+to a Major Wound (WN2), worked out from the stored damage. The bands are set
+by writing `db.body_damage` on the head by hand -- 0 % is a Major Wound, which
+the writer would answer with a death -- and the scale is the head's whole
+(2 x its Hit Points) at three bodies. The discriminating states are the
+same kind as before: 1/12 and 11/12 lie between the table's keys.
 """
 
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.character_commands import CmdSheet, CmdStatus
+from tests.wounds_fixture import made_before_wn
+from world import wounds
 
 
-def _set_con(char, con):
-    """Re-base CON and let the existing helper carry health with it."""
+def _set_body(char, con, siz):
     char.stats.con.base = con
-    char.update_health_max()
+    char.stats.siz.base = siz
 
 
 class TestHealthDescReadsPercent(EvenniaTest):
-    """The scale: a full gauge is `healthy` whatever CON is."""
+    """The scale: an unhurt body is `healthy` whatever its size."""
 
-    def test_full_at_con_10_reads_healthy(self):
-        health = self.char1.traits.health
-        self.assertEqual((health.value, health.max), (20, 20))
-        # Receipt: at this state the absolute-value reader disagrees.
-        self.assertEqual(health.desc(), "critically wounded")
+    def test_unhurt_at_con_siz_20_reads_healthy(self):
+        self.assertEqual(wounds.health_of(self.char1)[:2], (8, 8))
+        # Receipt: read as an absolute value, 8 is near death.
+        self.assertEqual(wounds.word_for(8), "near death")
         self.assertEqual(self.char1.health_desc(), "healthy")
 
-    def test_full_at_con_18_reads_healthy(self):
-        _set_con(self.char1, 18)
-        health = self.char1.traits.health
-        self.assertEqual((health.value, health.max), (36, 36))
+    def test_unhurt_at_con_siz_28_reads_healthy(self):
+        _set_body(self.char1, 18, 10)
+        self.assertEqual(wounds.health_of(self.char1)[:2], (12, 12))
         self.assertEqual(self.char1.health_desc(), "healthy")
 
-    def test_full_at_con_6_reads_healthy(self):
-        _set_con(self.char1, 6)
-        health = self.char1.traits.health
-        self.assertEqual((health.value, health.max), (12, 12))
+    def test_unhurt_at_con_siz_5_reads_healthy(self):
+        _set_body(self.char1, 2, 3)
+        self.assertEqual(wounds.health_of(self.char1)[:2], (2, 2))
         self.assertEqual(self.char1.health_desc(), "healthy")
 
 
 class TestHealthDescBands(EvenniaTest):
     """The bound: Evennia's inclusive upper bound, unchanged."""
 
-    def _at(self, con, current):
-        _set_con(self.char1, con)
-        self.char1.traits.health.current = current
+    def _at(self, con, siz, head_damage):
+        _set_body(self.char1, con, siz)
+        self.char1.db.body_damage = {"head": head_damage}
         return self.char1.health_desc()
 
-    def test_half_reads_the_same_band_at_any_max(self):
-        self.assertEqual(self._at(6, 6), "badly hurt")    # 6/12
-        self.assertEqual(self._at(18, 18), "badly hurt")  # 18/36
+    def test_half_reads_the_same_band_at_any_size(self):
+        self.assertEqual(self._at(10, 10, 4), "badly hurt")   # 4/8
+        self.assertEqual(self._at(18, 10, 6), "badly hurt")   # 6/12
 
-    def test_zero_reads_dead(self):
-        self.assertEqual(self._at(10, 0), "dead")
+    def test_zero_reads_grievously_wounded(self):
+        self.assertEqual(self._at(10, 10, 8), "grievously wounded")   # 0/8
 
-    def test_five_percent_is_near_death_not_dead(self):
-        # 1/20 = 5%. A lower-bound reading puts 0-9% under key 0: `dead`.
-        self.assertEqual(self._at(10, 1), "near death")
+    def test_eight_percent_is_near_death_not_the_zero_word(self):
+        # 1/12. A lower-bound reading puts 0-9% under key 0's word.
+        self.assertEqual(self._at(18, 10, 11), "near death")
 
-    def test_ninety_five_percent_is_healthy_not_bruised(self):
-        # 19/20 = 95%. A lower-bound reading puts 90-99% under key 90.
-        self.assertEqual(self._at(10, 19), "healthy")
-
-    def test_no_descs_reads_empty(self):
-        self.char1.traits.health.descs = None
-        self.assertEqual(self.char1.health_desc(), "")
+    def test_ninety_two_percent_is_healthy_not_bruised(self):
+        # 11/12. A lower-bound reading puts 90-99% under key 90.
+        self.assertEqual(self._at(18, 10, 1), "healthy")
 
 
 class TestHealthDescCallSites(EvenniaCommandTest):
     """`status` and `sheet` show the percent label, at a state where it differs."""
 
     def _premise(self):
-        health = self.char1.traits.health
+        health = made_before_wn(self.char1)   # a character made before WN
         self.assertEqual((health.value, health.max), (20, 20))
         self.assertEqual(health.desc(), "critically wounded")
 

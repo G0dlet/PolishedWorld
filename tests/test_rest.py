@@ -436,14 +436,13 @@ class TestDeathEndsTheRest(RestTestBase):
         # strand the character at 0 HP -- the exact failure the corpse-spawn
         # guard further down already exists to prevent.
         self.start_rest()
-        health = self.char1.traits.get("health")
-        health.current = health.min
+        self.char1.db.body_damage = {"head": 8}   # a Major Wound on the fixture's head of 4
         with mock.patch("world.timed_actions.interrupt", side_effect=RuntimeError("boom")), \
                 mock.patch.object(characters.logger, "log_trace") as logged, \
                 captured_messages(self.char1) as seen:
             self.char1.at_character_death()
         logged.assert_called_once()
-        self.assertEqual(health.current, health.max)
+        self.assertFalse(self.char1.attributes.has("body_damage"))
         self.assertIn("You have died.", _joined(seen))
 
 

@@ -30,6 +30,7 @@ from world import timed_actions
 from world import activity_log
 from world import gametime_utils
 from world import healing
+from world import wounds
 from world import sdesc as sdesc_rules
 from world import skill_base
 from world.progression import (
@@ -40,7 +41,7 @@ from world.progression import (
 )
 from world.skill_xp import SkillXPHandler
 from world.recipe_mastery import RecipeMasteryHandler
-from world.chargen import derive_health_max, start_or_resume_chargen
+from world.chargen import start_or_resume_chargen
 
 import re
 
@@ -429,24 +430,10 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             descs=dict(fatigue_rules.DESCS),
         )
         
-        self.traits.add(
-            "health", "Health",
-            trait_type="gauge",
-            # Base health derived from CON (Mongoose Legend: HP based on CON)
-            base=derive_health_max(self.stats.con.value),
-            mod=0,
-            min=0,
-            rate=0,  # natural healing is world/healing.py, on the survival tick
-            descs={
-                0: "dead",
-                10: "near death",
-                25: "critically wounded",
-                50: "badly hurt",
-                75: "injured",
-                90: "bruised",
-                100: "healthy"
-            }
-        )
+        # Health is not a trait (Wounds WN-T6, WN2b): the body's Hit Points
+        # follow CON + SIZ per location and the damage is stored on them
+        # (world/wounds.py). Characters made before keep a `health` trait
+        # that nothing reads.
 
         # === SKILLS ===
         # Placeholder bases. A character born through an account has every
@@ -556,12 +543,33 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         Override default: keep character in room as statue instead
         of removing them from the world. The visual statue presentation
         is handled by get_display_name and return_appearance overrides.
-        The last session out also stamps `db.away_since` for the healing
-        credited at the next puppet (S2.2).
+
+        A body a wound holds -- a running clock, or a wound's unconsciousness
+        -- does not turn to stone yet (WN4; OQ-WN6, Wounds WN-T9 choice C): it
+        lies where it fell, a body and not a statue, and `turn_to_stone` runs
+        when the hold ends -- from the waking, `wounds.stop_clock` or the
+        death (Wounds WN-T10, choice B).
         """
         # Bail if any sessions are still puppeting (multisession scenarios)
         if self.sessions.count():
             return
+        if wounds.holds_body(self):
+            return
+        self.turn_to_stone()
+
+    def turn_to_stone(self, announce=True):
+        """
+        The statue begins (Wounds WN-T10, choice B): the stamp for time away
+        and, with `announce`, the line and the room's push. Called by
+        `at_post_unpuppet` when nothing holds the body, by the wound module
+        when a hold ends on a body with no player, and quietly by
+        `at_character_death` for a body that died with no player -- it comes
+        to the temple without a word, and the death pushes the rooms.
+
+        The last session out stamps `db.away_since` for the healing credited
+        at the next puppet (S2.2): time away is the statue's time, so a body
+        that lay where it fell is not credited for it -- no tick ran on it.
+        """
         # S2.2 (SL7): stamp when the character went away, for the healing
         # credited at the next puppet -- or None while a condition stops
         # healing: the gauges are frozen while away, so the state at logout
@@ -573,11 +581,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             None if healing.is_blocked(self) else gametime_utils.get_absolute_gametime()
         )
     
-        # Note: we deliberately do NOT call super() here.
+        # Note: we deliberately do NOT call super() in at_post_unpuppet.
         # Default behavior would set self.location = None, which would
         # break the statue logout system.
-    
-        if self.location:
+
+        if announce and self.location:
             self.db.prelogout_location = self.location  # safety, behåll konventionen
             # Already a statue here: the sleeper is named by `living_name`
             # (`_Sleeper`, Names NM-T11 lock 1 A).
@@ -589,7 +597,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 mapping={"sleeper": _Sleeper(self)},
             )
             # W4.2: the others' room lists move this character from the
-            # awake list to the statues (is_statue reads the sessions).
+            # awake list to the statues (is_statue reads the sessions and
+            # the wound module's hold).
             client_state.push_room_soon(self.location)
 
     def at_post_puppet(self, **kwargs):
@@ -957,10 +966,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     @property
     def is_statue(self):
         """
-        True when no account is currently puppeting this character.
-        Used by display/appearance overrides for the statue logout system.
+        True when no account is currently puppeting this character and no
+        wound holds the body (WN4; Wounds WN-T10). Used by display/appearance
+        overrides for the statue logout system. `wounds.holds_body` only
+        reads -- this is read while others look, and must wake or kill no one
+        (choice C). "Has a player" is `has_account`.
         """
-        return not self.has_account
+        return not self.has_account and not wounds.holds_body(self)
 
     @property
     def carried_enc(self):
@@ -1017,11 +1029,12 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         modifier follows the load and the gauge (a timed craft reads it when
         it completes, not when it starts).
 
-        The eight physical rolls add this to their own modifiers: craft
+        The nine physical rolls add this to their own modifiers: craft
         (`MongooseCraftRecipe.do_craft`), `disassemble`, `scribe`, `repair`,
         `hunt` (as `attacker_mod`), `harvest`, the awake test
-        (`world.fatigue.awake_test`, S3.3) and the collapse test
-        (`world.fatigue.collapse_test`, S3.4). A new skill test decides
+        (`world.fatigue.awake_test`, S3.3), the collapse test
+        (`world.fatigue.collapse_test`, S3.4) and the wound's Resilience test
+        (`wounds.resilience_test`, WN7). A new skill test decides
         whether it is physical (the census in tests/test_encumbrance.py).
         A later penalty of the same kind is added here too, so the call sites
         never change.
@@ -1056,56 +1069,25 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             key: self.skills.get(key).current for key in self.skills.all()
         }
 
-    def update_health_max(self):
-        """
-        Helper method to recalculate max health when CON changes.
-        Should be called whenever CON is modified.
-        """
-        new_max = derive_health_max(self.stats.con.value)
-        current_percent = self.traits.health.percent(formatting=None)
-        
-        self.traits.health.base = new_max
-        self.traits.health.current = int(new_max * current_percent / 100)
-        client_state.push(self, "char")   # W4.2: max and current both moved
-
     def health_desc(self):
         """
-        The health label, read against the gauge's percent -- not its value.
+        The health word, for the percentage `health` shows.
 
-        Health's `descs` are keyed 0-100, but its max is CON x 2 (12-36 once
-        character creation varies CON). `GaugeTrait.desc()` compares the keys
-        with the absolute value, so a full 20/20 read `critically wounded`
-        (BACKLOG *Health `descs` use a 0-100 scale*). The scale was the bug,
-        not the bound: this reader keeps Evennia's own rule -- each key is an
-        inclusive UPPER bound, anything above the top key takes the top label
-        -- and only swaps the value for `percent()`. That keeps health on the
-        same reading as the other gauges and the skills. Which bands the
-        tables mean (BACKLOG *`descs` tables are read as upper bounds but
-        shaped like lower bounds*) is decided for the skills (BD-T5b: keyed
-        by each band's top) and still open for hunger and thirst.
-
-        Under that rule the stored table reads naturally: `dead` only at
-        exactly 0, `near death` above 0 up to 10%, `healthy` above 90%. The
-        stored table is already percent-shaped, so no character's data
-        changes -- existing characters read right with no migration.
-
-        Keys are walked in sorted order rather than trusting the stored
-        order, so a table written out of order still reads correctly.
+        Read through the wound module (WN-T3): the numbers from
+        `wounds.health_of()`, the word from `wounds.word_for()`, whose table
+        is the `health` trait's `descs` copied (WN2b). The rule is the one
+        this method has kept since BACKLOG *Health `descs` use a 0-100
+        scale*: the word follows the percentage, never the absolute value
+        (a full 20/20 once read `critically wounded`), each key an inclusive
+        upper bound, the top word above the top key.
 
         Returns:
-            str: the label, or "" if the trait carries no `descs`.
+            str: the word, or "" for a body with no health to read.
         """
-        health = self.traits.health
-        descs = health.descs
-        if not descs:
+        reading = wounds.health_of(self)
+        if reading is None:
             return ""
-        pct = health.percent(formatting=None)
-        label = ""
-        for bound in sorted(descs):
-            label = descs[bound]
-            if pct <= bound:
-                return label
-        return label
+        return wounds.word_for(reading[2])
 
     def fatigue_desc(self):
         """
@@ -1620,10 +1602,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
     rest_interval = 10    # seconds between recovery ticks (lower during dev)
     rest_recovery = 5     # fatigue restored per interval (integer; gauge is int-based)
     
-    def apply_health_damage(self, amount, source=None):
+    def apply_health_damage(self, amount, *, location, source=None, made=None):
         """
-        Single chokepoint for all HP loss. Subtracts `amount` from health and
-        fires at_character_death() if that reaches the health minimum (0).
+        Single chokepoint for all HP loss. Puts `amount` on the body through
+        `wounds.damage` and fires at_character_death() if the call's outcome
+        says this blow kills (Wounds WN-T8, choice A: a won Resilience test
+        at a vital Major Wound leaves the same damage as a lost one, so the
+        stored body cannot answer).
 
         Every damage source -- survival conditions now, combat later -- must
         route through here so death can never be bypassed, and so the future
@@ -1632,24 +1617,47 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         Args:
             amount (int): HP to remove. <= 0 is a no-op, so callers can pass a
                 summed total without special-casing a zero-damage tick.
+            location (str): where it lands -- `wounds.ALL`, `wounds.RANDOM` or
+                a key of `body.LOCATIONS`. Keyword-only with no default (WO5):
+                a damage source cannot leave out where it hits.
             source (Object | str | None): what dealt the damage; forwarded to
                 at_character_death as `killer` for future attribution/logging.
+            made (dict | None): the attack roll's successful `skill_check`
+                dict, which a Serious or Major Wound is tested against
+                (p. 145). None for a source with no attack roll: no test
+                (OQ-WN1).
+
+        Raises:
+            ValueError: for any other `location`, a `made` that is not a
+                success, or a `made` with `wounds.ALL` -- before anything is
+                written and whatever the amount (Wounds WN-T4, choice C;
+                WN-T8, choice B).
         """
-        if amount <= 0:
+        # The door writes nothing for an amount <= 0, a body with no health,
+        # or a body whose death is in progress (`ndb._dying`). That last is
+        # defense-in-depth for future direct callers (combat); the summation
+        # in the ticker is the primary double-death guard.
+        outcome = wounds.damage(self, amount, location, made)
+        if not outcome:
             return
-        health = self.traits.get("health")
-        if health is None:
-            return
-        # Already at/below min: a death is in progress or already resolved this
-        # tick. Do nothing. This is defense-in-depth for future direct callers
-        # (combat); the summation in the ticker is the primary double-death guard.
-        if health.current <= health.min:
-            return
-        health.current -= amount
-        if health.current <= health.min:
-            # GaugeTrait has no min-callback, so we detect the threshold crossing
-            # explicitly rather than relying on the trait to notify us.
+        if outcome["dies"]:
+            # The blow's answer, not a read of the body: what WN-T9 and
+            # WN-T10 carry out (unconsciousness, the clock) is in the same
+            # outcome.
             self.at_character_death(killer=source)
+        else:
+            # What the wound calls for. WN-T10: a Major Wound's clock; a vital
+            # one survived is unconscious until the clock's deadline (choice
+            # A). WN-T9: a wound's unconsciousness with a length (a vital
+            # Serious Wound or a limb's Major Wound, lost).
+            for wound in outcome["wounds"]:
+                minutes = wound["minutes"]
+                if wound["clock"]:
+                    deadline = wounds.start_clock(self, wound["location"])
+                    if minutes is None:
+                        minutes = wounds.minutes_until(deadline)
+                if wound["unconscious"] and minutes:
+                    wounds.knock_out(self, wound["location"], minutes)
         # W4.2: after the death check, so a fatal blow sends the refilled
         # value (death also schedules all four).
         client_state.push(self, "char")
@@ -1786,9 +1794,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 self.reset_pose()
 
             # Restore vitals (decision 2: reset hunger/thirst -- fed and watered).
-            health = self.traits.get("health")
-            if health:
-                health.current = health.max
+            # The body through the wound module (WN9; Wounds WN-T4).
+            wounds.restore_at_respawn(self)
             for gauge_key in ("hunger", "thirst"):
                 gauge = self.traits.get(gauge_key)
                 if gauge:
@@ -1823,6 +1830,11 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
             # stack with a fresh duration on re-death (buffs.add otherwise stacks).
             self.buffs.remove(DeathWeakness.key)
             self.buffs.add(DeathWeakness)
+            # Wounds WN-T10 (choice B): a body that died with no player -- a
+            # clock ran out after its player left -- becomes a statue where it
+            # came back, without a line: it arrived without one.
+            if not self.has_account:
+                self.turn_to_stone(announce=False)
             # W4.2: the relocation above runs with move_hooks=False, so no
             # room hook pushed: the room where they fell (the body gone, the
             # corpse there) and the respawn room are pushed here, and the
@@ -1938,8 +1950,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         gone -- a reload empties `ndb`, a statue logout clears the slot -- by
         the survival tick, `at_post_puppet` and every refusal. Anything else in
         the slot (a rest or a chore started while the slot stood empty) is
-        interrupted first.
+        interrupted first. Nothing starts while a wound keeps the body out
+        (Wounds WN-T9): `timed_actions.start` would refuse it aloud.
         """
+        if wounds.unconscious(self):
+            # A wound has the body (Wounds WN-T9, choice A): the recovery
+            # starts when it comes to, from the next refusal or tick.
+            return
         record = timed_actions.is_busy(self)
         if record is not None and record.key == fatigue_rules.COLLAPSE_KEY:
             return
@@ -1955,17 +1972,26 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
 
     def refuse_if_collapsed(self, line):
         """
-        Refuse an action a collapsed body cannot take (S3.4, SL11).
+        Refuse an action a collapsed body cannot take (S3.4, SL11), or a body
+        a wound has knocked out (Wounds WN-T9; WN11: one refusal, two causes).
 
-        Says `line` and re-arms the recovery if a reload left the slot empty
-        (lock H1). The commands call it first, before parsing anything.
+        A wound's unconsciousness is asked first: the body is told
+        `wounds.OUT_COLD`, whatever `line` says, and nothing is armed -- its
+        waking is its own stored time, not fatigue's recovery (§2's third
+        choice), so this refusal leaves the timed-action slot as it was.
+        Otherwise a collapse: says `line` and re-arms the recovery if a
+        reload left the slot empty (lock H1). The commands call it first,
+        before parsing anything.
 
         Args:
-            line (str): what the body is told.
+            line (str): what a collapsed body is told.
 
         Returns:
             bool: True when refused (the caller returns), False otherwise.
         """
+        if wounds.unconscious(self):
+            self.msg(wounds.OUT_COLD)
+            return True
         if not self.db.collapsed:
             return False
         self.msg(line)
@@ -2002,7 +2028,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         (lock A1, OQ-S2): `teleport` (staff `@tel`, `home`, a deleted room),
         a bare `move` and `move_hooks=False` paths go through. The exit's own
         *You cannot go there.* is silenced for a collapsed body
-        (`Exit.at_failed_traverse`, lock B1).
+        (`Exit.at_failed_traverse`, lock B1). A body a wound has knocked out
+        is refused the same walk through the same refusal (Wounds WN-T9).
         """
         if move_type == "traverse" and self.refuse_if_collapsed(fatigue_rules.CANNOT_MOVE):
             return False

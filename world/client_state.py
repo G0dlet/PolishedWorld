@@ -56,7 +56,7 @@ from evennia.utils import logger
 from evennia.utils.ansi import strip_ansi, strip_mxp
 from evennia.utils.utils import delay, inherits_from
 
-from world import encumbrance, gametime_utils, room_text, weather
+from world import encumbrance, gametime_utils, room_text, weather, wounds
 
 DOMAINS = ("char", "survival", "world", "room")
 
@@ -121,18 +121,20 @@ def char_snapshot(char):
     Name, health, the encumbrance band (WC12) and what is carried and worn
     (W7.1 lock 1: one snapshot, so the lists and the figure always agree).
 
-    Health's label is `char.health_desc()`, not `trait.desc()`: the two
-    disagree (desc() reads the absolute value against bounds shaped for a
-    percentage), and `status` prints health_desc(). The encumbrance numbers
+    Health is read through `wounds.health_shown()` as `status` reads it
+    (WN-T3; out of 100 since WN-T11, OQ-WN8 (a)), with `char.health_desc()`
+    as its word. The encumbrance numbers
     are read once each and the band is computed from those reads, as the
     `inventory` command does, so the three can never disagree.
     """
-    health = _trait(char, "health")
+    health = wounds.health_shown(char)
     carried = encumbrance.carried_enc(char)
     limit = encumbrance.enc_limit(char)
     return {
         "name": _plain(char.get_display_name(char)),
-        "health": None if health is None else _gauge(health, char.health_desc()),
+        "health": None if health is None else {
+            "current": health[0], "max": health[1], "desc": char.health_desc(),
+        },
         "encumbrance": {
             "carried": carried,
             "limit": limit,

@@ -15,7 +15,7 @@ from unittest import mock
 from django.test import SimpleTestCase
 from evennia.utils.test_resources import EvenniaTest
 
-from world import client_state, healing, survival_ticker
+from world import client_state, healing, survival_ticker, wounds
 from world.survival_buffs import Dehydrated, Starving
 
 H = healing.HOUR
@@ -42,16 +42,21 @@ class TestTable(SimpleTestCase):
 
 
 class HealingTestBase(EvenniaTest):
-    """CON 10 -> Resilience 20 -> 48 game hours a point; health 20, wounded 3."""
+    """
+    CON 10 -> Resilience 20 -> 48 game hours a point; three points on every
+    location (the fixture's arms, 3, stop there). `hurt()` is the largest
+    damage on any location, which a heal lowers by one (WN10).
+    """
 
     def setUp(self):
         super().setUp()
         self.char1.stats.con.base = 10
-        self.char1.update_health_max()
-        self.health = self.char1.traits.health
-        self.health.current = self.health.max - 3
+        self.char1.apply_health_damage(3, location=wounds.ALL)
         self.char1.db.heal_progress = 0
         self.interval = healing.interval_for(healing.resilience(self.char1))
+
+    def hurt(self):
+        return wounds.room_to_heal(self.char1)
 
 
 class TestResilience(HealingTestBase):
@@ -119,12 +124,12 @@ class TestAccrue(HealingTestBase):
     """
 
     def test_one_second_short_then_the_next_second(self):
-        start = self.health.current
+        start = self.hurt()
         self.assertEqual(healing.accrue(self.char1, self.interval - 1), 0)
-        self.assertEqual(self.health.current, start)
+        self.assertEqual(self.hurt(), start)
         self.assertEqual(self.char1.db.heal_progress, self.interval - 1)
         self.assertEqual(healing.accrue(self.char1, 1), 1)
-        self.assertEqual(self.health.current, start + 1)
+        self.assertEqual(self.hurt(), start - 1)
         self.assertEqual(self.char1.db.heal_progress, 0)
 
     def test_the_remainder_is_carried(self):
@@ -132,32 +137,24 @@ class TestAccrue(HealingTestBase):
         self.assertEqual(self.char1.db.heal_progress, 500)
 
     def test_two_intervals_grant_two(self):
-        start = self.health.current
+        start = self.hurt()
         self.assertEqual(healing.accrue(self.char1, 2 * self.interval), 2)
-        self.assertEqual(self.health.current, start + 2)
+        self.assertEqual(self.hurt(), start - 2)
 
     def test_stops_at_max_and_says_so(self):
-        self.health.current = self.health.max - 1
+        wounds.heal(self.char1, 2)   # 3 hurt -> 1
         self.assertEqual(healing.accrue(self.char1, 3 * self.interval + 7), 1)
-        self.assertEqual(self.health.current, self.health.max)
+        self.assertEqual(self.hurt(), 0)
         self.assertEqual(self.char1.db.heal_progress, 0)
 
     def test_full_health_zeroes_the_counter(self):
-        self.health.current = self.health.max
+        wounds.heal(self.char1, 3)   # 3 hurt -> full
         self.char1.db.heal_progress = self.interval - 1
         self.assertEqual(healing.accrue(self.char1, 10), 0)
         self.assertEqual(self.char1.db.heal_progress, 0)
         # Receipt that the zero matters: a new wound does not heal at once.
-        self.health.current = self.health.max - 1
+        self.char1.apply_health_damage(1, location=wounds.ALL)
         self.assertEqual(healing.accrue(self.char1, 1), 0)
-
-    def test_float_health_base_still_gains_whole_points(self):
-        # BACKLOG *Dev characters keep a float `health.base`*.
-        self.health.base = 20.0
-        self.health.current = 18.0
-        self.assertEqual(healing.accrue(self.char1, self.interval), 1)
-        self.assertEqual(self.health.current, 19)
-        self.assertTrue(float(self.health.current).is_integer())
 
     def test_pushes_char_only_when_a_point_lands(self):
         with mock.patch.object(client_state, "push") as push:
@@ -167,8 +164,8 @@ class TestAccrue(HealingTestBase):
             healing.accrue(self.char1, self.interval)
         push.assert_called_once_with(self.char1, "char")
 
-    def test_no_health_trait_is_nothing(self):
-        self.char1.traits.remove("health")
+    def test_no_body_to_read_is_nothing(self):
+        self.char1.stats.remove("siz")
         self.assertEqual(healing.accrue(self.char1, self.interval), 0)
 
 
@@ -181,9 +178,9 @@ class TestConditionsBlock(HealingTestBase):
     def _blocked_by(self, buffclass):
         self.char1.buffs.add(buffclass)
         self.char1.db.heal_progress = self.interval - 1
-        start = self.health.current
+        start = self.hurt()
         self.assertEqual(healing.accrue(self.char1, 10 * self.interval), 0)
-        self.assertEqual(self.health.current, start)
+        self.assertEqual(self.hurt(), start)
         self.assertEqual(self.char1.db.heal_progress, self.interval - 1)
 
     def test_starving_accrues_nothing_and_keeps_the_counter(self):
@@ -241,16 +238,16 @@ class TestTickHeals(HealingTestBase):
 
     def test_a_tick_lands_a_point_and_says_one_line(self):
         self.char1.db.heal_progress = self.interval - 2400
-        start = self.health.current
+        start = self.hurt()
         lines = self._tick()
-        self.assertEqual(self.health.current, start + 1)
+        self.assertEqual(self.hurt(), start - 1)
         self.assertEqual(lines.count(healing.HEALED), 1)
 
     def test_a_tick_short_of_a_point_says_nothing(self):
         self.char1.db.heal_progress = self.interval - 2401
-        start = self.health.current
+        start = self.hurt()
         lines = self._tick()
-        self.assertEqual(self.health.current, start)
+        self.assertEqual(self.hurt(), start)
         self.assertEqual(self.char1.db.heal_progress, self.interval - 1)
         self.assertNotIn(healing.HEALED, lines)
 
@@ -258,10 +255,10 @@ class TestTickHeals(HealingTestBase):
         thirst = self.char1.traits.thirst
         thirst.current = thirst.min
         self.char1.db.heal_progress = self.interval - 2400
-        start = self.health.current
+        start = self.hurt()
         lines = self._tick()
         self.assertTrue(self.char1.buffs.has(Dehydrated))  # receipt: the condition landed
-        self.assertEqual(self.health.current, start - survival_ticker.STARVE_DAMAGE)
+        self.assertEqual(self.hurt(), start)   # one tick of one condition: no point yet (WN6)
         self.assertEqual(self.char1.db.heal_progress, self.interval - 2400)
         self.assertNotIn(healing.HEALED, lines)
 
@@ -289,22 +286,22 @@ class TestTimeAway(HealingTestBase):
         return [c.args[0] for c in msg.call_args_list if c.args]
 
     def test_two_intervals_away_grant_two_and_one_line(self):
-        start = self.health.current
+        start = self.hurt()
         self._leave(self.T)
         self.assertEqual(self.char1.db.away_since, self.T)
         lines = self._return(self.T + 2 * self.interval)
-        self.assertEqual(self.health.current, start + 2)
+        self.assertEqual(self.hurt(), start - 2)
         self.assertEqual(lines.count(healing.HEALED), 1)
         self.assertIsNone(self.char1.db.away_since)
 
     def test_the_credit_is_spent_once(self):
         self._leave(self.T)
         self._return(self.T + self.interval)
-        start = self.health.current
+        start = self.hurt()
         # A second puppet with no logout between (a reload, a second
         # session): nothing left to credit.
         lines = self._return(self.T + 3 * self.interval)
-        self.assertEqual(self.health.current, start)
+        self.assertEqual(self.hurt(), start)
         self.assertNotIn(healing.HEALED, lines)
 
     def test_logged_out_under_a_condition_stamps_nothing(self):
@@ -315,9 +312,9 @@ class TestTimeAway(HealingTestBase):
                 self._leave(self.T)
                 self.assertIsNone(self.char1.db.away_since)
                 self.char1.buffs.remove(buffclass.key)
-                start = self.health.current
+                start = self.hurt()
                 self._return(self.T + 2 * self.interval)
-                self.assertEqual(self.health.current, start)
+                self.assertEqual(self.hurt(), start)
                 self.account.puppet_object(self.session, self.char1)
 
     def test_a_session_leaving_while_another_remains_stamps_nothing(self):
@@ -332,21 +329,21 @@ class TestTimeAway(HealingTestBase):
 
     def test_no_stamp_credits_nothing(self):
         self.char1.db.away_since = None
-        start = self.health.current
+        start = self.hurt()
         lines = self._return(self.T)
-        self.assertEqual(self.health.current, start)
+        self.assertEqual(self.hurt(), start)
         self.assertNotIn(healing.HEALED, lines)
 
     def test_the_tick_after_login_does_not_credit_the_span_again(self):
         self._leave(self.T)
         back = self.T + self.interval + 500
         self._return(back)
-        progress, health = self.char1.db.heal_progress, self.health.current
+        progress, hurt = self.char1.db.heal_progress, self.hurt()
         self.assertEqual(progress, 500)
         with mock.patch(self.CLOCK, return_value=back + 10):
             survival_ticker._deplete_character(self.char1)
         self.assertEqual(self.char1.db.heal_progress, progress)
-        self.assertEqual(self.health.current, health)
+        self.assertEqual(self.hurt(), hurt)
 
     def test_the_credit_lands_before_the_panel_push(self):
         self.char1.db.away_since = self.T

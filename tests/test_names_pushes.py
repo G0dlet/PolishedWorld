@@ -45,8 +45,9 @@ def _commands():
 class _Pushes(EvenniaCommandTest):
     """
     char2 acts. char1, char3 and char4 are in the room and awake (the test
-    patches `is_statue`, which reads the sessions tests do not have); char4
-    is in another room. `push` and `push_room` are spies.
+    patches `has_account`, which reads the sessions tests do not have, and
+    which the names commands and `is_statue` both read since Wounds WN-T10);
+    char4 is in another room. `push` and `push_room` are spies.
     """
 
     character_typeclass = CHARACTER
@@ -60,7 +61,7 @@ class _Pushes(EvenniaCommandTest):
         self.char4 = create_object(CHARACTER, key="Char4", location=self.room2)
         describe(self.char1, self.char2, self.char3, self.char4)
         patcher = mock.patch.object(
-            Character, "is_statue", new=property(lambda c: c.key not in self.AWAKE)
+            Character, "has_account", new=property(lambda c: c.key in self.AWAKE)
         )
         patcher.start()
         self.addCleanup(patcher.stop)

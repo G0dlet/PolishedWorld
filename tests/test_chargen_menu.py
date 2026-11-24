@@ -22,7 +22,7 @@ from evennia.utils.ansi import strip_ansi
 from evennia.utils.evmenu import EvMenu
 from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 
-from world import chargen_menu, client_state, sdesc, seed_data
+from world import chargen_menu, client_state, sdesc, seed_data, wounds
 from world.chargen_menu import _parse_line
 from world.seeding import find_seeded, seed_world
 
@@ -141,7 +141,7 @@ class _MenuFixture(EvenniaTest):
                 k: (char.skills.get(k).base, char.skills.get(k).current)
                 for k in EXPECTED_BASES
             },
-            "health": char.traits.get("health").base,
+            "hit_points": wounds.health_of(char)[:2],
             "profession": char.db.profession,
             "complete": char.db.chargen_complete,
             "appearance": char.attributes.get("appearance"),
@@ -170,9 +170,10 @@ class TestAllocateNode(_MenuFixture):
         self.assertIn("Spent 70 of 80.", text)
         self.assertIn("10 left to spend", text)
         self.assertIn("Raw muscle", text)
-        self.assertIn("Feeds hunting, resilience, health.", text)
+        # WN-T6: CON and SIZ feed Hit Points, not a CON x 2 health.
+        self.assertIn("Feeds hunting, resilience, Hit Points.", text)
         # BD5: SIZ has its first reader, and DEX feeds Evade and Unarmed.
-        self.assertIn("Feeds brawn, Damage Modifier.", text)
+        self.assertIn("Feeds brawn, Damage Modifier, Hit Points.", text)
         self.assertIn(
             "Feeds athletics, stealth, craft, evade, unarmed, "
             "Combat Actions, Strike Rank.",
@@ -193,8 +194,15 @@ class TestAllocateNode(_MenuFixture):
                 self.assertNotIn("Damage Modifier", rows[stat])
         for stat in ("STR", "SIZ"):
             with self.subTest(stat=stat):
-                self.assertIn("Damage Modifier.", rows[stat])
+                self.assertIn("Damage Modifier", rows[stat])
                 self.assertNotIn("Combat Actions", rows[stat])
+        # WN-T6: Hit Points are CON + SIZ's, and no one else's.
+        for stat in ("CON", "SIZ"):
+            with self.subTest(stat=stat):
+                self.assertIn("Hit Points.", rows[stat])
+        for stat in ("STR", "DEX", "INT", "POW", "CHA"):
+            with self.subTest(stat=stat):
+                self.assertNotIn("Hit Points", rows[stat])
         for stat in ("CON", "POW", "CHA"):
             with self.subTest(stat=stat):
                 self.assertNotIn("Combat Actions", rows[stat])
@@ -230,7 +238,7 @@ class TestConfirmScreens(_MenuFixture):
 
     def test_allocation_confirm_shows_health_and_bases(self):
         text = self.send(FIXTURE_LINE, "next")
-        self.assertIn("Health max: 28", text)
+        self.assertIn("Hit Points: head 5, chest 7, abdomen 6, arms 4, legs 5", text)   # CON 14 + SIZ 8 = 22
         self.assertIn(
             "athletics 16, perception 29, stealth 21, craft 21, hunting 26", text
         )
@@ -245,9 +253,9 @@ class TestConfirmScreens(_MenuFixture):
             "Combat Actions 3, Strike Rank 15, Damage Modifier +1D2", text
         )
 
-    def test_the_derived_line_stands_under_health_max(self):
+    def test_the_derived_line_stands_under_hit_points(self):
         lines = self.send(BODY_LINE, "next").splitlines()
-        at = lines.index("Health max: 14")
+        at = lines.index("Hit Points: head 5, chest 7, abdomen 6, arms 4, legs 5")   # CON 7 + SIZ 14 = 21
         self.assertEqual(
             lines[at + 1], "Combat Actions 3, Strike Rank 15, Damage Modifier +1D2"
         )
@@ -321,10 +329,11 @@ class TestHappyPath(_MenuFixture):
         self.assertIsNone(self.node())
         self.assertIn("Your character is made", self.text)
 
-    def test_characteristics_and_health(self):
+    def test_characteristics_and_hit_points(self):
         state = self.state()
         self.assertEqual(state["stats"], FIXTURE)
-        self.assertEqual(state["health"], 28)
+        self.assertEqual(state["hit_points"], (10, 10))
+        self.assertIsNone(self.char1.traits.get("health"))
 
     def test_skills_carry_bases_and_bonus(self):
         for key, value in EXPECTED_FINAL.items():

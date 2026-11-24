@@ -116,7 +116,8 @@ def start(char, key, seconds, callback, *args,
     handed a different character than the one whose slot it is about to claim.
 
     Refusal is EXPLICIT (D3): when the slot is taken, this messages the caller
-    naming the action in progress and returns None. The sentence lives here, in
+    naming the action in progress and returns None; a body a wound has knocked
+    out is told `wounds.OUT_COLD` (Wounds WN-T9). The sentence lives here, in
     one place, rather than being retyped at every call site -- a format rule
     spread across three files is three places to forget it.
 
@@ -138,7 +139,8 @@ def start(char, key, seconds, callback, *args,
             normal completion; that is the callback's own business.
 
     Returns:
-        object or None: the identity marker on success, None if already busy.
+        object or None: the identity marker on success, None if already busy
+            or knocked out.
 
     Notes:
         `persistent=False` is `delay`'s default and is relied on: see the module
@@ -146,6 +148,16 @@ def start(char, key, seconds, callback, *args,
         is in this repository, and a branch no test can reach is a branch that
         only ever adds surface.
     """
+    # A body a wound has knocked out starts nothing (Wounds WN-T9, choice A).
+    # A collapse needs no line here: its recovery holds the slot, and the
+    # busy refusal below answers for it. A wound's unconsciousness leaves the
+    # slot empty, so it is asked first. Imported here: the wound module
+    # imports this one, to interrupt the slot when it knocks a body out.
+    from world import wounds
+
+    if wounds.unconscious(char):
+        char.msg(wounds.OUT_COLD)
+        return None
     record = is_busy(char)
     if record is not None:
         char.msg(f"You are already {record.label}.")
