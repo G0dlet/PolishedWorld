@@ -58,9 +58,26 @@ HE-T3, the command `hero` and the switch (HE3):
   not (HEM13a, HEM13b). The help is read through Evennia's own `help`
   command on the character cmdset, which also proves the command is there.
 
+HE-T7, death leaves them (HE5):
+
+- `TestDeathLeavesThem`: a body holding 3 points, half a day on the
+  counter and the switch off dies three ways -- by starvation through the
+  tick, by a Major Wound's clock, and by `at_character_death` itself -- and
+  all three Attributes read afterwards as they did before. The switch is
+  off for a reason of its own: with points and the switch on, the clock's
+  blow would be trimmed and no clock would start. The survival tick's
+  clock is held still, so every tick's span is 0 and the counter's value
+  after the death is the one stored before it: earning is HE-T2's. A
+  death with nothing stored leaves nothing stored, so the body still reads
+  two. These tests were green on their first run (HE5 needs no production
+  change); their worth is HEM25b-HEM27b, which write the Attributes by a
+  name the census cannot read. HEM25-HEM27, written with the name as a
+  literal, are killed by `TestHeroCensus` as well.
+
 Mutations: HEM1-HEM3 in `tools/mutants/he_t1.toml`, HEM4-HEM9 in
 `tools/mutants/he_t2.toml`, HEM10-HEM13b in `tools/mutants/he_t3.toml`,
-run with `python tools/mutate.py <spec>`.
+HEM25-HEM27b in `tools/mutants/he_t7.toml`, run with
+`python tools/mutate.py <spec>`.
 """
 
 import ast
@@ -82,7 +99,7 @@ from commands.default_cmdsets import CharacterCmdSet
 
 # Functions only: a TestCase imported by name would run here a second time.
 from tests.test_client_state import _functions, _production_trees
-from world import hero_points, survival_ticker
+from world import hero_points, survival_ticker, wounds
 
 ROOT = Path(__file__).resolve().parent.parent
 GAME_PACKAGES = ("commands", "server", "typeclasses", "web", "world")
@@ -476,3 +493,80 @@ class TestHeroCommand(EvenniaCommandTest):
         with mock.patch.object(hero_points, "CAP", 7):
             out = self.call(CmdHelp(), "hero", cmdset=CharacterCmdSet())
         self.assertIn("up to 7, the most anyone holds", out)
+
+
+class TestDeathLeavesThem(EvenniaTest):
+    """HE5: a death and its respawn change neither the points, the counter
+    nor the switch. The death-consequence policy's (iv): a respawn that
+    gave points would make starvation a way to them."""
+
+    CLOCK = "world.survival_ticker.gametime_utils.get_absolute_gametime"
+    WEATHER = "world.survival_ticker.apply_thermal_stress"
+    NOW = 1_000_000.0
+
+    def setUp(self):
+        super().setUp()
+        self.char1.traits.fatigue.current = 100
+        self.char1.db.respawn_location = self.room2
+        patchers = [mock.patch("world.wounds.time"), mock.patch("world.wounds.delay"),
+                    mock.patch("world.timed_actions.delay"),
+                    # The survival tick's clock held still: every span is 0.
+                    mock.patch(self.CLOCK, return_value=100_000)]
+        self.time = patchers[0].start()
+        self.time.time.return_value = self.NOW
+        for patcher in patchers[1:]:
+            patcher.start()
+        for patcher in patchers:
+            self.addCleanup(patcher.stop)
+
+    def store(self):
+        """Three points, half a day towards the next, the switch off."""
+        self.char1.db.hero_points = 3
+        self.char1.db.hero_progress = DAY // 2
+        hero_points.set_glancing(self.char1, False)
+
+    def held(self):
+        return (self.char1.db.hero_points, self.char1.db.hero_progress,
+                self.char1.db.hero_glancing_off)
+
+    def died(self):
+        """The receipt that a death and its respawn ran."""
+        self.assertEqual(self.char1.location, self.room2)
+
+    def test_a_starved_body_keeps_them(self):
+        self.store()
+        head = wounds.maxima_of(self.char1)["head"]
+        self.char1.db.body_damage = {"head": 2 * head - 1}
+        hunger = self.char1.traits.hunger
+        hunger.current = hunger.min
+        with mock.patch(self.WEATHER), mock.patch.object(self.char1, "msg"):
+            survival_ticker._deplete_character(self.char1)   # Starving
+            survival_ticker._deplete_character(self.char1)   # one point: Major
+        self.died()
+        self.assertEqual(self.held(), (3, DAY // 2, True))
+
+    def test_a_body_killed_by_a_clock_keeps_them(self):
+        self.store()
+        head = wounds.maxima_of(self.char1)["head"]
+        with mock.patch.object(self.char1, "msg"):
+            self.char1.apply_health_damage(2 * head, location="head")
+            deadline = wounds.clocks_of(self.char1)["head"]
+            self.time.time.return_value = deadline
+            wounds._clock_due(self.char1, "head", deadline)
+        self.died()
+        self.assertEqual(self.held(), (3, DAY // 2, True))
+
+    def test_the_death_itself_keeps_them(self):
+        self.store()
+        with mock.patch.object(self.char1, "msg"):
+            self.char1.at_character_death()
+        self.died()
+        self.assertEqual(self.held(), (3, DAY // 2, True))
+
+    def test_a_death_with_nothing_stored_leaves_nothing_stored(self):
+        with mock.patch.object(self.char1, "msg"):
+            self.char1.at_character_death()
+        self.died()
+        for name in TestHeroCensus.HERO_ATTRIBUTES:
+            self.assertFalse(self.char1.attributes.has(name), name)
+        self.assertEqual(hero_points.points(self.char1), hero_points.START)

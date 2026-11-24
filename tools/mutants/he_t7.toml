@@ -1,0 +1,83 @@
+# HE-T7 -- death leaves the Hero Points (Hero Points decomposition §8).
+# Run: python3 tools/mutate.py tools/mutants/he_t7.toml --parallel 2
+#
+# Each mutant adds a line to the restore block of
+# Character.at_character_death, after the wound module's own restore.
+#
+# HEM25-HEM27 are the decomposition's, with the Attribute's name as a
+# literal: TestHeroCensus reads those and kills them too (HE-T7, choice 1:
+# no census of its own). HEM25b-HEM27b write the same thing with the name
+# in a variable, which the census cannot read: only the death tests can
+# kill them, and their lines must name no census test (choice 2).
+#
+# Predicted fail counts:
+#   HEM25, HEM26  4 -- the three deaths with something stored, and the census
+#   HEM27         5 -- the same, and the death with nothing stored
+#   HEM25b, HEM26b 3; HEM27b 4 -- the same without the census
+
+modules = ["tests.test_hero_points"]
+
+[[mutant]]
+id = "HEM25"
+file = "typeclasses/characters.py"
+old = '''            wounds.restore_at_respawn(self)
+'''
+new = '''            wounds.restore_at_respawn(self)
+            self.attributes.remove("hero_points")
+'''
+expect = ["test_the_death_itself_keeps_them", "test_no_other_file_writes_a_hero_attribute"]
+
+[[mutant]]
+id = "HEM26"
+file = "typeclasses/characters.py"
+old = '''            wounds.restore_at_respawn(self)
+'''
+new = '''            wounds.restore_at_respawn(self)
+            self.attributes.remove("hero_progress")
+'''
+expect = ["test_the_death_itself_keeps_them", "test_no_other_file_writes_a_hero_attribute"]
+
+[[mutant]]
+id = "HEM27"
+# The points set to START at respawn.
+file = "typeclasses/characters.py"
+old = '''            wounds.restore_at_respawn(self)
+'''
+new = '''            wounds.restore_at_respawn(self)
+            self.db.hero_points = 2
+'''
+expect = ["test_a_death_with_nothing_stored_leaves_nothing_stored",
+          "test_no_other_file_writes_a_hero_attribute"]
+
+[[mutant]]
+id = "HEM25b"
+file = "typeclasses/characters.py"
+old = '''            wounds.restore_at_respawn(self)
+'''
+new = '''            wounds.restore_at_respawn(self)
+            for name in ("hero_points",):
+                self.attributes.remove(name)
+'''
+expect = "test_the_death_itself_keeps_them"
+
+[[mutant]]
+id = "HEM26b"
+file = "typeclasses/characters.py"
+old = '''            wounds.restore_at_respawn(self)
+'''
+new = '''            wounds.restore_at_respawn(self)
+            for name in ("hero_progress",):
+                self.attributes.remove(name)
+'''
+expect = "test_the_death_itself_keeps_them"
+
+[[mutant]]
+id = "HEM27b"
+file = "typeclasses/characters.py"
+old = '''            wounds.restore_at_respawn(self)
+'''
+new = '''            wounds.restore_at_respawn(self)
+            name = "hero_points"
+            self.attributes.add(name, 2)
+'''
+expect = "test_a_death_with_nothing_stored_leaves_nothing_stored"
