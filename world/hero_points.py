@@ -19,7 +19,7 @@ What it stores, on the character, and nothing else (HE6):
   *Glancing Blow* off (HE3). Missing means on.
 
 This module is the only writer of those three Attributes (P-2), through
-three doors added by later tasks, each with one caller in production:
+three doors, each with one caller in production:
 `accrue` (the survival tick, HE-T2), `set_glancing` (the `hero` command,
 HE-T3) and `take_for_glancing` (`wounds.damage`, HE-T6).
 
@@ -129,3 +129,32 @@ def accrue(char, game_seconds):
     else:
         char.db.hero_progress = remainder
     return landed
+
+
+def set_glancing(char, on):
+    """
+    Switch *Glancing Blow* on or off for the character (HE3).
+
+    The module's second door; its one caller in production is the `hero`
+    command. Off is stored as `db.hero_glancing_off = True`; on is the
+    Attribute removed, never a stored False, so "on" has one form: missing
+    (HE3, HE6 b). The decision is made on what `glancing_on` reads, in the
+    same call as the write, and a switch already where it is asked to be
+    writes nothing. It is a choice and not an act: nothing here asks whether
+    the body can act (HE3). Nothing is pushed (HE7).
+
+    Args:
+        char (Character): the character.
+        on (bool): True to switch it on, False to switch it off.
+
+    Returns:
+        bool: True when the switch changed, False when it already stood
+            where it was asked to be (and nothing was written).
+    """
+    if bool(on) == glancing_on(char):
+        return False
+    if on:
+        char.attributes.remove("hero_glancing_off")
+    else:
+        char.db.hero_glancing_off = True
+    return True

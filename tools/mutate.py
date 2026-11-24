@@ -40,6 +40,13 @@ What the harness holds to (Testing Reference §27.1):
   survived (lesson 70).
 - Mutants run one after another, since they write to the same files; the
   tests inside each run go in parallel through `ForkTestRunner`.
+- A parallel run can fail to report a failure at all: the worker sends
+  each failure back by pickle, and a traceback needs `tblib` for that,
+  while a failing `subTest` cannot be sent at all (Django's runner,
+  `MaybeEncodingError`). The run then reports no tests. A mutant whose
+  parallel run reports none is run once more serially, where nothing is
+  pickled, and its line says `(serial)`. A mutant that still runs nothing
+  is NO-RUN, with the output's tail.
 - `expect` names the test the decomposition predicts will kill the mutant.
   A kill by another test is marked `(other: ...)`, so luck is not read as
   the prediction holding (lesson 181).
@@ -226,21 +233,25 @@ def mutate_one(mutant, originals, modules, parallel, timeout):
     count = text.count(mutant["old"])
     if count != 1:
         return f"{mutant['id']:<6} SKIPPED  `old` matches {count} times in {mutant['file']}", None
+    serial = ""
     try:
         path.write_bytes(text.replace(mutant["old"], mutant["new"]).encode("utf-8"))
         result = run_tests(modules, parallel, timeout)
+        if result["status"] == "norun" and str(parallel) != "1":
+            result = run_tests(modules, 1, timeout)
+            serial = "  (serial)"
     finally:
         path.write_bytes(data)
         if sha256(path.read_bytes()) != digest:
             raise RuntimeError(f"{mutant['file']} did not restore to its sha256; stop and read it")
     if result["status"] == "ok":
-        return f"{mutant['id']:<6} SURVIVED {result['ran']} tests green", result
+        return f"{mutant['id']:<6} SURVIVED {result['ran']} tests green{serial}", result
     if result["status"] == "norun":
         return f"{mutant['id']:<6} NO-RUN   the runner ran no tests (see below)", result
     names = result["failing"]
     shown = ", ".join(names[:3]) + (f" +{len(names) - 3}" if len(names) > 3 else "")
     return (f"{mutant['id']:<6} KILLED   {len(names)} fail  {shown}  "
-            f"{expectation(mutant, names)}").rstrip(), result
+            f"{expectation(mutant, names)}").rstrip() + serial, result
 
 
 def main(argv=None):

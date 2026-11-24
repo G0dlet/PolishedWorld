@@ -43,8 +43,24 @@ HE-T2, the earning (HE4):
   (HE7), and `TestCharSnapshot.test_keys_and_types` pins the snapshot's
   keys, so CL's change is seen there.
 
+HE-T3, the command `hero` and the switch (HE3):
+
+- `TestSetGlancing`: the door. Off stores True; on removes the Attribute
+  and never stores False (HEM11), so "on" has one form; a switch already
+  where it is asked to be writes nothing -- seen by spies on the handler's
+  `add` and `remove`, not by reading the value back, which a needless
+  write would leave the same.
+- `TestHeroCommand`: the screen at 2, 0 and 4; off, then the screen; off
+  twice; on again; any case; a wrong word gets the usage; on and off not
+  swapped (HEM10); a collapsed body is answered, since a switch is a
+  choice and not an act (HEM12). The cap on the screen and in the help is
+  read from `CAP`: with CAP patched to 7 they say 7, which a typed 4 could
+  not (HEM13a, HEM13b). The help is read through Evennia's own `help`
+  command on the character cmdset, which also proves the command is there.
+
 Mutations: HEM1-HEM3 in `tools/mutants/he_t1.toml`, HEM4-HEM9 in
-`tools/mutants/he_t2.toml`, run with `python tools/mutate.py <spec>`.
+`tools/mutants/he_t2.toml`, HEM10-HEM13b in `tools/mutants/he_t3.toml`,
+run with `python tools/mutate.py <spec>`.
 """
 
 import ast
@@ -52,7 +68,17 @@ from pathlib import Path
 from unittest import mock
 
 from django.test import SimpleTestCase
-from evennia.utils.test_resources import EvenniaTest
+from evennia.commands.default.help import CmdHelp
+from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
+
+from commands.character_commands import (
+    GLANCING_ALREADY,
+    GLANCING_OFF,
+    GLANCING_ON,
+    HERO_USAGE,
+    CmdHero,
+)
+from commands.default_cmdsets import CharacterCmdSet
 
 # Functions only: a TestCase imported by name would run here a second time.
 from tests.test_client_state import _functions, _production_trees
@@ -274,11 +300,13 @@ class TestHeroCensus(SimpleTestCase):
     push `char` (decomposition §11, 8) -- `TestCharSnapshot` will fail first.
     """
 
-    # What world/hero_points.py stores. HE-T3 adds hero_glancing_off.
-    HERO_ATTRIBUTES = ("hero_points", "hero_progress")
-    # door -> its one production caller (file, qualified name).
+    # What world/hero_points.py stores.
+    HERO_ATTRIBUTES = ("hero_points", "hero_progress", "hero_glancing_off")
+    # door -> its one production caller (file, qualified name). HE-T6 adds
+    # take_for_glancing.
     DOORS = {
         "accrue": ("world/survival_ticker.py", "_deplete_character"),
+        "set_glancing": ("commands/character_commands.py", "CmdHero.func"),
     }
 
     def test_every_attribute_the_module_writes_is_named(self):
@@ -349,3 +377,102 @@ class TestHeroCensus(SimpleTestCase):
             {(door, rel, qual): 1 for door, (rel, qual) in self.DOORS.items()},
             "HE6: each door of world/hero_points.py has one caller in production.",
         )
+
+
+class TestSetGlancing(EvenniaTest):
+    def spies(self):
+        handler = self.char1.attributes
+        return (mock.patch.object(handler, "add", wraps=handler.add),
+                mock.patch.object(handler, "remove", wraps=handler.remove))
+
+    def test_off_stores_true_and_reports_a_change(self):
+        self.assertTrue(hero_points.set_glancing(self.char1, False))
+        self.assertIs(self.char1.attributes.get("hero_glancing_off"), True)
+        self.assertFalse(hero_points.glancing_on(self.char1))
+
+    def test_off_twice_writes_nothing(self):
+        hero_points.set_glancing(self.char1, False)
+        add, remove = self.spies()
+        with add as added, remove as removed:
+            self.assertFalse(hero_points.set_glancing(self.char1, False))
+        added.assert_not_called()
+        removed.assert_not_called()
+        self.assertFalse(hero_points.glancing_on(self.char1))
+
+    def test_on_removes_the_attribute(self):
+        self.char1.db.hero_glancing_off = True
+        self.assertTrue(hero_points.set_glancing(self.char1, True))
+        self.assertFalse(self.char1.attributes.has("hero_glancing_off"))
+        self.assertTrue(hero_points.glancing_on(self.char1))
+
+    def test_on_when_on_writes_nothing(self):
+        add, remove = self.spies()
+        with add as added, remove as removed:
+            self.assertFalse(hero_points.set_glancing(self.char1, True))
+        added.assert_not_called()
+        removed.assert_not_called()
+        self.assertFalse(self.char1.attributes.has("hero_glancing_off"))
+
+
+class TestHeroCommand(EvenniaCommandTest):
+    character_typeclass = "typeclasses.characters.Character"
+
+    def hero(self, args=""):
+        return self.call(CmdHero(), args, caller=self.char1)
+
+    def test_the_screen_at_two(self):
+        out = self.hero()
+        self.assertRegex(out, r"Hero Points\s+2/4(?!\d)")
+        self.assertRegex(out, r"Glancing Blow\s+on\b")
+
+    def test_the_screen_at_zero_and_four(self):
+        for held in (0, 4):
+            with self.subTest(held=held):
+                self.char1.db.hero_points = held
+                self.assertRegex(self.hero(), rf"Hero Points\s+{held}/4(?!\d)")
+
+    def test_off_then_the_screen(self):
+        self.assertIn(GLANCING_OFF, self.hero("glancing off"))
+        self.assertIs(self.char1.db.hero_glancing_off, True)
+        self.assertRegex(self.hero(), r"Glancing Blow\s+off\b")
+
+    def test_off_twice_says_so(self):
+        self.hero("glancing off")
+        self.assertIn(GLANCING_ALREADY.format("off"), self.hero("glancing off"))
+
+    def test_on_again(self):
+        self.hero("glancing off")
+        self.assertIn(GLANCING_ON, self.hero("glancing on"))
+        self.assertFalse(self.char1.attributes.has("hero_glancing_off"))
+        self.assertIn(GLANCING_ALREADY.format("on"), self.hero("glancing on"))
+
+    def test_the_words_are_read_in_any_case(self):
+        self.assertIn(GLANCING_OFF, self.hero("Glancing OFF"))
+        self.assertIs(self.char1.db.hero_glancing_off, True)
+
+    def test_a_wrong_word_gets_the_usage_and_writes_nothing(self):
+        for args in ("glancing", "glancing maybe", "points", "glancing off now"):
+            with self.subTest(args=args):
+                self.assertIn(HERO_USAGE, self.hero(args))
+                self.assertFalse(self.char1.attributes.has("hero_glancing_off"))
+
+    def test_a_collapsed_body_is_answered(self):
+        self.char1.db.collapsed = True
+        with mock.patch.object(self.char1, "arm_collapse"):
+            out = self.hero("glancing off")
+        self.assertIn(GLANCING_OFF, out)
+        self.assertIs(self.char1.db.hero_glancing_off, True)
+
+    def test_the_cap_on_the_screen_is_read_from_cap(self):
+        with mock.patch.object(hero_points, "CAP", 7):
+            self.assertRegex(self.hero(), r"Hero Points\s+2/7(?!\d)")
+
+    def test_help_hero_names_the_cap(self):
+        out = self.call(CmdHelp(), "hero", cmdset=CharacterCmdSet())
+        self.assertIn("Glancing Blow", out)
+        self.assertIn("up to 4, the most anyone holds", out)
+
+    def test_the_cap_in_the_help_is_read_from_cap(self):
+        with mock.patch.object(hero_points, "CAP", 7):
+            out = self.call(CmdHelp(), "hero", cmdset=CharacterCmdSet())
+        self.assertIn("up to 7, the most anyone holds", out)

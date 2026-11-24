@@ -7,6 +7,7 @@ Commands for viewing character stats, skills, and vital status.
 from evennia import Command
 
 from world import body
+from world import hero_points
 from world import wounds
 from world import fatigue as fatigue_rules
 from world.progression import progress_within_level, render_progress_bar
@@ -417,3 +418,73 @@ class CmdSheet(Command):
         msg += "\n" + "|w" + "=" * 60 + "|n"
         
         self.caller.msg(msg)
+
+
+# What `hero glancing off|on` answers (HE3; chosen at HE-T3's STOPP 0). Each
+# says what the choice costs, in the book's words.
+GLANCING_OFF = (
+    "Glancing Blow is off. A Major Wound will stand, and your Hero Points are kept."
+)
+GLANCING_ON = (
+    "Glancing Blow is on. A Major Wound will cost a Hero Point and be a "
+    "Serious Wound instead."
+)
+GLANCING_ALREADY = "Glancing Blow is already {}."
+HERO_USAGE = "Usage: hero, hero glancing on, hero glancing off."
+
+
+class CmdHero(Command):
+    """
+    Your Hero Points, and Glancing Blow
+
+    Usage:
+        hero
+        hero glancing off
+        hero glancing on
+
+    Hero Points are the grit an adventurer has put by. You begin with two,
+    and earn one for every day of the world's time you play - six hours at
+    the keyboard - up to {cap}, the most anyone holds.
+
+    Glancing Blow: when a blow would give you a Major Wound and you have a
+    Hero Point, the point is spent and the wound is a Serious one instead.
+    It works by itself. Switch it off to keep your points, and on again
+    whenever you like; switching costs nothing.
+
+    Only you can see this information.
+    """
+
+    key = "hero"
+    locks = "cmd:all()"
+    help_category = "Character"
+
+    def get_help(self, caller, cmdset):
+        """
+        The help text, with the cap read from `hero_points.CAP` when it is
+        asked for (chosen at HE-T3's STOPP 0): a cap typed into the text
+        could not be told from one read until the cap changed. The search
+        index keeps the unformatted docstring; only matching reads it.
+        """
+        return self.__doc__.format(cap=hero_points.CAP)
+
+    def func(self):
+        """Show the points and the switch, or set the switch (HE3)."""
+        char = self.caller
+        words = self.args.strip().lower().split()
+        if not words:
+            held = f"{hero_points.points(char)}/{hero_points.CAP}"
+            state = "on" if hero_points.glancing_on(char) else "off"
+            char.msg(
+                f"  |y{'Hero Points':16}|n {held:>5}\n"
+                f"  |y{'Glancing Blow':16}|n {state:>5}\n"
+                "  Switch it with hero glancing off or hero glancing on."
+            )
+            return
+        if len(words) == 2 and words[0] == "glancing" and words[1] in ("on", "off"):
+            on = words[1] == "on"
+            if hero_points.set_glancing(char, on):
+                char.msg(GLANCING_ON if on else GLANCING_OFF)
+            else:
+                char.msg(GLANCING_ALREADY.format(words[1]))
+            return
+        char.msg(HERO_USAGE)

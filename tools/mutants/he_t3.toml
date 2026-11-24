@@ -1,0 +1,73 @@
+# HE-T3 -- the command `hero` and the Glancing Blow switch (Hero Points
+# decomposition §7). Run: python tools/mutate.py tools/mutants/he_t3.toml
+
+modules = ["tests.test_hero_points"]
+
+[[mutant]]
+id = "HEM10"
+# On and off swapped in the command.
+file = "commands/character_commands.py"
+old = '''            on = words[1] == "on"
+'''
+new = '''            on = words[1] == "off"
+'''
+expect = "test_off_then_the_screen"
+
+[[mutant]]
+id = "HEM11"
+# The door stores False for on instead of removing: "on" gets two forms.
+file = "world/hero_points.py"
+old = '''        char.attributes.remove("hero_glancing_off")
+'''
+new = '''        char.db.hero_glancing_off = False
+'''
+expect = "test_on_removes_the_attribute"
+
+[[mutant]]
+id = "HEM11b"
+# A needless write behind the right answer: the door says "no change" and
+# writes anyway. Only the spies on the handler can see it (the value read
+# back is the same), so this is the receipt that they see.
+file = "world/hero_points.py"
+old = '''    if bool(on) == glancing_on(char):
+        return False
+'''
+new = '''    if bool(on) == glancing_on(char):
+        char.db.hero_glancing_off = True if not on else None
+        return False
+'''
+expect = ["test_off_twice_writes_nothing", "test_on_when_on_writes_nothing"]
+
+[[mutant]]
+id = "HEM12"
+# The collapse refusal added: a switch would be refused to a fallen body.
+file = "commands/character_commands.py"
+old = '''        char = self.caller
+        words = self.args.strip().lower().split()
+'''
+new = '''        char = self.caller
+        if char.refuse_if_collapsed("Your hands will not obey you."):
+            return
+        words = self.args.strip().lower().split()
+'''
+expect = "test_a_collapsed_body_is_answered"
+
+[[mutant]]
+id = "HEM13a"
+# The cap typed into the help instead of read from CAP.
+file = "commands/character_commands.py"
+old = '''        return self.__doc__.format(cap=hero_points.CAP)
+'''
+new = '''        return self.__doc__.format(cap=4)
+'''
+expect = "test_the_cap_in_the_help_is_read_from_cap"
+
+[[mutant]]
+id = "HEM13b"
+# The cap typed onto the screen instead of read from CAP.
+file = "commands/character_commands.py"
+old = '''            held = f"{hero_points.points(char)}/{hero_points.CAP}"
+'''
+new = '''            held = f"{hero_points.points(char)}/4"
+'''
+expect = "test_the_cap_on_the_screen_is_read_from_cap"

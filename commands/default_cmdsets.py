@@ -81,6 +81,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(character_commands.CmdStats())
         self.add(character_commands.CmdSkills())
         self.add(character_commands.CmdSheet())
+        self.add(character_commands.CmdHero())   # Hero Points, HE3
         self.add(character_commands.CmdProgress())
 
         # Extended Room commands for seasonal/time-based room descriptions
