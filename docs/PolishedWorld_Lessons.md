@@ -1,5 +1,6 @@
 # PolishedWorld — Lessons register
 
+> **Rev 13 · 2026-11-24** — lessons 415–444 appended in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`), from thirty-seven candidates, numbered in candidate order: four from BD's close-out that no later list carried (415–418), the twenty-nine the slice's handoffs carried after the register's 414, and four from its last session. Read against 1–414 by keyword before numbering (Adam, as recommended). **One recurred and is not added:** candidate 17 (`attributes.has` returns `[]`) is 125, and 147 notes it too. **Five pairs or triples are one lesson each:** 7 and 14 (425), 11 and 18 (429), 13 and 19 (431), 16, 21 and 23 (433), 24 and 33 (436). **Twenty-two refine an older lesson,** which gains *refined by N*: 8, 25, 31, 52, 63, 115, 130, 141, 143, 161, 183, 244, 260, 290, 306, 307, 330, 342, 366, 386, and 402 twice (420, 434). Eight are new without a forerunner: 421, 422, 430, 431, 436, 437, 438, 443.
 > **Rev 12 · 2026-11-22** — lessons 396–414 appended in the commit that closes Stage 5's slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`), from the candidates 1–20 the slice's handoffs carried after the register's 395, numbered in candidate order. Read against 1–395 by keyword before numbering. **One recurred and is not added:** candidate 11 (a table with a formula is tested against the book's cells typed by hand — all 80 Hit Points cells, all 30 Damage Modifier edges) is 390. **Eleven refine an older lesson, which gains *refined by N*:** 57 by 397, 120 by 414, 183 by 402, 197 by 400, 230 by 412, 238 by 408, 254 by 409, 261 by 405, 269 by 407, 301 by 411, 394 by 410. **Two recurred in the close-out itself:** 408 — two more BACKLOG triggers (*Free Skill Points*, *Character panel*) and the runbook's tag line were found by searching the slice's data, not by the handoff's list; and 398 — the close-out's first draft of the runbook gave the two migrations an order *because* one depended on the other, and the code says it does not.
 > **Rev 11 · 2026-11-16** — lessons 386–395 appended in the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged), from the candidates 1–8 the SC decomposition's handoff carried after the register's 385 and two from the slice's code session (9, 10), numbered in candidate order. Read against 1–385 by keyword before numbering. 386 refines 236, which gains *refined by 386*: the static count is short by the tests a class inherits. Four more recurred in the code session and are not renumbered: 143 and 322 (SC-T8's list of anchors named `:127` and `grep` found `:58` too), 157 (`move_hooks=False` skipped the rooms' panel push on a hunt's flight), 162 (a placeholder in a protocol line, typed as written) and 247 (`tail` cut the suite's result off). 392 recurred in the session that numbered it: a test comment cited p. 149 for an example on p. 150.
 > **Rev 10 · 2026-11-16** — lessons 342–385 appended after the docs commit that closes Names (`docs/PolishedWorld_Combat_Decomposition.md` NM-T19), from the candidates 1–51 the Names session handoffs carried after the register's 341, numbered in candidate order; two handoffs had each written a 25, so there were 52. Read against 1–341 by keyword before numbering: five recurred and are not added — 14 was 244, the first 25 was 7, 29 was 150, 41 was 156 and 49 was 181; 7, 10 and 45 are one lesson (348), and the second 25 and 33 are one (364). Four lessons sharpen an older one, which gains *refined by N*: 156 (345), 168 (368), 184 (382), 275 (384).
@@ -33,7 +34,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 5. **Prose has no tests — your own new prose included; run its claims against the source before commit.** Nothing fails when a document is wrong. *(Origin: Adam to fill; first listed 2026-10-15)*
 6. **A diagnostic that can succeed without having searched is worse than none.** It turns a gap into false confidence. *(Origin: Adam to fill; first listed 2026-10-15)*
 7. **Read the diff before commit, and assert exactly one match before every replacement.** Zero or several matches mean the edit landed nowhere or somewhere else. *(Origin: Adam to fill; first listed 2026-10-15)*
-8. **Changelogs are append-only and descending; read the top before numbering.** Anchoring on a remembered revision produced a duplicate Rev. *(Origin: Adam to fill; first listed 2026-10-15)*
+8. **Changelogs are append-only and descending; read the top before numbering.** Anchoring on a remembered revision produced a duplicate Rev. *(Origin: Adam to fill; first listed 2026-10-15; refined by 417)*
 9. **Confirm the branch with `git status`/`git rev-parse` before running the suite.** A green suite on the wrong branch is a receipt for nothing. *(Origin: Adam to fill; first listed 2026-10-15)*
 10. **A mutation harness restores from copies and lets the assert stop the loop.** A harness that carries on after a failed assert leaves mutants on disk. *(Origin: Adam to fill; first listed 2026-10-15)*
 11. **Expected values in a protocol are read and computed from the source.** Values written from memory make a correct run look wrong, or the reverse. *(Origin: Adam to fill; first listed 2026-10-15; refined by 264, 325)*
@@ -50,13 +51,13 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 22. **The guide header and the commit message are prose too.** They are read as claims and go stale like any other text. *(Origin: Adam to fill; first listed 2026-10-15)*
 23. **A task is done when Adam has reported suite and in-game; do not start the next one before that, even on "continue" — ask what is meant.** Only Adam's environment proves the task works where it will run. *(Origin: Adam to fill; first listed 2026-10-15)*
 24. **The tool-output display mangles `<name>` into `<n>`; generate anchors from the files, never from the display.** The files are correct and the rendering is not; verify with `grep -c` or `od -c`. *(Origin: Adam to fill; first listed 2026-10-15)*
-25. **One expected value cannot tell a correct read from a hard-coded one: use two values, different from each other and from the default, with the premise asserted.** A test that a constant would pass proves nothing about the read. *(Origin: Adam to fill; first listed 2026-10-15)*
+25. **One expected value cannot tell a correct read from a hard-coded one: use two values, different from each other and from the default, with the premise asserted.** A test that a constant would pass proves nothing about the read. *(Origin: Adam to fill; first listed 2026-10-15; refined by 428)*
 26. **"Any order" is a claim — try every permutation before it goes into a guide.** Order dependence hides in the combinations nobody ran. *(Origin: Epic A TA2.3, 2026-10-15)*
 27. **A finding in a screenshot (a stale branch, a squeezed column) is verified against the source or GitHub before it becomes a claim either way.** Prompts and renderings lag the real state. *(Origin: Epic A TA2.3, 2026-10-15)*
 28. **A harness's reading of results needs its own receipt: no `Ran` line, stop.** Django reports on stderr, so a stdout-only harness reports nothing for every mutant. *(Origin: Epic A TA3, 2026-10-17)*
 29. **A guide or patch must fail on second application — try it, don't assume it.** A block that re-applies cleanly can silently double an edit. *(Origin: Epic A TA3, 2026-10-17)*
 30. **Configuration is read from the source: confirm with `git stash list` and `settings.py` before judging "expected failures".** A clean-tree prompt meant `#10` was not active. *(Origin: Epic A TA3, 2026-10-17)*
-31. **Line numbers move with every docs commit: read anchors from current `main`, never from a handoff (this one included).** A handoff is a snapshot of a tree that no longer exists. *(Origin: Epic A TA3, 2026-10-17; refined by 304)*
+31. **Line numbers move with every docs commit: read anchors from current `main`, never from a handoff (this one included).** A handoff is a snapshot of a tree that no longer exists. *(Origin: Epic A TA3, 2026-10-17; refined by 304, 425)*
 32. **A check that crashes has not failed — it has not searched.** The negative run must give FAIL lines, not a traceback; guard against empty sets (`all([])` is True). *(Origin: Epic A TA3 close-out, 2026-10-17)*
 33. **Filter on file names, not on line content.** A census filter `grep -v <decomp>` dropped two history lines that only mentioned the decomposition. *(Origin: Epic A TA3 close-out, 2026-10-17)*
 34. **The sandbox `bash_tool` runs `/bin/sh`, where `**` does not expand; run the catalogue loop in `bash -c 'shopt -s globstar …'` — the count is the receipt.** The loop said "checked 5" until it ran under bash. *(Origin: Epic A TA3 close-out, 2026-10-17; refined by 154)*
@@ -77,7 +78,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 49. **Code that answers an open decision updates the registry in the same commit.** `LeatherRecipe` shipped without the flip, and one root cause produced three false claims. *(Origin: track order and FAS 1 costing, 2026-10-17)*
 50. **"Easy" in a table counts artefacts, not work.** The cost lay in decisions, placement and tests, and in a step no list named (catalogue authoring between FAS 1 and E.1). *(Origin: track order and FAS 1 costing, 2026-10-17)*
 51. **Count the consumers before building a source.** Seven of FAS 1's eleven materials had no sink in the alpha, visible only once the 44 items were parsed. *(Origin: track order and FAS 1 costing, 2026-10-17)*
-52. **A claim that a file exists is verified with `git log --all -- <path>`, not with the document that names it.** `testworld_data.py` was in BACKLOG and in a handoff, and never in git. *(Origin: track order and FAS 1 costing, 2026-10-17)*
+52. **A claim that a file exists is verified with `git log --all -- <path>`, not with the document that names it.** `testworld_data.py` was in BACKLOG and in a handoff, and never in git. *(Origin: track order and FAS 1 costing, 2026-10-17; refined by 416)*
 53. **"These are the only X without Y" is verified with a loop over the whole tree.** Core Instructions said "the only three"; the loop found four more in `docs/crafting` and `docs/reference`. *(Origin: track order and FAS 1 costing, 2026-10-17)*
 54. **A late decision in an uncommitted document needs a loop for the document's old self-count.** AD8 updated the changelog and body but not "(AD1–AD7)" in §2's heading. *(Origin: Alpha Content decomposition, 2026-10-18)*
 55. **Count dependencies, not tags.** The 22/9 split counted `[NEW MATERIAL]`; the trees showed five untagged wood consumers, an optional sinew and a flint consumer blocked by a steel striker. *(Origin: Alpha Content decomposition, 2026-10-18)*
@@ -88,7 +89,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 60. **Read how production code reads a registry before choosing how the test reads it.** `_RECIPE_CLASSES` keys on name, so a module scan counts recipes the game never sees. *(Origin: Alpha Content AC1.1 lock, 2026-10-18)*
 61. **A registry helper can point wrong while the status is right: check the entry as a whole.** `prototype_for("knife")` returned a prototype with no source. *(Origin: Alpha Content AC1.1 lock, 2026-10-18)*
 62. **A renderer that omits half the registry blinds the in-game protocol for that half; the protocol needs a second expression.** `render_ledger()` printed no TOOLS. *(Origin: Alpha Content AC1.1 lock, 2026-10-18)*
-63. **A session that verifies, builds and explains at once overflows the reply: one STOPP per reply, and the patch delivered as a file.** The first AC1.1 attempt broke on reply length. *(Origin: Alpha Content AC1.1 lock, 2026-10-18)*
+63. **A session that verifies, builds and explains at once overflows the reply: one STOPP per reply, and the patch delivered as a file.** The first AC1.1 attempt broke on reply length. *(Origin: Alpha Content AC1.1 lock, 2026-10-18; refined by 432)*
 64. **`git switch -c X origin/main` sets the upstream to `origin/main`, so a plain `git push` can land on `main`: use `--no-track` and `push -u origin X`.** AC1.1 reached `main` directly this way. *(Origin: Alpha Content AC1.1, 2026-10-18)*
 65. **The sandbox kills detached processes when the turn ends: the full suite cannot run across a turn boundary, and Adam's local run is the suite receipt.** A backgrounded suite left a truncated log. *(Origin: Alpha Content AC1.1, 2026-10-18; refined by 161)*
 66. **Before every push, `git status -sb` and `git branch -vv` show the right branch and upstream; after it, `git ls-remote` before a SHA is cited.** A push landed on the wrong branch despite lesson 64, the other way round. *(Origin: Alpha Content AC1.1 record, 2026-10-18)*
@@ -140,7 +141,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 112. **A write the decomposition prescribes is tested against the trait's class; and `@py` `delete()` prints nothing, so the receipt is `len(search_object(...))`.** `StaticTrait` has no `.current`, and `allow_extra_properties` reads such a write back as if it had worked. *(Origin: character creation CC1.1–CC1.2, 2026-10-26)*
 113. **A predicted protocol value states its type (`20` or `20.0`).** `assertEqual` does not separate int from float, so the protocol is the only place it shows. *(Origin: character creation CC2.1–CC3.1, 2026-10-28)*
 114. **A guard lives with the writer of its stamp (P-2): test the helper directly, and build the case where only that guard stops it.** CC3.1: flag set but no profession. *(Origin: character creation CC2.1–CC3.1, 2026-10-28)*
-115. **"Existing tests keep passing" is checked with grep across all `test_*.py`.** The CC decomposition promised that for tests that did not exist. *(Origin: character creation CC2.1–CC3.1, 2026-10-28)*
+115. **"Existing tests keep passing" is checked with grep across all `test_*.py`.** The CC decomposition promised that for tests that did not exist. *(Origin: character creation CC2.1–CC3.1, 2026-10-28; refined by 440)*
 116. **An EvMenu module has only nodes as public functions: import modules, and prefix helpers with `_`.** `_parse_menudata` takes every `isfunction` without `_`, imported ones included. *(Origin: character creation CC2.1–CC3.1, 2026-10-28)*
 117. **A claim about framework behaviour is spiked before it is locked, with an independent before-and-after receipt.** CC3.2's "@py is not shadowed for builders" fell that way. *(Origin: character creation CC2.1–CC3.1, 2026-10-28)*
 118. **Menu state that must survive a reload travels in goto kwargs, not in `ndb._evmenu`.** A persistent menu saves the kwargs; `ndb` is lost on reload. *(Origin: character creation CC2.1–CC3.1, 2026-10-28)*
@@ -155,7 +156,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 127. **A gate covers the failure paths.** A refusing node with no options lets an unfinished character out. *(Origin: character creation CC3.2, 2026-10-28)*
 128. **Login protocol steps are verified against the connection screen (lesson 73).** Step 1 said `create Tessa <password>`, but 6.1.0 asks for a username and creates the account in a dialogue. *(Origin: character creation CC3.2, 2026-10-28)*
 129. **Read the library's read path, not only its write path, before predicting a value.** STOPP 1 claimed hunger shows as a fraction; `GaugeTrait` rounds `.current` on read when the base is an int. *(Origin: character creation CC3.3, 2026-10-29)*
-130. **`assertIn("28/28")` lets `28/28.0` through: anchor rendering asserts with `(?![.\d])` and test both sides of a slash.** Probing mutants (M4b, M4c) found the gap. *(Origin: character creation CC3.3, 2026-10-29)*
+130. **`assertIn("28/28")` lets `28/28.0` through: anchor rendering asserts with `(?![.\d])` and test both sides of a slash.** Probing mutants (M4b, M4c) found the gap. *(Origin: character creation CC3.3, 2026-10-29; refined by 444)*
 131. **The second `am`'s format, corrected from lesson 104: a modified file gives two lines, `error: patch failed: <file>:<line>` then `error: <file>: patch does not apply`; a new file gives one, `already exists in index`.** The first line is what gets predicted, so its exact form matters. *(Origin: character creation CC3.3, 2026-10-29)*
 132. **`${PIPESTATUS}` in the sandbox's `/bin/sh` gives "Bad substitution" and aborts the script: keep bash-specific code in `bash -c`, and cleanup in a call of its own.** `git am --abort` never ran. *(Origin: character creation CC3.3, 2026-10-29)*
 133. **A decomposition can promise the player something that is not built: check every player-facing sentence against the code before writing it.** CC3.3's "characteristics improve by play" was false. *(Origin: character creation CC3.3, 2026-10-29)*
@@ -166,9 +167,9 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 138. **The known dbref failures do not need the work machine: on a clean tree, append `TREASURY_DBREF = "#10"` to `settings.py`, run the suite, then `git restore` it.** The tests only read whether the setting is set, and the test database is empty on every run. *(Origin: character creation CC4.2, 2026-10-29)*
 139. **A merge commit's receipt is its SHA, parents and tree, not its subject line: predict the tree beforehand with `git merge --no-ff` on a scratch branch or `git merge-tree --write-tree`.** GitHub writes its own default subject. *(Origin: character creation CC4.2, 2026-10-29; refined by 296)*
 140. **A new Rev can falsify the previous Rev's *(this revision)* marker: include `this revision` in the prose loop at every Rev.** A CC4.1 heading pointed at Rev 2 and became false with Rev 3. *(Origin: character creation CC4.2, 2026-10-29)*
-141. **A merge falsifies the "until X ships" sentences in the next epic's decomposition at once: after every merge, grep it for the merged feature and for `until`/`waits for`, and diff its anchor files.** The weight decomposition still said it waited for character creation. *(Origin: character creation CC4.2, 2026-10-29)*
+141. **A merge falsifies the "until X ships" sentences in the next epic's decomposition at once: after every merge, grep it for the merged feature and for `until`/`waits for`, and diff its anchor files.** The weight decomposition still said it waited for character creation. *(Origin: character creation CC4.2, 2026-10-29; refined by 418)*
 142. **Testing Reference §13 does not name the two dbref tests: cite their full names from the CC decomposition's CC4.2 record.** §13 only points at BACKLOG *Tooling & Process*. *(Origin: character creation CC4.2, 2026-10-29)*
-143. **After a merge, grep the whole next decomposition for `<file>:[0-9]` for every file that `git diff --stat <read-SHA> <main>` shows, not just its anchor table.** Two anchors outside §3 were missed in STOPP 0. *(Origin: weight W1.1, 2026-10-29)*
+143. **After a merge, grep the whole next decomposition for `<file>:[0-9]` for every file that `git diff --stat <read-SHA> <main>` shows, not just its anchor table.** Two anchors outside §3 were missed in STOPP 0. *(Origin: weight W1.1, 2026-10-29; refined by 415)*
 144. **A line span moves by what it points at, not by where the key stands: read the old content with `git show <old>:<file> | sed -n 'A,Bp'` first.** The fatigue anchor 286–288 became 287–289, not "around 285". *(Origin: weight W1.1, 2026-10-29)*
 145. **Read the fixture before claiming anything about it, and make the premise visible with an assert.** `EvenniaTest` puppets `char1` but not `char2`, and the first test run refuted the claim. *(Origin: weight W1.1, 2026-10-29)*
 146. **A patch for `main` carries the history's author, not Claude's default.** Re-authoring keeps the tree but changes the sha256, so the old file must leave the downloads folder. *(Origin: weight W1.1, 2026-10-29)*
@@ -186,7 +187,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 158. **In `@py` with statements, a `lambda` or `def` does not see names from the same line: bind them as default arguments.** `@py` runs `eval(code, {}, available_vars)`, so a function's free names resolve in an empty globals. *(Origin: weight W3.1, 2026-10-30)*
 159. **`previous rebase directory .git/rebase-apply still exists` means an old `am` is hanging: run `git am --abort`, check HEAD, then `am` again.** *Not rewinding to ORIG_HEAD* means HEAD was untouched. *(Origin: weight W3.1, 2026-10-30)*
 160. **A receipt is read from what actually changes.** Under the `"raw"` policy success and failure both yield an item, so `len(out)` says nothing about the roll. *(Origin: weight W3.1, 2026-10-30)*
-161. **A background job in the sandbox dies when the tool call ends: run in the foreground.** `nohup … &` left a log holding only its first line. *(Origin: weight W3.1, 2026-10-30)*
+161. **A background job in the sandbox dies when the tool call ends: run in the foreground.** `nohup … &` left a log holding only its first line. *(Origin: weight W3.1, 2026-10-30; refined by 426)*
 162. **A protocol line runs as written: no placeholders, and a value to restore is saved in `self.db.<name>`, not `ndb`.** A placeholder raised `NameError` after the line's first statements had already run, and a reload empties `ndb`. *(Origin: weight W3.2–W4.1, 2026-10-30)*
 163. **A flag with an optional value (`nargs="?"`) takes the next word as its value: always write the value (`--parallel auto`).** `--parallel tests` read `tests` as the process count. *(Origin: weight W3.2–W4.1, 2026-10-30)*
 164. **A lock is read with the caller's bypass: a superuser passes every lock, and `lock_bypass` is cached until puppet, so a test calls `cache_lock_bypass`.** A check that "only lock holders reach" must also be read for a superuser. *(Origin: weight W4.2, 2026-10-30)*
@@ -208,7 +209,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 180. **A return value is a claim to read, not to assume: read the `return` statement before testing a field.** MD7's `target` is not in `improvement_result`. *(Origin: recipe mastery session 2, 2026-10-30)*
 181. **A mutation's predicted killer must read the value the mutation changes.** RM12 moves mastery into `_skill_value()`, but improvement reads `skill.current`. *(Origin: recipe mastery session 2, 2026-10-30; refined by 316)*
 182. **A decomposition can contradict a standing BACKLOG constraint: grep BACKLOG for the rule before locking a task that touches a shared seam.** Registry readers, Rev 24. *(Origin: recipe mastery session 2, 2026-10-30; refined by 320)*
-183. **Replacing a gate breaks every test that passes through it, not just the gate's own tests: count call sites, not test names.** M3.1: about 20 calls go through `_can_transmit`. *(Origin: recipe mastery session 2, 2026-10-30; refined by 186, 313, 402)*
+183. **Replacing a gate breaks every test that passes through it, not just the gate's own tests: count call sites, not test names.** M3.1: about 20 calls go through `_can_transmit`. *(Origin: recipe mastery session 2, 2026-10-30; refined by 186, 313, 402, 419)*
 184. **Patch globs narrow as patches accumulate: glob on a word only the new patch has.** Each delivery leaves another file in the folder for the next glob to hit. *(Origin: recipe mastery session 2, 2026-10-30; refined by 382)*
 185. **Every test that passes through a gate needs a positive assert that it got through.** When M3.1 closed the gate, tests that asserted nothing happened went green for the wrong reason. *(Origin: recipe mastery session 3, 2026-10-31)*
 186. **Count one fate per old test, not additions and removals.** A table of old test → new fate gave 29 for `test_knowledge` and held; plus/minus gave 27 — and 183's *about 20 calls* was 12 tests. *(Origin: recipe mastery session 3, 2026-10-31)*
@@ -269,7 +270,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 241. **Predict a contrib menu's output through the project's own overrides of the hooks it calls.** The reports menu prints targets through the project's `get_display_name`, so a logged-out character showed as *stone statue of X*. *(Origin: `ingame_reports`, (e); 2026-11-05)*
 242. **A protocol step that needs a character in chargen uses a fresh `Account.create` account, not a reset of a played character.** The fresh account reaches chargen the way a new player does. *(Origin: `ingame_reports`, (g); 2026-11-05)*
 243. **An "as for X" reason in a BACKLOG entry is checked against X before it decides a lock.** The dev board's "no Rev header, as for the roadmap" rested on a roadmap that does have Rev headers. *(Origin: dev board, (h); 2026-11-05)*
-244. **A surviving mutation can show a fixture gap: the data never reaches the guarded line.** `if card:` → `if True:` survived because the fixture's empty bullet was a bare `-`, which never passed the `"- "` test. *(Origin: dev board, (i); 2026-11-05; refined by 310)*
+244. **A surviving mutation can show a fixture gap: the data never reaches the guarded line.** `if card:` → `if True:` survived because the fixture's empty bullet was a bare `-`, which never passed the `"- "` test. *(Origin: dev board, (i); 2026-11-05; refined by 310, 439)*
 245. **A brief to an illustrator describes the property, not the procedure.** "Recolour the dark edge pixels" was followed exactly and missed eight hair pixels that had never had an outline; "every edge pixel ≥ 3:1" would have caught them. *(Origin: webclient W2.3, W-a; 2026-11-06)*
 246. **A docs change can fail a test that reads the document: grep `tests/` for readers of a file before changing it.** The dev board's sixteenth card failed `test_card_count_is_lock_b`. *(Origin: webclient, board card, W-b; 2026-11-06)*
 247. **Read a parallel test run's result with `grep`, not `tail`.** `tail -4` cut the result off at W2.4. *(Origin: webclient W2.4, W-d; 2026-11-06)*
@@ -285,7 +286,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 257. **Install a fake reactor before the fixture's `setUp`.** A send scheduled on the real reactor never runs in a test, and its pending mark swallows every later push of the same kind (`ReactorMixin`). *(Origin: webclient W4.2, W-q; 2026-11-07)*
 258. **A mutation meant to move a call must remove the original.** M16 first added an extra push and survived the order test. *(Origin: webclient W4.2, W-r; 2026-11-07)*
 259. **A protocol step meant to show a number move first reads the object's value.** Two protocols in a row picked items with `enc` 0. *(Origin: webclient W4.2, W-s; 2026-11-07)*
-260. **A census of one kind of write misses the same domain changed by assignment: grep `.location =` too, in the contribs the project runs.** Barter's swap, crafting's products and the silent creature spawn placed without a hook. *(Origin: webclient W4.2, W-t; 2026-11-07)*
+260. **A census of one kind of write misses the same domain changed by assignment: grep `.location =` too, in the contribs the project runs.** Barter's swap, crafting's products and the silent creature spawn placed without a hook. *(Origin: webclient W4.2, W-t; 2026-11-07; refined by 429)*
 261. **A "before merge" TODO is a claim nobody reads at merge: a test reads it, a comment does not.** `WEAR_TICK_INTERVAL = 30` sat on `main` and in a tag. *(Origin: `fix/wear-interval`, W-u; 2026-11-07; refined by 405)*
 262. **A tag is read back from origin, both that it arrived and what kind it is.** A tag created in the terminal is not pushed by GitHub Desktop's *Push origin*; `git ls-remote --tags origin <name>` hides the `^{}` line, so whether a tag is annotated is read with `git cat-file -t <tag>`. *(Origin: `fix/wear-interval` and webclient W8.1, W-v, W-bc; 2026-11-08 → 2026-11-11; refined by 332)*
 263. **A prose proposal of a "minimal fix" is read against the code it touches.** A proposal is a claim about code and is checked like one (lesson 5). *(Origin: webclient, W-w; 2026-11-08)*
@@ -315,7 +316,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 287. **A test added after the red run takes its red receipt from a mutation that removes exactly what it guards.** `test_names_are_plain`, W-M202/W-M203. *(Origin: webclient W7.1, W-ax; 2026-11-11)*
 288. **A protocol that wears a garment reads the type caps first (`CLOTHING_TYPE_LIMIT`) and spawns it with a unique key and an uncapped type.** `undershirt` is capped at one. *(Origin: webclient W7.1, W-ay; 2026-11-11)*
 289. **A decision that changes a count makes number words elsewhere false: grep the number words, not only the name.** "No fifth domain" left "a sixth domain" standing. *(Origin: webclient W7.1, W-az; 2026-11-11)*
-290. **A protocol step after `spawn` predicts no room panel.** `spawn` places by assignment (`building.py:4620`), so no hook runs. *(Origin: webclient W7.1, W-bb; 2026-11-11)*
+290. **A protocol step after `spawn` predicts no room panel.** `spawn` places by assignment (`building.py:4620`), so no hook runs. *(Origin: webclient W7.1, W-bb; 2026-11-11; refined by 435)*
 291. **`git branch` goes through the pager too: `git --no-pager branch`.** `git branch -r` in a chain printed nothing. *(Origin: webclient W8.1, W-bd; 2026-11-11)*
 292. **A predicted diff line is read against the delivered line.** `settings.py:152` is the comment `# TREASURY_DBREF = "#42"`, so `^[-+]TREASURY` catches only the plus line. *(Origin: webclient W8.1, W-be; 2026-11-11)*
 293. **A silent screen reader is split in three minutes with a control page that has the same markup and no project code.** Silent there too → the tool, not the page. *(Origin: webclient W8.1, W-bf; 2026-11-11)*
@@ -335,9 +336,9 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 305. **A prediction that a document is untouched is checked with the prose loop.** The visual decomposition's README row still listed the component that was cut. *(Origin: webclient visual pass V5.2, candidate (c); 2026-11-12)*
 
-306. **A slice taken from a design note is read against the later slices before it is locked: does it have a way back?** Rest slice 1 had the levels and the collapse but neither `sleep` nor a reset of the clock, which SL10 had to supply. *(Origin: survival loop decomposition, candidate (d); 2026-11-12)*
+306. **A slice taken from a design note is read against the later slices before it is locked: does it have a way back?** Rest slice 1 had the levels and the collapse but neither `sleep` nor a reset of the clock, which SL10 had to supply. *(Origin: survival loop decomposition, candidate (d); 2026-11-12; refined by 423)*
 
-307. **A rate from the rulebook is converted to real time for the one who is actually ticked before it is accepted.** Legend's healing on a tick that sees only online characters gave 0.4 hit points a week at five hours a week (SL7). *(Origin: survival loop decomposition, candidate (e); 2026-11-12)*
+307. **A rate from the rulebook is converted to real time for the one who is actually ticked before it is accepted.** Legend's healing on a tick that sees only online characters gave 0.4 hit points a week at five hours a week (SL7). *(Origin: survival loop decomposition, candidate (e); 2026-11-12; refined by 433)*
 
 308. **Moving an object onto a shared axis gives it every reader of that axis: count the readers.** The waterskin on `condition` became mendable through `repair` (SL5). *(Origin: survival loop decomposition, candidate (f); 2026-11-12)*
 
@@ -383,7 +384,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 329. **Before calling a figure in a lock wrong, read whether it is an average.** S3.5's STOPP 0 called SL12's *about 75 seconds* wrong; it holds on average, and per death the outcome is 0 or +600 game seconds. *(Origin: survival loop S3.5, candidate (ag); 2026-11-14)*
 
-330. **A test of a bare constant goes green against a stub with the same value: say so in the red-before-green receipt instead of counting it as a missed red.** The rule the constant serves is what needs the red. *(Origin: survival loop S3.5, candidate (ai); 2026-11-14)*
+330. **A test of a bare constant goes green against a stub with the same value: say so in the red-before-green receipt instead of counting it as a missed red.** The rule the constant serves is what needs the red. *(Origin: survival loop S3.5, candidate (ai); 2026-11-14; refined by 427)*
 
 331. **A Node suite's count is predicted from its last receipt, not from a grep for `it(`.** Tests made in loops escape the grep: 136 by grep, 142 by the run, as S3.1 had recorded. *(Origin: survival loop S4.1, candidate (aj); 2026-11-14)*
 
@@ -407,7 +408,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 341. **A chain that stashes the settings line and leaves the branch carries its own way back in the same line.** AV-T5's return (`git switch` back, `git stash pop`) stood as a separate command and was skipped; the next chain ran on `main` with `"#10"` still in the stash, and a later `stash pop` brought it back. *(Origin: Arrival AV-T5, candidate (i); 2026-11-14)*
 
-342. **Labels are checked against the repo before they are used in the chat: `grep -rhoE "\b<XX>[0-9]+\b"` over `docs world commands typeclasses server tests`.** The design session named targeting TG and wounds WD, both taken (Hunting TG1–TG5, Weight WD1–WD5), and it was found only at delivery; NM-T1's extra mutations then took NMM2 and NMM3, NM-T2's, hence the letter after the number (NMM1b). *(Origin: Stage 5 design session, Combat decomposition and NM-T1, candidate 1; 2026-11-14 → 15)*
+342. **Labels are checked against the repo before they are used in the chat: `grep -rhoE "\b<XX>[0-9]+\b"` over `docs world commands typeclasses server tests`.** The design session named targeting TG and wounds WD, both taken (Hunting TG1–TG5, Weight WD1–WD5), and it was found only at delivery; NM-T1's extra mutations then took NMM2 and NMM3, NM-T2's, hence the letter after the number (NMM1b). *(Origin: Stage 5 design session, Combat decomposition and NM-T1, candidate 1; 2026-11-14 → 15; refined by 424)*
 
 343. **An assumption in a roadmap line is not a source: read the rule before a proposal rests on it, and say so when the book disagrees.** Stage 5's text assumed Armour Points summed across layers (core p. 95 takes the highest), wear per hit and no pattern for non-combat damage; *Legend* had none of the three. *(Origin: Stage 5 design session, candidate 2; 2026-11-14)*
 
@@ -455,7 +456,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 365. **An `at_post_*` hook sees the new state: read when the hook runs against the state before choosing `$You()`.** `at_post_unpuppet` runs after the account has let go, so the character is already a statue and its name says so. *(Origin: Names NM-T11, candidate 26; 2026-11-15)*
 
-366. **Inherited display helpers can write data: read a helper's side effects before it is given a name per reader.** Evennia's `get_numbered_name` saves each reader's form as an alias, so a name that differs per reader leaks into the search through it. *(Origin: Names NM-T11, candidate 27; 2026-11-15)*
+366. **Inherited display helpers can write data: read a helper's side effects before it is given a name per reader.** Evennia's `get_numbered_name` saves each reader's form as an alias, so a name that differs per reader leaks into the search through it. *(Origin: Names NM-T11, candidate 27; 2026-11-15; refined by 441)*
 
 367. **The "red first" figure in a *Shipped* line is a receipt: count it from the run, not from memory.** The docs draft said 13 of 14 and 8 site tests; the runs showed 12 of 14 and 8 of 9. *(Origin: Names NM-T10–NM-T11, candidate 28; 2026-11-15)*
 
@@ -495,7 +496,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 385. **A protocol step run against an old client does not count: run it again after the receipt, and read its picture on its own.** NM-T17's first `recog` ran under the old script, and later frames rebuilt the panel, so the picture proved nothing. *(Origin: Names NM-T17, candidate 51; 2026-11-16)*
 
-386. **A static count of `def test_` misses the tests a class inherits: count per concrete class, or predict from the last run.** 2029 counted against 2050 run; two classes run 13 and 8 of their parents' tests a second time. The same 21 made 1991 against 2012 on `feature/names`. *(Origin: SC decomposition handoff, candidate 1, read in SC-T7; 2026-11-16)*
+386. **A static count of `def test_` misses the tests a class inherits: count per concrete class, or predict from the last run.** 2029 counted against 2050 run; two classes run 13 and 8 of their parents' tests a second time. The same 21 made 1991 against 2012 on `feature/names`. *(Origin: SC decomposition handoff, candidate 1, read in SC-T7; 2026-11-16; refined by 442)*
 
 387. **An example in a BACKLOG entry is a claim to run.** *A 05 beats an opponent's 04 at target 60* stood from 2026-10-31 and survived the design session that decided the entry; at 60 the 04 is a critical. It was caught when the example was run. *(Origin: SC decomposition, candidate 2; 2026-11-16)*
 
@@ -527,7 +528,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 401. **A lock whose answer depends on a cost another lock sets is taken after that lock.** The length of the starting list (BD4) depended on what a new style costs (BD3); the order was swapped and the reason said. *(Origin: BD decomposition, candidate 6; 2026-11-16)*
 
-402. **A scratch clone with the simplest change counts the tests that notice it before the task is written.** Four of 333 failed when the four skills were added; lesson 183 done in advance. Refines 183. *(Origin: BD decomposition, candidate 7; 2026-11-16)*
+402. **A scratch clone with the simplest change counts the tests that notice it before the task is written.** Four of 333 failed when the four skills were added; lesson 183 done in advance. Refines 183. *(Origin: BD decomposition, candidate 7; 2026-11-16; refined by 420, 434)*
 
 403. **A mutation that moves a band is run both ways.** `<` for `<=` caught only the bands' upper edges (20, 25), `<= upper + 1` only the lower (21, 26); a test with both ends of every row kills both. *(Origin: BD-T2, candidate 8; 2026-11-17)*
 
@@ -552,3 +553,63 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 413. **A new dependency between two modules is read before the lock.** The decomposition put `ensure_style` beside the data, but `base_for` must read the data, which would have made the two modules import each other; caught at the lock, not in code. *(Origin: BD-T6, candidate 19; 2026-11-22)*
 
 414. **A spelling two screens show gets one home.** BD-T7 first formatted the Damage Modifier again in `sheet`; both screens now go through `body.format_damage_modifier`. Refines 120. *(Origin: BD-T7, candidate 20; 2026-11-22)*
+
+415. **An anchor a merge flags as moved is read against the tree before the merge.** BD-T9's loop flagged 278 anchors; the ten in living documents already pointed wrong at `3a45e72`, so they were dated readings, not the slice's debt. Refines 143. *(Origin: BD-T9's close-out, candidate 1 of the series after 414; 2026-11-22)*
+
+416. **A handoff's claim about history is read against `origin`.** *The earlier Desktop tags were lightweight* was false for `alpha-20261116` and `alpha-20261114-2`. Refines 52. *(Origin: BD-T9's close-out, candidate 2; 2026-11-22)*
+
+417. **An unpushed patch from another chat may have taken Rev numbers: read what is waiting before a number is taken.** The GameGold patch held BACKLOG 117 and roadmap 86 before BD-T9 took them. Refines 8. *(Origin: BD-T9's close-out, candidate 3; 2026-11-22)*
+
+418. **The tag L6.1 deploys is moved in the runbook's §7 by every merge before the deploy.** BD's close-out did not name the line and found it because Runbook Revs 3–11 all moved it; WN's moved it again (Runbook Rev 13). Refines 141. *(Origin: BD-T9's close-out, candidate 4; 2026-11-22)*
+
+419. **Count calls, not name hits: search `name(` and drop `def`.** `git grep` gave nine hits on `apply_health_damage`; the calls were one in production and two in tests, the rest docstrings. Refines 183. *(Origin: Wounds design, candidate 1; 2026-11-23)*
+
+420. **A prototype's count of red tests measures the net, not the change.** Five failures in 825 meant the road to death was untested, and gave the slice its first task (WN-T1). Refines 402. *(Origin: Wounds design, candidate 2; 2026-11-23)*
+
+421. **An earlier lock's reason is read again when later locks change what the slice reaches.** BD8 put Resilience's training in WN because *Resilience is first rolled in WN*; WN5 and WN7 left no play that reaches the roll before ML (WN8). *(Origin: Wounds design, candidate 3; 2026-11-23)*
+
+422. **A lock that makes one thing behave unlike everything around it is tested against the world's principle before the loophole it closes.** A clock running inside a statue closed a loophole and broke *a statue is not harmed*; the answer was at the door — the body does not turn to stone while a clock runs (WN4). *(Origin: Wounds design, candidate 4; 2026-11-23)*
+
+423. **Every new consequence is tested against where its cure lies in the slice map.** A clock with no stop and a state with no cure showed *Two-stage healing* four slices too late, and HL became row 8b, before ML. Refines 306. *(Origin: Wounds design, candidate 5; 2026-11-23)*
+
+424. **A reference written from memory is grepped before the commit.** The design caught a wrong test file for the dice patch and a wrong lesson number (237 for 242); WN-T13 caught a wrong mutant label, a wrong runbook section and a lesson cited by its candidate number. Refines 342. *(Origin: Wounds design, candidate 6; 2026-11-23)*
+
+425. **A line number is read live with `grep -n`, never taken from an older printout or counted from a `sed` window.** BACKLOG's line 1797 was another entry than the one sought; `LOCATIONS` at `:193` was a count from a `sed` window, and the decomposition's `:195` was right. Refines 31. *(Origin: Wounds design, candidate 7, and WN-T2, candidate 14; 2026-11-23)*
+
+426. **A long run in the sandbox goes under `nohup` with a done-file, and the same turn waits for it.** A foreground call stops at 600 s, which broke the first run midway, and a detached job still dies when the turn ends (161). Refines 161. *(Origin: Wounds design, candidate 8; 2026-11-23)*
+
+427. **A test that reads a constant cannot kill a mutation of it: write the number.** `== STARVE_DAMAGE` passes at 0 = 0. Refines 330. *(Origin: WN-T1, candidate 9; 2026-11-23)*
+
+428. **A test of a tie needs the tied party to show other numbers than the right one.** The legs' 5/10 hid a last-wins mutation in the row where the head should win (WNM7b). Refines 25. *(Origin: WN-T2, candidate 10; 2026-11-23)*
+
+429. **A census sees a form of write, not a domain: test it against its own module, and teach it the new form when the storage changes.** The first AST census saw `X.traits` and missed `health_of`, which reads through a local `traits` (WN-T3); WN-T5 taught it `db.body_damage` and `attributes.remove`, without which the door lock would have stopped biting in silence. Refines 260. *(Origin: WN-T3, candidate 11, and WN-T5, candidate 18; 2026-11-23)*
+
+430. **sha256 on the source says nothing about the bytecode.** A mutation restored at the same size within the same second left its `.pyc`, and a whole run tested the mutant; run the harness with `PYTHONDONTWRITEBYTECODE=1` and empty `__pycache__`. *(Origin: WN-T3, candidate 12; 2026-11-23)*
+
+431. **A mutant killed by one test alone has found that test's job.** WNM2 died only by the spy, which showed the docstring's *by accident* true (WN-T1); WNM18 died only by the premise test, which no `ALL` source can reach — the reason the premise is written by hand (WN-T5). *(Origin: WN-T1, candidate 13, and WN-T5, candidate 19; 2026-11-23)*
+
+432. **A delivery is not done until the file is sent.** WN-T3's patch was built, tried and described, and not sent. Refines 63. *(Origin: WN-T3, candidate 15; 2026-11-23)*
+
+433. **A protocol's numbers are counted from the code, for the body that is hurt, over all seven locations.** At one point of `ALL` the worst margin is the smallest location's — an arm's 5/6, not the head's 7/8 (WN-T7); a handoff's *head 5 at CON + SIZ 20* was wrong, `hit_points_max(10, 10)` says 4 (WN-T5); six damage to an arm is Major for `adam` (arm 3) and Serious for `bdt9` (arm 4) (WN-T10). Refines 307. *(Origin: WN-T5–WN-T10, candidates 16, 21 and 23; 2026-11-23)*
+
+434. **A decomposition's count of failing tests ages as later tasks add tests under the same seam: read every extra failure before the number is accepted.** P2 gave nine, not five; P1 gave 59 in six modules, not three modules. Refines 402. *(Origin: WN-T4 and WN-T6, candidate 20; 2026-11-23)*
+
+435. **A write from `py` pushes nothing.** A door called from `py`, or an Attribute set by hand, leaves the panel on the old figure until something pushes `char` — 18/20 in WN-T4, 0/100 in WN-T11; in play a door is reached through its caller, which pushes. Refines 290. *(Origin: WN-T4, candidate 22; 2026-11-23)*
+
+436. **Two alarms due at the same instant fire in either order, and under lazy evaluation every reader is a waker: put the guard in the reader.** Unit tests that fired the alarms by hand in one order never saw the waking come before the clock's death; WN-T10's in-game check did. The fix sits in `wounds.unconscious`, which every waker asks, so neither the alarm order nor a command typed in between matters. *(Origin: WN-T10, candidate 24, and the fix before WN-T11, candidate 33; 2026-11-23 and 2026-11-24)*
+
+437. **A seam that tests patch is a meaning.** The names tests patched `is_statue` as *awake*; when `is_statue` came to mean *is stone* and the commands asked `has_account`, twelve tests outside the run set fell. *(Origin: WN-T10, candidate 25; 2026-11-23)*
+
+438. **A test that holds a census list against what the module writes forces out the next Attribute.** In WN-T9 and WN-T10 it was the only test that saw the new Attribute. *(Origin: WN-T9 and WN-T10, candidate 26; 2026-11-23)*
+
+439. **A surviving mutant can be nearly equivalent: ask what the guard protects that can be observed.** WNM36c's check protected not the waking but the task table. Refines 244. *(Origin: WN-T9, candidate 27; 2026-11-23)*
+
+440. **A module set chosen by grep on the topic misses modules that read the changed symbol: grep the symbol in `tests/` before the set is accepted.** The names modules fell outside the twenty-five in WN-T10; WN-T11's symbol search found `test_progress_command`. Refines 115. *(Origin: WN-T10, candidate 28; 2026-11-23)*
+
+441. **A property read when others look has no side effects.** `is_statue` reads `holds_body`, which only reads, and not `unconscious()`, which wakes. Refines 366. *(Origin: WN-T10, candidate 29; 2026-11-23)*
+
+442. **Let the test runner count the suite.** A runner that builds the suite and prints `countTestCases()` without running it gave 2187 on `main` — the last run's number — and 2327 on the branch, which the run then gave; the static count was 21 short both times. Refines 386. *(Origin: WN-T12, candidate 30; 2026-11-24)*
+
+443. **A pair of numbers whose whole follows the thing it names can rise while the body gets worse.** `adam`'s worst margin went *3/6 → 4/8* between three and four points of starvation, and *8/8 → 5/6* read as a maximum lost; a figure out of a fixed whole does neither (OQ-WN8). *(Origin: WN-T11, candidate 31; 2026-11-24)*
+
+444. **An assert on a rendered number is anchored on its row's label.** *100/100* matched Hunger's row as well as Health's; `test_chargen_help` now reads `Health\s+100/100`. Refines 130. *(Origin: WN-T11, candidate 32; 2026-11-24)*

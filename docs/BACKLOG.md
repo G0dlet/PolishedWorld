@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 121 · 2026-11-24** — **two entries DONE, nine annotated, one new**, docs only, in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`). BACKLOG was searched first for the twelve names the slice touched (WN-T13; lessons 238 and 408): twenty-five entries name one, and each was read against the merge. **DONE:** *`at_character_death()` restore block vs persistent wound tiers* (WN-T8–WN-T10) and *Dev characters keep a float `health.base`* (WN-T6, closed by the trait's removal). **Annotated with what shipped:** *Free Skill Points*, *Characteristic improvement*, *Two-stage healing* (status now BLOCKED on HL's design session), *Character panel: Legend combat state* (BLOCKED on CL), *Survival loop tuning*, *A collapsed body's instant commands* (the clock fix), *`descs` tables…* (WN-T11 changed health's key-0 word, not its reading; the trigger did not fire), *Runnable seam checker*, *Persistent alpha instance* and *Hero Points in a persistent world*. **New:** *Others cannot tell a body lies senseless* (OQ-WN5's last word, BLOCKED on ML with OQ-WN3). The other fourteen are done, unchanged by WN, or already say what WN did.
 > **Rev 120 · 2026-11-23** — one entry **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 4 (WN-T8–WN-T10 shipped on `feature/wounds`), Combat Design Rev 7 and README Rev 71. ***A collapsed body's instant commands***: a wound's unconsciousness (WN-T9) is refused where a collapse is and lets the same commands through, for minutes rather than ninety seconds; no play knocks a body out before ML.
 > **Rev 119 · 2026-11-23** — two entries **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 3 (WN-T4–WN-T7 shipped on `feature/wounds`) and README Rev 70. ***Survival loop tuning***: Adam's question at WN-T7 — should starvation's death use the whole body's Hit Points? — with what the book and WN2b say, for the alpha's data. ***Dev characters keep a float `health.base`***: WN-T6 shipped (`8e3beb7`); still closed in WN-T13.
 > **Rev 118 · 2026-11-23** — two entries **added** and seven **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 1 (Stage 5's slice WN decomposed), Combat Design Rev 6 (locks WN1–WN11), Combat Decomposition Rev 17, roadmap Rev 87 and README Rev 68. **New, both in *Health & Injury*: *Time away heals vs the statue as a snapshot*** (BLOCKED on slice HL: the statue is a snapshot, Adam 2026-11-23, and SL7's credit is the one exception left) and ***Natural healing: the row lost to strenuous activity*** (BLOCKED on ML; core p. 87, not built by WN10). **Annotated:** *`at_character_death()` restore block vs persistent wound tiers* → SCHEDULED (WN-T8); *Dev characters keep a float `health.base`* → SCHEDULED (WN-T6 ends it); *Two-stage healing* (it is slice HL, before ML, both halves); *Character panel: Legend combat state* (WN ships the data, CL the panel); *Survival loop tuning* (what WN keeps and what it moves); *Free Skill Points* (Resilience's training comes with ML); *Characteristic improvement* (WN1 needs no writer). The search of this file on the names the slice touches was run before a lock was taken (lessons 238 and 408) and found sixteen entries naming it; these nine are the ones it changes.
@@ -1248,6 +1249,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Design WN8). What reads Resilience in play today is natural healing
   (`world/healing.py`), and the test will read it with the whole physical
   modifier (WN7).
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN is merged (`c3df740`).
+  The wound's Resilience test is in the code (`wounds.resilience_test`,
+  WN-T8) and no play reaches it before ML; natural healing is still the one
+  reader of Resilience in play. The trigger stands.
 - **Status:** BLOCKED (the four combat skills read in play / alpha data)
 
 ### Every knowledge-gated recipe has a profession grantor
@@ -1363,6 +1368,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   location, and Hit Points are the maximum — read from CON + SIZ on every
   call — less the damage (Combat Design WN1). `update_health_max()`, the one
   rescaling writer the body had, goes with the `health` trait (WN-T6).
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** shipped as written: Hit Points
+  are read from CON + SIZ on every call (`world/body.py::hit_points_max`,
+  through `wounds.maxima_of`), and `update_health_max()` is gone (WN-T6,
+  merged in `c3df740`). A rising CON or SIZ raises every location's maximum
+  at once and leaves the stored damage as it is.
 - **Status:** BLOCKED (something that changes a characteristic, or the improvement epic)
 
 ### Chargen resume replays the last notice
@@ -1393,7 +1403,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Annotation (2026-11-23, Wounds Decomposition Rev 3):** WN-T6 shipped on
   `feature/wounds` (`8e3beb7`): nothing creates, rescales or reads the trait,
   and `update_health_max()` is gone. The status waits for the merge.
-- **Status:** SCHEDULED (Stage 5 slice WN, task WN-T6 — the trait stops being read)
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** **closed with the merge**
+  (`c3df740`): nothing creates, rescales or reads the trait, so an old
+  character's float is a number nobody asks for. No migration, as planned.
+- **Status:** DONE (`8e3beb7`, merged in `c3df740`, PR #34; Wounds Decomposition WN-T6, Rev 5) — closed by the trait's removal, not by a migration
 
 ### Placeholder skill bases in `at_object_creation`
 - **What:** `at_object_creation` still creates the skills on the old fixed
@@ -1745,7 +1758,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   and a wound's unconsciousness, since a deadline that outlived the body
   would kill it again at its respawn point (WN9). A mutation that clears
   *maimed* at respawn is in the task's table and must be killed.
-- **Status:** SCHEDULED (Stage 5 slice WN, task WN-T8)
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** **DONE with WN.** The restore
+  block calls `wounds.restore_at_respawn` (WN-T4), which removes the damage
+  and *disabled* and keeps *maimed* and *severed* (WN-T8), and the death also
+  stops a running clock and a wound's unconsciousness (WN-T9, WN-T10).
+  WNM30 (a mutation that clears *maimed* at respawn) was killed. WN-T12's
+  protocol saw it: after a death by the head's clock, `status` read
+  *head 4/4 maimed* and *left arm 3/3 maimed*, and the *useless* leg was gone.
+- **Status:** DONE (`87f1faf` and `425172e`, merged in `c3df740`, PR #34; Wounds Decomposition WN-T8–WN-T10, Rev 5)
 
 ### `DeathWeakness` debuff → `fatigue_rate`
 - **What:** Point the death-weakness debuff at `fatigue_rate` (its intended
@@ -1841,7 +1861,17 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   × 60 s for a limb and (CON + POW) / 2 × 5 s for head, chest and abdomen.
   HL's design session also takes *Time away heals vs the statue as a
   snapshot* (below). The Trigger's first half reads: WN merged.
-- **Status:** BLOCKED (Stage 5 wound tiers)
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN is merged (`c3df740`), so
+  the first half of the Trigger is met: the tiers, the clocks and the
+  location Hit Points exist. What HL finds: `wounds.stop_clock(char,
+  location)` stops a clock and turns a body whose player has gone to stone
+  (WN-T10); `wounds.revive(char)` has no caller; the states are
+  `wounds.states_of(char)`, written only by `wounds.damage`, with
+  `restore_at_respawn` dropping *disabled*; `status` names a clock
+  *bleeding out (N min)* and a disabled limb *useless* (WN-T11). Until HL a
+  Major Wound a body survives is a death on its clock, and *maimed* has no
+  cure; no play can cause either before ML.
+- **Status:** BLOCKED (Stage 5 slice HL's design session; the wound tiers shipped in `c3df740`)
 
 ### Character panel: Legend combat state
 - **What:** The webclient's character panel gains what the style guide §6
@@ -1883,7 +1913,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Major Wound (Combat Design WN2, WN11). The panel is slice CL, which waits
   for ML as well, so the Trigger firing at WN's merge starts nothing by
   itself.
-- **Status:** BLOCKED (Stage 5 locational HP)
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN is merged (`c3df740`), so the
+  Trigger's *locational Hit Points shipped and in-game verified* is met
+  (WN-T12's protocol). The `char` snapshot's `health` now carries the figure
+  out of 100 in its three keys (Combat Design OQ-WN8, answered (a)), and
+  `wounds.report(char)` is the per-location list a panel would show. The
+  panel itself stays slice CL's.
+- **Status:** BLOCKED (Stage 5 slice CL; the locational Hit Points shipped in `c3df740`)
 
 ### Hero Points in a persistent world
 - **What:** Decide how a character earns Hero Points, and whether there is a
@@ -1907,6 +1943,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   slowly by time played, with a cap of 4, the rate a calibration constant
   (HP4). The cap and the earning rule are the project's, since the book has
   neither in a form a MUD can cite.
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** HE is the next slice.
+  What a Hero Point would downgrade now exists: a Major Wound is a level
+  derived from the stored damage (`wounds.level`), and the states and clocks
+  follow from the Resilience test (`wounds.damage`, WN-T8).
 - **Status:** DECIDED (roadmap Rev 80) · code SCHEDULED (Stage 5)
 
 ### Time away heals vs the statue as a snapshot
@@ -1943,6 +1983,23 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   strenuous), or slice HL's design session if it sets the table anew.
 - **Origin:** Combat Design WN10, 2026-11-23.
 - **Status:** BLOCKED (Stage 5 slice ML or HL)
+
+### Others cannot tell a body lies senseless
+- **What:** A body knocked out by a wound (WN-T9) shows nothing of it to
+  others after the moment it falls: the room hears *crumples and lies still*,
+  and afterwards `look` and the room panel show the body as they show anyone
+  standing. A body knocked out is not a statue (OQ-WN6), so it does not read
+  *stone statue of*; and *the body of* is a corpse's word.
+- **Why deferred:** No play knocks a body out before ML, and the place to
+  show it is the short description's state slot (`world/sdesc.py`,
+  `state_word`), whose wound word is ML's (Combat Design OQ-WN3). Showing it
+  through `get_display_name` would touch every name the names commands read
+  (lesson 437: a seam that tests patch is a meaning).
+- **Trigger:** ML's design, together with OQ-WN3 — the first slice in which
+  a blow can knock a body out in front of others.
+- **Origin:** OQ-WN5's last word, deferred at WN-T11's STOPP 0 (Adam,
+  2026-11-24, as recommended).
+- **Status:** BLOCKED (Stage 5 slice ML)
 
 ---
 
@@ -2224,6 +2281,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   reads wrong in the alpha, it is this entry's one variable,
   `STARVE_TICKS_PER_POINT`, that moves -- or a decision to let the gauges
   kill by another rule, which would be a new lock in the Combat Design.
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN is merged (`c3df740`) and in
+  `alpha-20261124`, the tag L6.1 deploys: the alpha's testers starve at two
+  ticks a point from every location, so death follows CON + SIZ through the
+  head (a CON + SIZ 20 body dies at eight points, sixteen ticks), and
+  healing mends every hurt location per interval. `status` shows the figure
+  out of 100 with a line per location at a Serious Wound or worse (WN-T11),
+  which is the data this entry waits for.
 - **Status:** OPEN
 
 ### A `rate` multiplier below ×1.5 is lost to the gauges' rounding
@@ -2279,6 +2343,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   clock runs out, not ninety seconds. Before ML nothing in play knocks a
   body out (WN5), so the gap is first met with the blow; HB's helpless body
   is where it is decided for both states.
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** a command typed between a
+  clock's deadline and its alarm is refused, not woken (the fix before WN-T11,
+  `079abd8`): `wounds.unconscious` answers `True` while any clock is due, so
+  the refusal holds until the clock's alarm kills the body.
 - **Status:** OPEN
 
 ---
@@ -3141,6 +3209,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   been read from `world/fatigue.py::LEVELS` since the survival loop (SL8), not
   from its stored table. **New trigger:** before the next change to hunger's or
   thirst's table, or to the ticker's warnings.
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN-T11 changed one
+  word of health's table — key 0 reads *grievously wounded*, not *dead*, since
+  a living body can stand there — and not its reading: `health_desc()` reads
+  `wounds.HEALTH_WORDS` by the same upper bound. The trigger (hunger's or
+  thirst's table, or the ticker's warnings) did not fire.
 - **Status:** OPEN (hunger and thirst)
 
 ### Health `descs` use a 0–100 scale against a max of `CON × 2`
@@ -3945,6 +4018,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   table is *going* to be edited, and that is the cheapest moment to make editing it
   verifiable.
 - **Origin:** System Map Rev 2 verification sweep (2026-08-03).
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN changed the seam this
+  entry names: `apply_health_damage(amount, *, location, source=None,
+  made=None)` writes through `world/wounds.py`'s doors (System Map Rev 6).
+  The checker is still not built.
 - **Status:** SCHEDULED (Stage 5 kickoff)
 
 ### Import the three project-knowledge-only docs
@@ -4134,6 +4211,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `98fa60e`, PR #29, tree `2271ab3`), which ships the survival loop on top
   of the webclient and its visual pass; runbook §7, Rev 9. The loop adds no
   ticker and no migration; the TLS note above stands.
+- **Annotation (2026-11-24, Wounds Decomposition Rev 5):** WN shipped before the alpha
+  opened: `alpha-20261124`, the tag L6.1 deploys, carries locational Hit
+  Points and the wound states, so the cohort's characters are born with
+  them and no migration is needed for WN.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones

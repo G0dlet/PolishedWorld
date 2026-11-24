@@ -1,5 +1,6 @@
 # PolishedWorld — Testing Reference (`@py` idioms & gotchas)
 
+> **Rev 29 · 2026-11-24** — **wounds** (the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`)). New **§27: Wounds** — the merge suite and a count from the test runner itself, the module set and the symbol search, the sandbox's background run and the mutation harness; what the tests pin (the two bodies, the dice, the patched clock and alarms fired by hand, the census of the wound Attributes and doors, a player gone as `char2`); and the `py` protocols that maim and kill, with their numbers read from the hurt body and their clean-up by removing Attributes.
 > **Rev 28 · 2026-11-16** — **the skill-check forms** (the commit that closes Stage 5's slice SC (`docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` Rev 2; merged as `d3d7ae1`, PR #32, not tagged)). New **§26: The skill-check forms** — the merge suite and why a static count of `def test_` is 21 short, the neighbours of a change to `world/skillcheck.py`, what the tests pin (dice and a coin pinned in rolling order with `call_count` read after, a made roll built by `skill_check`, the census of public forms, the hunt's outcome read in the world), and a protocol that pins the die: one `py` line with a `with` statement, not `py/edit`.
 > **Rev 27 · 2026-11-16** — **Names** (Combat Decomposition NM-T19; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`). New **§25: Names** — the merge suite with Node, the neighbours of a change that names someone, what the tests pin (a Builder's search falls back to the key, `EvenniaCommandTest.call` gives every command a Developer's account, `location.msg_contents` for a room line, the fixture's descriptions, the memo, a stripped fixture), and how a protocol targets and reads a stranger (by dbref; read on a player; three readers; facts first). §22.3 gains the receipt for a tab open across a deploy: the old `pw_room.js` writes *[object Object]* until the shell's `evennia reload` and a hard reload.
 > **Rev 26 · 2026-11-15** — **the multimatch form is `N-name`** (Names NM-T1, NM9; on `feature/names`). §12's numbered-alias rule and the two craft steps that type it (§11's receipt block, §17's protocol) now read `1-fiber`, `1-rabbit`. §11's account of the Rev 5 run keeps `fiber-1`: it quotes what the protocol said then. The suffix form finds nothing after NM-T1, so any protocol written before it that types `name-N` is stale.
@@ -1553,6 +1554,45 @@ The first run used `arrivaltest2`, which finished the menu before S had read ste
 - **Read the hunter first.** `physical_modifier()` is part of the target: step 1 read −30 on a *wearied* G0dlet, and the line that sets the target subtracts it.
 - **No placeholder in a line** (lesson 162): the restore is the number read back in step 1, written out, or a value saved in `self.db` there.
 - **Read the whole picture.** The location panel still listed a quarry that had fled, which no step asked about (lesson 394; BACKLOG *Webclient: a quarry that flees stays in the location panel*).
+
+## 27. Wounds
+
+*(Wounds decomposition, slice WN, WN-T1–WN-T12 and a fix before WN-T11, 2026-11-23 → 2026-11-24; merged as `c3df740` (PR #34), tagged `alpha-20261124`. Tests `tests/test_wounds.py` (the module's pure functions, the doors, the screens), `tests/test_wound_states.py` (the Resilience test and the states), `tests/test_wound_unconscious.py`, `tests/test_wound_clocks.py`, `tests/test_wound_report.py` (WN-T11), `tests/test_survival_death.py` (starvation to death, WN-T1's net), with `tests/wounds_fixture.py`. What the code does is the decomposition; how staff read and mend a body is the Alpha Runbook §2; how a persistent alarm wakes is Evennia Ref §24.)*
+
+### 27.1 Running it
+
+- **The merge:** `Ran 2327 tests`, `OK` at home on the branch tip after `reload`, `ForkTestRunner` with `--parallel auto`, 258.2 s; `node --test tests/js/*.js` 146/146. The merge's tree differed from the tip only in four documents, none read by a test (lesson 246: `tests/test_dev_board.py` reads `docs/board.md`, and nothing else in `docs/` is read).
+- **The count from the runner, not from `grep`.** A runner that builds the suite and prints `suite.countTestCases()` without running it gives the number the run will give: 2187 on `main` (the BD merge's run) and 2327 on the branch, where a static count of `def test_` says 2166 and 2306 (lesson 442; 386). Put the class in a module under the game directory — `evennia test` does not pass `PYTHONPATH` on — and run `evennia test --settings settings.py --testrunner server.countrunner.CountRunner tests`; delete the file after.
+
+```python
+from evennia.server.tests.testrunner import EvenniaTestSuiteRunner
+class CountRunner(EvenniaTestSuiteRunner):
+    def run_tests(self, test_labels, **kwargs):
+        self.setup_test_environment()
+        print("COLLECTED", self.build_suite(test_labels).countTestCases())
+        return 0
+```
+
+- **The module set per task:** `git grep -l -i -E 'health|at_character_death|survival_ticker|starv|respawn' -- 'tests/test_*.py'` (twenty-five modules at WN-T10), **and** `git grep -l <every changed symbol> -- tests` — the names modules patch `has_account` and fell outside the first set in WN-T10 (lesson 440); WN-T11 added `test_progress_command`. An untracked new test file is in neither `git grep`.
+- **In the sandbox** (2 CPU): thirty-seven modules, 1296 tests, about 620 s with `--testrunner server.test_runner.ForkTestRunner … --parallel 2` — past the 600 s a foreground call may take, so the run goes under `nohup` with a done-file and the turn waits for it (lesson 426). The mutation harness is chained after it in the same `nohup`, never beside it: it writes the file back itself.
+- **The harness:** `evennia test` with `PYTHONDONTWRITEBYTECODE=1`; the source restored from a copy in memory with a sha256 check; `__pycache__` emptied before and after each mutant (lesson 430); each mutant's string must match exactly once or the mutant is not run; stderr captured (lesson 70).
+
+### 27.2 What the tests pin
+
+- **Two bodies.** The fixture's `char1` is CON 10 + SIZ 10 — head 4, chest 6, abdomen 5, arms 3, legs 4 — and the new tests set CON 10, SIZ 11, POW 11 for the decomposition's numbers: head 5, chest 7, abdomen 6, arms 4, legs 5, a limb's clock of 1260 s and a head's of 52.5 s. Every maximum is read from `body.hit_points_max`, never typed.
+- **The dice:** `tests.test_wound_states` exports `ROLL` (the patch target, `world.wounds.randint`), `MADE` (an attack roll), `WIN` (15) and `LOSE` (98) for the Resilience test. `made=None` is no test (OQ-WN1).
+- **The clock:** `world.wounds.time` and `world.wounds.delay` are patched, and `world.timed_actions.delay` too; an alarm is fired by calling `wounds._wake_due` or `wounds._clock_due` by hand. **Hand-fired alarms come in the order the test writes:** two due at the same instant fire in either order in the reactor, and only a test that fires them in both orders — and a test of a command typed between the deadline and its alarm — sees the race (lesson 436; the fix's `TestNoWakingWhileAClockIsDue`).
+- **The census.** `tests/test_client_state.py::TestPushCensus` holds `WOUND_ATTRIBUTES` against what `world/wounds.py` writes, `DOORS`, `DOOR_WRITES` and `NOT_PANEL`: a new Attribute fails it until it is listed, which in WN-T9 and WN-T10 was the only test that saw the new one (lesson 438). Each door has exactly one production caller, and that caller pushes.
+- **A player gone is `char2`,** which has no session: the statue, the stone line and `holds_body` are tested on it. The names modules' fixtures patch `has_account`, not `is_statue` (lesson 437).
+- **The screens are read by their row:** an assert on *100/100* is anchored on *Health* (`r"Health\s+100/100(?![.\d])"`), since Hunger's row can read the same (lesson 444; 130).
+
+### 27.3 The `py` protocols
+
+- **They maim and kill:** run them on a character made for it, on a development database, never on the alpha server. A Major Wound with no `made` is survived (no test), so `py self.apply_health_damage(8, location="head")` on a CON + SIZ 20 body knocks it out for its clock — (CON + POW) / 2 × 5 seconds, 50 s at CON 10 and POW 10 — and kills it; a limb's survived Major Wound starts a clock of (CON + POW) minutes and knocks nothing out.
+- **The numbers are the hurt body's,** read from `hit_points_max(CON, SIZ)` over all seven locations: at one point of starvation the worst margin is the smallest location's, an arm, not the head (lesson 433).
+- **A lost test on demand:** `made={"result": "success", "success": True, "roll": 1, "target": 200}` — a Resilience test that all but never beats it. If the state is missing, the test was won: remove the damage and repeat.
+- **Clean up by removing Attributes** — `py self.attributes.remove("body_damage")`, `"wound_states"`, `"starve_progress"` — never by setting `None`, which stores a `None`. **A `py` write pushes nothing:** the panel keeps the old figure until something pushes `char` (lesson 435).
+- **A fresh character is a player and has no `py`:** read its trait from a Developer with `evennia.search_object("<name>")[0]` (WN-T6; lesson 412).
 
 ## Domain quick-refs
 

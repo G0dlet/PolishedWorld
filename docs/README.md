@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 72 · 2026-11-24** — two rows changed, docs only, in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`), with `docs/PolishedWorld_Lessons.md` Rev 13 (lessons 415–444): the Lessons register's row reads *1–444*, and the Wounds decomposition's row says it is done. No document added or removed; the directory-vs-list loop was run (65/0).
 > **Rev 71 · 2026-11-23** — one row changed, docs only, with BACKLOG Rev 120 and Combat Design Rev 7: `PolishedWorld_Wounds_Decomposition.md` is in progress (Rev 4; WN-T1–WN-T10 shipped on `feature/wounds`).
 > **Rev 70 · 2026-11-23** — one row changed, docs only, with BACKLOG Rev 119: `PolishedWorld_Wounds_Decomposition.md` is in progress (Rev 3; WN-T1–WN-T7 shipped on `feature/wounds`).
 > **Rev 69 · 2026-11-23** — one row changed, docs only: `PolishedWorld_Wounds_Decomposition.md` is in progress (Rev 2; WN-T1–WN-T3 shipped on `feature/wounds`).
@@ -123,7 +124,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–414) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–444) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
@@ -145,7 +146,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Combat decomposition (Stage 5: the slice map for the whole stage, and the first slice's tasks — Names, `rpg/rpsystem` on the character) | tactical (stage map + feature tasks) | `docs/PolishedWorld_Combat_Decomposition.md` |
 | Skill-check forms decomposition (Stage 5, slice SC: the opposed test by the book, opposed skills over 100 %, `compare_levels` and `opposed_against`) | tactical (feature tasks) | `docs/PolishedWorld_Skill_Check_Forms_Decomposition.md` |
 | Body decomposition (Stage 5, slice BD: Resilience, Evade, Unarmed and Brawn; Combat Styles and weapon types as data; Combat Actions, Strike Rank, Damage Modifier and Hit Points per location read on demand — done, merged as `22fb018`) | tactical (feature tasks) | `docs/PolishedWorld_Body_Decomposition.md` |
-| Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — in progress, WN-T1–WN-T10 shipped) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
+| Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — done, merged as `c3df740`) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
