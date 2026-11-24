@@ -337,7 +337,8 @@ class CmdSheet(Command):
     
     Shows all your character information: stats, vital status, the three
     values combat will read (Combat Actions, Strike Rank and the Damage
-    Modifier) and skills. Only you can see this information.
+    Modifier), your Hero Points and skills. Only you can see this
+    information.
     """
     
     key = "sheet"
@@ -393,7 +394,8 @@ class CmdSheet(Command):
         # === COMBAT (BD9) ===
         # Read now, never stored (BD7): fatigue lowers Combat Actions and
         # Strike Rank, so the block follows the Fatigue row above it. A body
-        # without the characteristics gets no block.
+        # without the characteristics gets no block. Hero Points close the
+        # block (HE7).
         derived = body.derived(char)
         if derived is not None:
             modifier = body.format_damage_modifier(derived["damage_modifier"])
@@ -402,6 +404,12 @@ class CmdSheet(Command):
             msg += f"  |y{'Combat Actions':16}|n {derived['combat_actions']:>5}\n"
             msg += f"  |y{'Strike Rank':16}|n {derived['strike_rank']:>5}\n"
             msg += f"  |y{'Damage Modifier':16}|n {modifier:>5}\n"
+            # Hero Points (HE7): a combat resource (Art Style Guide §6), so
+            # in this block and only here; read on every call, never stored,
+            # in the row `hero` prints. A body with no block has no row and
+            # still sees its points with `hero` (HE-T4's STOPP 0).
+            held = f"{hero_points.points(char)}/{hero_points.CAP}"
+            msg += f"  |y{'Hero Points':16}|n {held:>5}\n"
 
         # === SKILLS ===
         if hasattr(char, 'skills'):

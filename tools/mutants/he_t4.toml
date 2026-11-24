@@ -1,0 +1,41 @@
+# HE-T4 -- the Hero Points row in `sheet` (Hero Points decomposition §7).
+# Run: python tools/mutate.py tools/mutants/he_t4.toml
+
+modules = ["tests.test_sheet_combat"]
+
+[[mutant]]
+id = "HEM14"
+# The stored Attribute read directly: a fresh character shows None/4.
+file = "commands/character_commands.py"
+old = '''            held = f"{hero_points.points(char)}/{hero_points.CAP}"
+            msg += f"  |y{'Hero Points':16}|n {held:>5}\n"
+'''
+new = '''            held = f"{char.db.hero_points}/{hero_points.CAP}"
+            msg += f"  |y{'Hero Points':16}|n {held:>5}\n"
+'''
+expect = "test_a_fresh_character_reads_two_of_four"
+
+[[mutant]]
+id = "HEM14b"
+# The cap typed into the row instead of read from CAP.
+file = "commands/character_commands.py"
+old = '''            held = f"{hero_points.points(char)}/{hero_points.CAP}"
+            msg += f"  |y{'Hero Points':16}|n {held:>5}\n"
+'''
+new = '''            held = f"{hero_points.points(char)}/4"
+            msg += f"  |y{'Hero Points':16}|n {held:>5}\n"
+'''
+expect = "test_the_cap_is_read_from_cap"
+
+[[mutant]]
+id = "HEM15"
+# The row added to `status` as well (HE7 keeps status to its four vitals).
+file = "commands/character_commands.py"
+old = '''            msg += f" (-{penalty}% to physical tests)"
+        msg += "\n"
+'''
+new = '''            msg += f" (-{penalty}% to physical tests)"
+        msg += "\n"
+        msg += f"  |yHero Points:|n {hero_points.points(char)}/{hero_points.CAP}\n"
+'''
+expect = "test_status_names_no_hero_point"

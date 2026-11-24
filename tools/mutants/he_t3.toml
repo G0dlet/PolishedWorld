@@ -66,8 +66,11 @@ expect = "test_the_cap_in_the_help_is_read_from_cap"
 id = "HEM13b"
 # The cap typed onto the screen instead of read from CAP.
 file = "commands/character_commands.py"
+# (Two lines since HE-T4: sheet's row has the same first line.)
 old = '''            held = f"{hero_points.points(char)}/{hero_points.CAP}"
+            state = "on" if hero_points.glancing_on(char) else "off"
 '''
 new = '''            held = f"{hero_points.points(char)}/4"
+            state = "on" if hero_points.glancing_on(char) else "off"
 '''
 expect = "test_the_cap_on_the_screen_is_read_from_cap"
