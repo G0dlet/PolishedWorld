@@ -1,0 +1,396 @@
+# PolishedWorld — Gear Decomposition (Stage 5, slice 6: GR)
+
+> **Rev 1 · 2026-11-24** — first version, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 11 (the slice's locks GR1–GR24 under IS1–IS5 and AR1–AR6, one departure in §5 and a note on BD4's row, OQ-GR1–OQ-GR5 in §7), `docs/PolishedWorld_Combat_Decomposition.md` Rev 21 and README Rev 76. Decomposes Stage 5's sixth slice, GR, from Combat Design §3.4, §4.5 (AR1–AR6) and §4.9 (IS1–IS5): the item schema as one table read by prototype, a thin `Weapon` class on the one wear axis, three armour layers as clothing types with a check per Hit Location, the sum of Armour Points handed to the Strike Rank BD already built, two hands that are the two arms, `wield` and `unwield`, a line in `look` that says what an item is, five new recipes and a one-off function for the items that already exist. Twenty-four locks (Adam, 2026-11-24, each on the recommendation given, one at a time). Thirteen code tasks, a merge and a close-out (GR-T1–GR-T15) on `feature/gear`. Anchors read at `main` `cbf4694`; three prototypes run in the sandbox (§4).
+> **Canonical:** `docs/PolishedWorld_Gear_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+
+**Design source:** `docs/PolishedWorld_Combat_Design.md` §3.4, §3.6, §4.5 (AR1–AR6), §4.9 (IS1–IS5, GR1–GR24), §4.10 (CS2), §5, §6, §7 (OQ-GR1–OQ-GR5); `docs/PolishedWorld_Combat_Decomposition.md` §2 (ST1, ST2; GR's row); `docs/PolishedWorld_Body_Decomposition.md` BD1–BD4, OQ-BD1; `docs/PolishedWorld_Wounds_Decomposition.md` WN5, WN9; roadmap, *Gear* and the decision log's *Metallurgy enters through tools*; BACKLOG *Metal tools + craft-station / forge*, *Tanning upgrade*, *Superior-tool longevity / condition bonus*, *Worn clothing leaves without `remove()`*.
+**Status:** **decomposed** (Rev 1). No code yet.
+**Feature branch:** `feature/gear` — one branch, one merge (ST2). Create it with `git switch -c feature/gear --no-track origin/main`.
+**Rough scope:** thirteen code tasks, a merge and a close-out; about fourteen to eighteen hours of code — three to four sessions at 5 h/week, about twice HE. One new module (`world/gear.py`), one new class (`Weapon`), two new commands (`wield`, `unwield`) and one changed (`wear`), five prototypes, five recipes, four seeded scrolls, a seventh Combat Style, and one function run once per existing database. Nothing in the web client.
+**Philosophy:** skynda långsamt — the table before anything reads it; a reader before a writer; a rule no play can reach yet is proven by tests and by `py`, and says so; what can be derived is never migrated.
+**Labels:** GR (locks, in the Combat Design §4.5 and §4.9), GR-T (tasks), GRM (mutations), OQ-GR (open questions, in the Combat Design §7). All were free across the repository when checked with `git grep -n -w -E 'GR[0-9]+|GR-T[0-9]+[a-z]?|OQ-GR[0-9]+|GRM[0-9]+'`, before they were used. The components are G1–G6. IS1–IS5 and AR1–AR6 stay the Combat Design's labels for the decisions the locks fill in.
+
+---
+
+## 1. What the slice is
+
+IS1–IS5 and AR1–AR6 say *what*: a weapon's fields are the book's, armour states its own coverage, Armour Points add up across three layers, everything sits on the one `condition` axis, and a weapon wears per use. This slice says *how*, and builds it. Nothing can be attacked until ML, so every rule here is one that can be asked of an item or of a body without a blow.
+
+**What a player meets after the merge:**
+
+- `wield <item> [right|left]` and `unwield <item>`, with `hold` as another word for `wield`. Anything can be held. `inventory` has a third table, *You are holding*; whoever looks at a character reads what is in its hands.
+- `look` at a weapon or a piece of armour says what it is, in the book's numbers: *Weapon: bludgeon, one hand. Damage 1D6. Size M, reach S. Needs STR 7.* — *Armour: 2 AP on chest and abdomen. Flexible layer.*
+- Armour no longer competes with clothing for a slot. A linen cuirass, a leather hauberk and bone armour go on over a tunic, one piece per layer on each Hit Location, and `wear` says which piece is in the way when it refuses.
+- Strike Rank in `sheet` falls as armour goes on: the whole kit below is 17 Armour Points, a penalty of 4.
+- Clubs, staves, spears, bows and slings have a condition and can be repaired, with their own materials.
+- Five things to make: a target shield, a hard leather hauberk and vambraces, a bone helm, soft leather trews.
+
+**What the slice does not build:** the blow (ML), and with it what a *use* of a weapon is, the STR/DEX penalty, the manoeuvres a weapon allows, parrying and Size, and dropping a weapon when an arm is wounded; anything `hunt` does (HQ2 stands: GR1); shooting, ammunition and a thrown knife or hatchet (PJ); metal (BACKLOG *Metal tools + craft-station / forge*); the rest of the catalogue without metal (a later batch of data, GR9); the panel (CL).
+
+---
+
+## 2. The locks
+
+Each was taken on 2026-11-24 on the recommendation given, one at a time; the Combat Design §4.5 and §4.9 carry them. In short, with what was rejected:
+
+- **GR1 — Data and rules, without a blow; and `wield` is GR's.** The slice builds what an item or a body can be asked — the layers, the sums, the wear functions, the hands — each tested and shown by `py`, for ML to call, as WN's `stop_clock` and HE's *Glancing Blow* were. `hunt` is not touched (HQ2). *Rejected:* data only (ML would build armour arithmetic beside the exchange, and the layers cannot wait: they set each recipe's clothing type); a weapon read by `hunt` (it designs the hunt by the back door, and calibrates wear against a 30-second cooldown).
+- **GR2 — Two hands, `right` and `left`, and they are the arms.** The hand that holds the main weapon is the main hand; a two-handed weapon takes both; a shield is always the second hand. No handedness. *Why:* the book's one rule about hands names the arm (p. 145), and WN stores the arm's state. *Rejected:* `main` and `off` with no arm (the link ML needs would come later, with items already in hands); handedness chosen at creation (no such rule in the book, and chargen is shipped).
+- **GR3 — What a hand holds is a table on the character, read through a function that checks the answer.** `db.hands` maps `right` and `left` to an item; an item counts as held only while it is in the character's `contents`, and a stale entry is cleared at the read. One writer and one reader, in `world/gear.py` (P-2). *Why:* the flag on the item, `db.worn`, has leaked on every path nobody thought of — `drop`, `give` and `put` (L3.1), `barter`'s assignment, death's `move_hooks=False` — and has three guards for it. *Rejected:* a flag on the item; the table and a move hook (two mechanisms for one truth, and the hook misses `barter` and death anyway).
+- **GR4 — `wield <item> [right|left]` and `unwield <item>`; `hold` is an alias of `wield`.** Without a hand named, an item takes the right hand if it is empty and the left otherwise; a shield takes the left first. A two-handed weapon needs two empty hands and is refused otherwise, with the line saying what is in the way; nothing is swapped for the player. **Anything can be held** — a torch, a tool — and it is the item's row in the table that says whether it is a weapon. *Rejected:* `hold` and `lower` (not guessed); `wield` alone (a shield and a torch are not wielded).
+- **GR5 — The owner reads the hands in `inventory`, and anyone in `look`.** A held item stands under *You are holding*, with its hand, and not under *carrying*; it still counts towards ENC, being in `contents`. A looker reads one line after the clothes, every name through the looker (TR6). A statue shows nothing held. The short description is not given a word for it. *Rejected:* the owner only (hands are not pockets: `characters.py:947` hides what is carried, not what shows); a word in the short description (its form is Names', OQ-NM9).
+- **GR6 — Three clothing types from configuration, and the project's own check for the rule.** `armour_padding`, `armour_flexible` and `armour_rigid` join `CLOTHING_TYPE_ORDERED`, with no entry in `CLOTHING_TYPE_LIMIT`. `wear` gains a check before the contrib's: an item is refused if any Hit Location it covers already has a worn item of the same layer. The check is in the command, as the contrib's own limits are, so an item put on by code is not checked. *Why:* the contrib counts per type (`clothing.py:496–504`), and AR3 is per layer *and location*: a limit of one refuses a helm over a breastplate, no limit allows two breastplates, and a type per layer and location fails on a hauberk, which has one type and two locations. *Rejected:* one type with the layer as a field (the display cannot tell the layers apart); one armour item per location (AR1 loses its meaning).
+- **GR7 — Armour shows by order, and covers nothing by itself.** `sdesc.SHOWING_TYPES` becomes `fullbody`, `armour_rigid`, `armour_flexible`, `armour_padding`, `top`: a cloak hides the armour under it, and bone armour over a tunic still reads *bone-clad*, as it does today as a `top`. `CLOTHING_TYPE_AUTOCOVER` is not set. The short description's form is untouched — one garment word, forty characters; GR5 refused it a new word, this keeps one it has. *Rejected:* automatic covering (it goes by type, so a helm would cover a tunic, and the contrib reads *cannot cover with* from the same setting, `clothing.py:131`, `:142`); nothing (the two words shown today would vanish).
+- **GR8 — Which material is which layer.** Padding: soft leather, linen. Flexible: hard leather; ring, scale and mail when metal comes. Rigid: bone, wood; plate and lamellar when metal comes. The layer is the item's `clothing_type` and the material a field of its own. *Why bone is rigid:* the book lists it as breastplate and helm only (AoL p. 50), and the project's own bone armour is plates on a leather backing, the book's words for lamellar. *Rejected:* bone as flexible (it would share a layer, two Armour Points and an ENC with hard leather).
+- **GR9 — The ten items that exist get their rows, and the least that fills the gaps is added.** Every layer, every hand and every Hit Location has at least one item: five new ones (GR10, GR12). *Rejected:* the ten only (rules with nothing to try them on, and no first recipes at all); the whole catalogue without metal (over twenty recipes — catalogue work, which BACKLOG *The recipe catalogue does not span the skill scale* owns).
+- **GR10 — The shield is the target shield, the book's row as printed.** The only shield the book describes without metal: *made of wood and covered with hide*, with a spike on the boss (core p. 104) — of bone here, as the spear's point is. It is a weapon of type `shield`, one hand, held with `wield`, and sits in no armour layer (IS1). Its key is `target shield`, alias `shield`: *target* alone means something else in a MUD. *Rejected:* the buckler (Armour Points 6 suggest metal, and it does not parry a shot); both.
+- **GR11 — One material, `leather`; hardness is the work.** Soft and hard leather pieces are both made of `leather`, the hard ones of about two pieces a location and a higher `min_skill`; the item's material reads *hard leather*. *Rejected:* a new intermediate (boiling needs fire and water — DECISION #6 and the station question, both deferred); leather as soft only (the flexible layer would be empty until metal). BACKLOG *Tanning upgrade* is where hard leather becomes a material of its own.
+- **GR12 — Four pieces of armour.** A hard leather hauberk (flexible; chest, abdomen), hard leather vambraces (flexible; both arms), a bone helm (rigid; head) and soft leather trews (padding; abdomen, both legs). With the linen cuirass and the bone armour that is two items in every layer. *Rejected:* a coat in place of hauberk and vambraces (one piece for the whole flexible layer); a hood and greaves too (the catalogue).
+- **GR13 — Being a weapon is data, not a class; a knife is one item.** An item is a weapon if the table has a row for its prototype. The stone knife and the stone axe stay `Tool`s and gain rows. The pure weapons — club, quarterstaff, spear, bow, sling, target shield — need a condition and get a thin class, `Weapon(DurableObject, Object)`, with no logic, as `Tool` is. **Closes OQ-BD1:** type and hand are fields of the row, `weapon_type` and `hand`, read only through `world/gear.py`. The sling bullet stays a plain `Object` (PJ). *Rejected:* a class that carries the rules (two knives, or a class per tool that is also a weapon); the pure weapons as `Tool`s.
+- **GR14 — Each item has the book's row, whatever it is made of.** §3 has the eight. The book gives one row for a knife of *metal, stone, bone or even glass* (core p. 103); a stone tool's frailty is its starting condition, 40, on the axis IS3 chose. A knife's and a hatchet's second type, `thrown`, is PJ's. *Rejected:* weaker rows of the project's own for stone and bone.
+- **GR15 — A seventh Combat Style, *Staff*.** `style_staff`: main type `bludgeon`, two hands, no second hand, close. BD4's rule — the slice that adds the first weapon of a type adds its style in the same commit — applied to a weapon BD did not count: the quarterstaff is two-handed (AoL's close combat table, pp. 71 ff.), and BD4's *nothing that can be held today needs a two-handed style* listed four weapons and not the staff. **A style holds for its main type in its hand:** a club is *Mace and Shield*, a staff is *Staff*. *Rejected:* the staff borrowing *Mace and Shield* at the book's −10 % (that rule is about a different weapon, not a different grip, and the staff fighter could hold no shield); deferring to ML.
+- **GR16 — The schema is a table in `world/gear.py`, looked up by the item's prototype.** `WEAPONS` and `ARMOUR`, keyed by `prototype_key`; `weapon(obj)` and `armour(obj)` read the item's `from_prototype` tag (`spawner.py:1013`) and return the row or `None`. **No migration of the fields:** every club that exists has its row when the code loads, and a corrected row corrects every item. Armour's points are `ap` (IS2); the unread `armor_points` on `ClothingWithBuffs` is removed. ENC stays where it is, the `enc` Attribute and its one reader. *How it stands to AR2:* coverage is data about the kind of item, not about its slot — the same thought. *Rejected:* Attributes on each item (every old item lacks them, and every corrected row is a migration); the table with Attributes over it (two sources, for *Reinforced*, which AR6 says waits).
+- **GR17 — One function, run once in each existing database, for what cannot be derived.** It finds items by their prototype tag, swaps the five pure weapons that exist to `Weapon` and sets the two armours' clothing types; it skips what is already right, leaves a tool's condition alone and answers with a count. Only Adam's two development databases hold such items: no seed or creation path makes any of the ten. *Rejected:* nothing (a leftover club looks new and behaves old — lessons 71 and 433); Evennia's `batch_update_objects_with_prototype` (it writes everything the prototype names, a worn knife's condition included).
+- **GR18 — A piece gives its whole `ap` until it is broken, and none at condition 0.** `armour_at(char, location)` sums the worn pieces that cover the location, across the layers (AR1); `armour_total(char)` sums the seven locations and is what `body.derived` hands to `strike_rank` in place of the 0 BD left there (`world/body.py:25`, `:281`). The penalty counts a broken piece at its nominal `ap`: it is carried all the same (p. 13). *Rejected:* points scaled by condition (small whole numbers, so the step where a piece loses half its protection is invisible); condition without effect.
+- **GR19 — `WEAPON_WEAR_PER_USE = 1`.** `wear_weapon(weapon)` takes it; `damage_weapon(weapon, damage)` takes nothing at or below the weapon's Armour Points and otherwise `100 × (damage − AP) / HP`, rounded up (IS3). What a *use* is — a swing, a hit, a parry — is ML's. A broken weapon can be held and not used: `usable(weapon)` says so. *Rejected:* 5, a tool's (a craft is not a blow; twenty blows is a fight or two); no value (the constant is one of §6's, and one without a value cannot be tested).
+- **GR20 — Armour wears as garments do, and a fight makes the next tick one step harsher.** The ticker is unchanged but for one read: a stamp on the character of its last fight; within one tick's interval of it, every worn garment's level moves a step towards *rigorous* (AoL p. 58: *Protected* and *Basic* do not survive combat). `mark_combat(char)` writes the stamp and has no caller until ML. Every piece GR builds has 1 or 2 Armour Points, the row the ticker was built on. *Rejected:* the book's five rows by Armour Points now (it needs the fractional accumulator `garment_wear.py` deferred, for items that need metal); nothing.
+- **GR21 — Quality sets a pure weapon's starting condition, by the garments' table.** 100, 90, 70, 50 for superior, serviceable, poor, shoddy — the book's *fewer Hit Points* (AoL p. 43), on the one axis. Armour already does this, being a garment. The knife and the axe do not change: their condition is the prototype's, and BACKLOG *Superior-tool longevity* owns that. *Rejected:* a faster wear rate (a fraction of 1); quality changing the row.
+- **GR22 — A hand reads its arm.** A hand whose arm has a wound state — *disabled*, *maimed*, *severed* — holds nothing: `wield` refuses it and says why, a two-handed weapon needs two usable arms, and `inventory` shows the hand as useless. The item stays with the character; it does not fall. **The entry in `db.hands` is kept** when the arm is the reason, so an arm that heals holds again — unlike an item that has left the body (GR3). *A departure from the book* (p. 145: *he drops whatever he is holding*): the fall is ML's, with the blow's text and the haven (OQ-GR3). *Rejected:* the fall built here (a move with consequences nobody has designed, and a hook in WN's damage path); hands that ignore arms.
+- **GR23 — `look` says what an item is, in the book's numbers.** One line from `gear.describe(obj, looker)`, after the description and before the condition: type, hand, damage, Size, Reach and the STR/DEX it needs for a weapon — range and load too for a bow or a sling — and Armour Points, coverage and layer for armour. A need the looker does not meet is coloured. A weapon's own Armour Points and Hit Points are not shown: they are its condition. Manoeuvres wait for ML's list (CM2). *Why:* pillar 1 — a buyer must be able to judge the goods — and `sheet` already speaks the book's numbers. *Rejected:* nothing shown; words on a ladder (a ladder per field, and a buyer comparing 1D6 with 1D8 needs the dice).
+- **GR24 — The five recipes, and what mends a weapon.** §3 has both tables. The shield is ungated, as every weapon is (`world/recipes.py:13–16`); the four pieces of armour are gated, as the two that exist are, each with a scroll in the Old Temple. Without repair data a club would be mended with cloth, twine and a needle (`repair_commands.py:35`, `:48`). *Rejected:* armour ungated (the one refined good nobody need learn).
+
+---
+
+## 3. Verified source anchors (read 2026-11-24, `main` at `cbf4694`)
+
+**The book.** *Legend* core and *Arms of Legend*, read from the project's copies, which reach this work as extracted text, one table cell to a line. Pages are cited, never lines: the Combat Design's line numbers for *Arms of Legend* come from another extraction.
+
+| Page | What it says | Used by |
+| --- | --- | --- |
+| core 13, 95 | The Armour Penalty: the total of Armour Points worn, divided by five and rounded up, from Strike Rank. | GR18 |
+| core 94–95 | All armour is considered lined or padded. With several pieces on a location only the highest counts (AR1 departs). Armour for SIZ 1–5 halves its cost and ENC; for SIZ 21 or more doubles them. | GR6, OQ-GR4 |
+| core 95–96 | Soft leather: cured hides. Hard leather: *hard wearing yet flexible*. The types per location — soft leather 1 AP, ENC 1; hard leather 2, 2; linen 2, 1; ring 3, 2; scale 4, 2; chain 5, 3; plate 6, 3. | GR8, GR11, GR12 |
+| core 96; AoL 50 | The Armour Pieces table: greaves the legs; pants or trews abdomen and legs; a skirt the abdomen; a hauberk chest and abdomen; a cuirass the chest (soft leather, linen); a breastplate the chest (bone, wood, plate); sleeves or vambraces the arms; a coif or hood the head; a coat chest, arms and abdomen; a helm the head (bone, leather, wood). | GR8, GR12 |
+| core 101, 105 | A weapon's qualities: damage dice, STR/DEX (−5 % a point below), Size, Reach, manoeuvres, ENC, AP/HP; a ranged weapon adds a Damage Modifier column, Range and Load, and its Size is its ammunition's force. | GR14, GR16, GR23 |
+| core 103–104 | A knife *can be made from a sharp piece of metal, stone, bone or even glass … more commonly a tool than a weapon*. A hatchet is a *cleaving tool*. A target is *made of wood and covered with hide* and mounts a spike. A heater is *reinforced with metal edging*; a hoplite shield *edged and sometimes faced with metal*. | GR10, GR13, GR14 |
+| core 106–107, 109 | The rows below. Footnotes: 1 may be set against a charge; 2 no penalty when thrown; 3 may parry ranged weapons. The table prints no hand; two sets of dice mark a weapon for one hand or two. | GR14 |
+| core 124 | Styles and their benefits; a missing weapon costs only what it gave; a substituted weapon of the same type costs −10 %, and −10 % a Size. | GR15 |
+| core 128 | *Ready Weapon*: to draw, sheathe or reload costs a Combat Action. | ML |
+| core 129 | A parry with a weapon or shield of equal or greater Size deflects all damage, one Size less half, two less none. | GR10 |
+| core 145 | A Serious Wound to an arm: *he drops whatever he is holding unless the object is strapped on*. | GR2, GR22 |
+| AoL 43 | Item quality: 75, 50 and 25 wear out 25, 50 and 75 % quicker, **or** have as many fewer Hit Points. | GR21 |
+| AoL 48–50 | Bone: *surprisingly durable*, 2 AP, ENC 2; a bone helm gives +10 % to intimidate and −10 % to charm. Wooden: 3 AP, ENC 3, and *Impale* against it only on a critical. | GR8, GR12, OQ-GR4 |
+| AoL 57–58 | Armour Wear Values: at *Common* wear 1–2 AP last AP × 2 weeks, 3 AP × 5, 4–5 AP × 10, 6–10 AP × 20. *Protected* cannot see any combat; *Basic* loses its status to it; *Rigorous* sees it every other day. | GR20, OQ-GR2 |
+| AoL 71 ff. | The close combat table's *Category* is the hand: club, hatchet, knife, shortspear and target shield 1H; quarterstaff 2H. | GR14, GR15 |
+
+**The weapon rows** (GR14; ENC is each prototype's `enc`, which already matches the book):
+
+| Item | The book's row | `weapon_type` | `hand` | Damage | STR/DEX | Size | Reach | Manoeuvres | AP/HP | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| club | Club | `bludgeon` | 1H | 1D6 | 7/– | M | S | Stun Location | 4/4 | |
+| quarterstaff | Quarterstaff | `bludgeon` | 2H | 1D8 | 7/7 | M | L | Stun Location | 4/8 | |
+| spear | Shortspear | `spear` | 1H | 1D8+1 | 5/5 | M | L | Impale | 4/5 | 1, 2 |
+| stone knife | Knife | `knife` | 1H | 1D3 | –/– | S | S | Bleed, Impale | 5/4 | 2 |
+| stone axe | Hatchet | `axe` | 1H | 1D6 | –/9 | S | S | Bleed | 3/6 | 2 |
+| target shield | Target | `shield` | 1H | 1D6 | 9/– | L | S | Impale | 4/12 | 3 |
+| bow | Short bow | `bow` | 2H | 1D6 | 9/11 | L | — | Impale | 4/4 | DM yes, 80 m, load 1 |
+| sling | Sling | `sling` | 1H | 1D8 | –/11 | L | — | Stun Location | 1/2 | DM yes, 200 m, load 1 |
+
+**One cell could not be read:** the hatchet's AP/HP in the *ranged* table is `03/06/11` in the extracted text, a date made of a fraction. The close combat row reads 3/6 and is the one used. PJ reads the cell in the PDF before a thrown hatchet rests on it.
+
+**The armour rows** (GR8, GR12; `enc` is ENC per location times the locations, on the prototype):
+
+| Item | Layer (`clothing_type`) | Material | `ap` | Locations | `enc` |
+| --- | --- | --- | --- | --- | --- |
+| linen cuirass *(exists)* | `armour_padding` | linen | 2 | chest | 1 |
+| soft leather trews | `armour_padding` | soft leather | 1 | abdomen, both legs | 3 |
+| hard leather hauberk | `armour_flexible` | hard leather | 2 | chest, abdomen | 4 |
+| hard leather vambraces | `armour_flexible` | hard leather | 2 | both arms | 4 |
+| bone armour *(exists)* | `armour_rigid` | bone | 2 | chest | 2 |
+| bone helm | `armour_rigid` | bone | 2 | head | 2 |
+
+All six worn: head 2, chest 6, abdomen 3, each arm 2, each leg 1 — **17 Armour Points, a penalty of 4, and 16 ENC.**
+
+**The recipes** (GR24), on rungs the ladder already has:
+
+| Item | Discipline | Consumes | Tool | `min_skill` | Gated | Mended with |
+| --- | --- | --- | --- | --- | --- | --- |
+| target shield | woodwork | wood × 2, leather, bone | knife | 40 | no | wood, leather; knife |
+| soft leather trews | leatherwork | leather × 3 | needle | 40 | yes | leather, twine; needle |
+| bone helm | bonework | bone × 2, leather | knife | 40 | yes | bone; none |
+| hard leather vambraces | leatherwork | leather × 4 | needle | 60 | yes | leather, twine; needle |
+| hard leather hauberk | leatherwork | leather × 4 | needle | 60 | yes | leather, twine; needle |
+
+Mended with, for what exists: club and quarterstaff — wood, a knife; spear — wood and twine, a knife; bow — twine, no tool; sling — leather, a knife. The linen cuirass and the bone armour keep what they have.
+
+**The code:**
+
+| Where | What it is | Used by |
+| --- | --- | --- |
+| `typeclasses/durable.py:41`, `:47`, `:49` | `condition` 0–100, autocreated; `mendable`; `apply_wear`. The mixin owns no trigger. | GR13, GR19 |
+| `typeclasses/tools.py:34` | `Tool(DurableObject, Object)`, a `pass`. | GR13 |
+| `typeclasses/clothing.py:46`, `:82`, `:120` | `ClothingWithBuffs`; the unread `armor_points`; `at_post_move`, L3.1's guard for `db.worn`. | GR3, GR16 |
+| `world/crafting_base.py:109`, `:346`; `commands/foraging_commands.py:29` | A tool's wear: 5 a craft, 5 a forage. | GR19 |
+| `commands/repair_commands.py:35`, `:48`, `:95` | The default materials and tool; the search of what the caller carries. A target's `db.repair_materials` and `db.repair_tool_tag` override them. | GR24 |
+| `world/garment_wear.py:37`, `:43`, `:77`; `server/conf/at_server_startstop.py:35` | The tiers, the rates, the per-character pass; the tick, 10 800 s (twelve game hours). | GR20 |
+| `server/conf/settings.py:201`, `:210` | `CLOTHING_TYPE_ORDERED` (the contrib's misspelt key) and `CLOTHING_TYPE_LIMIT`. | GR6 |
+| `world/sdesc.py:122`, `:236` | `SHOWING_TYPES`; `garment_word` returns the first showing garment of the first type that has one — its word, **or `None` if it has none**. | GR7, OQ-GR5 |
+| `world/combat_styles.py:46`, `:69` | `WEAPON_TYPES`, twelve; `STYLES`, six. | GR13, GR15 |
+| `world/body.py:25`, `:87`, `:195`, `:246`, `:281` | *Until then callers pass 0*; `strike_rank`, which already divides by five; `LOCATIONS`; `derived`, and its hard-coded 0. | GR18 |
+| `world/wounds.py:65–72`, `:335`, `:438`; `world/survival_ticker.py:204` | The three states and `SEVERED_ENABLED = False`; `states_of`; `damage`. Starvation calls with `wounds.ALL`, which sets no state (WN5). | GR22 |
+| `typeclasses/characters.py:947`, `:1640`, `:1768–1774` | `get_display_things`, for the owner only; the one caller of `wounds.damage`; death taking a garment off by hand before a move with `move_hooks=False`. | GR3, GR5 |
+| `world/barter.py:71` | `_all_offers_in_hand`, the guard for a move by assignment. | GR3 |
+| `commands/inventory_commands.py:42`, `:58`; `commands/names_commands.py:687`; `commands/default_cmdsets.py:190` | `CmdInventory` calling `super().func()`; `CmdCover`, the pattern for a command over the contrib's; the contrib's own `CmdWear`, added as it is. | GR5, GR6 |
+| `world/recipes.py:68`, `:76`, `:96`; `:301`, `:407`, `:425`–`:461`, `:596` | The garments' condition by band and its function; the tools' function, which leaves condition alone; the seven recipes that exist. | GR21, GR24 |
+| `world/prototypes.py:291`, `:363`, `:413`, `:691`, `:795`, `:813`–`:855` | The ten prototypes. | GR16, GR17 |
+| `world/seed_data.py:229`; `world/seeding.py:85` | `SCROLLS`; the ledger of every scroll ever placed. | GR24 |
+| `world/encumbrance.py:79`, `:90` | `item_enc`, the one reader of `enc`. | GR16 |
+
+**Evennia 6.1.0** (the wheel):
+
+| Where | What it is |
+| --- | --- |
+| `contrib/game_systems/clothing/clothing.py:95–142` | The seven settings. `:131` and `:142` read *autocover* and *cannot cover with* from one key, `CLOTHING_TYPE_AUTOCOVER`. |
+| `…clothing.py:174`, `:250`, `:372` | `get_worn_clothes`, a module function; `wear`, which sets `db.worn` and checks no limit; *is wearing*, hard-coded. |
+| `…clothing.py:496–504`, `:673`, `:686`, `:695` | `CmdWear`'s limits, by count per type; `CmdInventory`'s split on `db.worn` and its *You are wearing*. |
+| `prototypes/spawner.py:637`, `:1013` | `batch_update_objects_with_prototype`; `spawn` tags every object `(prototype_key, "from_prototype")`. |
+| `contrib/game_systems/crafting/crafting.py:873` | A recipe's output is made by `spawn`. |
+| `utils/dbserialize.py:581–582` | A stored object that no longer exists unpacks as `None`. |
+| `typeclasses/models.py:594` | `swap_typeclass`. |
+
+---
+
+## 4. What was run (sandbox: Python 3.13, Evennia 6.1.0, Django 6.0; fresh copies of a clone of `cbf4694`)
+
+**The baseline.** `COLLECTED 2399`, by the runner's own collection (Testing Reference §27.1) — the number Adam's machine ran at HE's merge.
+
+**P1 — the contrib with three armour types** (the types added to `CLOTHING_TYPE_ORDERED`, no limit; a tunic as `top`, a linen cuirass as padding, bone armour and a bone helm as rigid, put on with the contrib's `wear`). All four went on. The order in `look` followed the list. Warmth summed all four. **The short description still read the tunic's word,** and after `cover tunic with bone armour` it read none. The live `CLOTHING_TYPE_CANT_COVER_WITH` is `['jewelry']`. *What it settled:* GR6 (configuration gives the types and not the rule) and GR7 (doing nothing loses a word shown today).
+
+**P2 — an old club made durable** (`spawn("club")`, then `swap_typeclass` to `Tool`, standing in for `Weapon`). The condition Attribute appears at 100; `enc`, the key and the prototype tag survive; `apply_wear(5)` gives 95. With `run_start_hooks=None` no Attribute is made and the property still reads 100. **Not tried:** whether a second swap resets a worn item to 100 — GR-T13 skips what is already the class, and tests it.
+
+**P3 — the table of hands** (a dict of two items in `db.hands`). An item deleted while the table is cached reads `None` at once. An item that leaves by assignment to `location`, with no hook, stays in the table and is not in `contents`: the reader's check is what catches it. The stored value is a `_SaverDict` — test with `Mapping`, not `dict`.
+
+**The count — what each lock touches:**
+
+| Lock | Symbol | Production | Tests |
+| --- | --- | --- | --- |
+| GR16 | `armor_points` | two lines, both in `typeclasses/clothing.py` | none |
+| GR21 | `GARMENT_CONDITION_BY_BAND` | two lines in `world/recipes.py` | none by name |
+| GR7 | `SHOWING_TYPES` | two lines in `world/sdesc.py` | none by name |
+| GR5 | `CmdInventory` | seven lines | five calls, `tests/test_encumbrance.py:688–708` |
+| GR6, GR17 | the armours' `top` | the two prototypes | `test_cloth_goods.py:68`, `test_leather_goods.py:83`, `test_names_sdesc.py:187–195` |
+| GR15 | six styles | — | `tests/test_combat_styles.py:65` |
+| GR18 | `strike_rank` | six lines | `test_body`, `test_chargen_menu`, `test_sheet_combat` |
+
+No lock breaks many tests. `tests/test_names_sdesc.py:187–195` wears a linen cuirass as a `top` over a robe and reads *armoured*: it describes what GR7 changes and is the slice's plainest red before green.
+
+**Mutations** run in the sandbox by `tools/mutate.py` with a TOML spec per task under `tools/mutants/` (Testing Reference §28.1), as HE's did.
+
+---
+
+## 5. Dependency graph
+
+```
+            ┌─> GR-T2 ──┬─> GR-T10 ─────────────────┐
+            │           ├─> GR-T11 (needs T3 too) ──┤
+GR-T1 ──────┼─> GR-T3 ──┼─> GR-T4 ──> GR-T12 ───────┤
+            │           ├─> GR-T5 ──────────────────┼─> GR-T14 ──> GR-T15
+            │           └─> GR-T13 (needs T2 too) ──┤
+            └─> GR-T7 ──> GR-T8 ──> GR-T9 ──────────┤
+GR-T6 (free-standing) ──────────────────────────────┘
+```
+
+GR-T1 is the table, and everything reads it. After it the work runs in three lines that do not meet before the merge: the weapons (T2, T10, T11), the layers (T3, T4, T5) and the hands (T7, T8, T9). GR-T12 needs the class, the types and the check; GR-T13 needs the class and the types. GR-T6 touches only the ticker.
+
+**The order the tasks are taken in is their number.** Every protocol before GR-T12 runs on what exists: two bone armours show the layer check, and a club and a stone knife the hands.
+
+---
+
+## 6. Component G1 — The table and the class
+
+### Task GR-T1 — The table and its readers
+- **Goal:** `world/gear.py` holds every weapon's and every armour's row, and two readers answer for an item.
+- **Dependencies:** none.
+- **Approach:** `WEAPONS`, eight rows keyed by `prototype_key`, with `weapon_type`, `hand`, `damage`, `str_min`, `dex_min`, `size`, `reach`, `manoeuvres`, `ap`, `hp`, and for the two ranged rows `damage_modifier`, `range_m` and `load`; `parries_ranged` on the shield (footnote 3). `ARMOUR`, six rows, with `ap`, `locations`, `layer`, `material`. The five new items' rows are here from the start, before their prototypes (GR-T12), so every later rule is tested against real rows and the rows are read against the book once. `weapon(obj)` and `armour(obj)` take the item's `from_prototype` tag and return the row or `None`; an item with no tag, or with two, is `None`. `combat_styles.STYLES` gains `style_staff` in this commit (BD4, GR15). **`gear` imports `combat_styles` and not `body` or `wounds`:** tests hold its locations to `body.LOCATIONS`, and GR-T7 chooses how the arm is read.
+- **Testing:** a new `tests/test_gear.py`. Each row against §3, cell by cell; every `weapon_type` in `WEAPON_TYPES` and every `hand` in `HANDS`; every location in `body.LOCATIONS`; every layer one of the three. A spawned club reads the club's row; a plain object reads `None`. In `tests/test_combat_styles.py`, the test of six becomes a test of seven, by name. **A census:** every prototype whose row is in a table exists in `world/prototypes.py` or is one of the five GR-T12 adds — the list of five shrinks to nothing there.
+- **Red before green:** the staff's `hand` first, with `1H` written on purpose in the working tree, against the test that names AoL's table.
+- **Mutations (GRM1–GRM4):** the reader keyed by `obj.key`; the club's damage 1D8; the hauberk's locations chest only; `style_staff` one-handed.
+- **In-game check:** `py from world import gear; from evennia.prototypes.spawner import spawn; c = spawn("club")[0]; self.msg(str((gear.weapon(c)["damage"], gear.weapon(c)["hand"], gear.armour(c)))); c.delete()` gives `('1D6', '1H', None)`.
+- **Commit:** `feat(gear): the weapon and armour tables, their readers, and the Staff style (IS1, IS2, GR13–GR16)`
+
+### Task GR-T2 — The `Weapon` class, and the weapons that exist
+- **Goal:** A club, a quarterstaff, a spear, a bow and a sling are made with a condition, are mended with their own materials, and start at the condition their quality earns.
+- **Dependencies:** GR-T1.
+- **Approach:** `typeclasses/weapons.py`: `Weapon(DurableObject, Object)`, a `pass` and a docstring that says, as `Tool`'s does, that no trigger lives there. The five prototypes take the class, `repair_materials` and `repair_tool_tag` (§3). The garments' quality function is given a name that fits both and each of the five recipes calls it; `GARMENT_CONDITION_BY_BAND` keeps its numbers. **At STOPP 0:** whether the table and the function are renamed or left — count the readers first (two, §4).
+- **Testing:** in `tests/test_gear.py` and the two goods modules' pattern: each of the five spawns as a `Weapon` with condition 100; a craft at each band starts at 100, 90, 70, 50; `repair` on a club asks for wood and not cloth. The stone knife and the stone axe still start at 40 at every band (GR21's exception, pinned).
+- **Red before green:** `repair` on a club, before the prototype carries its materials: it asks for cloth and twine.
+- **Mutations (GRM5–GRM7):** `Weapon` without the mixin; a recipe that skips the quality call; the club's repair tool unset.
+- **In-game check:** craft a club, then `look club`: a *Condition* line, where today there is none.
+- **Commit:** `feat(gear): the Weapon class; five weapons on the wear axis, with their repair data (IS3, GR13, GR21, GR24)`
+
+---
+
+## 7. Component G2 — The layers
+
+### Task GR-T3 — Three armour types, and what shows
+- **Goal:** A linen cuirass and bone armour are armour by type, go on over a tunic together, and a stranger still reads the outermost one's word.
+- **Dependencies:** GR-T1.
+- **Approach:** the three types into `CLOTHING_TYPE_ORDERED`, before `top`, rigid first; nothing into `CLOTHING_TYPE_LIMIT`, and `CLOTHING_TYPE_AUTOCOVER` still not set — the comment there gains GR7's reason. The two prototypes take their types. `SHOWING_TYPES` becomes the five of GR7. `armor_points` and its line in the docstring leave `ClothingWithBuffs`; the unread `encumbrance` beside it is read for readers first and leaves with it if it has none. **OQ-GR5 closes here, at STOPP 0:** `garment_word` returns the first showing garment of a type, and `None` if that one has no word — so of two rigid pieces the one first in `contents` speaks, and a helm with no word would silence bone armour.
+- **Testing:** the three modules of §4 change on purpose, each line named in the commit. New: tunic, cuirass and bone armour all worn; the word is *bone-clad*; under a cloak it is *cloaked*; warmth is the sum of the three.
+- **Red before green:** `tests/test_names_sdesc.py:187–195` with the cuirass given its new type and `SHOWING_TYPES` not yet changed: the word is the robe's.
+- **Mutations (GRM8–GRM10):** `top` before the armour types in `SHOWING_TYPES`; `fullbody` after them; the cuirass left a `top`.
+- **In-game check:** wear a tunic, a linen cuirass and bone armour; `look` at yourself lists the three, and another character reads *bone-clad*.
+- **Commit:** `feat(gear): three armour layers as clothing types; armour shows by order (AR3, GR6–GR8)`
+
+### Task GR-T4 — One piece per layer and location
+- **Goal:** `wear` refuses a second piece of a layer on a Hit Location that has one, and names the piece in the way.
+- **Dependencies:** GR-T3.
+- **Approach:** `gear.layer_conflict(char, obj)` returns the worn item that shares `obj`'s layer and at least one of its locations, or `None`; an item with no armour row never conflicts. A project `CmdWear` over the contrib's, as `CmdCover` is (`commands/names_commands.py:687`): it finds the item as the contrib does, asks `layer_conflict`, and otherwise calls `super().func()`. The docstring says the check is the command's and that `wear()` by code is not checked (GR6). **At STOPP 0:** how the command finds the item without copying the contrib's search (`clothing.py:447–470` splits a wear style off the argument) — lesson 183: count what passes through `CmdWear` first.
+- **Testing:** two bone armours — the second is refused and the first named; bone armour over a cuirass goes on (two layers, one location); a hauberk over a cuirass goes on, and a second hauberk is refused for the chest *and* named once; trews under a hauberk go on (two layers on the abdomen). A wear style still works. A tunic is never refused by this check. The command census gains `wear`.
+- **Red before green:** the second bone armour, against the contrib's command: it goes on.
+- **Mutations (GRM11–GRM13):** the conflict tested on layer alone; on location alone; an already-worn item conflicting with itself.
+- **In-game check:** with two bone armours, `wear bone armour` twice: the second line names the first piece.
+- **Commit:** `feat(gear): wear checks one armour piece per layer and location (AR3, GR6)`
+
+### Task GR-T5 — The sum, and Strike Rank
+- **Goal:** A body can be asked what protects a location and what it carries, and `sheet` shows the penalty.
+- **Dependencies:** GR-T3.
+- **Approach:** `gear.armour_at(char, location)`: the sum of `ap` over worn pieces that cover the location and whose condition is above 0. `gear.armour_total(char)`: the sum over the seven locations of every worn piece's nominal `ap`, broken or not (GR18). `body.derived` hands `armour_total` to `strike_rank` in place of the 0, and the three comments that say *until GR* say what is there now. **At STOPP 0:** how `body` reaches `gear` without a cycle — an import inside `derived`, or `derived` taking the number from its caller.
+- **Testing:** nothing worn is 0 everywhere; the six pieces of §3 give 2, 6, 3, 2, 2, 1, 1 and a total of 17; a broken hauberk gives the chest 4 and leaves the total 17; an unknown location raises. `tests/test_sheet_combat.py`: Strike Rank with the fixture's kit is four lower. A carried piece, not worn, counts nowhere.
+- **Red before green:** the total with a hauberk, against a sum that counts items and not locations: 2 where 4 is right.
+- **Mutations (GRM14–GRM17):** the highest piece in place of the sum (the book's rule, AR1's departure); a broken piece protecting; a broken piece leaving the total; a carried piece counted.
+- **In-game check:** `sheet` before and after `wear bone armour`: Strike Rank falls by one (2 points, a penalty of 1). `py from world import gear; self.msg(str((gear.armour_at(self, "chest"), gear.armour_total(self))))` gives `(2, 2)`.
+- **Commit:** `feat(gear): Armour Points summed per location, and Strike Rank reads them (AR1, AR4, GR18)`
+
+### Task GR-T6 — A fight in the wear tick
+- **Goal:** Whoever has fought since the last tick has every worn garment wear one step harsher at the next.
+- **Dependencies:** none.
+- **Approach:** `gear.mark_combat(char)` stores the time on the character; `gear.fought_since(char, seconds)` reads it. `garment_wear._effective_tier` takes one more shift, towards *rigorous*, when the wearer fought within the tick's interval — the interval handed in, not imported from `server/`. No production caller writes the stamp until ML, and the docstring says so. **At STOPP 0:** game time or real time for the stamp; the name of the Attribute.
+- **Testing:** in the garment wear module's tests, with the clock patched: outdoors and temperate, a marked wearer loses 4 where an unmarked one loses 2; indoors a marked wearer is *basic* (two steps down, one up); already *rigorous* stays there; a stamp older than the interval does nothing. An unmarked character behaves as today — the existing tests, untouched.
+- **Red before green:** the marked wearer, before the read: 2.
+- **Mutations (GRM18–GRM20):** the shift towards *protected*; the window never closing; the stamp read from the garment.
+- **In-game check:** by `py`, as no play can fight yet: mark the character, call the tick's function once, read a worn garment's condition before and after.
+- **Commit:** `feat(gear): combat raises the next wear tick one level (IS4, GR20)`
+
+---
+
+## 8. Component G3 — The hands
+
+### Task GR-T7 — The store
+- **Goal:** `world/gear.py` can put an item in a hand, take it out and say what each hand holds, and no way an item leaves the body makes the answer wrong.
+- **Dependencies:** GR-T1.
+- **Approach:** `HANDS = ("right", "left")`, each with its arm in `body.LOCATIONS`. `held(char)` returns hand → item or `None`: an item not in `char.contents` (or read as `None`, P3) is dropped from `db.hands` at the read; a hand whose arm has a state in `wounds.states_of(char)` reads `None` **and keeps its entry** (GR22). `hold(char, obj, hand=None)` returns the hand or a reason: the item must be carried; the default hand by GR4; a two-handed row needs both hands empty and both arms usable; an occupied hand refuses. A two-handed item is stored under both hands. `release(char, obj)`; `hand_state(char, hand)` for the displays — *empty*, *holding*, *useless*. Reasons are constants, as the encumbrance states are. **At STOPP 0:** the reasons' wording, against the Tone Guide; whether `gear` imports `wounds` or is handed the states; whether an item that is worn may also be held (a glove, a cloak over an arm) — no lock says.
+- **Testing:** `tests/test_gear_hands.py`. The default hand; the shield to the left; a staff takes both and is refused with one hand full; each way of leaving — `drop`, `give`, `put`, an assignment to `location`, a delete, and `at_character_death` — leaves `held` empty with no hook in this slice. An arm made *maimed* by a stored state: the hand reads empty, the entry stands, and with the state removed the hand holds again. The stored value is tested as a `Mapping`.
+- **Red before green:** the assignment to `location`, against a reader with no `contents` check: the item is still held.
+- **Mutations (GRM21–GRM25):** the `contents` check removed; the entry cleared when the arm is the reason; a two-handed item under one hand; the shield to the right; a useless arm ignored by `hold`.
+- **In-game check:** `py from world import gear; k = self.search("stone knife"); self.msg(str(gear.hold(self, k))); self.msg(str(gear.held(self)))`, then `drop stone knife` and the second read again: the hand is empty.
+- **Commit:** `feat(gear): what a hand holds, stored on the character and checked at the read (GR2, GR3, GR22)`
+
+### Task GR-T8 — `wield` and `unwield`
+- **Goal:** A player takes an item in hand and puts it away.
+- **Dependencies:** GR-T7.
+- **Approach:** two commands in a new `commands/gear_commands.py`, added to the character's command set: `wield <item> [right|left]`, alias `hold`, and `unwield <item>`. The search is of what the caller carries, through the Names search (UP17: `N-name`). Each line the room reads goes through a looker (TR6). The commands hold no rule: every refusal is `gear.hold`'s reason. Not a timed action: *Ready Weapon* costs a Combat Action in a fight (core p. 128), which is ML's. **At STOPP 0:** the lines, against the Tone Guide; `hold` beside any future use of the word.
+- **Testing:** `tests/test_gear_commands.py` on `EvenniaCommandTest`: each refusal's line; `wield club left`; `hold` reaching the same command; the room's line naming the wielder per reader; `unwield` of something not held. The command census gains two keys, and each has a lock test through `Command.access`, since `.call()` runs no lock.
+- **Red before green:** `wield` of a staff with a knife in hand, against a command that swaps: the knife is put away.
+- **Mutations (GRM26–GRM28):** the hand argument ignored; `unwield` releasing by key and not by item; the room's line with the bare name.
+- **In-game check:** `inventory` first (lesson 71); `wield stone knife`, `wield club left`, `wield quarterstaff` (refused, both named), `unwield club`.
+- **Commit:** `feat(gear): the commands wield and unwield (GR4)`
+
+### Task GR-T9 — Who sees the hands
+- **Goal:** `inventory` shows what is held, and a looker reads it on the character.
+- **Dependencies:** GR-T8.
+- **Approach:** `CmdInventory` builds its own three tables in place of `super().func()` — *carrying*, *holding* with the hand, *wearing* — and keeps its ENC line and the contrib's message type; a useless hand is shown as such. The character's `get_display_desc` gains one line after the contrib's about clothes, from `gear.held`, each item named for the looker; a statue adds none. **At STOPP 0:** the two lines' wording; whether the module's note at `inventory_commands.py:22` (*none copies the contrib's `func`*) is rewritten or the contrib's tables are reached another way.
+- **Testing:** the five calls in `tests/test_encumbrance.py` still pass unedited — the ENC line is theirs; a held item is under *holding* and not under *carrying*, and its ENC still counts; an empty inventory still ends in the ENC line; a looker's line names a stranger's item by its own name and the holder by the looker's; nothing held, no line; a statue, no line.
+- **Red before green:** the held item, against the inherited tables: it is under *carrying*.
+- **Mutations (GRM29–GRM31):** the held item in both tables; the looker's line for the owner only; the statue's line shown.
+- **In-game check:** with a knife in hand, `inventory`, then a second character's `look` at the first.
+- **Commit:** `feat(gear): inventory and look show what is held (GR5)`
+
+---
+
+## 9. Component G4 — A weapon's rules, and what is read
+
+### Task GR-T10 — A weapon's wear
+- **Goal:** ML can wear a weapon by a use and by a damage event, and ask whether it can be used.
+- **Dependencies:** GR-T2.
+- **Approach:** `WEAPON_WEAR_PER_USE = 1`, with GR19 and the reason in its comment. `wear_weapon(weapon)` applies it; `damage_weapon(weapon, damage)` applies nothing at or below the row's `ap` and otherwise `ceil(100 × (damage − ap) / hp)`; both return the new condition, do nothing to an item with no `condition`, and raise for one with no weapon row. `usable(weapon)` is a row and a condition above 0. No production caller until ML; the module's header lists the four doors ML is given — these three and `mark_combat`.
+- **Testing:** a club at 100: a use gives 99; damage 4 gives 100, 6 gives 50, 8 gives 0 and not less; the shield at damage 6 gives 83. A stone knife at 40 after a craft is 35 and after a use 34 — one axis, two rates (GR13). A broken club is not `usable`; a tunic raises.
+- **Red before green:** damage equal to the Armour Points, against `>=` written for `>`: the club loses condition.
+- **Mutations (GRM32–GRM35):** the constant 5; the floor at `ap` moved by one; the division by `ap`; `usable` at condition 0.
+- **In-game check:** `py from world import gear; c = self.search("club"); self.msg(str((c.condition, gear.damage_weapon(c, 6), gear.usable(c))))`, then `repair club`.
+- **Commit:** `feat(gear): a weapon wears per use and by damage above its Armour Points (IS3, IS5, GR19)`
+
+### Task GR-T11 — What an item says of itself
+- **Goal:** `look` at a weapon or a piece of armour reads its row.
+- **Dependencies:** GR-T2, GR-T3.
+- **Approach:** `gear.describe(obj, looker)` returns the line of GR23, or `None`: built from the row only, so the line and the table cannot drift. `DurableObject.get_display_desc` places it between the description and the condition. A need the looker's STR or DEX does not meet is coloured; a looker with no characteristics sees it plain. **At STOPP 0:** the two lines' exact form, with every row printed for Adam to read; where a stone knife's line goes, since it is a tool first.
+- **Testing:** the line for each of the fourteen rows, pinned whole; a tunic and a plain object have none; the colour with STR 6 against a club's 7, and none with 7; the condition line still last. A census that every row's every shown field appears in its line.
+- **Red before green:** the staff's line, before `hand` is read: *one hand*.
+- **Mutations (GRM36–GRM38):** the need compared with `<=`; the armour's locations in table order lost; the line after the condition.
+- **In-game check:** `look club`, `look bone armour`, `look stone knife`.
+- **Commit:** `feat(gear): look says what a weapon or a piece of armour is (GR23)`
+
+---
+
+## 10. Component G5 — The items, and the ones that exist
+
+### Task GR-T12 — Five prototypes, five recipes, four scrolls
+- **Goal:** The target shield, the hauberk, the vambraces, the helm and the trews can be made.
+- **Dependencies:** GR-T2, GR-T3, GR-T4.
+- **Approach:** the prototypes with their class, `enc`, clothing type, repair data and descriptions; the recipes of §3, each calling the quality function; four rows in `seed_data.SCROLLS`, in the Old Temple. The material registry's `leather` and `bone` gain their new sinks. **At STOPP 0:** each key and alias, checked free against `world/prototypes.py` (none of *target shield*, *shield*, *hauberk*, *vambraces*, *helm* or *trews* is taken today); each description and `look_word`, against the Tone Guide and OQ-GR5's answer; the scrolls' seed ids.
+- **Testing:** the goods modules' pattern for each of the five; GR-T1's census of rows without prototypes is empty; `tests/test_recipe_sources.py` holds a source for each of the four gated recipes; a second `seed_world()` on a seeded database places exactly the four new scrolls, and a third none (the ledger, `seeding.py:85`). All six pieces on one body: GR-T5's sums from made items, not fixtures.
+- **Red before green:** the source census, with the four recipes gated and no scroll rows: four missing.
+- **Mutations (GRM39–GRM41):** the shield made a garment; the hauberk given the rigid type; a scroll row dropped.
+- **In-game check:** learn and craft each; wear all six; `sheet`: Strike Rank four lower than bare. `wield shield`: the left hand.
+- **Commit:** `feat(gear): a target shield and four pieces of armour, with their recipes and scrolls (GR9–GR12, GR24)`
+
+### Task GR-T13 — The items that already exist
+- **Goal:** Every club, staff, spear, bow, sling, linen cuirass and bone armour made before the slice is what a new one is.
+- **Dependencies:** GR-T2, GR-T3.
+- **Approach:** `world/gear_migrations.py`, in `world/character_migrations.py`'s form: `migrate_gear()` finds objects by `from_prototype` tag, swaps the five weapon prototypes' objects to `Weapon` unless they already are, sets the two armours' clothing types unless already set, and returns the two counts. It touches nothing else: no condition, no key, no Attribute. Idempotent, and run once per database with one `py` line the runbook carries.
+- **Testing:** an old club becomes a `Weapon` at 100 with its `enc` and tag; **a second run changes nothing, on a club worn to 60 in between** (P2's open point); a stone knife at 12 stays a `Tool` at 12; a *worn* old bone armour changes type and stays worn, and the wearer's sums and word follow; a second run returns `(0, 0)`.
+- **Red before green:** the second run on the worn club, against a function that swaps without asking: read what it does to 60.
+- **Mutations (GRM42–GRM44):** the guard removed; a tool swapped; the counts of what was found, not what was changed.
+- **In-game check:** on the home database, `inventory` and a search for old items first; the function's answer; `look` at one old club; the function again: `(0, 0)`.
+- **Commit:** `feat(gear): a one-off function for weapons and armour made before the slice (GR17)`
+
+---
+
+## 11. Component G6 — Close-out
+
+### Task GR-T14 — Protocol, suite and merge
+- **Goal:** The branch is proven whole and is on `main`, tagged.
+- **Dependencies:** GR-T5, GR-T6, GR-T9, GR-T10, GR-T11, GR-T12, GR-T13.
+- **Approach:** the in-game checks of GR-T1–GR-T13 in order on the home database, on `adam` and on a body kept for the arm's state; `migrate_gear()` there first, and on the work database when Adam is next at it; the whole suite once with `ForkTestRunner` and `--parallel auto`, the count predicted by the runner's collection; `node --test tests/js/*.js`; `git merge-tree` for the tree the merge will have.
+- **Testing:** the suite, green; the count as predicted.
+- **Commit:** the merge commit.
+
+### Task GR-T15 — Documentation
+- **Goal:** The documents say what was built and where it stands.
+- **Dependencies:** GR-T14.
+- **Approach:** this document's *Shipped* lines and Status; Combat Decomposition's row; Combat Design §4.5, §4.9, §5 and §6 dated after the merge; the Body Decomposition's BD4, seven styles; the Alpha Runbook's §7 — the tag, and `migrate_gear()` for a database made before it (lesson 418); Testing Reference, a section for the slice; System Map, the module and its doors; Evennia Reference, the clothing contrib's limit by type and the prototype tag; BACKLOG, searched first for the names the slice touched (lessons 238, 408) — *Tanning upgrade* annotated (GR11), *Superior-tool longevity* annotated (GR21), and Adam's question of holding the alpha until Stage 5 is whole, as its own entry; the roadmap's *Gear* line; README; the lessons.
+- **Commit:** `docs: close out Gear (Stage 5 slice GR)`
+
+---
+
+## 12. Open questions (each with what closes it)
+
+- **OQ-GR1 — The overall limit of twenty garments.** Nine clothing slots and a full kit in three layers on seven locations pass it. Nothing GR builds reaches it: six pieces of armour. **Closes at:** the batch that adds the rest of the catalogue, or metal.
+- **OQ-GR2 — The wear rows for 3 Armour Points and more, and soft leather's rate.** The ticker has the book's row for 1–2 AP, at 2; the book's factor would give 1 AP half the life, and plate needs a fraction of a point a tick. **Closes at:** the slice that adds the first piece of 3 AP or more (wood needs no metal).
+- **OQ-GR3 — The fall.** The book has a wounded arm drop what it holds unless it is strapped on (p. 145); GR22 leaves the item with the character. Who may take it up, what the haven says, and whether a shield's straps hold. **Closes at:** ML's decomposition, with HV.
+- **OQ-GR4 — Three rules read and left.** A bone helm's +10 % to intimidate and −10 % to charm (AoL p. 48); *Impale* against wooden armour only on a critical (AoL p. 49); armour's ENC halved or doubled by the wearer's SIZ (core p. 95). **Closes at:** a social skill; ML's manoeuvres; whoever first lets a character's SIZ leave 6–20.
+- **OQ-GR5 — Which of two pieces in one layer gives the short description its word.** `garment_word` takes the first showing garment of a type and returns `None` if it has no word: a helm with no word would silence bone armour. **Closes at:** GR-T3's STOPP 0.
+
+---
+
+## 13. Consequences worth reading twice
+
+1. **Before ML, no play wears a weapon, marks a fight or wounds an arm.** GR-T6, GR-T10 and GR22 are proven by tests and by `py`. Starvation damages every location and sets no state (WN5).
+2. **Seven Armour Points on the chest need no metal** — linen, hard leather and, when someone adds it, wood; six with what GR builds. That stops a club's 1D6 whole. The Combat Design's known risk named 13; it is here in small, and only ML's dice can judge it.
+3. **A whole kit is 16 ENC** against a limit of STR + SIZ. AR5's second brake holds before the first: a character in everything carries little else.
+4. **The layer check is the command's.** An item put on by `wear()` in code, a test or a `py` line, is not checked, and two pieces of one layer on one location then both count in the sum.
+5. **A held item is not a worn one, and is stored differently.** `db.worn` is the contrib's flag on the item, with three guards; `db.hands` is the project's table on the character, with one check at the read. Nothing should copy the first to the second.
+6. **An entry in `db.hands` survives a useless arm and not a lost item.** The two look alike at the read and are not.
+7. **A row corrected in `world/gear.py` corrects every item ever made**, and a prototype renamed orphans them: the tag is the key.
+8. **The stone knife and the stone axe are weapons from GR-T1 on,** and wear on one axis at two rates: 5 a craft, 1 a blow.
+9. **A cloak hides armour from a stranger** (GR7). When PvP is opened that is a choice a player makes.
+10. **The alpha may wait for Stage 5.** Adam is leaning that way (2026-11-24); it is not decided, and nothing here assumes it. GR-T15 gives the question a home.
