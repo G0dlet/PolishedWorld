@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 123 · 2026-11-24** — **one entry DONE, five annotated**, docs only, in the commit that closes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 3; merged as `3dc009d`, PR #35, tagged `alpha-20261124-2`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `hero`, `Hero Point`, `Glancing`, `Heroic`, `alpha-20261124`, `Character panel`, `restore block`, `sheet`, `accrue`, `tblib` and `mutation`; each entry that names one was read against the merge. **DONE:** *Hero Points in a persistent world* (OQ-HE1 and OQ-HE3 stay the Combat Design's). **Annotated:** *Character panel: Legend combat state* (the readers; the push CL owes), *Survival loop tuning* and *Persistent alpha instance* (the tag L6.1 deploys is `alpha-20261124-2`), *A collapsed body's instant commands* (`hero` answered, seen in play) and *Runnable seam checker for the System Map* (`TestHeroCensus` checks one row at test time). The rest are unchanged by HE. No entry is added.
 > **Rev 122 · 2026-11-24** — **three entries annotated**, docs only, in the commit that decomposes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 1; Combat Design Rev 9). BACKLOG was searched first for `hero`, `Glancing`, `Major Wound`, `respawn`, `played`, `away_since` and `cap` (lessons 238 and 408); five entries name *Glancing Blow* or a Major Wound and none says how a downgrade is done. **Annotated:** *Hero Points in a persistent world* (the eight locks, and the cap against the book's Heroic Abilities, OQ-HE1), *Character panel: Legend combat state* (where the panel will read Hero Points, and the push CL owes) and *A collapsed body's instant commands* (`hero` is answered). No entry is added: the open questions are the Combat Design's and the decomposition's.
 > **Rev 121 · 2026-11-24** — **two entries DONE, nine annotated, one new**, docs only, in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`). BACKLOG was searched first for the twelve names the slice touched (WN-T13; lessons 238 and 408): twenty-five entries name one, and each was read against the merge. **DONE:** *`at_character_death()` restore block vs persistent wound tiers* (WN-T8–WN-T10) and *Dev characters keep a float `health.base`* (WN-T6, closed by the trait's removal). **Annotated with what shipped:** *Free Skill Points*, *Characteristic improvement*, *Two-stage healing* (status now BLOCKED on HL's design session), *Character panel: Legend combat state* (BLOCKED on CL), *Survival loop tuning*, *A collapsed body's instant commands* (the clock fix), *`descs` tables…* (WN-T11 changed health's key-0 word, not its reading; the trigger did not fire), *Runnable seam checker*, *Persistent alpha instance* and *Hero Points in a persistent world*. **New:** *Others cannot tell a body lies senseless* (OQ-WN5's last word, BLOCKED on ML with OQ-WN3). The other fourteen are done, unchanged by WN, or already say what WN did.
 > **Rev 120 · 2026-11-23** — one entry **annotated**, docs only, with `docs/PolishedWorld_Wounds_Decomposition.md` Rev 4 (WN-T8–WN-T10 shipped on `feature/wounds`), Combat Design Rev 7 and README Rev 71. ***A collapsed body's instant commands***: a wound's unconsciousness (WN-T9) is refused where a collapse is and lets the same commands through, for minutes rather than ninety seconds; no play knocks a body out before ML.
@@ -1925,6 +1926,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `hero_points.CAP`; HE puts neither in the `char` snapshot (HE7, WC12). When
   CL does, the survival tick must push `char` when a point lands and the
   `hero` command when the switch moves — today neither needs to.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 3):** HE is merged
+  (`3dc009d`, PR #35) and in `alpha-20261124-2`. The panel will read
+  `hero_points.points(char)` and `hero_points.CAP`, as `hero` and `sheet` do
+  (*Hero Points 2/4*; Art Style Guide §6). Neither is in the `char` snapshot
+  (HE7), so the push the annotation above names is still owed by CL.
 - **Status:** BLOCKED (Stage 5 slice CL; the locational Hit Points shipped in `c3df740`)
 
 ### Hero Points in a persistent world
@@ -1963,7 +1969,18 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   **The cap meets the book here:** its Heroic Abilities cost 8, 10 or 12 Hero
   Points (pp. 218–219), more than four — Combat Design OQ-HE1, closed when
   Heroic Abilities are designed.
-- **Status:** DECIDED (roadmap Rev 80) · decomposed (Rev 122) · code SCHEDULED (Stage 5 slice HE)
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 3):** HE is DONE:
+  merged as `3dc009d` (PR #35) and tagged `alpha-20261124-2`.
+  `world/hero_points.py` holds the points, the counter and the switch behind
+  three doors; a point is earned per game day the survival tick gives (*The
+  hard days behind you have left you steadier. Your Hero Points have grown.*),
+  up to four; `hero` shows them and carries the switch; `sheet` shows *Hero
+  Points n/4*; *Glancing Blow* trims a Major Wound to one short of it for a
+  point; death touches none of it. Seen in play at home (HE-T8). **What stays
+  open is not this entry's:** the other uses wait (HP3), the cap against the
+  Heroic Abilities' prices is Combat Design OQ-HE1, and the rate is OQ-HE3,
+  for the alpha's data.
+- **Status:** DONE (Stage 5 slice HE, `3dc009d`, tagged `alpha-20261124-2`; OQ-HE1 and OQ-HE3 open in the Combat Design)
 
 ### Time away heals vs the statue as a snapshot
 - **What:** Decide what replaces the credit of time away to natural healing
@@ -2304,6 +2321,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   healing mends every hurt location per interval. `status` shows the figure
   out of 100 with a line per location at a Serious Wound or worse (WN-T11),
   which is the data this entry waits for.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 3):** the tag L6.1
+  deploys is now `alpha-20261124-2` (Alpha Runbook Rev 14), which carries WN
+  as above and adds Hero Points. The tick now feeds a second counter beside
+  healing's, a Hero Point per game day (HE4); it changes no gauge and no time
+  to death.
 - **Status:** OPEN
 
 ### A `rate` multiplier below ×1.5 is lost to the gauges' rounding
@@ -2367,6 +2389,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   slice HE, is answered to a collapsed or senseless body, the switch included
   (Combat Design HE3): it is a choice and not an act. One more instant command
   for this entry's list when it is decided.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 3):** `hero` shipped
+  as written: it answers a collapsed or senseless body, the switch included —
+  seen at home on a body senseless from a Major Wound to the head (HE-T6's
+  protocol). The entry's list is otherwise unchanged.
 - **Status:** OPEN
 
 ---
@@ -4042,6 +4068,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   entry names: `apply_health_damage(amount, *, location, source=None,
   made=None)` writes through `world/wounds.py`'s doors (System Map Rev 6).
   The checker is still not built.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 3):** System Map Rev
+  7 adds the row *Hero Points*: three doors, each with one production caller.
+  That row is checked at test time by
+  `tests/test_hero_points.py::TestHeroCensus`, which reads the callers from
+  the source — the shape this entry asks for, for one row. It reads literal
+  names only (HE-T7's HEM25b–HEM27b; lesson 459). The checker for the whole
+  table is still not built.
 - **Status:** SCHEDULED (Stage 5 kickoff)
 
 ### Import the three project-knowledge-only docs
@@ -4235,6 +4268,11 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   opened: `alpha-20261124`, the tag L6.1 deploys, carries locational Hit
   Points and the wound states, so the cohort's characters are born with
   them and no migration is needed for WN.
+- **Annotation (2026-11-24, Hero Points Decomposition Rev 3):** HE shipped
+  before the alpha opened too: L6.1 deploys **`alpha-20261124-2`** (annotated,
+  on `3dc009d`, PR #35, tree `da67ec5`), which carries WN and Hero Points;
+  runbook §7, Rev 14. HE needs no migration (HE6): a character with nothing
+  stored has two points and *Glancing Blow* on.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### Two treasury tests assume the developer's settings match the shipped ones

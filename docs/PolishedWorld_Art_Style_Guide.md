@@ -1,5 +1,6 @@
 # PolishedWorld Art Style Guide
 
+> **Rev 10 · 2026-11-24** — §6's Hero Point line: the limit is decided, four (Combat Design HP4), and is shown as *n/4* — *Hero Points 2/4* in `sheet` and in `hero` — in the commit that closes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 3). No other change.
 > **Rev 9 · 2026-11-12** — the art direction Adam set when he chose the outdoor location picture V2.2.1 over three later redraws (visual decomposition Rev 11): a new §5 subsection *Approval: legible first*; the location-picture rule in *Weather icons and pictures* records the exception it was given; §8 adds that `validate` passing is not approval. The visual pass is closed, so every family in §2 exists.
 > **Rev 8 · 2026-11-12** — the webclient visual pass's weather, season and picture families (visual decomposition V3.3–V3.4, on `feature/webclient-visual`): §2 lists `world/` and `pictures/`; §5's Rev 7 note is closed, since `NATIVE_SIZES` now gives `room_` 96×54; §10 lists the tool's new rule that a banner or location picture carries no `#FF00FF`, and the publish command for any family.
 > **Rev 7 · 2026-11-12** — what the webclient visual pass's second briefs state (visual decomposition V2.2), written here because both assistants follow it (§1): §5's size table gives the location picture as 96×54, the size that fits the client's *Location* panel at ×1 (`assetpipe.py` still says 320×180 for `room_` and follows at V3.4); §5's file-name examples use the names the client will ask for; a new §5 subsection *Weather icons and pictures*; §8 tells pictures from motifs on a background.
@@ -189,7 +190,7 @@ Labels and assets follow the Legend core rules:
 - A limb made useless by a failed Resilience test is a separate functional state ("useless arm"), shown with its own symbol or text, not only a wound colour.
 - **Fatigue levels:** Fresh, Winded, Tired, Wearied, Exhausted, Debilitated.
 - **Combat resources:** Combat Actions and Hero Points. Not Action Points or Luck Points, which belong to other rule systems.
-- Combat Actions are shown only where the mechanics justify it (for example during combat). Hero Point limits are not assumed until there is a game design decision.
+- Combat Actions are shown only where the mechanics justify it (for example during combat). Hero Point limits are not assumed until there is a game design decision. *(Rev 10: decided — four at most (Combat Design HP4, HE7), shown as* n/4*: *Hero Points 2/4* in `sheet`'s Combat block and in `hero`. The way to the next point is not shown.)*
 
 ## 7. Accessibility
 
