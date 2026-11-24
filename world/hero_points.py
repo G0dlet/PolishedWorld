@@ -13,8 +13,8 @@ What it stores, on the character, and nothing else (HE6):
   made before Hero Points existed has two like any other (no backfill, no
   migration). **Zero is stored as 0** and never removed, so a character who
   has spent every point is not handed two again.
-- `db.hero_progress` -- game seconds towards the next point (HE4; written
-  from HE-T2).
+- `db.hero_progress` -- game seconds towards the next point (HE4). Absent
+  at CAP: the counter does not run there.
 - `db.hero_glancing_off` -- present only while the player has switched
   *Glancing Blow* off (HE3). Missing means on.
 
@@ -39,6 +39,13 @@ CAP = 4
 # hours, 6 real hours at TIME_FACTOR 4 (HE4 c). A calibration constant
 # (OQ-HE3); the length of a story behind it is this project's assumption.
 GAME_SECONDS_PER_POINT = 24 * 3600
+
+# Sent by the survival tick when at least one point lands (HE7 b; OQ-HE2,
+# chosen at HE-T2's STOPP 0). No number in it (Tone Guide §7) and no count,
+# since a span can land two: `hero` shows the number. The second sentence
+# names the book's term, so a player can find the command that shows it --
+# nothing else shows Hero Points unasked (no meter, no `status` row, HE7).
+EARNED = "The hard days behind you have left you steadier. Your Hero Points have grown."
 
 
 def points(char):
@@ -73,3 +80,52 @@ def glancing_on(char):
         bool: True unless `db.hero_glancing_off` is set.
     """
     return not char.db.hero_glancing_off
+
+
+def accrue(char, game_seconds):
+    """
+    Add a span of game time played to the character's counter, and turn
+    whole game days into Hero Points, up to CAP (HP4, HE4).
+
+    The module's first door; its one caller in production is the survival
+    tick (`survival_ticker._deplete_character`), with the same `elapsed` it
+    gives natural healing (HE4 b). Every tick counts, whatever the body is
+    doing (HE4 a). Nothing is pushed: no snapshot shows Hero Points (HE7;
+    CL will have to push `char` here when the panel does).
+
+    Order matters and each step is a lock:
+      1. At CAP the counter does not run: its Attribute is removed if it is
+         there, and nothing is added (HE4 d). A counter that filled and
+         waited would be a cap of five by another name.
+      2. A span of 0 or less adds nothing and writes nothing (the first tick
+         after a puppet or a reload gives 0: time is lost, never gained).
+      3. The span is added; whole days become points, up to the room left
+         below CAP; the remainder is carried -- unless CAP was reached, when
+         the Attribute is removed (1's rule, applied at once).
+
+    Args:
+        char (Character): the character.
+        game_seconds (int or float): game seconds since the last call for
+            them; read as a whole number, as healing reads it.
+
+    Returns:
+        int: Hero Points that landed (0 or more). The tick says one line
+            when this is above 0, however many landed.
+    """
+    held = points(char)
+    if held >= CAP:
+        if char.attributes.has("hero_progress"):
+            char.attributes.remove("hero_progress")
+        return 0
+    span = int(game_seconds)
+    if span <= 0:
+        return 0
+    days, remainder = divmod((char.db.hero_progress or 0) + span, GAME_SECONDS_PER_POINT)
+    landed = min(days, CAP - held)
+    if landed:
+        char.db.hero_points = held + landed
+    if held + landed >= CAP:
+        char.attributes.remove("hero_progress")
+    else:
+        char.db.hero_progress = remainder
+    return landed

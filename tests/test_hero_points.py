@@ -23,17 +23,40 @@ WHAT EACH TEST PUTS PRESSURE ON
   on spellings it must catch, so a census that sees nothing is not mistaken
   for a clean module.
 
-Mutations (HEM1-HEM3) are in `tools/mutants/he_t1.toml`, run with
-`python tools/mutate.py tools/mutants/he_t1.toml`.
+HE-T2, the earning (HE4):
+
+- `TestAccrue`: the day's edge on both sides (one second short earns
+  nothing; the second after earns one and carries nothing -- HEM8); a span
+  of several days carries its remainder (HEM5); the cap stops the points
+  (HEM4) and the counter both when it is reached (HEM6) and when it was
+  already reached, even with a counter stored by hand (HEM7); a span of 0
+  writes nothing; a missing store is two, so a day stores three.
+- `TestTheTickEarns`: through `_deplete_character`. A collapsed body earns
+  (HE4 a; the collapsed branch's own call is the receipt that it ran). The
+  span is the tick's own `elapsed`, tried at 3000 game seconds, not the
+  usual 2400, so a constant in the call is seen (HEM9). One line however
+  many points land.
+- `TestHeroCensus`: HE6 as code. The module's Attributes are named and are
+  exactly what `world/hero_points.py` writes; no other production file
+  writes an Attribute named `hero_*` (P-2); each door has its one named
+  caller. The doors push nothing on purpose: no snapshot shows Hero Points
+  (HE7), and `TestCharSnapshot.test_keys_and_types` pins the snapshot's
+  keys, so CL's change is seen there.
+
+Mutations: HEM1-HEM3 in `tools/mutants/he_t1.toml`, HEM4-HEM9 in
+`tools/mutants/he_t2.toml`, run with `python tools/mutate.py <spec>`.
 """
 
 import ast
 from pathlib import Path
+from unittest import mock
 
 from django.test import SimpleTestCase
 from evennia.utils.test_resources import EvenniaTest
 
-from world import hero_points
+# Functions only: a TestCase imported by name would run here a second time.
+from tests.test_client_state import _functions, _production_trees
+from world import hero_points, survival_ticker
 
 ROOT = Path(__file__).resolve().parent.parent
 GAME_PACKAGES = ("commands", "server", "typeclasses", "web", "world")
@@ -128,4 +151,201 @@ class TestImports(SimpleTestCase):
             "HE6: world.wounds imports hero_points, never the other way round. "
             "hero_points imports nothing from the game's own packages, so no "
             "way round through a module that imports wounds either.",
+        )
+
+
+DAY = hero_points.GAME_SECONDS_PER_POINT
+HOUR = 3600
+
+
+class TestAccrue(EvenniaTest):
+    def test_one_second_short_of_a_day_earns_nothing(self):
+        self.char1.db.hero_progress = DAY - 2
+        self.assertEqual(hero_points.accrue(self.char1, 1), 0)
+        self.assertFalse(self.char1.attributes.has("hero_points"))
+        self.assertEqual(self.char1.db.hero_progress, DAY - 1)
+
+    def test_the_second_after_earns_one_and_carries_nothing(self):
+        self.char1.db.hero_progress = DAY - 1
+        self.assertEqual(hero_points.accrue(self.char1, 1), 1)
+        self.assertEqual(self.char1.db.hero_points, 3)
+        self.assertEqual(self.char1.db.hero_progress, 0)
+
+    def test_two_days_and_an_hour_earn_two_and_carry_the_hour(self):
+        self.char1.db.hero_points = 0
+        self.assertEqual(hero_points.accrue(self.char1, 2 * DAY + HOUR), 2)
+        self.assertEqual(self.char1.db.hero_points, 2)
+        self.assertEqual(self.char1.db.hero_progress, HOUR)
+
+    def test_at_three_two_days_earn_one_and_leave_no_counter(self):
+        self.char1.db.hero_points = 3
+        self.assertEqual(hero_points.accrue(self.char1, 2 * DAY + HOUR), 1)
+        self.assertEqual(self.char1.db.hero_points, 4)
+        self.assertFalse(self.char1.attributes.has("hero_progress"))
+
+    def test_at_the_cap_a_span_adds_nothing_and_leaves_no_counter(self):
+        self.char1.db.hero_points = 4
+        self.assertEqual(hero_points.accrue(self.char1, DAY + HOUR), 0)
+        self.assertEqual(self.char1.db.hero_points, 4)
+        self.assertFalse(self.char1.attributes.has("hero_progress"))
+
+    def test_a_counter_stored_by_hand_at_the_cap_is_removed(self):
+        self.char1.db.hero_points = 4
+        self.char1.db.hero_progress = DAY - 1
+        self.assertEqual(hero_points.accrue(self.char1, 1), 0)
+        self.assertEqual(self.char1.db.hero_points, 4)
+        self.assertFalse(self.char1.attributes.has("hero_progress"))
+
+    def test_a_span_of_zero_writes_nothing(self):
+        self.assertEqual(hero_points.accrue(self.char1, 0), 0)
+        self.assertFalse(self.char1.attributes.has("hero_points"))
+        self.assertFalse(self.char1.attributes.has("hero_progress"))
+
+    def test_a_missing_store_and_a_day_stores_three(self):
+        self.assertEqual(hero_points.accrue(self.char1, DAY), 1)
+        self.assertEqual(self.char1.attributes.get("hero_points"), 3)
+
+    def test_the_line_names_the_points_and_carries_no_number(self):
+        self.assertIn("Hero Points", hero_points.EARNED)
+        self.assertFalse(any(ch.isdigit() for ch in hero_points.EARNED))
+
+
+class TestTheTickEarns(EvenniaTest):
+    CLOCK = "world.survival_ticker.gametime_utils.get_absolute_gametime"
+
+    def tick(self, span):
+        """One survival tick of `span` game seconds; the lines it said."""
+        self.char1.ndb.survival_tick_at = 100_000
+        with mock.patch(self.CLOCK, return_value=100_000 + span), \
+                mock.patch.object(self.char1, "msg") as msg:
+            survival_ticker._deplete_character(self.char1)
+        return [c.args[0] for c in msg.call_args_list if c.args]
+
+    def test_a_collapsed_body_earns(self):
+        self.char1.db.collapsed = True
+        self.char1.db.hero_progress = DAY - 3000
+        with mock.patch.object(self.char1, "arm_collapse") as arm:
+            lines = self.tick(3000)
+        arm.assert_called_once()   # receipt: the tick took the collapsed branch
+        self.assertEqual(self.char1.db.hero_points, 3)
+        self.assertEqual(lines.count(hero_points.EARNED), 1)
+
+    def test_a_span_that_lands_two_says_one_line(self):
+        self.char1.db.hero_points = 0
+        self.char1.db.hero_progress = DAY - 1
+        lines = self.tick(DAY + 1)
+        self.assertEqual(self.char1.db.hero_points, 2)
+        self.assertEqual(lines.count(hero_points.EARNED), 1)
+
+    def test_a_tick_short_of_a_point_counts_and_says_nothing(self):
+        lines = self.tick(3000)
+        self.assertEqual(self.char1.db.hero_progress, 3000)
+        self.assertNotIn(hero_points.EARNED, lines)
+
+
+def written_attributes(tree):
+    """
+    The Attribute names a module stores, read by AST in the wound census's
+    shape: every `X.db.<name> = / += ...` and every
+    `X.attributes.add/remove("<name>", ...)`.
+    """
+    written = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            for target in getattr(node, "targets", None) or [node.target]:
+                if (isinstance(target, ast.Attribute)
+                        and isinstance(target.value, ast.Attribute)
+                        and target.value.attr == "db"):
+                    written.add(target.attr)
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+              and node.func.attr in ("remove", "add")
+              and isinstance(node.func.value, ast.Attribute)
+              and node.func.value.attr == "attributes"
+              and node.args and isinstance(node.args[0], ast.Constant)):
+            written.add(node.args[0].value)
+    return written
+
+
+class TestHeroCensus(SimpleTestCase):
+    """
+    The module is the one writer of its Attributes, and each door has one
+    caller in production (HE6, P-2). The doors push nothing: no snapshot
+    shows Hero Points (HE7). When CL puts them in the panel, the callers
+    push `char` (decomposition §11, 8) -- `TestCharSnapshot` will fail first.
+    """
+
+    # What world/hero_points.py stores. HE-T3 adds hero_glancing_off.
+    HERO_ATTRIBUTES = ("hero_points", "hero_progress")
+    # door -> its one production caller (file, qualified name).
+    DOORS = {
+        "accrue": ("world/survival_ticker.py", "_deplete_character"),
+    }
+
+    def test_every_attribute_the_module_writes_is_named(self):
+        tree = ast.parse((ROOT / "world" / "hero_points.py").read_text(encoding="utf-8"))
+        self.assertEqual(written_attributes(tree), set(self.HERO_ATTRIBUTES))
+
+    def test_no_other_file_writes_a_hero_attribute(self):
+        offenders = {}
+        for rel, tree in _production_trees():
+            if rel == "world/hero_points.py":
+                continue
+            names = sorted(n for n in written_attributes(tree) if n.startswith("hero_"))
+            if names:
+                offenders[rel] = names
+        self.assertEqual(
+            offenders, {},
+            "P-2, HE6: world/hero_points.py is the only writer of the hero_ "
+            "Attributes. Go through its doors.",
+        )
+
+    @staticmethod
+    def _door_calls(tree, rel):
+        """{(door, rel, qualified caller): count} for the module's doors."""
+        module_names, door_names = set(), set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "world":
+                module_names |= {a.asname or a.name for a in node.names if a.name == "hero_points"}
+            elif isinstance(node, ast.ImportFrom) and node.module == "world.hero_points":
+                door_names |= {a.asname or a.name for a in node.names}
+            elif isinstance(node, ast.Import):
+                module_names |= {a.asname for a in node.names
+                                 if a.name == "world.hero_points" and a.asname}
+        found = {}
+        for qual, func in _functions(tree):
+            nested = {id(n) for _q, inner in _functions(func) for n in ast.walk(inner)}
+            for node in ast.walk(func):
+                if id(node) in nested or not isinstance(node, ast.Call):
+                    continue
+                target, door = node.func, None
+                if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
+                        and target.value.id in module_names):
+                    door = target.attr
+                elif isinstance(target, ast.Name) and target.id in door_names:
+                    door = target.id
+                if door in TestHeroCensus.DOORS:
+                    key = (door, rel, qual)
+                    found[key] = found.get(key, 0) + 1
+        return found
+
+    def test_the_census_sees_both_spellings(self):
+        source = (
+            "from world import hero_points\n"
+            "from world.hero_points import accrue\n"
+            "def a(char):\n    hero_points.accrue(char, 1)\n"
+            "def b(char):\n    accrue(char, 1)\n"
+        )
+        self.assertEqual(
+            self._door_calls(ast.parse(source), "x.py"),
+            {("accrue", "x.py", "a"): 1, ("accrue", "x.py", "b"): 1},
+        )
+
+    def test_every_door_has_its_one_caller(self):
+        found = {}
+        for rel, tree in _production_trees():
+            found.update(self._door_calls(tree, rel))
+        self.assertEqual(
+            found,
+            {(door, rel, qual): 1 for door, (rel, qual) in self.DOORS.items()},
+            "HE6: each door of world/hero_points.py has one caller in production.",
         )

@@ -14,7 +14,7 @@ from evennia.utils import logger
 from world.survival_buffs import Starving, Dehydrated
 from world.thermal import apply_thermal_stress
 from world import wounds
-from world import client_state, fatigue, gametime_utils, healing, timed_actions
+from world import client_state, fatigue, gametime_utils, healing, hero_points, timed_actions
 
 # Base depletion per tick, before buff modifiers. Tunable.
 # Thirst bites faster than hunger (loosely echoes Legend: thirst in hours,
@@ -71,7 +71,7 @@ def deplete_all_survival_traits():
 def _deplete_character(char):
     """
     Recompute thermal stress, deplete hunger and thirst, apply
-    zero-conditions, run the awake clock, heal, warn.
+    zero-conditions, run the awake clock, heal, earn Hero Points, warn.
 
     The awake clock (S3.3) runs after the conditions (lock D1), so a
     Starving or Dehydrated condition applied this tick already adds its -20
@@ -88,6 +88,10 @@ def _deplete_character(char):
     condition applied this tick already stops it, and a character the
     conditions just killed and respawned at full health only has their
     counter zeroed.
+
+    Hero Points are earned beside it from the same span (Hero Points HE4):
+    after the conditions, so a tick that ended in a death and a respawn is
+    still counted -- death touches neither the points nor the counter (HE5).
     """
     elapsed = _tick_game_seconds(char)
     apply_thermal_stress(char)
@@ -115,6 +119,11 @@ def _deplete_character(char):
                 char.collapse()
     if healing.accrue(char, elapsed):
         char.msg(healing.HEALED)
+    # Hero Points (HE4): the same span through their own door, and one line
+    # when a point lands. Nothing to push yet -- no snapshot shows them
+    # (HE7); CL, which puts them in the panel, adds `char` to the push below.
+    if hero_points.accrue(char, elapsed):
+        char.msg(hero_points.EARNED)
     _check_survival_warnings(char)
     # W4.2: after the warnings, so the text and the panel agree. `world`
     # rides along: Evennia's clock only runs while the server does (WC9).
