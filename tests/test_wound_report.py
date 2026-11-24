@@ -43,7 +43,7 @@ from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands.character_commands import CmdSheet, CmdStatus
 from tests.test_wound_states import MADE, LOSE, ROLL, WIN
-from world import client_state, wounds
+from world import client_state, hero_points, wounds
 
 NOW = 1_000_000.0
 
@@ -56,6 +56,10 @@ class _Report(EvenniaCommandTest):
         self.char1.stats.pow.base = 11
         self.char1.traits.fatigue.current = 100
         self.char1.db.respawn_location = self.room2
+        # Glancing Blow off: these tests drive Major Wounds, and a body with
+        # Hero Points would have each one trimmed to a Serious Wound (HE1;
+        # Hero Points decomposition §4, P1, and HE-T5).
+        hero_points.set_glancing(self.char1, False)
         clock = mock.patch("world.wounds.time")
         self.time = clock.start()
         self.time.time.return_value = NOW

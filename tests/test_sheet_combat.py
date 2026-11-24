@@ -8,6 +8,14 @@ tests move the gauge and read the sheet again.
 
 The numbers are typed from the book's tables (core pp. 10, 13, 90), with
 Alaric's four characteristics: STR 12, DEX 13, SIZ 14, INT 16.
+
+Hero Points (Hero Points decomposition HE-T4; HE7): a row *Hero Points n/4*
+after the Damage Modifier, read from `hero_points.points` on every call and
+never stored, in the block and only there -- a body without
+characteristics has no block and no row (chosen at HE-T4's STOPP 0; `hero`
+still shows its points). `TestHeroPointsRow` pressures a row read from the
+Attribute itself (a fresh character would show None/4: HEM14), a cap typed
+instead of read (HEM14b), and the row added to `status` (HEM15).
 """
 
 import re
@@ -16,6 +24,7 @@ from unittest import mock
 from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands.character_commands import CmdSheet, CmdStats, CmdStatus
+from world import hero_points
 
 
 def _row(out, label):
@@ -73,7 +82,33 @@ class TestTheBlock(_Alaric):
             out = self.sheet()
         self.assertNotIn("Combat:", out)
         self.assertNotIn("Strike Rank", out)
+        self.assertNotIn("Hero Points", out)   # the row follows the block (HE-T4)
         self.assertIn("Skills:", out)
+
+
+class TestHeroPointsRow(_Alaric):
+    def test_a_fresh_character_reads_two_of_four(self):
+        self.assertIsNone(self.char1.db.hero_points)
+        self.assertEqual(_row(self.sheet(), "Hero Points"), "2/4")
+
+    def test_zero_and_four(self):
+        for held in (0, 4):
+            self.char1.db.hero_points = held
+            self.assertEqual(_row(self.sheet(), "Hero Points"), f"{held}/4")
+
+    def test_the_row_comes_after_the_damage_modifier(self):
+        out = self.sheet()
+        self.assertLess(out.index("Damage Modifier"), out.index("Hero Points"))
+        self.assertLess(out.index("Hero Points"), out.index("Skills:"))
+
+    def test_the_cap_is_read_from_cap(self):
+        with mock.patch.object(hero_points, "CAP", 7):
+            self.assertEqual(_row(self.sheet(), "Hero Points"), "2/7")
+
+    def test_status_names_no_hero_point(self):
+        out = self.call(CmdStatus(), "", caller=self.char1)
+        self.assertIn("Health", out)   # receipt: status printed its vitals
+        self.assertNotIn("hero", out.lower())
 
 
 class TestTheBlockIsReadLive(_Alaric):

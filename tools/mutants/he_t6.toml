@@ -1,0 +1,164 @@
+# HE-T6 -- Glancing Blow, the trim in wounds.damage (Hero Points
+# decomposition §8). Run: python3 tools/mutate.py tools/mutants/he_t6.toml --parallel 2
+#
+# HEM16-HEM24 as the decomposition names them, written as the code reads
+# (lesson 13); HEM22b added at STOPP 0 (choice 2: a trimmed 0 knocks no one
+# out). HEM18, "the door asked before the refusals", is the failed attack
+# roll's refusal moved below the trim: the one refusal whose place a
+# careless edit could move past the door.
+
+modules = ["tests.test_glancing_blow", "tests.test_hero_points"]
+
+[[mutant]]
+id = "HEM16"
+# The trim to 2 x max: still a Major Wound.
+file = "world/wounds.py"
+old = '''        amount = 2 * maxima[key] - 1 - before
+'''
+new = '''        amount = 2 * maxima[key] - before
+'''
+expect = "test_an_unhurt_head_and_a_heavy_blow_is_a_serious_wound_for_a_point"
+
+[[mutant]]
+id = "HEM17"
+# The trim to 2 x max - 2: one point too many taken off.
+file = "world/wounds.py"
+old = '''        amount = 2 * maxima[key] - 1 - before
+'''
+new = '''        amount = 2 * maxima[key] - 2 - before
+'''
+expect = "test_an_unhurt_head_and_a_heavy_blow_is_a_serious_wound_for_a_point"
+
+[[mutant]]
+id = "HEM18"
+# The failed attack roll refused after the door: a point lost to a ValueError.
+file = "world/wounds.py"
+old = '''        if not made.get("success"):
+            raise ValueError("a wound is tested against a successful attack roll")
+    if amount <= 0:
+        return None
+    maxima = maxima_of(char)
+    if maxima is None or _dying(char):
+        return None
+    damages = damage_of(char)
+    if location == ALL:
+        for key in LOCATIONS:
+            total = damages.get(key, 0) + amount
+            if key not in VITAL:
+                total = min(total, max(damages.get(key, 0), maxima[key]))
+            damages[key] = total
+        char.db.body_damage = {key: value for key, value in damages.items() if value}
+        return {"dies": _vital_major(maxima, damages), "wounds": []}
+    key = location_for(randint(1, 20)) if location == RANDOM else location
+    before = damages.get(key, 0)
+    glancing = (level(maxima[key], before) != MAJOR
+                and level(maxima[key], before + amount) == MAJOR
+                and hero_points.take_for_glancing(char))
+'''
+new = '''        pass
+    if amount <= 0:
+        return None
+    maxima = maxima_of(char)
+    if maxima is None or _dying(char):
+        return None
+    damages = damage_of(char)
+    if location == ALL:
+        for key in LOCATIONS:
+            total = damages.get(key, 0) + amount
+            if key not in VITAL:
+                total = min(total, max(damages.get(key, 0), maxima[key]))
+            damages[key] = total
+        char.db.body_damage = {key: value for key, value in damages.items() if value}
+        return {"dies": _vital_major(maxima, damages), "wounds": []}
+    key = location_for(randint(1, 20)) if location == RANDOM else location
+    before = damages.get(key, 0)
+    glancing = (level(maxima[key], before) != MAJOR
+                and level(maxima[key], before + amount) == MAJOR
+                and hero_points.take_for_glancing(char))
+    if made is not None and not made.get("success"):
+        raise ValueError("a wound is tested against a successful attack roll")
+'''
+expect = "test_a_failed_attack_roll_is_refused_before_a_point_is_taken"
+
+[[mutant]]
+id = "HEM19"
+# The door asked for a location already at a Major Wound (HE1 c).
+file = "world/wounds.py"
+old = '''    glancing = (level(maxima[key], before) != MAJOR
+                and level(maxima[key], before + amount) == MAJOR
+'''
+new = '''    glancing = (level(maxima[key], before + amount) == MAJOR
+'''
+expect = "test_a_head_already_at_a_major_wound_costs_nothing"
+
+[[mutant]]
+id = "HEM20"
+# The door asked in the ALL branch (HE2).
+file = "world/wounds.py"
+old = '''    if location == ALL:
+        for key in LOCATIONS:
+'''
+new = '''    if location == ALL:
+        hero_points.take_for_glancing(char)
+        for key in LOCATIONS:
+'''
+expect = "test_all_takes_no_point_and_kills_as_today"
+
+[[mutant]]
+id = "HEM21"
+# _wound given the blow's whole amount: minutes for 10, not the 7 written.
+file = "world/wounds.py"
+old = '''    if glancing:
+        # One Hit Point less than a Major Wound would need (p. 88; HE1).
+        amount = 2 * maxima[key] - 1 - before
+    damages[key] = before + amount
+'''
+new = '''    trimmed = amount
+    if glancing:
+        # One Hit Point less than a Major Wound would need (p. 88; HE1).
+        trimmed = 2 * maxima[key] - 1 - before
+    damages[key] = before + trimmed
+'''
+expect = "test_a_lost_test_is_senseless_for_the_damage_written"
+
+[[mutant]]
+id = "HEM22"
+# A trimmed 0 returned as None: "nothing written" read as "nothing happened".
+file = "world/wounds.py"
+old = '''        amount = 2 * maxima[key] - 1 - before
+'''
+new = '''        amount = 2 * maxima[key] - 1 - before
+        if amount == 0:
+            return None
+'''
+expect = "test_one_short_and_hit_again_costs_a_point_and_takes_nothing"
+
+[[mutant]]
+id = "HEM22b"
+# A trimmed 0 and a lost test knock the body out (for no minutes).
+file = "world/wounds.py"
+old = '''            knocked = lost and amount > 0
+'''
+new = '''            knocked = lost
+'''
+expect = "test_one_short_and_a_lost_test_knocks_no_one_out"
+
+[[mutant]]
+id = "HEM23"
+# `glancing` always False in the outcome.
+file = "world/wounds.py"
+old = '''               "glancing": glancing}
+'''
+new = '''               "glancing": False}
+'''
+expect = "test_an_unhurt_head_and_a_heavy_blow_is_a_serious_wound_for_a_point"
+
+[[mutant]]
+id = "HEM24"
+# The door ignoring the switch (HE3).
+file = "world/hero_points.py"
+old = '''    if held <= 0 or not glancing_on(char):
+'''
+new = '''    if held <= 0:
+'''
+expect = "test_switched_off_the_major_wound_stands_and_the_points_are_kept"

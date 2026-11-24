@@ -1,0 +1,72 @@
+# HE-T2 -- a Hero Point for a game day played (Hero Points decomposition §7).
+# Run: python tools/mutate.py tools/mutants/he_t2.toml
+
+modules = ["tests.test_hero_points"]
+
+[[mutant]]
+id = "HEM4"
+# No cap: the points pass four.
+file = "world/hero_points.py"
+old = '''    landed = min(days, CAP - held)
+'''
+new = '''    landed = days
+'''
+expect = "test_at_three_two_days_earn_one_and_leave_no_counter"
+
+[[mutant]]
+id = "HEM5"
+# The remainder dropped below the cap: a part-day is lost at every point.
+file = "world/hero_points.py"
+old = '''        char.db.hero_progress = remainder
+'''
+new = '''        char.db.hero_progress = 0
+'''
+expect = "test_two_days_and_an_hour_earn_two_and_carry_the_hour"
+
+[[mutant]]
+id = "HEM6"
+# The remainder kept when the cap is reached: the counter outlives the cap.
+file = "world/hero_points.py"
+old = '''    if held + landed >= CAP:
+        char.attributes.remove("hero_progress")
+'''
+new = '''    if held + landed >= CAP:
+        char.db.hero_progress = remainder
+'''
+expect = "test_at_three_two_days_earn_one_and_leave_no_counter"
+
+[[mutant]]
+id = "HEM7"
+# At the cap the counter is left where it stands (HE4 d): a counter stored
+# by hand stays. (A counter that went on running at the cap is removed
+# again by step 3 in this code, so leaving it standing is the live form.)
+file = "world/hero_points.py"
+old = '''    if held >= CAP:
+        if char.attributes.has("hero_progress"):
+            char.attributes.remove("hero_progress")
+        return 0
+'''
+new = '''    if held >= CAP:
+        return 0
+'''
+expect = "test_a_counter_stored_by_hand_at_the_cap_is_removed"
+
+[[mutant]]
+id = "HEM8"
+# Off by one at the day's edge: a full day earns nothing until a second
+# more. (The decomposition names it `>=` read as `>`; this code divides,
+# so the edge is moved inside the division.)
+file = "world/hero_points.py"
+old = '''(char.db.hero_progress or 0) + span, GAME_SECONDS_PER_POINT)'''
+new = '''(char.db.hero_progress or 0) + span - 1, GAME_SECONDS_PER_POINT)'''
+expect = "test_the_second_after_earns_one_and_carries_nothing"
+
+[[mutant]]
+id = "HEM9"
+# The tick calls with a constant instead of its own span.
+file = "world/survival_ticker.py"
+old = '''    if hero_points.accrue(char, elapsed):
+'''
+new = '''    if hero_points.accrue(char, 2400):
+'''
+expect = ["test_a_collapsed_body_earns", "test_a_tick_short_of_a_point_counts_and_says_nothing"]
