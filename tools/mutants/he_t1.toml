@@ -1,0 +1,37 @@
+# HE-T1 -- the module and its readers (Hero Points decomposition §6).
+# Run: python tools/mutate.py tools/mutants/he_t1.toml
+
+modules = ["tests.test_hero_points"]
+
+[[mutant]]
+id = "HEM1"
+# `or START`: a stored 0 reads as missing, and a spent-out character has two.
+file = "world/hero_points.py"
+old = '''    stored = char.db.hero_points
+    if stored is None:
+        return START
+    return stored
+'''
+new = '''    return char.db.hero_points or START
+'''
+expect = "test_stored_zero_reads_zero"
+
+[[mutant]]
+id = "HEM2"
+# Three at creation instead of the book's two (HP1).
+file = "world/hero_points.py"
+old = '''START = 2
+'''
+new = '''START = 3
+'''
+expect = ["test_start_is_two", "test_a_fresh_character_reads_two_and_nothing_is_written"]
+
+[[mutant]]
+id = "HEM3"
+# The switch read as on when the Attribute is set: off has no effect.
+file = "world/hero_points.py"
+old = '''    return not char.db.hero_glancing_off
+'''
+new = '''    return True
+'''
+expect = "test_off_while_the_attribute_is_set"
