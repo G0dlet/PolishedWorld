@@ -44,6 +44,9 @@ LADDER = {
     "quarterstaff": 20,
     "spear": 20,
     "milling stones": 20,
+    "target shield": 40,
+    "soft leather trews": 40,
+    "bone helm": 40,
     "linen shirt": 40,
     "breeches": 40,
     "sack": 40,
@@ -57,6 +60,8 @@ LADDER = {
     "bone armour": 60,
     "tent": 60,
     "bow": 60,
+    "hard leather vambraces": 60,
+    "hard leather hauberk": 60,
 }
 
 # The registry's top rung today. When smithing lands a higher rung, this line
@@ -97,8 +102,8 @@ class TestMinSkillLadder(EvenniaTestCase):
         self.recipes = dict(_RECIPE_CLASSES)
 
     def test_every_recipe_declares_its_rung(self):
-        self.assertEqual(len(LADDER), 29)
-        self.assertEqual(len(self.recipes), 29)
+        self.assertEqual(len(LADDER), 34)
+        self.assertEqual(len(self.recipes), 34)
         self.assertEqual(set(self.recipes), set(LADDER))
         for name, expected in LADDER.items():
             with self.subTest(recipe=name):

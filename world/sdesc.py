@@ -15,9 +15,12 @@ Three facts are chosen once and stored as facts, not text, in
 fact: it is read from SIZ on every composition (`BUILDS`). The fixed core is
 the evidence (Names UG4); the living part is the moment: at most one state
 word, the bad end only and the worst first (`STATE_READERS`), and the word of
-the outermost garment that is not covered, `fullbody` before `top`, carried
-on the garment itself (`db.look_word`). A garment without a word shows
-nothing and still hides the one beneath. A worn garment with `"feature"` in
+the outermost garment that is not covered, in `SHOWING_TYPES` order --
+`fullbody`, the three armour layers outermost first, `top` (Gear GR7) --
+carried on the garment itself (`db.look_word`). A garment without a word shows
+nothing and still hides the one beneath; an armour piece without a word is
+passed over, since it is the piece that covers the chest that carries one
+(Gear OQ-GR5), and a helm hides no breastplate. A worn garment with `"feature"` in
 `db.conceals` (the hood) puts *hooded* in the feature's place; recognition is
 untouched (UP9 lands later on higher levels of `conceals`).
 
@@ -59,6 +62,7 @@ from evennia.utils import logger
 
 from world import encumbrance
 from world import fatigue as fatigue_rules
+from world import gear
 
 # The text of a character without appearance facts: older characters after
 # NM-T4's backfill (OQ-NM6), and a new one until NM-T16's chargen step writes
@@ -118,8 +122,14 @@ LOAD_WORD = "burdened"
 WET_WORDS = ("wet", "soaked")
 STATE_WORDS = (FATIGUE_WORD, LOAD_WORD) + WET_WORDS
 
-# The clothing types that can show, outermost first.
-SHOWING_TYPES = ("fullbody", "top")
+# The clothing types that can show, outermost first (Gear GR7): a cloak hides
+# the armour under it, and armour shows over a tunic. The order is written out
+# here, where it is read; the layers' names are gear's.
+SHOWING_TYPES = (
+    "fullbody",
+    gear.ARMOUR_RIGID, gear.ARMOUR_FLEXIBLE, gear.ARMOUR_PADDING,
+    "top",
+)
 
 _VOWELS = frozenset("aeiou")
 
@@ -234,12 +244,25 @@ def _showing(char):
 
 
 def garment_word(char, showing=None):
-    """The outermost showing garment's word, `fullbody` before `top`; None if it has none."""
+    """
+    The outermost showing garment's word, in `SHOWING_TYPES` order.
+
+    A garment without a word ends the search with None: it hides the one
+    beneath. An armour piece without a word is passed over instead (Gear
+    OQ-GR5): only a piece that covers the chest carries a word, so a helm
+    or vambraces lie over nothing the word could come from. With one piece
+    per layer and location (GR-T4), at most one worn piece in a layer has a
+    word, and the order of `contents` never chooses between two.
+    """
     showing = _showing(char) if showing is None else showing
     for clothing_type in SHOWING_TYPES:
         for garment in showing:
-            if garment.db.clothing_type == clothing_type:
-                return garment.db.look_word or None
+            if garment.db.clothing_type != clothing_type:
+                continue
+            word = garment.db.look_word or None
+            if word is None and clothing_type in gear.LAYERS:
+                continue
+            return word
     return None
 
 

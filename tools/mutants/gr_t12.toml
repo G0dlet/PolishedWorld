@@ -1,0 +1,80 @@
+# GR-T12 -- five prototypes, five recipes, four scrolls (Gear decomposition
+# §10; GR9-GR12, GR24; STOPP 0: keys and aliases, the descriptions, the
+# hauberk's word `leather-clad`, the four seed ids last in SCROLLS, warmth 1).
+# Run: python3 tools/mutate.py tools/mutants/gr_t12.toml --parallel 2
+#
+# WHAT THE LAYER IS READ FOR: the layer check and the sums read the row's
+# layer (world/gear.py layer_conflict, armour_at), never the item's
+# `clothing_type`. A prototype carrying another layer than its row is seen
+# where `clothing_type` is read -- the census of prototypes against rows,
+# the built item, and the short description's order of layers (GR7) -- and
+# not in the kit's sums.
+#
+# Predicted fail counts:
+#   GRM41 3 -- the target shield made a garment: the spawned and the crafted
+#              shield are not Weapons, and the shield-is-no-garment test;
+#              the fumble still reads 50 (a garment is durable too), and the
+#              left hand still takes it (the row, by tag, says shield)
+#   GRM42 5 -- the hauberk given the rigid type: the spawned and the crafted
+#              hauberk, its own row test, test_gear's census of layers, and
+#              bone armour over the hauberk in one of the two orders; the
+#              kit's sums and the layer check read the row and stay green
+#   GRM43 7 -- the hauberk's scroll row dropped: the source census, and six
+#              seeding tests that count 19 (or 18, or 4 created); the carried
+#              reseed counts nothing and stays green
+
+modules = [
+    "tests.test_gear_goods",
+    "tests.test_gear",
+    "tests.test_recipe_sources",
+    "tests.test_seeding",
+]
+
+[[mutant]]
+id = "GRM41"
+file = "world/prototypes.py"
+old = '''    "prototype_key": "target_shield",
+    "typeclass": "typeclasses.weapons.Weapon",
+'''
+new = '''    "prototype_key": "target_shield",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+'''
+expect = [
+    "test_spawned_prototypes_build_with_catalogue_properties",
+    "test_recipes_craft_real_goods_and_consume_only_materials",
+    "test_the_shield_is_a_weapon_and_no_garment",
+]
+
+[[mutant]]
+id = "GRM42"
+file = "world/prototypes.py"
+old = '''    # Gear GR8, GR11: hard leather is flexible, the middle armour layer.
+    "clothing_type": "armour_flexible",
+'''
+new = '''    # Gear GR8, GR11: hard leather is flexible, the middle armour layer.
+    "clothing_type": "armour_rigid",
+'''
+expect = [
+    "test_spawned_prototypes_build_with_catalogue_properties",
+    "test_recipes_craft_real_goods_and_consume_only_materials",
+    "test_each_piece_reads_its_own_row_and_wears_its_layer",
+    "test_every_armour_prototype_wears_its_rows_layer",
+    "test_bone_armour_shows_over_the_hauberk_whichever_went_on_first",
+]
+
+[[mutant]]
+id = "GRM43"
+file = "world/seed_data.py"
+old = '''    {"seed_id": "alpha.scroll.hard_leather_hauberk",
+     "recipe": "hard leather hauberk", "room": "alpha.room.temple"},
+'''
+new = ''
+expect = [
+    "test_every_knowledge_gated_recipe_has_a_source",
+    "test_first_run_places_nineteen_stamped_scrolls_in_the_temple",
+    "test_a_learned_scroll_is_not_put_back_by_seed_world",
+    "test_a_scroll_missing_from_the_ledger_is_still_skipped_while_it_exists",
+    "test_a_database_seeded_before_gear_gets_exactly_the_four_armour_scrolls",
+    "test_reseed_scroll_adds_exactly_one",
+    "test_reseed_scroll_refuses_a_recipe_without_a_row",
+]

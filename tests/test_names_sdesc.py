@@ -184,7 +184,7 @@ class TestComposed(_Composed):
 
     def test_a_covered_garment_does_not_show(self):
         robe = _garment(self.char1, "robe", "fullbody", "robed")
-        cuirass = _garment(self.char1, "linen cuirass", "top", "armoured")
+        cuirass = _garment(self.char1, "linen cuirass", "armour_padding", "armoured")
         robe.wear(self.char1, True, quiet=True)
         cuirass.wear(self.char1, True, quiet=True)
         self.assertEqual(self.read(), "a robed, lean, grey-eyed woman")
@@ -192,9 +192,29 @@ class TestComposed(_Composed):
         self.assertEqual(self.read(), "an armoured, lean, grey-eyed woman")
 
     def test_a_garment_without_a_word_hides_the_one_beneath(self):
-        _garment(self.char1, "linen cuirass", "top", "armoured").wear(self.char1, True, quiet=True)
+        _garment(self.char1, "linen cuirass", "armour_padding", "armoured").wear(self.char1, True, quiet=True)
         _garment(self.char1, "plain mantle", "fullbody").wear(self.char1, True, quiet=True)
         self.assertEqual(self.read(), "a lean, grey-eyed woman")
+
+    # Gear OQ-GR5: an armour piece without a word is passed over. Both orders,
+    # since the contrib's sort reverses `contents` within a type.
+    def test_a_wordless_piece_worn_first_does_not_silence_its_layer(self):
+        _garment(self.char1, "helm", "armour_rigid").wear(self.char1, True, quiet=True)
+        _garment(self.char1, "bone armour", "armour_rigid", "bone-clad").wear(
+            self.char1, True, quiet=True)
+        self.assertEqual(self.read(), "a bone-clad, lean, grey-eyed woman")
+
+    def test_a_wordless_piece_worn_last_does_not_silence_its_layer(self):
+        _garment(self.char1, "bone armour", "armour_rigid", "bone-clad").wear(
+            self.char1, True, quiet=True)
+        _garment(self.char1, "helm", "armour_rigid").wear(self.char1, True, quiet=True)
+        self.assertEqual(self.read(), "a bone-clad, lean, grey-eyed woman")
+
+    def test_a_wordless_piece_does_not_silence_the_layer_beneath(self):
+        _garment(self.char1, "linen cuirass", "armour_padding", "armoured").wear(
+            self.char1, True, quiet=True)
+        _garment(self.char1, "helm", "armour_rigid").wear(self.char1, True, quiet=True)
+        self.assertEqual(self.read(), "an armoured, lean, grey-eyed woman")
 
     def test_the_hood_replaces_the_feature(self):
         hood = _garment(self.char1, "hood", "hat", conceals=("feature",))

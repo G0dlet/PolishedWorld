@@ -1,0 +1,56 @@
+# GR-T4 -- one armour piece per layer and Hit Location, checked in
+# ClothingWithBuffs.wear (Gear decomposition §7; AR3, GR6; STOPP 0 chose the
+# garment's wear over a command of the project's own).
+# Run: python3 tools/mutate.py tools/mutants/gr_t4.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM12 1 -- a helm and bone armour share the rigid layer and no location
+#   GRM13 7 -- every pair of layers on one location: the cuirass under bone
+#              armour, the hauberk over the cuirass, the trews under the
+#              hauberk, and the four GR-T3 tests that wear a tunic, the
+#              cuirass and bone armour
+#   GRM14 1 -- a worn piece worn again, in its own way
+
+modules = ["tests.test_gear"]
+
+[[mutant]]
+id = "GRM12"
+file = "world/gear.py"
+old = '''            and other["layer"] == row["layer"]
+            and set(other["locations"]) & set(row["locations"])
+        ):
+'''
+new = '''            and other["layer"] == row["layer"]
+        ):
+'''
+expect = "test_one_layer_on_two_locations_goes_on"
+
+[[mutant]]
+id = "GRM13"
+file = "world/gear.py"
+old = '''            and other["layer"] == row["layer"]
+            and set(other["locations"]) & set(row["locations"])
+        ):
+'''
+new = '''            and set(other["locations"]) & set(row["locations"])
+        ):
+'''
+expect = [
+    "test_two_layers_on_one_location_go_on",
+    "test_a_second_hauberk_names_both_locations_and_the_first_once",
+    "test_trews_go_on_under_a_hauberk",
+    "test_armour_goes_on_over_a_tunic_and_reads_from_the_outside_in",
+    "test_the_word_is_the_outermost_pieces",
+    "test_a_cloak_hides_the_armour",
+    "test_warmth_is_the_sum_of_the_three",
+]
+
+[[mutant]]
+id = "GRM14"
+file = "world/gear.py"
+old = '''        if worn == obj:
+            continue
+'''
+new = '''        pass
+'''
+expect = "test_a_worn_piece_is_not_in_its_own_way"

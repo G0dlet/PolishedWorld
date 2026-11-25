@@ -1,0 +1,64 @@
+# GR-T8 -- the commands wield and unwield (Gear decomposition §8; GR4;
+# STOPP 0: `hold` is wield's alias, the body's refusal first, one line to the
+# whole room through $You()).
+# Run: python3 tools/mutate.py tools/mutants/gr_t8.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM27 5 -- `club left` twice (the word in either case) goes right; a full
+#              named right hand and a useless named left arm are passed by, so
+#              both succeed; and the refusal the room must not hear is heard
+#   GRM28 1 -- the twin knife: `unwield 2-stone knife` lets go of the held
+#              first one, which has the same key
+#   GRM29 10 -- the bare key in place of $You() reaches the caller too ("Char
+#              take ..."), so every line checked on success fails: seven to
+#              the caller and three to the stranger
+
+modules = ["tests.test_gear_commands"]
+
+[[mutant]]
+id = "GRM27"
+file = "commands/gear_commands.py"
+old = '''        hands, reason = gear.hold(caller, obj, self.hand)
+'''
+new = '''        hands, reason = gear.hold(caller, obj)
+'''
+expect = [
+    "test_wield_club_left",
+    "test_the_hand_word_is_read_in_any_case",
+    "test_a_full_named_hand_is_refused_with_gears_reason",
+    "test_a_useless_arm_is_refused_with_gears_reason",
+    "test_a_refusal_is_the_holders_alone",
+]
+
+[[mutant]]
+id = "GRM28"
+file = "commands/gear_commands.py"
+old = '''        if not gear.release(caller, obj):
+'''
+new = '''        twins = {o for o in gear.held(caller).values() if o and o.key == obj.key}
+        if not [gear.release(caller, o) for o in twins]:
+'''
+expect = [
+    "test_unwield_lets_go_of_the_item_named_not_its_twin",
+]
+
+[[mutant]]
+id = "GRM29"
+file = "commands/gear_commands.py"
+old = '''            text, from_obj=caller, mapping={"item": obj, "hand": hand or ""},
+'''
+new = '''            text.replace("$You()", caller.key), from_obj=caller,
+            mapping={"item": obj, "hand": hand or ""},
+'''
+expect = [
+    "test_wield_takes_the_right_hand_and_says_so",
+    "test_wield_club_left",
+    "test_the_hand_word_is_read_in_any_case",
+    "test_a_staff_says_both_hands",
+    "test_hold_reaches_the_same_command",
+    "test_unwield_puts_it_away_and_it_is_still_carried",
+    "test_unwield_of_a_staff_frees_both",
+    "test_a_stranger_reads_the_holder_as_they_know_them",
+    "test_a_stranger_reads_both_hands",
+    "test_a_stranger_reads_the_unwield",
+]

@@ -61,11 +61,15 @@ def at_server_start():
     )
 
     # Garment wear ticker. Same idempotent re-add pattern; distinct idstring.
+    # `window` reaches the callback as a keyword (kwargs are not part of the
+    # ticker's key): a fight within one interval makes the next wear harsher
+    # (Gear GR20), and garment_wear does not import this module to learn it.
     TICKER_HANDLER.add(
         interval=WEAR_TICK_INTERVAL,
         callback=wear_all_garments,
         idstring="garment_wear",
         persistent=True,
+        window=WEAR_TICK_INTERVAL,
     )
 
 

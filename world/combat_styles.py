@@ -2,7 +2,8 @@
 world/combat_styles.py
 ======================
 Weapon types and Combat Styles as data (Body decomposition, slice BD, task
-BD-T6; locks BD1-BD4, CS2; Legend core pp. 14, 101-109, 124).
+BD-T6; locks BD1-BD4, CS2; Gear decomposition GR-T1, lock GR15; Legend
+core pp. 14, 101-109, 124).
 
 A Combat Style is a skill for fighting with one kind of weapon, or with a
 kind in each hand (p. 124: *Sword and Shield (any one-handed sword and any
@@ -15,7 +16,8 @@ column; *Arms of Legend* has the column and there it means the hand. All
 the book gives is the substitution rule (p. 124): how the weapon is used.
 WEAPON_TYPES is the twelve of BD2. The field on an item is to be called
 `weapon_type`, and the hand is a field of its own; setting either on an
-item is GR's (OQ-BD1). This module ships the vocabulary only.
+item is GR's (OQ-BD1), and GR made them fields of a row in `world.gear`
+(GR13, GR16). This module ships the vocabulary only.
 
 **Who reads this.** Nothing in production calls a style until ML (the
 melee slice) rolls one; `world.skill_base` reads the table so that
@@ -64,8 +66,9 @@ HANDS = ("1H", "2H")
 STYLE_PREFIX = "style_"
 
 # BD4: only types with an item today. `second` is the type in the other
-# hand, or None. A style is named for the combination before the shield
-# exists: whoever fights with a club trains Mace and Shield.
+# hand, or None. A style holds for its main type in its hand (GR15): a club
+# is Mace and Shield, named for the combination before the shield exists,
+# and a quarterstaff, two-handed, is Staff.
 STYLES = {
     "style_knife": {
         "name": "Knife",
@@ -82,6 +85,11 @@ STYLES = {
     "style_spear_shield": {
         "name": "Spear and Shield",
         "main": "spear", "hand": "1H", "second": "shield", "ranged": False,
+    },
+    # GR15: added with the quarterstaff's row, which BD4's count missed.
+    "style_staff": {
+        "name": "Staff",
+        "main": "bludgeon", "hand": "2H", "second": None, "ranged": False,
     },
     "style_bow": {
         "name": "Bow",

@@ -1,0 +1,51 @@
+# GR-T6 -- combat raises the next wear tick one level (Gear decomposition §7;
+# IS4, GR20; STOPP 0: real time, the Attribute db.fought_at).
+# Run: python3 tools/mutate.py tools/mutants/gr_t6.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM19 3 -- the marked wearer outdoors (common -> basic, 1); indoors
+#              (clamped to protected, 0); in the cold (rigorous -> common, 2)
+#   GRM20 2 -- a stamp older than the window; fought_since outside the window
+#   GRM21 2 -- the marked wearer outdoors and indoors (no garment carries a
+#              stamp); in the cold it is rigorous by the weather alone
+
+modules = ["tests.test_garment_wear", "tests.test_gear"]
+
+[[mutant]]
+id = "GRM19"
+file = "world/garment_wear.py"
+old = '''        idx += 1                       # GR20: a fight since the last tick
+'''
+new = '''        idx -= 1                       # GR20: a fight since the last tick
+'''
+expect = [
+    "test_a_marked_wearer_loses_four_outdoors",
+    "test_indoors_a_marked_wearer_is_basic",
+    "test_rigorous_stays_rigorous",
+]
+
+[[mutant]]
+id = "GRM20"
+file = "world/gear.py"
+old = '''    return stamp is not None and time.time() - stamp < seconds
+'''
+new = '''    return stamp is not None
+'''
+expect = [
+    "test_a_stamp_older_than_the_window_does_nothing",
+    "test_fought_since_inside_and_outside_the_window",
+]
+
+[[mutant]]
+id = "GRM21"
+file = "world/garment_wear.py"
+old = '''            tier = _effective_tier(garment, indoor, regime, fought)
+'''
+new = '''            tier = _effective_tier(
+                garment, indoor, regime,
+                window is not None and gear.fought_since(garment, window))
+'''
+expect = [
+    "test_a_marked_wearer_loses_four_outdoors",
+    "test_indoors_a_marked_wearer_is_basic",
+]

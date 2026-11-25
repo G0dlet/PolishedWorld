@@ -39,6 +39,8 @@ HOW TO RUN
 ----------
     evennia test --settings settings.py tests.test_seeding
 """
+from unittest import mock
+
 from django.test import override_settings
 from evennia.objects.models import ObjectDB
 from evennia.prototypes.prototypes import search_prototype
@@ -266,10 +268,10 @@ class TestScrollSeed(EvenniaCommandTest):
     def seed(self):
         return seed_world(limbo=self.room1)
 
-    def test_first_run_places_fifteen_stamped_scrolls_in_the_temple(self):
+    def test_first_run_places_nineteen_stamped_scrolls_in_the_temple(self):
         summary = self.seed()
-        self.assertEqual(summary["scrolls"], {"created": 15, "skipped": 0})
-        self.assertEqual(scroll_count(), 15)
+        self.assertEqual(summary["scrolls"], {"created": 19, "skipped": 0})
+        self.assertEqual(scroll_count(), 19)
         temple = find_seeded("alpha.room.temple")
         for spec in seed_data.SCROLLS:
             with self.subTest(seed_id=spec["seed_id"]):
@@ -290,9 +292,9 @@ class TestScrollSeed(EvenniaCommandTest):
 
         summary = self.seed()
 
-        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 15})
+        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 19})
         self.assertIsNone(find_seeded("alpha.scroll.tent"))
-        self.assertEqual(scroll_count(), 14)
+        self.assertEqual(scroll_count(), 18)
 
     def test_a_scroll_missing_from_the_ledger_is_still_skipped_while_it_exists(self):
         self.seed()
@@ -300,8 +302,35 @@ class TestScrollSeed(EvenniaCommandTest):
 
         summary = self.seed()
 
-        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 15})
-        self.assertEqual(scroll_count(), 15)
+        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 19})
+        self.assertEqual(scroll_count(), 19)
+
+    def test_a_database_seeded_before_gear_gets_exactly_the_four_armour_scrolls(self):
+        # Gear GR-T12: Adam's databases were seeded with the fifteen rows
+        # that came before GR24's four. The next seed_world() places the four
+        # and nothing else -- the ledger holds the fifteen, even the ones
+        # learned since -- and the one after that places none.
+        with mock.patch.object(seed_data, "SCROLLS", seed_data.SCROLLS[:15]):
+            before = self.seed()
+        self.assertEqual(before["scrolls"], {"created": 15, "skipped": 0})
+        find_seeded("alpha.scroll.tent").move_to(self.char1, quiet=True)
+        self.call(CmdLearn(), "scroll of tent", caller=self.char1)
+        self.assertIsNone(find_seeded("alpha.scroll.tent"))   # receipt: learned
+
+        second = self.seed()
+        third = self.seed()
+
+        self.assertEqual(second["scrolls"], {"created": 4, "skipped": 15})
+        self.assertEqual(third["scrolls"], {"created": 0, "skipped": 19})
+        self.assertEqual(scroll_count(), 18)
+        temple = find_seeded("alpha.room.temple")
+        for recipe in ("soft leather trews", "bone helm",
+                       "hard leather vambraces", "hard leather hauberk"):
+            with self.subTest(recipe=recipe):
+                scroll = find_seeded(f"alpha.scroll.{recipe.replace(' ', '_')}")
+                self.assertEqual(scroll.db.recipe, recipe)
+                self.assertEqual(scroll.location, temple)
+        self.assertIsNone(find_seeded("alpha.scroll.tent"))
 
     def test_reseed_scroll_adds_exactly_one(self):
         self.seed()
@@ -316,7 +345,7 @@ class TestScrollSeed(EvenniaCommandTest):
         self.assertEqual(first.location, find_seeded("alpha.room.temple"))
         self.assertIsNone(second)
         self.assertEqual(len(scrolls_tagged("alpha.scroll.tent")), 1)
-        self.assertEqual(scroll_count(), 15)
+        self.assertEqual(scroll_count(), 19)
 
     def test_reseed_scroll_spawns_nothing_while_the_seeded_scroll_is_carried(self):
         self.seed()
@@ -330,4 +359,4 @@ class TestScrollSeed(EvenniaCommandTest):
         # cloth is knowledge-gated but has two profession grantors, so no row.
         with self.assertRaises(ValueError):
             reseed_scroll("cloth")
-        self.assertEqual(scroll_count(), 15)
+        self.assertEqual(scroll_count(), 19)

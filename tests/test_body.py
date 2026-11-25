@@ -65,6 +65,12 @@ class TestStrikeRank(EvenniaTestCase):
             with self.subTest(armour=armour):
                 self.assertEqual(body.strike_rank(13, 16, armour), expected)
 
+    def test_the_armour_penalty(self):
+        # Gear GR-T5: the formula Strike Rank uses, named (pp. 13, 95).
+        for points, penalty in ((0, 0), (1, 1), (5, 1), (6, 2), (17, 4), (91, 19)):
+            with self.subTest(points=points):
+                self.assertEqual(body.armour_penalty(points), penalty)
+
     def test_fatigue_penalty(self):
         for word, expected in (
             ("fresh", 15), ("winded", 15), ("tired", 15),
@@ -207,6 +213,7 @@ class TestDerived(EvenniaTest):
         self.assertEqual(body.derived(self.char1), {
             "combat_actions": 2,
             "strike_rank": 10,
+            "armour_penalty": 0,   # Gear GR-T5: nothing worn
             "damage_modifier": (-1, 1, 2),
             "hit_points": self.PLACEHOLDER_LOCATIONS,
         })

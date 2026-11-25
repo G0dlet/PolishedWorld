@@ -12,20 +12,22 @@ Garments hold data only; there are no per-garment buffs. world/thermal.py sums
 db.warmth across all worn pieces (covered layers included) each tick. This
 typeclass just mirrors that recompute on the wear/remove action.
 
-Scope: survival/thermal protection only. Combat armour (Legend armour points /
-encumbrance) is a later system; the reserved hooks below mark where those values
-will live without wiring them into any mechanic yet.
+Armour is a garment too: its layer is its clothing type, and its Armour Points,
+locations and material are the row world/gear.py keeps for its prototype
+(Gear GR6, GR16) -- nothing on this typeclass. ENC stays the `enc` Attribute,
+read by world/encumbrance.py. `wear` refuses a second piece of a layer on a
+Hit Location that already has one (AR3).
 """
 
 from django.conf import settings
 from evennia import AttributeProperty
 from evennia.contrib.game_systems.clothing.clothing import ContribClothing
 from evennia.utils import logger
-from evennia.utils.utils import inherits_from
+from evennia.utils.utils import inherits_from, iter_to_str
 
 from typeclasses.durable import DurableObject
 from typeclasses.objects import ObjectParent
-from world import client_state
+from world import client_state, gear
 from world.thermal import apply_thermal_stress
 
 
@@ -72,19 +74,25 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
     Reserved (autocreate=False -- no db Attribute, no `examine` entry until a
     system assigns them):
         rain_protection -- future wet/exposure axis, same pattern as warmth.
-        armor_points / encumbrance -- Legend combat values; owned by the combat
-            system, not survival.
     """
 
     warmth = AttributeProperty(default=0, autocreate=True)
 
     rain_protection = AttributeProperty(default=0, autocreate=False)
-    armor_points = AttributeProperty(default=0, autocreate=False)
-    encumbrance = AttributeProperty(default=0, autocreate=False)
 
     def wear(self, wearer, wearstyle, quiet=False):
         """
         Wear the garment, then recompute the wearer's thermal stress.
+
+        Gear GR6 (AR3): first, a piece of armour is refused if a worn piece
+        of its layer already covers one of its Hit Locations, and the
+        wearer is told which piece and where -- even with `quiet`, which
+        only keeps the room's line. The check is here, not in the command,
+        because every way on goes through this method: nothing in
+        production but the contrib's `wear` calls it, and a `py` or a test
+        that wears two pieces of one layer on one location is refused too,
+        so GR-T5's sum never counts both. The contrib's own limits (per
+        type, overall) stay in its command.
 
         super().wear() sets db.worn first, so worn_warmth already counts this
         piece when we recompute -- the new warmth registers at once.
@@ -92,7 +100,21 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
         W7.1: the garment moves to the panel's worn list without a move, so
         no move hook pushes; this does. Soon, as the move hooks push, so the
         frame is built after the wear has finished.
+
+        Returns:
+            bool: True when the garment is worn, False when it was refused.
+                The contrib's command reads neither (clothing.py:511).
         """
+        in_the_way = gear.layer_conflict(wearer, self)
+        if in_the_way is not None:
+            where = iter_to_str(
+                location.replace("_", " ")
+                for location in gear.shared_locations(self, in_the_way)
+            )
+            wearer.msg(
+                f"Your {in_the_way.get_display_name(wearer)} already covers your {where}."
+            )
+            return False
         super().wear(wearer, wearstyle, quiet=quiet)
         apply_thermal_stress(wearer)
         client_state.push_soon(wearer, "char")
@@ -100,6 +122,7 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
         # description (OQ-NM9 (3)), so the memo goes and the room is pushed.
         _forget_look(wearer)
         client_state.push_room_soon(getattr(wearer, "location", None))
+        return True
 
     def remove(self, wearer, quiet=False):
         """

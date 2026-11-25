@@ -43,7 +43,7 @@ class TestTickIntervals(TestCase):
             mock.call(interval=600, callback=deplete_all_survival_traits,
                       idstring="survival", persistent=True),
             mock.call(interval=10800, callback=wear_all_garments,
-                      idstring="garment_wear", persistent=True),
+                      idstring="garment_wear", persistent=True, window=10800),
         ])
 
 

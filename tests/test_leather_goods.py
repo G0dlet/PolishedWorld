@@ -16,7 +16,7 @@ survive untouched.
 
 The garment-quality test pins the d100 to a fumble and reads each crafted
 garment's condition: shoes, bandolier and bone armour must route through
-_apply_garment_quality (shoddy -> 50) rather than keep the DurableObject default
+_apply_quality_condition (shoddy -> 50) rather than keep the DurableObject default
 of 100. The four non-garments get no garment finalizer; the backpack and the
 saddlebag are Containers (W4.1), the other two plain Objects.
 
@@ -34,6 +34,7 @@ from evennia.utils.test_resources import EvenniaTest
 from typeclasses.clothing import ClothingWithBuffs
 from typeclasses.containers import Container
 from typeclasses.objects import Object
+from typeclasses.weapons import Weapon
 from world.crafting_quality import SHODDY, quality_band
 from world.knowledge import render_recipe_detail_by_name
 
@@ -80,13 +81,13 @@ LEATHER_GOODS = (
         "prototype": "bone_armour", "recipe": "bone armour", "key": "bone armour",
         "typeclass": ClothingWithBuffs,
         "materials": (("bone", 3), ("leather", 1)),
-        "tool": "knife", "tool_prototype": "stone_knife", "slot": "top",
+        "tool": "knife", "tool_prototype": "stone_knife", "slot": "armour_rigid",
         "warmth": 1, "enc": 2, "duration": 45, "learnable": True,
         "min_skill": 60,
     },
     {
         "prototype": "sling", "recipe": "sling", "key": "sling",
-        "typeclass": Object, "materials": (("leather", 1),),
+        "typeclass": Weapon, "materials": (("leather", 1),),
         "tool": "knife", "tool_prototype": "stone_knife", "slot": None,
         "warmth": None, "enc": 0, "duration": 30, "learnable": False,
         "min_skill": 20,

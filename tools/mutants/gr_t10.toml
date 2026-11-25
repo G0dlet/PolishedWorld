@@ -1,0 +1,65 @@
+# GR-T10 -- a weapon's wear (Gear decomposition §9; IS3, IS5, GR19; STOPP 0:
+# the floor's red is a blow below the Armour Points, the row is asked before
+# the condition, `usable` raises for nothing, the error is a ValueError).
+# Run: python3 tools/mutate.py tools/mutants/gr_t10.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM34 3 -- the constant itself, a club's use (95), and the knife's
+#              blow after a craft (30)
+#   GRM35 1 -- only damage 5, one past the Armour Points, reads the floor
+#              moved up: it takes nothing where it should take 25
+#   GRM36 1 -- the club's AP and HP are both 4, so only the shield (4/12)
+#              tells them apart: 50 where it should be 83
+#   GRM37 1 -- the broken club is usable
+#
+# Not run: the floor moved DOWN by one (`< row["ap"]`). At `ap` the formula
+# itself gives 0, so that mutant is equivalent to the code and no test can
+# kill it (STOPP 0, val 1).
+
+modules = ["tests.test_gear_wear"]
+
+[[mutant]]
+id = "GRM34"
+file = "world/gear.py"
+old = '''WEAPON_WEAR_PER_USE = 1
+'''
+new = '''WEAPON_WEAR_PER_USE = 5
+'''
+expect = [
+    "test_a_use_takes_one",
+    "test_a_use_takes_one_from_a_club",
+    "test_a_knife_wears_on_one_axis_at_two_rates",
+]
+
+[[mutant]]
+id = "GRM35"
+file = "world/gear.py"
+old = '''    if damage <= row["ap"]:
+'''
+new = '''    if damage <= row["ap"] + 1:
+'''
+expect = [
+    "test_one_past_the_armour_points_takes_a_quarter",
+]
+
+[[mutant]]
+id = "GRM36"
+file = "world/gear.py"
+old = '''    lost = -(-100 * (damage - row["ap"]) // row["hp"])
+'''
+new = '''    lost = -(-100 * (damage - row["ap"]) // row["ap"])
+'''
+expect = [
+    "test_the_share_is_of_the_hit_points_and_rounds_up",
+]
+
+[[mutant]]
+id = "GRM37"
+file = "world/gear.py"
+old = '''        and obj.condition > 0
+'''
+new = '''        and obj.condition >= 0
+'''
+expect = [
+    "test_a_broken_club_is_not",
+]

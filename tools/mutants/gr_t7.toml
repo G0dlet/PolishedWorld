@@ -1,0 +1,94 @@
+# GR-T7 -- what a hand holds, stored on the character and checked at the read
+# (Gear decomposition §8; GR2, GR3, GR22; STOPP 0: gear imports wounds, a worn
+# item is not held, hold answers (hands, reason), the reasons name what is in
+# the way).
+# Run: python3 tools/mutate.py tools/mutants/gr_t7.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM22 6 -- the assignment, drop, give, put and death leave the item held;
+#              so does an item gone from under a useless arm. A delete still
+#              empties the hand (the item reads None), and `hold` checks
+#              `contents` itself, so the refusal of an item not carried stands
+#   GRM23 2 -- the entry under a maimed arm is gone, so it does not stand and
+#              the healed arm holds nothing. The move from a useless hand runs
+#              through `hold`, which never calls `held`. (GR-T9: `held` reads
+#              through `_read`; the strings follow it, the rule is the same.)
+#   GRM24 3 -- a staff under one hand: both hands, a named hand, release
+#   GRM25 1 -- the shield to the left first; with the left full it goes right
+#              either way, and a named right hand never reads the order
+#   GRM26 5 -- a staff with a useless arm, a named useless hand, the default
+#              past it, no usable hand free, and the move from a useless hand
+#              (read as already held)
+
+modules = ["tests.test_gear_hands", "tests.test_gear"]
+
+[[mutant]]
+id = "GRM22"
+file = "world/gear.py"
+old = '''    return obj is not None and obj in char.contents and not obj.db.worn
+'''
+new = '''    return obj is not None and not obj.db.worn
+'''
+expect = [
+    "test_an_assignment_to_location_empties_the_hand",
+    "test_drop_empties_the_hand",
+    "test_give_empties_the_hand_and_the_receiver_holds_nothing",
+    "test_put_empties_the_hand",
+    "test_death_empties_the_hand",
+    "test_an_item_that_left_is_cleared_even_under_a_useless_arm",
+]
+
+[[mutant]]
+id = "GRM23"
+file = "world/gear.py"
+old = '''    useless = _useless(char)
+    return _read(entries, useless)
+'''
+new = '''    useless = _useless(char)
+    entries = {h: o for h, o in entries.items() if h not in useless}
+    _write(char, entries)
+    return _read(entries, useless)
+'''
+expect = [
+    "test_a_maimed_arm_reads_empty_and_keeps_its_entry",
+    "test_with_the_state_gone_the_hand_holds_again",
+]
+
+[[mutant]]
+id = "GRM24"
+file = "world/gear.py"
+old = '''        taken = HANDS
+'''
+new = '''        taken = (RIGHT,)
+'''
+expect = [
+    "test_a_staff_takes_both_hands_and_is_stored_under_both",
+    "test_a_named_hand_does_not_halve_a_staff",
+    "test_releasing_a_staff_frees_both",
+]
+
+[[mutant]]
+id = "GRM25"
+file = "world/gear.py"
+old = '''        order = (LEFT, RIGHT) if row is not None'''
+new = '''        order = (RIGHT, LEFT) if row is not None'''
+expect = [
+    "test_the_shield_takes_the_left_first",
+]
+
+[[mutant]]
+id = "GRM26"
+file = "world/gear.py"
+old = '''    useless = _useless(char)
+    entries = _entries(char)
+'''
+new = '''    useless = set()
+    entries = _entries(char)
+'''
+expect = [
+    "test_a_staff_with_a_useless_arm_is_refused",
+    "test_a_named_useless_hand_is_refused",
+    "test_the_default_passes_a_useless_hand",
+    "test_no_usable_hand_free_names_both",
+    "test_what_a_useless_hand_held_moves_to_the_other",
+]

@@ -412,13 +412,16 @@ TREE = {
 
 CLUB = {
     "prototype_key": "club",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "club",
     "aliases": ["cudgel"],
     "desc": "A length of wood shaped to a heavy, knotted head and a grip worn smooth.",
-    # SOURCE: ClubRecipe (wood). SINK: none in the alpha -- no combat (AD5's
-    # "use in alpha" column; Q1 decides inert goods in AC4.0).
+    # SOURCE: ClubRecipe (wood). SINK: repair (wood; a knife) once a fight
+    # wears it -- nothing wears a weapon before ML (GR19).
     "enc": 1,   # Legend core p. 106: Club, ENC 1
+    # GR24: what mends it (commands/repair_commands.py reads both).
+    "repair_materials": ("wood",),
+    "repair_tool_tag": "knife",
 }
 
 # --- Clay chain: clay, clay bank, sling bullet (AC2.3) ---
@@ -697,9 +700,12 @@ LINEN_CUIRASS = {
         "Layer upon layer of linen is stitched into a close-fitting chest piece, "
         "firm to the touch without any metal fittings."
     ),
-    # SOURCE: LinenCuirassRecipe (cloth x4). SINK: worn for warmth (survival); armour waits for combat (Stage 5).
-    "clothing_type": "top",
+    # SOURCE: LinenCuirassRecipe (cloth x4). SINK: worn for warmth (survival)
+    # and as armour; its row is world/gear.py ARMOUR (GR16).
+    # Gear GR8: linen is padding, the innermost armour layer.
+    "clothing_type": "armour_padding",
     # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    # Gear OQ-GR5: an armour piece has a word if and only if it covers the chest.
     "look_word": "armoured",
     "warmth": 1,
     "enc": 1,   # AoL p. 50 / Legend core p. 96: Linen, ENC 1 per chest location
@@ -802,67 +808,188 @@ BONE_ARMOUR = {
         "overlapping to shelter the chest without hiding their rough joints."
     ),
     # SOURCE: BoneArmourRecipe (bone x3 + leather). SINK: worn for warmth
-    # (survival); armour waits for combat (Stage 5).
-    "clothing_type": "top",
+    # (survival) and as armour; its row is world/gear.py ARMOUR (GR16).
+    # Gear GR8: bone is rigid, the outermost armour layer.
+    "clothing_type": "armour_rigid",
     # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    # Gear OQ-GR5: an armour piece has a word if and only if it covers the chest.
     "look_word": "bone-clad",
     "warmth": 1,
     "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the chest
 }
 
+# --- Gear (GR-T12): the target shield and four pieces of armour ---
+# GR9-GR12, GR24. Each item's row -- its weapon figures or its Armour Points,
+# locations and layer -- is world/gear.py's, found by the prototype tag
+# (GR16); a prototype key renamed here orphans every item made with it.
+
+TARGET_SHIELD = {
+    "prototype_key": "target_shield",
+    "typeclass": "typeclasses.weapons.Weapon",
+    "key": "target shield",
+    # GR10: *target* alone means something else in a MUD.
+    "aliases": ["shield"],
+    "desc": (
+        "Boards of split wood are lashed into a round and faced with stiff "
+        "leather. A ground bone spike stands from the boss."
+    ),
+    # SOURCE: TargetShieldRecipe (wood x2 + leather + bone). SINK: repair
+    # (wood and leather; a knife) once a fight wears it -- nothing wears a
+    # weapon before ML (GR19). GR10: a weapon of type `shield`, held with
+    # `wield`, in no armour layer.
+    "enc": 2,   # Legend core p. 107: Target, ENC 2
+    "repair_materials": ("wood", "leather"),   # GR24
+    "repair_tool_tag": "knife",
+}
+
+SOFT_LEATHER_TREWS = {
+    "prototype_key": "soft_leather_trews",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "soft leather trews",
+    "aliases": ["trews"],
+    "desc": (
+        "Soft leather trousers cut close to the leg, the seams doubled at "
+        "knee and seat."
+    ),
+    # SOURCE: SoftLeatherTrewsRecipe (leather x3). SINK: worn for warmth
+    # (survival) and as armour; repair (leather and twine; a needle).
+    # Gear GR8: soft leather is padding, the innermost armour layer. No
+    # look_word: it does not cover the chest (OQ-GR5).
+    "clothing_type": "armour_padding",
+    "warmth": 1,
+    "enc": 3,   # Legend core p. 96: Soft leather, ENC 1 per location; abdomen, both legs
+    "repair_materials": ("leather", "twine"),   # GR24
+    "repair_tool_tag": "needle",
+}
+
+BONE_HELM = {
+    "prototype_key": "bone_helm",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "bone helm",
+    "aliases": ["helm"],
+    "desc": (
+        "Curved plates of bone are lashed over a leather cap, their edges "
+        "ground smooth where they meet the brow."
+    ),
+    # SOURCE: BoneHelmRecipe (bone x2 + leather). SINK: worn for warmth
+    # (survival) and as armour; repair (bone; no tool).
+    # Gear GR8: bone is rigid, the outermost armour layer. No look_word: it
+    # does not cover the chest (OQ-GR5).
+    "clothing_type": "armour_rigid",
+    "warmth": 1,
+    "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the head
+    "repair_materials": ("bone",),      # GR24
+    "repair_tool_tag": "",              # bare-handed -- unset would mean a needle
+}
+
+HARD_LEATHER_VAMBRACES = {
+    "prototype_key": "hard_leather_vambraces",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "hard leather vambraces",
+    "aliases": ["vambraces"],
+    "desc": (
+        "Two sleeves of hardened leather, shaped to the arm and laced along "
+        "the inner seam. The laces are new; the leather is not."
+    ),
+    # SOURCE: HardLeatherVambracesRecipe (leather x4). SINK: worn for warmth
+    # (survival) and as armour; repair (leather and twine; a needle).
+    # Gear GR8, GR11: hard leather is flexible, the middle armour layer --
+    # made of `leather`, its hardness the work. No look_word: it does not
+    # cover the chest (OQ-GR5).
+    "clothing_type": "armour_flexible",
+    "warmth": 1,
+    "enc": 4,   # Legend core p. 96: Hard leather, ENC 2 per location; both arms
+    "repair_materials": ("leather", "twine"),   # GR24
+    "repair_tool_tag": "needle",
+}
+
+HARD_LEATHER_HAUBERK = {
+    "prototype_key": "hard_leather_hauberk",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "hard leather hauberk",
+    "aliases": ["hauberk"],
+    "desc": (
+        "Leather worked hard and stiff hangs in stitched panels from shoulder "
+        "to hip. It creaks at the seams and keeps its shape off the body."
+    ),
+    # SOURCE: HardLeatherHauberkRecipe (leather x4). SINK: worn for warmth
+    # (survival) and as armour; repair (leather and twine; a needle).
+    # Gear GR8, GR11: hard leather is flexible, the middle armour layer.
+    "clothing_type": "armour_flexible",
+    # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    # Gear OQ-GR5: an armour piece has a word if and only if it covers the chest.
+    "look_word": "leather-clad",
+    "warmth": 1,
+    "enc": 4,   # Legend core p. 96: Hard leather, ENC 2 per location; chest, abdomen
+    "repair_materials": ("leather", "twine"),   # GR24
+    "repair_tool_tag": "needle",
+}
+
 SLING = {
     "prototype_key": "sling",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "sling",
     "aliases": ["leather sling"],
     "desc": (
         "A supple leather pouch tapering into two long cords, one looped for a "
         "finger and the other left free to release."
     ),
-    # SOURCE: SlingRecipe (leather). SINK: none in the alpha (combat, Stage 5).
+    # SOURCE: SlingRecipe (leather). SINK: repair (leather; a knife) once a
+    # fight wears it -- nothing wears a weapon before ML (GR19).
     "enc": 0,   # Legend core p. 109: Sling, ENC "—" -- too light to score
+    "repair_materials": ("leather",),   # GR24
+    "repair_tool_tag": "knife",
 }
 
 # --- Wood and stone goods (AC4.3) ---
 
 QUARTERSTAFF = {
     "prototype_key": "quarterstaff",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "quarterstaff",
     "aliases": ["long staff"],
     "desc": (
         "A tall wooden staff, shaped and smoothed along its full length, with "
         "a balanced grip at its middle."
     ),
-    # SOURCE: QuarterstaffRecipe (wood x2). SINK: none in the alpha (combat, Stage 5).
+    # SOURCE: QuarterstaffRecipe (wood x2). SINK: repair (wood; a knife) once a
+    # fight wears it -- nothing wears a weapon before ML (GR19).
     "enc": 2,   # Legend core p. 107: Quarter staff, ENC 2
+    "repair_materials": ("wood",),      # GR24
+    "repair_tool_tag": "knife",
 }
 
 SPEAR = {
     "prototype_key": "spear",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "spear",
     "aliases": ["short spear"],
     "desc": (
         "A bone point seated on a long wooden shaft and bound fast with twine. "
         "Simple, light and balanced for a firm grip."
     ),
-    # SOURCE: SpearRecipe (wood x2 + bone + twine). SINK: none in the alpha
-    # (combat, Stage 5).
+    # SOURCE: SpearRecipe (wood x2 + bone + twine). SINK: repair (wood and
+    # twine; a knife) once a fight wears it -- nothing wears a weapon before
+    # ML (GR19).
     "enc": 2,   # Legend core p. 107: Short spear, ENC 2
+    "repair_materials": ("wood", "twine"),   # GR24
+    "repair_tool_tag": "knife",
 }
 
 BOW = {
     "prototype_key": "bow",
-    "typeclass": "typeclasses.objects.Object",
+    "typeclass": "typeclasses.weapons.Weapon",
     "key": "bow",
     "aliases": ["short bow"],
     "desc": (
         "A supple wooden stave bent into a short bow and strung with taut "
         "plant-fibre twine."
     ),
-    # SOURCE: BowRecipe (wood + twine). SINK: none in the alpha (combat, Stage 5).
+    # SOURCE: BowRecipe (wood + twine). SINK: repair (twine) once a fight
+    # wears it -- nothing wears a weapon before ML (GR19).
     "enc": 1,   # Legend core p. 109: Short bow, ENC 1
+    "repair_materials": ("twine",),     # GR24: restrung by hand
+    "repair_tool_tag": "",              # no tool -- unset would mean a needle
 }
 
 MILLING_STONES = {

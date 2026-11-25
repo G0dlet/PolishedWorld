@@ -257,4 +257,15 @@ SCROLLS = (
      "recipe": "bone armour", "room": "alpha.room.temple"},
     {"seed_id": "alpha.scroll.tent",
      "recipe": "tent", "room": "alpha.room.temple"},
+    # Gear GR24 (GR-T12): the four pieces of armour, gated as the two that
+    # exist are. A seeded database gets exactly these four on its next
+    # seed_world(): the ledger knows only the fifteen above.
+    {"seed_id": "alpha.scroll.soft_leather_trews",
+     "recipe": "soft leather trews", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.bone_helm",
+     "recipe": "bone helm", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.hard_leather_vambraces",
+     "recipe": "hard leather vambraces", "room": "alpha.room.temple"},
+    {"seed_id": "alpha.scroll.hard_leather_hauberk",
+     "recipe": "hard leather hauberk", "room": "alpha.room.temple"},
 )

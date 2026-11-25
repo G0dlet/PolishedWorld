@@ -1,0 +1,54 @@
+# GR-T2 -- the Weapon class; five weapons on the wear axis, with their repair
+# data (Gear decomposition §6).
+# Run: python3 tools/mutate.py tools/mutants/gr_t2.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM5  3 -- spawned as a weapon at 100; quality sets the start condition
+#              (no condition to read); each asks for its own materials
+#              ("You can't mend ...")
+#   GRM6  2 -- the club's start condition by quality; the superior alias
+#   GRM7  1 -- the club's repair data (None, which repair reads as a needle)
+
+modules = ["tests.test_gear"]
+
+[[mutant]]
+id = "GRM5"
+file = "typeclasses/weapons.py"
+old = '''class Weapon(DurableObject, Object):
+'''
+new = '''class Weapon(Object):
+'''
+expect = ["test_each_spawns_as_a_weapon_at_100", "test_each_asks_for_its_own_materials"]
+
+[[mutant]]
+id = "GRM6"
+file = "world/recipes.py"
+old = '''    tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
+    craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+'''
+new = '''    tool_tag = "knife"                  # OPTIONAL: a knife shapes the head (baseline 0); improvised -20
+    craft_duration = 30
+    min_skill = 20                               # E.1 rung 20 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        pass
+'''
+expect = ["test_quality_sets_the_start_condition", "test_a_superior_weapon_is_called_so"]
+
+[[mutant]]
+id = "GRM7"
+file = "world/prototypes.py"
+old = '''    "repair_materials": ("wood",),
+    "repair_tool_tag": "knife",
+'''
+new = '''    "repair_materials": ("wood",),
+'''
+expect = "test_each_names_what_mends_it"

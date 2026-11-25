@@ -1,0 +1,70 @@
+# GR-T5 -- Armour Points summed per location, and Strike Rank reads them
+# (Gear decomposition §7; AR1, AR4, GR18).
+# Run: python3 tools/mutate.py tools/mutants/gr_t5.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM15 2 -- the six pieces location by location (the chest reads 2, not
+#              6); a broken hauberk (the chest reads 2, not 4)
+#   GRM16 1 -- a broken piece protects nothing
+#   GRM17 1 -- a broken piece still weighs on Strike Rank
+#   GRM18 2 -- a carried piece counts nowhere; bone armour costs one (the
+#              carried piece already costs one before it is worn)
+
+modules = ["tests.test_gear", "tests.test_body", "tests.test_sheet_combat"]
+
+[[mutant]]
+id = "GRM15"
+file = "world/gear.py"
+old = '''    return sum(
+        row["ap"]
+        for worn, row in _worn_rows(char)
+        if location in row["locations"] and worn.condition > 0
+    )
+'''
+new = '''    return max(
+        (
+            row["ap"]
+            for worn, row in _worn_rows(char)
+            if location in row["locations"] and worn.condition > 0
+        ),
+        default=0,
+    )
+'''
+expect = ["test_the_six_pieces_location_by_location", "test_a_broken_piece_protects_nothing"]
+
+[[mutant]]
+id = "GRM16"
+file = "world/gear.py"
+old = '''        if location in row["locations"] and worn.condition > 0
+'''
+new = '''        if location in row["locations"]
+'''
+expect = "test_a_broken_piece_protects_nothing"
+
+[[mutant]]
+id = "GRM17"
+file = "world/gear.py"
+old = '''    return sum(row["ap"] * len(row["locations"]) for _, row in _worn_rows(char))
+'''
+new = '''    return sum(
+        row["ap"] * len(row["locations"])
+        for worn, row in _worn_rows(char)
+        if worn.condition > 0
+    )
+'''
+expect = "test_a_broken_piece_still_weighs_on_strike_rank"
+
+[[mutant]]
+id = "GRM18"
+file = "world/gear.py"
+old = '''    for worn in get_worn_clothes(char):
+        row = armour(worn)
+        if row is not None:
+            yield worn, row
+'''
+new = '''    for worn in char.contents:
+        row = armour(worn)
+        if row is not None:
+            yield worn, row
+'''
+expect = ["test_a_carried_piece_counts_nowhere", "test_bone_armour_costs_one"]

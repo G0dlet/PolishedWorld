@@ -213,7 +213,8 @@ MATERIALS = {
         "source": "rabbit harvest (HARVEST_TEMPLATES)",
         "sinks": [
             "bone needle recipe", "scrollcase recipe", "bone armour recipe",
-            "spear recipe", "bone tools/weapons",
+            "spear recipe", "bone helm recipe", "target shield recipe",
+            "bone tools/weapons",
         ],
     },
     "sinew": {
@@ -269,7 +270,9 @@ MATERIALS = {
         "sinks": [
             "leather boots recipe", "shoes recipe", "backpack recipe",
             "saddlebag recipe", "bandolier recipe", "sling recipe",
-            "bone armour recipe", "soft armour", "saddles",
+            "bone armour recipe", "soft leather trews recipe",
+            "hard leather vambraces recipe", "hard leather hauberk recipe",
+            "target shield recipe", "saddles",
         ],
     },
     "pigment": {

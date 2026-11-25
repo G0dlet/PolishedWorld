@@ -1,0 +1,81 @@
+# GR-T13 -- the items that already exist (Gear decomposition §10; GR17;
+# STOPP 0: the red is the second run's answer, the swap runs the start hooks
+# ("all"), the prototype's repair data is written where it is missing, no
+# condition is written).
+# Run: python3 tools/mutate.py tools/mutants/gr_t13.toml --parallel 2
+#
+# WHY THE RED IS THE ANSWER, NOT THE CONDITION: `swap_typeclass` never
+# touches an Attribute that exists, with "all" or None (read in the sandbox
+# at GR-T13's STOPP 0), so a club worn to 60 and swapped again stays 60. A
+# missing guard is seen in what the function answers, and in nothing a
+# player could see.
+#
+# Predicted fail counts:
+#   GRM44 2 -- the guard removed: the second run answers (1, 0), and a club
+#              made after the slice is counted; the worn club stays 60 and
+#              green (see above)
+#   GRM45 1 -- the stone knife among the weapons to swap: the tools' test
+#              (a Weapon, and (1, 0)); no other test makes a stone knife
+#   GRM46 2 -- the counts of what was found: the second run answers (1, 1),
+#              and the club made after the slice (1, 0); a first run over old
+#              items answers the same either way
+
+modules = ["tests.test_gear_migrations"]
+
+[[mutant]]
+id = "GRM44"
+file = "world/gear_migrations.py"
+old = '''    if not isinstance(obj, Weapon):
+        obj.swap_typeclass(Weapon, run_start_hooks="all")
+        changed = True
+'''
+new = '''    obj.swap_typeclass(Weapon, run_start_hooks="all")
+    changed = True
+'''
+expect = [
+    "test_a_second_run_answers_nothing",
+    "test_a_club_made_after_the_slice_is_not_counted",
+]
+
+[[mutant]]
+id = "GRM45"
+file = "world/gear_migrations.py"
+old = '''WEAPON_PROTOTYPES = ("club", "quarterstaff", "spear", "bow", "sling")
+'''
+new = '''WEAPON_PROTOTYPES = ("club", "quarterstaff", "spear", "bow", "sling", "stone_knife")
+'''
+expect = [
+    "test_the_tools_stay_tools_at_their_condition",
+]
+
+[[mutant]]
+id = "GRM46"
+file = "world/gear_migrations.py"
+old = '''                if _migrate_weapon(obj, repairs[key]):
+                    weapons += 1
+            except Exception:
+                logger.log_trace(f"migrate_gear: weapon {obj.dbref} ({key!r})")
+
+    for key in ARMOUR_PROTOTYPES:
+        for obj in search_tag(key, category=gear.PROTOTYPE_TAG_CATEGORY):
+            try:
+                if obj.db.clothing_type != layers[key]:
+                    obj.db.clothing_type = layers[key]
+                    armours += 1
+'''
+new = '''                _migrate_weapon(obj, repairs[key])
+                weapons += 1
+            except Exception:
+                logger.log_trace(f"migrate_gear: weapon {obj.dbref} ({key!r})")
+
+    for key in ARMOUR_PROTOTYPES:
+        for obj in search_tag(key, category=gear.PROTOTYPE_TAG_CATEGORY):
+            try:
+                if obj.db.clothing_type != layers[key]:
+                    obj.db.clothing_type = layers[key]
+                armours += 1
+'''
+expect = [
+    "test_a_second_run_answers_nothing",
+    "test_a_club_made_after_the_slice_is_not_counted",
+]
