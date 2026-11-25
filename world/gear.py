@@ -56,9 +56,10 @@ row comes with BACKLOG *Metal tools + craft-station / forge*.
 WHO READS THIS
 --------------
 `world.sdesc` reads the three layer names and `LAYERS`: which types show,
-and that an armour piece without a word is passed over (GR7, OQ-GR5). No
-production code reads a row yet. GR's later tasks read the rows (the sums,
-the hands, `look`), and ML reads them in a fight.
+and that an armour piece without a word is passed over (GR7, OQ-GR5).
+`typeclasses.clothing` asks `layer_conflict` before a garment goes on (AR3,
+GR6). GR's later tasks read the rows (the sums, the hands, `look`), and ML
+reads them in a fight.
 
 Imports `world.combat_styles` and no other project module, so `world.body`,
 `world.wounds` and `world.sdesc` may import this one.
@@ -66,6 +67,7 @@ Imports `world.combat_styles` and no other project module, so `world.body`,
 
 from types import MappingProxyType
 
+from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 from evennia.utils import logger
 
 from world import combat_styles
@@ -230,3 +232,49 @@ def armour(obj):
     """
     key = _prototype_key(obj)
     return ARMOUR.get(key) if key else None
+
+
+def layer_conflict(char, obj):
+    """
+    The worn piece that stands in `obj`'s place, or None (AR3, GR6).
+
+    Two pieces conflict when they share a layer and at least one Hit
+    Location: a helm and a breastplate share the rigid layer and no
+    location; a cuirass and bone armour share the chest and no layer.
+    `obj` is never in its own way, so wearing a worn piece again is no
+    conflict. An item with no armour row never conflicts, nor does a worn
+    garment without one.
+
+    Args:
+        char (Object): the wearer.
+        obj (Object): the piece about to be put on.
+
+    Returns:
+        Object or None: the first worn piece in the way, in the contrib's
+            order of worn clothes.
+    """
+    row = armour(obj)
+    if row is None:
+        return None
+    for worn in get_worn_clothes(char):
+        if worn == obj:
+            continue
+        other = armour(worn)
+        if (
+            other is not None
+            and other["layer"] == row["layer"]
+            and set(other["locations"]) & set(row["locations"])
+        ):
+            return worn
+    return None
+
+
+def shared_locations(obj, other):
+    """
+    The Hit Locations two armour pieces both cover, in `body.LOCATIONS`
+    order; an empty tuple when either has no row.
+    """
+    row, other_row = armour(obj), armour(other)
+    if row is None or other_row is None:
+        return ()
+    return tuple(loc for loc in row["locations"] if loc in other_row["locations"])

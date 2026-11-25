@@ -4,7 +4,8 @@ Tests for world.gear -- the weapon and armour tables and their two readers
 pp. 94-109; Arms of Legend pp. 48-50, 71 ff.) -- for the Weapon class
 and the five pure weapons on the wear axis (GR-T2; GR13, GR21, GR24;
 Arms of Legend p. 43) -- and for the three armour layers as clothing types
-and what shows of them (GR-T3; GR6-GR8, OQ-GR5).
+and what shows of them (GR-T3; GR6-GR8, OQ-GR5) -- and for one piece per
+layer and Hit Location (GR-T4; AR3, GR6).
 
 Every expected row is typed here by hand from the decomposition's §3, not
 read from the module, so a row that drifts from the book fails by its cell.
@@ -517,3 +518,99 @@ class TestTheLayersWorn(EvenniaCommandTest):
     def test_warmth_is_the_sum_of_the_three(self):
         self._wear_all()
         self.assertEqual(thermal.worn_warmth(self.char1), 2 + 1 + 1)
+
+
+class TestOnePiecePerLayerAndLocation(EvenniaCommandTest):
+    """
+    Pressures AR3 as GR6 builds it, in ClothingWithBuffs.wear (GR-T4's
+    STOPP 0, B): a conflict tested on the layer alone (GRM12), on the
+    location alone (GRM13), and a worn piece in conflict with itself
+    (GRM14). The hauberk, the trews and the helm have no prototype until
+    GR-T12, so they are made here with their rows' tags.
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def _piece(self, prototype_key, key=None):
+        """A garment that reads `prototype_key`'s armour row, carried by char1."""
+        obj = create.create_object(
+            ClothingWithBuffs, key=key or prototype_key.replace("_", " "),
+            location=self.char1,
+        )
+        obj.tags.add(prototype_key, category=gear.PROTOTYPE_TAG_CATEGORY)
+        obj.db.clothing_type = gear.ARMOUR[prototype_key]["layer"]
+        self.addCleanup(obj.delete)
+        return obj
+
+    def _spawn(self, key):
+        obj = spawn(key)[0]
+        self.addCleanup(obj.delete)
+        obj.location = self.char1
+        return obj
+
+    def test_a_second_piece_on_a_layer_and_location_is_refused_and_the_first_named(self):
+        bone = self._spawn("bone_armour")
+        self.call(CmdWear(), "bone armour", caller=self.char1)
+        self.assertTrue(bone.db.worn)
+        spare = self._piece("bone_armour", key="spare breastplate")
+        self.call(
+            CmdWear(), "spare breastplate",
+            f"Your {bone.get_display_name(self.char1)} already covers your chest.",
+            caller=self.char1,
+        )
+        self.assertFalse(spare.db.worn)
+
+    def test_two_layers_on_one_location_go_on(self):
+        cuirass = self._spawn("linen_cuirass")
+        bone = self._spawn("bone_armour")
+        self.assertTrue(cuirass.wear(self.char1, True, quiet=True))
+        self.assertTrue(bone.wear(self.char1, True, quiet=True))
+        self.assertTrue(bone.db.worn)
+
+    def test_one_layer_on_two_locations_goes_on(self):
+        # A helm and a breastplate share the rigid layer, not a location.
+        self.assertTrue(self._spawn("bone_armour").wear(self.char1, True, quiet=True))
+        self.assertTrue(self._piece("bone_helm").wear(self.char1, True, quiet=True))
+
+    def test_a_second_hauberk_names_both_locations_and_the_first_once(self):
+        cuirass = self._spawn("linen_cuirass")
+        hauberk = self._piece("hard_leather_hauberk")
+        self.assertTrue(cuirass.wear(self.char1, True, quiet=True))
+        self.assertTrue(hauberk.wear(self.char1, True, quiet=True))
+        second = self._piece("hard_leather_hauberk", key="old hauberk")
+        self.call(
+            CmdWear(), "old hauberk",
+            f"Your {hauberk.get_display_name(self.char1)} already covers your "
+            "chest and abdomen.",
+            caller=self.char1,
+        )
+        self.assertFalse(second.db.worn)
+
+    def test_trews_go_on_under_a_hauberk(self):
+        self.assertTrue(self._piece("hard_leather_hauberk").wear(self.char1, True, quiet=True))
+        self.assertTrue(self._piece("soft_leather_trews").wear(self.char1, True, quiet=True))
+
+    def test_a_refusal_by_code_returns_false_and_still_tells_the_wearer(self):
+        self.assertTrue(self._spawn("bone_armour").wear(self.char1, True, quiet=True))
+        spare = self._piece("bone_armour", key="spare breastplate")
+        with mock.patch.object(self.char1, "msg") as told:
+            self.assertFalse(spare.wear(self.char1, True, quiet=True))
+        self.assertIn("already covers your chest", told.call_args.args[0])
+        self.assertFalse(spare.db.worn)
+
+    def test_a_worn_piece_is_not_in_its_own_way(self):
+        bone = self._spawn("bone_armour")
+        self.assertTrue(bone.wear(self.char1, True, quiet=True))
+        self.assertIsNone(gear.layer_conflict(self.char1, bone))
+        self.assertTrue(bone.wear(self.char1, True, quiet=True))
+
+    def test_a_garment_with_no_armour_row_is_never_in_the_way(self):
+        self.assertTrue(self._spawn("bone_armour").wear(self.char1, True, quiet=True))
+        tunic = self._spawn("wool_tunic")
+        self.assertIsNone(gear.layer_conflict(self.char1, tunic))
+        self.assertTrue(tunic.wear(self.char1, True, quiet=True))
+
+    def test_a_wear_style_still_works(self):
+        bone = self._spawn("bone_armour")
+        self.call(CmdWear(), "bone armour = with pride", caller=self.char1)
+        self.assertEqual(bone.db.worn, "with pride")
