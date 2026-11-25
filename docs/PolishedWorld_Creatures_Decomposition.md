@@ -1,0 +1,255 @@
+# PolishedWorld — Creatures Decomposition (Stage 5, slice 7: CE)
+
+> **Rev 1 · 2026-11-25** — first version, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 13 (the slice's locks CE1–CE13 under CR1–CR2 and HQ1, four rows in §5, two readings of the book, a note under *Reconciling `hunt`* and OQ-CE1–OQ-CE5 in §7), `docs/PolishedWorld_Combat_Decomposition.md` Rev 23 and README Rev 84. Decomposes Stage 5's seventh slice, CE, from Combat Design §3.2, §3.6, §4.6 (CR1–CR2) and §4.7 (HQ1–HQ2): a creature's Constitution stored beside its Size, General Hit Points and a Critical Wound rating worked out at the read, one door for hurt with the character's arguments, the book's rules at 0 Hit Points on stored points in time, the Critical Wound table as data rolled in the door, healing counted at the read, and a line in `look`. Thirteen locks (Adam, 2026-11-25, each on the recommendation given, one at a time; CE3 after one change of recommendation, §2). Six code tasks, a merge and a close-out (CE-T1–CE-T8) on `feature/creatures`. Anchors read at `main` `8c354c9`; one probe run in the sandbox (§4).
+> **Canonical:** `docs/PolishedWorld_Creatures_Decomposition.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
+
+**Design source:** `docs/PolishedWorld_Combat_Design.md` §2.5, §3.2, §3.6, §4.2 (PV2), §4.4 (WO5, WO6, WN3, WN4, WN10, WN11), §4.6 (PD1, CR1, CR2, CE1–CE9, CE11–CE13), §4.7 (HQ1, HQ2, CE10), §4.8 (HB1), §5, §7 (OQ-CE1–OQ-CE5); `docs/PolishedWorld_Combat_Decomposition.md` §2 (ST1, ST2; CE's row, and ML's, DR's and PJ's); `docs/system_designs/PolishedWorld_Hunting_Design.md` TP4, TP12, TQ13; `docs/system_designs/PolishedWorld_Projectile_Design.md` RWP24; BACKLOG *Seasonal supply & population memory*, *Webclient: a quarry that flees stays in the location panel*, *When the closed alpha opens — now, or after Stage 5*; `AGENTS.md` §1A and §3.4.
+**Status:** **Decomposed, not started** (Rev 1). CE1–CE13 are locked; CE-T1–CE-T8 are written and none is shipped.
+**Feature branch:** `feature/creatures` — one branch, one merge (ST2). Create it with `git switch -c feature/creatures --no-track origin/main`.
+**Rough scope:** six code tasks, a merge and a close-out; about eight to ten hours of code — two sessions at 5 h/week. One new module (proposed `world/creature_wounds.py`; the name is taken at CE-T1's STOPP 0), one new method on `Creature` (`apply_health_damage`), two new Attributes on the class (`con`, `resilience`), one prototype changed (the rabbit), no new command and none changed.
+**Philosophy:** skynda långsamt — the numbers before the door; the door before what it can lead to; a rule no play can reach yet is proven by tests and by `py`, and says so; what can be worked out at the read is not stored.
+**Labels:** CE (locks, in the Combat Design §4.6 and §4.7), CE-T (tasks), CEM (mutations), OQ-CE (open questions, in the Combat Design §7). All were free across the repository at `8c354c9`: `git grep -n -w -E 'CE[0-9]+|CE-T[0-9]+[a-z]?|OQ-CE[0-9]+|CEM[0-9]+'` gave no line, before they were used. The components are C1–C4. CR1, CR2, HQ1 and HQ2 stay the Combat Design's labels for the decisions the locks fill in.
+
+---
+
+## 1. What the slice is
+
+CR1 and CR2 say *what*: a creature gains Constitution, and with it General Hit Points and a Critical Wound rating, and the book's rules at 0 Hit Points and its Critical Wound table are taken as written. HQ1 says the animal that survives a hit is the wounded quarry. This slice says *how*, and builds it. Nothing strikes a creature until ML (close combat) and PJ (projectiles), so every rule here is one that a test or a `py` line reaches and play does not.
+
+**What a player meets after the merge:** nothing new. No command hurts a creature (CE1), `hunt` is as it was (HQ2), and the line `look` gains on a creature is empty for an unhurt one (CE12).
+
+**What the slice builds, for ML and PJ to call:**
+
+- A rabbit has CON 4. With its SIZ 4 that is 4 General Hit Points, a Critical Wound rating of 2 and a Resilience of 22 %.
+- `Creature.apply_health_damage(amount, *, location, source=None, made=None)`, the same call a character answers to. It takes what got through the armour, writes the damage, and answers with what happened.
+- At minus its Critical Wound rating a creature dies at once. Between 0 and there it tests Resilience every round, falls senseless when it loses, and dies a few seconds later.
+- A single blow above the rating rolls on the book's table. The door carries out the rows that kill or knock senseless and hands the rest back.
+- A hurt creature heals at the book's rate, counted when its damage is read.
+- `look` at a hurt creature says so in a word.
+
+**What the slice does not build:** the blow, its text and the armour taken off it (ML); a creature's turn, its Combat Actions and its decision to attack or run (DR; Combat Design §7); anything `hunt` does, which neither reads nor writes the damage (HQ2, CE10); the bleeding trail and the passage log (Hunting TP4, TP12); a second species; hit locations for a creature (the book keeps them for major villains, p. 146); the web client's panel.
+
+---
+
+## 2. The locks
+
+Each was taken on 2026-11-25 on the recommendation given, one at a time; the Combat Design §4.6 and §4.7 carry them. In short, with what was rejected:
+
+- **CE1 — Data, the door and the rules, without a blow.** The slice builds what a creature can be asked and what can be done to it through one call, each tested and shown by `py`, for ML and PJ to call. `hunt` is not touched. *Why:* the door has two callers coming and PD1 sends a shot the same way as a blow, so it should exist before the first of them is designed; HQ1 needs a stored hurt. *Rejected:* data only (the door would be shaped by close combat); a Builder's command that strikes a creature (ML replaces it).
+- **CE2 — The rabbit's CON is 4, from the hawk's row.** *Monsters of Legend* has no rabbit and no hare among its animals (pp. 103–122); the second book's *Wise Hare* is a fey people with a longbow (pp. 170–171). The hawk is the book's only wild animal of that size: CON 2D3, average 4, SIZ 1D3 (p. 113). The value is fixed per species, the book's average for a typical member (p. 11). *Why:* against GR's weapons a rabbit at 4 Hit Points is wounded by a weak hit and felled by a good one, which gives HQ1 something to carry; and CON × 3 + 10 gives 22, the hawk's printed Resilience. *Rejected:* the Wise Hare's CON 10 (1D6+6, the same shape as its INT: an adventuring people's, and a rabbit that stands two blows of a club); the dog's 11 (p. 110).
+- **CE3 — CON is stored on the creature and set by the prototype; the damage is stored; the rest is worked out at the read.** `con` sits beside `siz`. What is stored of the hurt is the damage taken, not the Hit Points left, as WN1 has it: a creature without the Attribute is unhurt. A test holds every creature prototype to naming its own `con`. *Why:* a species' two numbers have one home, and the agent's template grows by a field and not by a file. *The recommendation changed here.* It was first a table read by species tag, as GR16, for the sake of the rabbits that already exist: Evennia gives an object that lacks an Attribute the class default, written at the first read (`evennia/typeclasses/attributes.py:279`), so they would have read the class's CON. Adam pointed out that they exist only in his two development databases and can be deleted; `CreatureSpawnScript` then makes new ones from the prototype. With that the table's reason was gone. *Rejected:* the table; storing Hit Points and the rating as well.
+- **CE4 — The average is rounded up.** The book's sentence gives an example with an even sum (p. 146). Its other averages, Combat Actions and Strike Rank, are rounded up (pp. 10, 13), and the Critical Wound rating on the same page is half *rounded up*. `world/body.py:55` already reads the rule that way. *Rejected:* down; a half Hit Point.
+- **CE5 — A creature dies at minus its Critical Wound rating.** The book's rule and the example that follows it disagree (p. 147): the rule says *a negative amount equal to the Critical Wound rating or more*, the example says a foe of 14 Hit Points dies at 14 points of damage. The rule is taken. *Why:* the point before it has the creature at 0 test Resilience to stay conscious (p. 146), and the page's worked example, the broo, stands at exactly 0, fails, falls senseless and needs a blow of its own to finish (p. 147). *Rejected:* death at 0.
+- **CE6 — The state at 0 Hit Points is built as written, on stored points in time.** A test at 0 or below; won, another a round later; lost, senseless, and dead a number of Combat Actions later equal to the rating. One persistent alarm per creature, which reads the stored state again before it acts, as `wounds._clock_due` does. The test is a plain one, not against the attack roll (p. 146 against p. 145). **Two calibration constants in the creature's module, starting at:** the round, 5 real seconds, the module's own and not `ROUND_SECONDS` (WN3's reason); a Combat Action, 2.5 seconds, the round at 2 Combat Actions (CT2). *Why:* CR2; and ML needs both the boar that fights on at 0 and the body that lies helpless (HB1). The chain ends by itself, since 96–00 always fails. *Rejected:* one test, with death on a loss and no clock; no state until ML.
+- **CE7 — Resilience is CON × 3 + 10, and an optional `resilience` on the prototype goes before it.** The book's general rule and its exceptions (*Monsters* p. 12). Of the twenty rows of *Natural life*, fifteen follow the formula and five do not (§3). The test takes no modifier: a creature has neither fatigue nor load. *Rejected:* the formula always (five species against their printed row, the deer first); the value always stored.
+- **CE8 — The Critical Wound table is data, rolled in the door, always; the door carries out death and senselessness and hands back the rest.** A single blow above the rating rolls 1D20, less the creature's Armour Points, plus the damage on a critical hit (p. 147). Rows 07 and 14 (Resilience or senseless), 17–19 (Resilience or death) and 20 (death) are the door's. Dazed, Stunned, knocked back, knocked down and a disabled limb are returned to the caller and stored nowhere: they need the pool, which is ML's and lives in `ndb` (CT4, CT7). **Four readings:** the Games Master's *may* is *always*; a roll below 1 after armour is no row and one above 20 is row 20; a creature senseless with Hit Points left wakes after as many minutes as the blow did damage, the character's rule (p. 145, WN11), since the book gives none for a creature; the scar is not built. *Rejected:* the table with no roll until ML (two callers would each roll it); stored states for the fight's rows.
+- **CE9 — `Creature.apply_health_damage`, with the character's name and arguments.** The amount is what got through the armour, as it is for a character (WO6: the armour is the caller's). `location` is checked and not used, since General Hit Points have no locations; `made` is read only for whether the hit was critical; `source` is stored. The module has one reader of a creature's Armour Points, which the caller asks for the blow and the door asks for the table. When the alarm kills, the stored source goes to `at_death` only if it still stands in the creature's room. One road to death: the door, the alarm and `hunt` all end in `at_death`, whose `pk` guard is already there. *Why:* PV2. *Rejected:* a door of its own that takes the gross damage (the caller would take armour off a character and not off a creature).
+- **CE10 — The wounded quarry is the damage, and nothing else.** The module answers whether a creature is hurt. No flag, no trail, and `flee_skill` is not touched. *Why:* a flag would say what the damage says; a modifier would change the hunt's odds (HQ2); the passage log has no code to write to (Hunting TP4). *Rejected:* a stored `wounded`; a hurt animal easier to hunt.
+- **CE11 — A hurt creature heals at the book's rate, counted at the read.** One point per the hours its Resilience gives (p. 86; `world/healing.py:28`), in game time, from a stored anchor. The read writes nothing; the door counts the healing in before it writes, and moves the anchor on by whole intervals, as a resource node does (`typeclasses/resources.py:90`), not to *now*. A creature whose alarm is running does not heal. *Why:* without it a rabbit at 1 Hit Point stays there, and a dangerous animal struck once is hurt for ever. *Rejected:* no healing until DR; a reset without time.
+- **CE12 — A line in `look` at the creature, in words, and the module's own lines for what the alarm does.** Four states, each worked out from what is stored: hurt, badly hurt (at or below the Critical Wound rating), on its feet at 0, senseless. No number (Tone Guide §7). The name and the room's list do not change. *Why:* a creature does not starve, so WN11's reason to wait does not hold; the fall and the waking come seconds after the blow and have no caller to write them. *Rejected:* nothing shown until ML; a changed name (it is the search path: `hunt rabbit`, `attack 2-wolf`).
+- **CE13 — The class's `con` is `None`, and the door refuses.** A creature without CON cannot be hurt: `ValueError` before anything is written. Every reader that only shows something answers nothing for it, so `look` at an old rabbit works. `AGENTS.md` §3.4 changes at the close-out, when the code is on `main`. *Rejected:* a plausible number (11, the commonest CON in the book), which would give a wrong creature that looks right.
+
+---
+
+## 3. Verified source anchors (read 2026-11-25, `main` at `8c354c9`)
+
+**The books.** *Legend* core, *Monsters of Legend* and *Monsters of Legend II*, read from the project's copies, which reach this work as extracted text with the page number at the head of each page. Pages are cited from that marker (lesson 392).
+
+| Page | What it says | Used by |
+| --- | --- | --- |
+| core 10, 13 | Combat Actions and Strike Rank are averages, rounded up. | CE4 |
+| core 86 | Natural healing: one Hit Point per so many hours, by Resilience. | CE11 |
+| core 145 | A character's Serious Wound: the test is against the attack roll; unconsciousness lasts as many minutes as the blow did damage. | CE6, CE8 |
+| core 146 | General Hit Points are the average of CON and SIZ (12 and 16 give 14). The Critical Wound rating is half of that, rounded up. At 0 a Resilience test to stay conscious, and one every round while it is won; unconscious, death within as many Combat Actions as the rating, unless brought to 1 or more. Locational Hit Points are kept for major villains. | CE3–CE6 |
+| core 147 | At a negative amount equal to the rating or more, death is instantaneous; *the example beside it says 14 points on 14 Hit Points*. A single wound above the rating: the Games Master may roll 1D20 on the table, less the armour worn, plus the damage on a critical hit; and a scar. The table's twenty rows. The broo: 12 Hit Points and 3 armour, 7 points, a roll of 13 less 3; then 5 more, 0 Hit Points, a failed Resilience test, and a coup de grâce. *The example describes row 07 where its roll of 10 is row 10–11.* | CE5, CE8 |
+| *Monsters* 11 | Use the average Characteristics for a typical member of the species. | CE2 |
+| *Monsters* 12 | Two figures per location, natural Armour Points and Hit Points. Resilience is generally CON × 3 + 10; some creatures have higher or lower values. | CE7, OQ-CE5 |
+| *Monsters* 41 | Giant mosquito, the size of a cat: CON 2D3. | CE2 |
+| *Monsters* 71, 85 | Centaur: Armour Points 2 on the horse's locations, 0 on the man's. Minotaur: 5 on the head, 3 elsewhere. | OQ-CE5 |
+| *Monsters* 103–122 | *Natural life*, twenty rows from baboon to wolf. No rabbit, no hare. | CE2 |
+| *Monsters* 110 | Dog, a medium mongrel: CON 3D6 (11), SIZ 1D6 (4), Resilience 43 %. Breeds as small as SIZ 1D3. | CE2, OQ-CE1 |
+| *Monsters* 113 | Hawk: CON 2D3 (4), SIZ 1D3 (2), no armour, Resilience 22 %. | CE2 |
+| *Monsters II* 170–171 | Wise Hare, *a rabbit with opposable thumbs, leather armour, and a longbow*: CON 1D6+6 (10), SIZ 1D3 (2), INT 1D6+6. | CE2, OQ-CE1 |
+
+**The formula against the twenty rows** (CE7). Fifteen agree: baboon 43, brown bear 49, boar 58, cattle 58, chimpanzee 43, dog 43, elephant 88, gorilla 49, hawk 22, horse 61, lion 43, panther 43, rhinoceros 43, tiger 52, wolf 52. Five do not:
+
+| Species | CON | CON × 3 + 10 | Printed | Page |
+| --- | --- | --- | --- | --- |
+| Deer | 11 | 43 | 58 | 109 |
+| Polar bear | 13 | 49 | 55 | 105 |
+| Mammoth | 35 | 115 | 99 | 116 |
+| Sabre tooth tiger | 17 | 61 | 67 | 121 |
+| Shark | 32 | 106 | 95 | 119 |
+
+**The code.**
+
+| Anchor | What is there | Used by |
+| --- | --- | --- |
+| `typeclasses/creatures.py:34`, `:48–51` | `Creature(ObjectParent, DefaultObject)`; `siz` 8, `natural_ap` 0, `harvest_template`, `flee_skill` 30, each `AttributeProperty(…, autocreate=True)`. No CON, no Hit Points. | CE-T1 |
+| `typeclasses/creatures.py:61`, `:77`, `:86–91`, `:97–110` | `at_death(killer=None)`: the `pk` guard; *fells* to the room and *You fell* to the killer, or *dies* with no killer; the `Corpse`, which copies `siz` and `natural_ap` (`:104`) and takes its death time from `gametime_utils.get_absolute_gametime()` (`:105`); `self.delete()`. | CE-T2, CE-T3 |
+| `world/prototypes.py:478`, `:489` | `RABBIT`, `siz` 4. | CE-T1 |
+| `commands/hunting_commands.py:71`, `:84–89`, `:95–99`, `:121` | `hunt` finds a `Creature` in the room, claims it in `ndb.hunted_by`, rolls against `flee_skill` and calls `at_death(caller)`. It reads nothing else of the creature. | CE10 |
+| `commands/hunting_commands.py:131`, `:153`, `:171`, `:173` | On a lost test the quarry bolts: `move_to(…, quiet=True, move_hooks=False)` through a random exit, or `delete()` with no body where the room has none. | §13 |
+| `typeclasses/scripts.py:150`, `:175`, `:192`, `:200` | `CreatureSpawnScript`: each flagged room is topped up to its count by one creature per species a tick, counted by species tag, made with `spawn`. | CE-T7 |
+| `world/seed_data.py:117`, `:142` | Two rooms keep rabbits, three and one. | CE-T7 |
+| `typeclasses/characters.py:1635` | `apply_health_damage(amount, *, location, source=None, made=None)`: the amount is net of armour; `ValueError` before anything is written. | CE9 |
+| `world/wounds.py:268`, `:360` | `check_location`; `resilience_test(char, made)`, against the attack roll. | CE-T2, CE-T3 |
+| `world/wounds.py:94`, `:98` | `MINUTE` 60 and `VITAL_ROUND_SECONDS` 5, the wound module's own. | CE6, CE8 |
+| `world/wounds.py:735–759`, `:762–780` | `start_clock` stores a deadline and sets `delay(…, persistent=True)`; `_clock_due` does nothing unless the stored deadline is still the one it carries and has passed. | CE-T3 |
+| `world/body.py:55` | `_average_up(a, b)`, private. | CE-T1 |
+| `world/skillcheck.py:60`, `:98` | `skill_check(skill_value, modifier=0)`, a function of two numbers; a roll of 96 or more is an automatic failure. | CE-T3 |
+| `world/healing.py:28–35`, `:45` | The book's rows, and `interval_for(resilience)`, which gives game seconds per Hit Point from a number. | CE-T5 |
+| `world/gametime_utils.py:88` | `get_absolute_gametime()`. | CE-T5 |
+| `typeclasses/resources.py:69`, `:90` | A node's regeneration: whole intervals since its anchor. | CE-T5 |
+| `typeclasses/durable.py:111`, `typeclasses/resources.py:151` | `get_display_desc(looker, **kwargs)` adds a line to an object's description. | CE-T6 |
+| `typeclasses/corpse.py:58`, `:72–73` | `Corpse`, with `creature_siz` and `creature_natural_ap`. | — |
+| `AGENTS.md:286`, `:354–368`, `:508` | §3's row for `Creature`, the rabbit as template, and the checklist's line for a creature. | CE-T8 |
+
+**Evennia 6.1.0, from the wheel.** `AttributeProperty.__get__` (`evennia/typeclasses/attributes.py:279`): the handler is read with the class default, and where `autocreate` is set and the Attribute is missing the default is written. `DefaultObject.get_display_desc` (`evennia/objects/objects.py:1751`) is the description's hook in `return_appearance` (`:1878`).
+
+---
+
+## 4. What was run (sandbox: Python 3.13, Evennia 6.1.0, Django 6.0; a fresh clone of `8c354c9`)
+
+**The baseline.** `COLLECTED 2623`, by the runner's own collection (Testing Reference §27.1). Twelve test modules name a creature or a rabbit — `test_client_state`, `test_corpse_expiry`, `test_encumbrance`, `test_harvest_guard`, `test_hunt_resolution`, `test_material_registry`, `test_names_census`, `test_names_commands`, `test_names_room_messages`, `test_names_search`, `test_seeding`, `test_set_down` — and hold 369 tests; they are the neighbour set for every task (`git grep -l -i -E 'creature|rabbit' -- 'tests/test_*.py'`).
+
+**P1 — an alarm whose creature is gone.** A rabbit spawned, a `delay(5, f, rabbit, "alarm", persistent=True)` set, the rabbit deleted.
+
+- In the same process the handler still holds the object: the callback would be given the `Creature`, whose `pk` is `None`.
+- After a reload the saved task is unpacked: `dbunserialize` gives `[None, 'alarm']`. The creature's place holds `None`.
+
+So the alarm's first line must take both, and a test gives it each.
+
+**P2 — `hunt` before the alarm.** `at_death(char)` and then a late `at_death(None)` on the same rabbit: one `rabbit corpse` in the room after the first and one after the second. The `pk` guard holds.
+
+The probe was `tests/test_zz_probe_ce.py`, written, run and removed in one command; `git status` was clean afterwards.
+
+**Mutations** are run in the sandbox by `tools/mutate.py` with a TOML spec per task under `tools/mutants/` (Testing Reference §28.1), as GR's were.
+
+---
+
+## 5. Dependency graph
+
+```
+CE-T1 ──> CE-T2 ──┬─> CE-T3 ──> CE-T4 ──┐
+                  ├─> CE-T5 ────────────┼─> CE-T7 ──> CE-T8
+                  └─> CE-T6 (needs T3) ─┘
+```
+
+CE-T1 is the numbers, and everything reads them. CE-T2 is the door in its plainest form: damage on a living creature, and death outright. CE-T3 gives the door the state at 0, and CE-T4 the table, whose rows about senselessness use that state's machinery. CE-T5 and CE-T6 read what the door stores.
+
+**The order the tasks are taken in is their number.** Every protocol is a `py` line on a rabbit made for it with `spawn("rabbit")` and deleted afterwards, one line per rabbit.
+
+---
+
+## 6. Component C1 — The creature's numbers
+
+### Task CE-T1 — A species' numbers and their readers
+- **Goal:** a creature has a Constitution, and four functions answer for it: Hit Points, the Critical Wound rating, Resilience and Armour Points.
+- **Dependencies:** none.
+- **Approach:** on `Creature`, `con` and `resilience` as `AttributeProperty(default=None)`; whether they are `autocreate` is a choice at STOPP 0, since an Attribute holding `None` is a row nobody needs. The rabbit's prototype gains `con` 4, with the hawk's page in a comment. A new module (proposed `world/creature_wounds.py`) with `hit_points_max(creature)` — the average of `con` and `siz` rounded up (CE4), `None` without CON — `critical_rating(creature)`, half of that rounded up, `resilience(creature)`, the stored value or CON × 3 + 10 (CE7), and `armour_points(creature)`, today `natural_ap`. The rounding is the body module's: `body._average_up` becomes public, or the module asks `body` for the figure; taken at STOPP 0.
+- **Testing:** a new `tests/test_creature_wounds.py`. The rabbit: 4, 2, 22, 0. The book's example, CON 12 and SIZ 16: 14 and 7 (p. 146). An odd sum, CON 11 and SIZ 4: 8 and 4. A stored `resilience` goes before the formula; the five rows of §3 as cases of the override and three of the fifteen as cases of the formula. A creature without CON: `None` from each of the three, never an exception. **A census:** every prototype in `world/prototypes.py` whose typeclass is `Creature` has a `con` that is a whole number above 0, and its message names CE3.
+- **Red before green:** the census, against the rabbit as it is.
+- **Mutations (CEM1–CEM4):** the average rounded down; the rating rounded down; the formula CON × 2 (the character's base); the stored `resilience` read after the formula.
+- **In-game check:** `py from evennia.prototypes.spawner import spawn; from world import creature_wounds as cw; r = spawn("rabbit")[0]; self.msg(str((cw.hit_points_max(r), cw.critical_rating(r), cw.resilience(r), cw.armour_points(r)))); r.delete()` gives `(4, 2, 22, 0)`.
+- **Commit:** `feat(creatures): Constitution, General Hit Points and the Critical Wound rating (CR1, CE2–CE4, CE7, CE13)`
+
+---
+
+## 7. Component C2 — The door
+
+### Task CE-T2 — The door: damage, and death outright
+- **Goal:** one call puts damage on a creature and kills it when the damage reaches Hit Points plus the rating.
+- **Dependencies:** CE-T1.
+- **Approach:** `Creature.apply_health_damage(amount, *, location, source=None, made=None)` calls the module's `damage(creature, amount, made)` and acts on its answer, as the character's does. It refuses first: `ValueError` for a creature without CON (CE13), for a `location` that `wounds.check_location` refuses, and for a `made` that is not a success. An amount of 0 or less writes nothing and answers nothing. Otherwise the stored damage grows, the source is stored, and the answer says the damage dealt, the Hit Points left and whether this blow kills: at minus the rating or below, `at_death(source)` (CE5). Between 0 and there the answer says so and nothing more happens yet (CE-T3). The module gains `damage_of(creature)` and `hit_points(creature)`. The Attributes' names are taken at STOPP 0.
+- **Testing:** a rabbit at 1, 2 and 3 points lives, with the Hit Points the answer gives; 6 points at once, and 3 and 3, each leave one corpse and no rabbit; `source` reaches `at_death` (the room's line names the killer); 0 and −1 write nothing; each refusal leaves the creature without the damage Attribute. **A census:** the callers of `at_death` in production are the door and `hunt`, by name, and its message names CE9; CE-T3 adds the alarm to it.
+- **Red before green:** the census of two, with the door not yet written.
+- **Mutations (CEM5–CEM8):** death at 0 (CE5's rejected reading); the refusal after the write; the damage set and not added; `at_death(None)`.
+- **In-game check:** a rabbit in the room, `py r.apply_health_damage(3, location="chest")`, then `py self.msg(str(cw.hit_points(r)))` gives `1`; three more and the room reads the rabbit's death and holds its corpse.
+- **Commit:** `feat(creatures): one door for a creature's hurt, and death at minus the rating (CR2, CE5, CE9)`
+
+### Task CE-T3 — The state at 0 Hit Points
+- **Goal:** a creature at 0 or below tests Resilience, falls senseless when it loses, and dies when its time is out.
+- **Dependencies:** CE-T2.
+- **Approach:** when the door's answer is *at 0 or below and alive*, the module rolls `skill_check(resilience)` with no modifier (CE6, CE7). Won: the state *standing* is stored with the time of the next test, one round on, and one persistent alarm is set. Lost: the state *senseless* is stored with the time of death, the rating times a Combat Action on, the room is told, and the alarm is set for it. The alarm (module-level, as `wounds._clock_due`) takes a missing creature, `None` or `pk` `None` (§4, P1), reads the stored state, does nothing unless it is the one it was set for and its time has passed, and then tests again or calls `at_death` with the stored source if that source stands in the creature's room, else with `None` (CE9). A blow on a creature already at 0 moves no time on: an earlier death is not bought back. Two constants, `ROUND_SECONDS_AT_ZERO` 5 and `COMBAT_ACTION_SECONDS` 2.5, under whatever names STOPP 0 gives them. The room's lines for the fall are prose and are approved at STOPP 0 against the Tone Guide.
+- **Testing:** the dice and the clock patched in the module, alarms fired by hand (Testing Reference §27.2). A rabbit at 0 that loses is senseless with a death 5 seconds on; the alarm before that time does nothing; at it, one corpse. One that wins stands, tests again at 5 seconds, and falls on a loss. A roll of 96 loses at any Resilience. The killer in the room is named; the killer gone, the room reads *dies*. The alarm given `None`, and given a deleted creature, returns without a line. `hunt`'s road first and the alarm late: one corpse (P2). A stale alarm, its state replaced by a later one, does nothing.
+- **Red before green:** the senseless rabbit's time of death, against a module that kills at once.
+- **Mutations (CEM9–CEM12):** the test against the attack roll's `made`; the time of death in rounds, not Combat Actions; the alarm not reading the state again; the killer passed whatever room it stands in.
+- **In-game check:** a rabbit taken to 0 with `py r.apply_health_damage(4, location="chest")`; the room reads either its fall and, five seconds on, its death, or nothing and then one of the two within the next rounds. `look rabbit` between says which (after CE-T6).
+- **Commit:** `feat(creatures): the book's rules at 0 Hit Points, on stored points in time (CR2, CE6)`
+
+### Task CE-T4 — The Critical Wound table
+- **Goal:** a single blow above the rating rolls on the book's table, and the door carries out the rows that kill or knock senseless.
+- **Dependencies:** CE-T3.
+- **Approach:** the table as a tuple of twenty rows in the module, each with its category, its effects by key and the test it calls for, read against p. 147 cell by cell. In `damage`, after death outright and before the test at 0: if this blow's amount is above the rating, roll 1D20, less `armour_points(creature)`, plus the amount when `made` is a critical; below 1 is no row, above 20 is row 20 (CE8). Row 20 kills. Rows 17–19 kill on a lost Resilience test. Rows 07 and 14 knock senseless on a lost test: with Hit Points left the creature wakes after the blow's damage in minutes (`wounds.MINUTE`), by the same alarm; at 0 or below CE-T3's time of death stands and there is no waking. Every row's effects go into the answer, the fight's rows as keys for ML. The order — death outright, then the table, then the test at 0 — is confirmed at STOPP 0.
+- **Testing:** each of the twenty rows by a patched roll, its effects in the answer; the armour taken off the roll, with `natural_ap` set to 3 and the broo's 13 giving 10 (p. 147); a critical's damage added; a roll of 2 less 3 is no row; 19 plus 4 is row 20. A blow of 2 on a rabbit rolls nothing and a blow of 3 rolls. Row 18 lost: one corpse; won: alive. Row 07 lost on a rabbit with 1 Hit Point: senseless, awake three minutes on, and the room is told. The census of roads to death is unchanged.
+- **Red before green:** the blow of 3 that rolls, against a door with no table.
+- **Mutations (CEM13–CEM16):** *at or above* the rating for *above*; the armour added to the roll; rows 17–19 killing with no test; the waking in rounds.
+- **In-game check:** `py r.apply_health_damage(3, location="chest")` on a fresh rabbit, read from the answer the door returns, printed with `self.msg(str(...))`; repeated on fresh rabbits until a row above 16 has been seen.
+- **Commit:** `feat(creatures): the Critical Wound table, rolled in the door (CR2, CE8)`
+
+---
+
+## 8. Component C3 — What follows a wound
+
+### Task CE-T5 — Healing at the read, and the hurt creature's reader
+- **Goal:** a hurt creature's damage falls by one point per interval of game time, and one function says whether a creature is hurt.
+- **Dependencies:** CE-T2.
+- **Approach:** the door stores an anchor in game seconds, `gametime_utils.get_absolute_gametime()`, when it first writes damage. `damage_of(creature)` gives the stored damage less the whole intervals since the anchor, never below 0, the interval being `healing.interval_for(resilience(creature))`; it writes nothing. The door, before it adds a blow, counts that healing into the stored damage and moves the anchor on by the intervals counted (CE11). A creature with a stored state — standing at 0, or senseless — does not heal. `is_hurt(creature)` is `damage_of(creature) > 0` (CE10).
+- **Testing:** the game clock patched. A rabbit with 3 points reads 3 just under 48 game hours, 2 at 48, 0 at 144 and after. A blow at 50 hours lands on 2, and the next point heals at 96 hours, not at 98. A rabbit senseless with a point left does not heal while it lies. A stored `resilience` of 95 heals in 12 hours. The read leaves both Attributes as they were.
+- **Red before green:** the reading at 48 hours.
+- **Mutations (CEM17–CEM19):** the anchor moved to *now* at a blow; the read writing the healed figure; healing counted while senseless.
+- **In-game check:** a rabbit with 3 points; `py r.db.<anchor> -= 48 * 3600` and then `py self.msg(str(cw.damage_of(r)))` gives `2`.
+- **Commit:** `feat(creatures): a hurt creature heals at the book's rate, counted at the read (HQ1, CE10, CE11)`
+
+### Task CE-T6 — What `look` says
+- **Goal:** `look` at a hurt creature says how it fares, in a word.
+- **Dependencies:** CE-T2, CE-T3.
+- **Approach:** `Creature.get_display_desc` adds one line after the description, as `typeclasses/durable.py:111` does, from a function in the module that answers a key for the state — unhurt, hurt, badly hurt (Hit Points at or below the rating and above 0), standing at 0, senseless — or nothing for a creature without CON (CE13). The words are prose and are approved at STOPP 0 against the Tone Guide. The room's list and `get_display_name` are not touched (CE12).
+- **Testing:** each state's line; an unhurt rabbit's description unchanged, byte for byte; a creature without CON unchanged; no digit in any line; the name in the room's list the same at every state.
+- **Red before green:** the badly hurt rabbit's line.
+- **Mutations (CEM20–CEM21):** the boundary at the rating moved by one; the line shown for an unhurt creature.
+- **In-game check:** `look rabbit` after 1 point, after 3, and while it lies senseless.
+- **Commit:** `feat(creatures): look says how a hurt creature fares (CE12)`
+
+---
+
+## 9. Component C4 — Close-out
+
+### Task CE-T7 — Protocol, suite and merge
+- **Goal:** the branch is proven whole and is on `main`, tagged.
+- **Dependencies:** CE-T4, CE-T5, CE-T6.
+- **Approach:** the living creatures of the home database deleted first, with a line written and run in the sandbox at this task, and the spawn script left to make new ones (CE3); the work database when Adam is next at it. Then the in-game checks of CE-T1–CE-T6 in order. The whole suite once with `ForkTestRunner` and `--parallel auto`, the count predicted by the runner's collection; `node --test tests/js/*.js`; `git merge-tree` for the tree the merge will have.
+- **Testing:** the suite, green; the count as predicted.
+- **Commit:** the merge commit.
+
+### Task CE-T8 — Documentation
+- **Goal:** the documents say what was built and where it stands.
+- **Dependencies:** CE-T7.
+- **Approach:** this document's *Shipped* lines and Status; Combat Decomposition's row; Combat Design §4.6, §4.7, §5 and §6 dated after the merge; the Alpha Runbook's §7 — the tag (lesson 418), and the line for a database made before it; `AGENTS.md` §3.4 — `con` required with its page, `resilience` only where the book's row leaves the formula, `natural_ap` the book's value now that it is read, a line in the checklist, and what to do for an animal the book lacks, with the rabbit as the example (CE13); Testing Reference, a section for the slice; System Map, the module, its door beside the character's in the *Damage chokepoint* row, and the `CREAT` node; BACKLOG, roadmap and Lessons as the slice moved them. How the commit is bounded is read from GR's close-out first (lesson 457).
+- **Commit:** `docs: close out Creatures (Stage 5 slice CE)`
+
+---
+
+## 10. Open questions (each with what closes it)
+
+- **OQ-CE1 — The rabbit's SIZ of 4 against the book's scale.** The book's rabbit-sized bodies are SIZ 1D3 (the hawk, the Wise Hare); 4 is its medium dog (p. 110). `siz` drives the harvest's yield (`commands/hunting_commands.py:307`), so changing it is a question for the economy. **Closes at:** the hunting decomposition that reconciles `hunt` (HQ2), or a calibration of yields.
+- **OQ-CE2 — A species' own Combat Actions.** CE6 counts a Combat Action as 2.5 seconds for every creature. The book's figure comes from DEX and INT, which a creature does not have here. **Closes at:** ML, or DR with a creature's turn.
+- **OQ-CE3 — What *arm* and *leg* mean on a four-legged animal** in rows 15 and 16 of the table, which CE8 hands back unread. **Closes at:** ML or DR, whichever first acts on a disabled limb.
+- **OQ-CE4 — What `wounds.ALL` means against General Hit Points.** The door checks the location and does not use it (CE9). Fire and the like strike every location of a character (WO5). **Closes at:** the first source of such damage that can reach a creature.
+- **OQ-CE5 — A creature whose natural armour differs by location.** The minotaur has 5 on the head and 3 elsewhere, the centaur 2 and 0 (pp. 85, 71); General Hit Points have one figure. The rabbit has none. **Closes at:** the first species whose rows differ.
+
+---
+
+## 11. Consequences worth reading twice
+
+1. **Before ML, no play hurts a creature.** Every rule here is proven by tests and by `py`.
+2. **`hunt` does not see the damage.** A rabbit at 1 Hit Point is as hard to hunt as a whole one, and one lying senseless still rolls its `flee_skill` of 30 and can *bolt* when the hunter loses. That is HQ2's price; the Combat Design's §7 carries it under *Reconciling `hunt`*.
+3. **A creature can leave the room, and can vanish without a body.** A quarry that wins `hunt`'s test moves through an exit with no hooks, or is deleted where there is none. The wounded quarry takes its damage with it, which is HQ1. The alarm's lines go to the room the creature lies in then, and its killer may not be there (CE9).
+4. **There are two ways to kill a rabbit and one road to its death.** `hunt` goes past the door and ends in the same `at_death`.
+5. **Against a rabbit, most blows that count roll on the table.** Its rating is 2, so 3 points or more roll, and about one such blow in six kills through the table alone: row 20, and rows 17–19 at a Resilience of 22.
+6. **A club fells a fresh rabbit outright only on a six.** On 4 or 5 it is at 0 or below and falls within a round or two, about four times in five on each test; the body is there some five to fifteen seconds after the blow.
+7. **A species changed in the prototype does not reach the animals already alive.** That is so of `siz` today. They are short-lived, and the spawn script replaces them.
+8. **A creature without CON looks whole and cannot be hurt.** The door says why (CE13). In a database made before the merge that is every creature until it is deleted once (CE-T7).
+9. **Twelve real hours a point** is what a rabbit heals at: 48 game hours at Resilience 22, at four game hours to the real one. HL will look again at a character's rate for time at the keyboard (Combat Decomposition, row 8b); a creature's clock runs whether anyone is there, so the two need not move together, and HL should read this line.
+10. **The alpha may wait for Stage 5.** Not decided (BACKLOG *When the closed alpha opens — now, or after Stage 5*), and nothing here assumes it. CE changes nothing a player meets; its merge moves the tag all the same (lesson 418).
