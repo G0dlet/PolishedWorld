@@ -259,7 +259,7 @@ class TestDisciplines(EvenniaTestCase):
         self.names = [name for name, _label in DISCIPLINES]
 
     def test_every_recipe_declares_a_known_discipline(self):
-        self.assertEqual(len(self.recipes), 29)
+        self.assertEqual(len(self.recipes), 34)
         for name, cls in self.recipes.items():
             with self.subTest(recipe=name):
                 self.assertIn("discipline", cls.__dict__)

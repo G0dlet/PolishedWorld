@@ -818,6 +818,113 @@ BONE_ARMOUR = {
     "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the chest
 }
 
+# --- Gear (GR-T12): the target shield and four pieces of armour ---
+# GR9-GR12, GR24. Each item's row -- its weapon figures or its Armour Points,
+# locations and layer -- is world/gear.py's, found by the prototype tag
+# (GR16); a prototype key renamed here orphans every item made with it.
+
+TARGET_SHIELD = {
+    "prototype_key": "target_shield",
+    "typeclass": "typeclasses.weapons.Weapon",
+    "key": "target shield",
+    # GR10: *target* alone means something else in a MUD.
+    "aliases": ["shield"],
+    "desc": (
+        "Boards of split wood are lashed into a round and faced with stiff "
+        "leather. A ground bone spike stands from the boss."
+    ),
+    # SOURCE: TargetShieldRecipe (wood x2 + leather + bone). SINK: repair
+    # (wood and leather; a knife) once a fight wears it -- nothing wears a
+    # weapon before ML (GR19). GR10: a weapon of type `shield`, held with
+    # `wield`, in no armour layer.
+    "enc": 2,   # Legend core p. 107: Target, ENC 2
+    "repair_materials": ("wood", "leather"),   # GR24
+    "repair_tool_tag": "knife",
+}
+
+SOFT_LEATHER_TREWS = {
+    "prototype_key": "soft_leather_trews",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "soft leather trews",
+    "aliases": ["trews"],
+    "desc": (
+        "Soft leather trousers cut close to the leg, the seams doubled at "
+        "knee and seat."
+    ),
+    # SOURCE: SoftLeatherTrewsRecipe (leather x3). SINK: worn for warmth
+    # (survival) and as armour; repair (leather and twine; a needle).
+    # Gear GR8: soft leather is padding, the innermost armour layer. No
+    # look_word: it does not cover the chest (OQ-GR5).
+    "clothing_type": "armour_padding",
+    "warmth": 1,
+    "enc": 3,   # Legend core p. 96: Soft leather, ENC 1 per location; abdomen, both legs
+    "repair_materials": ("leather", "twine"),   # GR24
+    "repair_tool_tag": "needle",
+}
+
+BONE_HELM = {
+    "prototype_key": "bone_helm",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "bone helm",
+    "aliases": ["helm"],
+    "desc": (
+        "Curved plates of bone are lashed over a leather cap, their edges "
+        "ground smooth where they meet the brow."
+    ),
+    # SOURCE: BoneHelmRecipe (bone x2 + leather). SINK: worn for warmth
+    # (survival) and as armour; repair (bone; no tool).
+    # Gear GR8: bone is rigid, the outermost armour layer. No look_word: it
+    # does not cover the chest (OQ-GR5).
+    "clothing_type": "armour_rigid",
+    "warmth": 1,
+    "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the head
+    "repair_materials": ("bone",),      # GR24
+    "repair_tool_tag": "",              # bare-handed -- unset would mean a needle
+}
+
+HARD_LEATHER_VAMBRACES = {
+    "prototype_key": "hard_leather_vambraces",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "hard leather vambraces",
+    "aliases": ["vambraces"],
+    "desc": (
+        "Two sleeves of hardened leather, shaped to the arm and laced along "
+        "the inner seam. The laces are new; the leather is not."
+    ),
+    # SOURCE: HardLeatherVambracesRecipe (leather x4). SINK: worn for warmth
+    # (survival) and as armour; repair (leather and twine; a needle).
+    # Gear GR8, GR11: hard leather is flexible, the middle armour layer --
+    # made of `leather`, its hardness the work. No look_word: it does not
+    # cover the chest (OQ-GR5).
+    "clothing_type": "armour_flexible",
+    "warmth": 1,
+    "enc": 4,   # Legend core p. 96: Hard leather, ENC 2 per location; both arms
+    "repair_materials": ("leather", "twine"),   # GR24
+    "repair_tool_tag": "needle",
+}
+
+HARD_LEATHER_HAUBERK = {
+    "prototype_key": "hard_leather_hauberk",
+    "typeclass": "typeclasses.clothing.ClothingWithBuffs",
+    "key": "hard leather hauberk",
+    "aliases": ["hauberk"],
+    "desc": (
+        "Leather worked hard and stiff hangs in stitched panels from shoulder "
+        "to hip. It creaks at the seams and keeps its shape off the body."
+    ),
+    # SOURCE: HardLeatherHauberkRecipe (leather x4). SINK: worn for warmth
+    # (survival) and as armour; repair (leather and twine; a needle).
+    # Gear GR8, GR11: hard leather is flexible, the middle armour layer.
+    "clothing_type": "armour_flexible",
+    # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    # Gear OQ-GR5: an armour piece has a word if and only if it covers the chest.
+    "look_word": "leather-clad",
+    "warmth": 1,
+    "enc": 4,   # Legend core p. 96: Hard leather, ENC 2 per location; chest, abdomen
+    "repair_materials": ("leather", "twine"),   # GR24
+    "repair_tool_tag": "needle",
+}
+
 SLING = {
     "prototype_key": "sling",
     "typeclass": "typeclasses.weapons.Weapon",

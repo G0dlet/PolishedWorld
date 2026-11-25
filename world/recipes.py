@@ -13,13 +13,15 @@ not picked up as a phantom recipe.
 Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowledge):
   common / ungated (inherit requires_knowledge = False) -- survival, tool and
     weapon recipes nobody has to LEARN: twine, waterskin, stone knife, bone needle,
-    stone axe, club, sling bullet, sling, quarterstaff, spear, bow, milling stones.
+    stone axe, club, sling bullet, sling, quarterstaff, spear, bow, milling stones,
+    target shield.
     Not having to learn a recipe is not the same as being able to make it: the
     skill ladder below still floors some of them.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots,
     breeches, robe, hood, reversible clothes, linen cuirass, sack, backpack,
-    scrollcase, saddlebag, shoes, bandolier, bone armour, tent.
+    scrollcase, saddlebag, shoes, bandolier, bone armour, tent, soft leather
+    trews, bone helm, hard leather vambraces, hard leather hauberk.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
   alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
   economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
@@ -419,6 +421,102 @@ class BoneArmourRecipe(MongooseCraftRecipe):
     consumable_tags = ["bone", "bone", "bone", "leather"]
     output_prototypes = ["bone_armour"]
     tool_tag = "knife"
+    craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
+
+# --- Gear (GR-T12, GR24): the target shield and four pieces of armour ---
+# The shield is a weapon and ungated, as every weapon is; the four pieces are
+# refined goods and gated, each with a scroll in the Old Temple
+# (world/seed_data.py SCROLLS). Hard leather is `leather` and more of the work
+# (GR11): about two pieces a location and the top rung.
+
+
+class TargetShieldRecipe(MongooseCraftRecipe):
+    """Lash split boards into a round, face it with leather, set a bone spike."""
+
+    name = "target shield"
+    discipline = "woodwork"
+    consumable_tags = ["wood", "wood", "leather", "bone"]
+    output_prototypes = ["target_shield"]
+    tool_tag = "knife"
+    craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # GR21: quality -> start condition (+ superior alias), the garments'
+        # mapping. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
+
+class SoftLeatherTrewsRecipe(MongooseCraftRecipe):
+    """Cut and stitch soft leather into close-fitting trews (padding armour)."""
+
+    name = "soft leather trews"
+    discipline = "leatherwork"
+    requires_knowledge = True
+    consumable_tags = ["leather", "leather", "leather"]
+    output_prototypes = ["soft_leather_trews"]
+    tool_tag = "needle"
+    craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
+
+class BoneHelmRecipe(MongooseCraftRecipe):
+    """Lash curved bone plates over a leather cap (rigid armour)."""
+
+    name = "bone helm"
+    discipline = "bonework"
+    requires_knowledge = True
+    consumable_tags = ["bone", "bone", "leather"]
+    output_prototypes = ["bone_helm"]
+    tool_tag = "knife"
+    craft_duration = 40
+    min_skill = 40                               # E.1 rung 40 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
+
+class HardLeatherVambracesRecipe(MongooseCraftRecipe):
+    """Work leather hard and shape it to both arms (flexible armour)."""
+
+    name = "hard leather vambraces"
+    discipline = "leatherwork"
+    requires_knowledge = True
+    consumable_tags = ["leather", "leather", "leather", "leather"]
+    output_prototypes = ["hard_leather_vambraces"]
+    tool_tag = "needle"
+    craft_duration = 45
+    min_skill = 60                               # E.1 rung 60 (AC5.1)
+
+    def _finalize_item(self, obj, outcome):
+        # Garment quality -> start condition (+ superior alias), the same
+        # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
+
+class HardLeatherHauberkRecipe(MongooseCraftRecipe):
+    """Work leather hard and stitch it to hang from shoulder to hip (flexible armour)."""
+
+    name = "hard leather hauberk"
+    discipline = "leatherwork"
+    requires_knowledge = True
+    consumable_tags = ["leather", "leather", "leather", "leather"]
+    output_prototypes = ["hard_leather_hauberk"]
+    tool_tag = "needle"
     craft_duration = 45
     min_skill = 60                               # E.1 rung 60 (AC5.1)
 

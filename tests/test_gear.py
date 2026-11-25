@@ -70,11 +70,9 @@ SIX = {
     "bone_helm": (2, ("head",), "armour_rigid", "bone"),
 }
 
-# The rows whose prototypes GR-T12 adds. GR-T12 empties this set.
-NOT_YET_MADE = {
-    "target_shield", "soft_leather_trews", "hard_leather_hauberk",
-    "hard_leather_vambraces", "bone_helm",
-}
+# The rows whose prototypes GR-T12 added. GR-T12 emptied this set: every row
+# is a prototype (GR9).
+NOT_YET_MADE = set()
 
 
 class TestTheWeaponRows(TestCase):
@@ -233,7 +231,7 @@ class TestTheCensus(TestCase):
             if isinstance(value, dict) and "prototype_key" in value
         }
 
-    def test_every_row_is_a_prototype_or_one_gr_t12_adds(self):
+    def test_every_row_is_a_prototype(self):
         rows = set(gear.WEAPONS) | set(gear.ARMOUR)
         self.assertEqual(rows - self._module_prototype_keys(), NOT_YET_MADE)
 
@@ -457,7 +455,7 @@ class TestTheLayersInConfiguration(TestCase):
 
     def test_an_armour_piece_has_a_word_if_and_only_if_it_covers_the_chest(self):
         found = _armour_prototypes()
-        self.assertEqual(len(found), 2)   # GR-T12 adds four; guard against a vacuous loop
+        self.assertEqual(len(found), 6)   # GR-T12 added four; guard against a vacuous loop
         for key, prototype in found.items():
             with self.subTest(item=key):
                 self.assertEqual(
@@ -528,8 +526,8 @@ class TestOnePiecePerLayerAndLocation(EvenniaCommandTest):
     Pressures AR3 as GR6 builds it, in ClothingWithBuffs.wear (GR-T4's
     STOPP 0, B): a conflict tested on the layer alone (GRM12), on the
     location alone (GRM13), and a worn piece in conflict with itself
-    (GRM14). The hauberk, the trews and the helm have no prototype until
-    GR-T12, so they are made here with their rows' tags.
+    (GRM14). The hauberk, the trews and the helm had no prototype before
+    GR-T12, so they are made here with their rows' tags, and still are.
     """
 
     character_typeclass = "typeclasses.characters.Character"
@@ -621,7 +619,7 @@ class TestOnePiecePerLayerAndLocation(EvenniaCommandTest):
 
 def _kit_piece(char, prototype_key, cleanup):
     """A garment reading `prototype_key`'s row, carried by `char`; tagged
-    by hand for the four pieces GR-T12 has not made yet."""
+    by hand, as the four pieces GR-T12 gave prototypes were before it."""
     obj = create.create_object(
         ClothingWithBuffs, key=prototype_key.replace("_", " "), location=char,
     )
