@@ -96,7 +96,8 @@ class TestTheTable(EvenniaTest):
             },
             LADDERS,
         )
-        self.assertEqual(len(skill_base.SKILL_LADDERS), 9 + 6)
+        # Seven styles since GR-T1 added Staff (Gear GR15).
+        self.assertEqual(len(skill_base.SKILL_LADDERS), 9 + 7)
 
     def test_a_ladder_is_keyed_by_the_top_of_each_band(self):
         for key, words in LADDERS.items():
