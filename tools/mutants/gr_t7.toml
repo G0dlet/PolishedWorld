@@ -11,7 +11,8 @@
 #              `contents` itself, so the refusal of an item not carried stands
 #   GRM23 2 -- the entry under a maimed arm is gone, so it does not stand and
 #              the healed arm holds nothing. The move from a useless hand runs
-#              through `hold`, which never calls `held`
+#              through `hold`, which never calls `held`. (GR-T9: `held` reads
+#              through `_read`; the strings follow it, the rule is the same.)
 #   GRM24 3 -- a staff under one hand: both hands, a named hand, release
 #   GRM25 1 -- the shield to the left first; with the left full it goes right
 #              either way, and a named right hand never reads the order
@@ -40,15 +41,13 @@ expect = [
 [[mutant]]
 id = "GRM23"
 file = "world/gear.py"
-old = '''    entries = _entries(char)
-    useless = _useless(char)
-    return {
+old = '''    useless = _useless(char)
+    return _read(entries, useless)
 '''
-new = '''    entries = _entries(char)
-    useless = _useless(char)
+new = '''    useless = _useless(char)
     entries = {h: o for h, o in entries.items() if h not in useless}
     _write(char, entries)
-    return {
+    return _read(entries, useless)
 '''
 expect = [
     "test_a_maimed_arm_reads_empty_and_keeps_its_entry",

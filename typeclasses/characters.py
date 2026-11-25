@@ -22,6 +22,7 @@ from world.death_contract import death_message
 from world.improvement import improvement_roll, tier_for
 from world.currency import CurrencyHandler
 from world import encumbrance
+from world import gear
 from world import fatigue as fatigue_rules
 from world import client_state
 from world import room_text
@@ -943,6 +944,35 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 "It seems to be waiting."
             )
         return super().return_appearance(looker, **kwargs)
+
+    def get_display_desc(self, looker, **kwargs):
+        """
+        The contrib's description and its line of clothes, then one line of
+        what the hands hold (Gear GR-T9, GR5), every name the looker's.
+
+        A statue never reaches this: `return_appearance` answers for it
+        first, so a statue shows nothing held. A useless hand shows nothing
+        (GR22): `gear.held` reads it as empty.
+        """
+        desc = super().get_display_desc(looker, **kwargs)
+        line = self._held_line(looker)
+        return f"{desc}\n{line}" if line else desc
+
+    def _held_line(self, looker):
+        """*X is holding a in the right hand and b in the left hand.*, or ""."""
+        hands = gear.held(self)
+        if hands[gear.RIGHT] is None and hands[gear.LEFT] is None:
+            return ""
+        if hands[gear.RIGHT] == hands[gear.LEFT]:
+            parts = [f"{hands[gear.RIGHT].get_display_name(looker)} in both hands"]
+        else:
+            parts = [
+                f"{hands[hand].get_display_name(looker)} in the {hand} hand"
+                for hand in gear.HANDS
+                if hands[hand] is not None
+            ]
+        name = self.get_display_name(looker)
+        return f"{name[:1].upper()}{name[1:]} is holding {' and '.join(parts)}."
 
     def get_display_things(self, looker, **kwargs):
         """

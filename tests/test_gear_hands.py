@@ -344,3 +344,38 @@ class TestTheStoredValue(_Hands):
         self.char1.db.hands = {"right": self.knife, "tail": self.club}
         self.assertEqual(gear.held(self.char1), {"right": self.knife, "left": None})
         self.assertEqual(self._stored(), {"right": self.knife})
+
+
+class TestATwoHandedItemAndAUselessArm(_Hands):
+    """
+    GR22 and GR-T9's STOPP 0 (val 2, A): an item under both hands reads in
+    neither while either arm is useless; its entries stand, and it gives up
+    the good hand to the next item taken there.
+    """
+
+    def setUp(self):
+        super().setUp()
+        gear.hold(self.char1, self.staff)
+        self._maim("right_arm")
+
+    def test_the_staff_reads_in_neither_hand_and_its_entries_stand(self):
+        self.assertEqual(gear.held(self.char1), {"right": None, "left": None})
+        self.assertEqual(self._stored(), {"right": self.staff, "left": self.staff})
+        self.assertEqual(gear.hand_state(self.char1, "left"), gear.EMPTY)
+
+    def test_healed_it_is_in_both_hands_again(self):
+        gear.held(self.char1)
+        self.char1.attributes.remove("wound_states")
+        self.assertEqual(gear.held(self.char1), {"right": self.staff, "left": self.staff})
+
+    def test_the_good_hand_takes_another_item_and_the_staff_lets_go(self):
+        self.assertEqual(gear.hold(self.char1, self.club), (("left",), None))
+        self.assertEqual(self._stored(), {"left": self.club})
+
+    def test_two_one_handed_items_keep_the_good_hand(self):
+        self.char1.attributes.remove("wound_states")
+        gear.release(self.char1, self.staff)
+        gear.hold(self.char1, self.knife)
+        gear.hold(self.char1, self.club)
+        self._maim("right_arm")
+        self.assertEqual(gear.held(self.char1), {"right": None, "left": self.club})

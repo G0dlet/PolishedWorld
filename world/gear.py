@@ -457,13 +457,31 @@ def _useless(char):
     return {hand for hand in HANDS if ARM_OF[hand] in states}
 
 
+def _read(entries, useless):
+    """
+    What each hand holds, from the entries that stand and the useless hands.
+
+    A hand whose arm has a state reads None (GR22), and so does every hand of
+    an item stored under both, once either arm is useless: a two-handed item
+    needs two usable arms (GR-T9's STOPP 0, val 2). That item is known by
+    being stored under both hands -- `hold` stores nothing else there -- not
+    by its row, so a row corrected later cannot change the answer.
+    """
+    shown = {hand: (None if hand in useless else entries.get(hand)) for hand in HANDS}
+    both = entries.get(RIGHT)
+    if useless and both is not None and both == entries.get(LEFT):
+        return {hand: None for hand in HANDS}
+    return shown
+
+
 def held(char):
     """
     What each hand holds now (GR3, GR22).
 
     An item that has left the character's `contents`, or reads as None
     (deleted), or is worn, is cleared from `db.hands` here. A hand whose arm
-    is disabled, maimed or severed reads None and its entry stands.
+    is disabled, maimed or severed reads None and its entry stands; so do
+    both hands of a two-handed item that has lost an arm.
 
     Args:
         char (Object): the character.
@@ -473,9 +491,7 @@ def held(char):
     """
     entries = _entries(char)
     useless = _useless(char)
-    return {
-        hand: (None if hand in useless else entries.get(hand)) for hand in HANDS
-    }
+    return _read(entries, useless)
 
 
 def hand_state(char, hand):
@@ -540,33 +556,41 @@ def hold(char, obj, hand=None):
         return (), WORN.format(item=name)
     useless = _useless(char)
     entries = _entries(char)
-    if any(entries.get(h) == obj and h not in useless for h in HANDS):
+    shown = _read(entries, useless)
+    if obj in shown.values():
         return (), ALREADY_HELD.format(item=name)
-    # The item's own entry under a useless hand is not in the way: it moves.
-    others = {h: o for h, o in entries.items() if o != obj}
+    # Only what reads as held is in the way. An entry that does not read --
+    # this item's own under a useless arm, or a two-handed item that lost an
+    # arm -- gives its hand up below.
+    in_the_way = {h: o for h, o in shown.items() if o is not None}
     row = weapon(obj)
 
     if row is not None and row["hand"] == TWO_HANDS:
-        blocked = _obstacles(char, others, useless, HANDS)
+        blocked = _obstacles(char, in_the_way, useless, HANDS)
         if blocked:
             return (), NEEDS_BOTH.format(item=name, obstacles=" and ".join(blocked))
         taken = HANDS
     elif hand is not None:
         if hand in useless:
             return (), ARM_USELESS.format(hand=hand)
-        if others.get(hand) is not None:
+        if in_the_way.get(hand) is not None:
             return (), HAND_FULL.format(
-                hand=hand, item=others[hand].get_display_name(char))
+                hand=hand, item=in_the_way[hand].get_display_name(char))
         taken = (hand,)
     else:
         order = (LEFT, RIGHT) if row is not None and row["weapon_type"] == _SHIELD else HANDS
-        free = [h for h in order if not _obstacles(char, others, useless, (h,))]
+        free = [h for h in order if not _obstacles(char, in_the_way, useless, (h,))]
         if not free:
-            blocked = _obstacles(char, others, useless, HANDS)
+            blocked = _obstacles(char, in_the_way, useless, HANDS)
             line = ", and ".join(blocked)
             return (), NO_HAND_FREE.format(obstacles=line[0].upper() + line[1:])
         taken = (free[0],)
 
+    others = {h: o for h, o in entries.items() if o != obj}
+    for h in taken:
+        idle = others.get(h)
+        if idle is not None:
+            others = {k: o for k, o in others.items() if o != idle}
     for h in taken:
         others[h] = obj
     _write(char, others)

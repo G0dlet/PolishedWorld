@@ -5,10 +5,11 @@ Three contrib commands, each extended by one thing and otherwise unchanged.
 CmdInventory and CmdGet replace their contrib command in
 commands/default_cmdsets.py; CmdPut adds one the cmdset did not have.
 
-    CmdInventory  clothing's worn/carried split (clothing.py:642), plus one
-                  line: "Carrying 7/20 ENC", with " (overloaded)" outside
-                  FREE. The number is the in-game receipt every weight
-                  protocol reads.
+    CmdInventory  clothing's worn/carried split (clothing.py:642), with what
+                  is held between them (Gear GR-T9, GR5), plus one line:
+                  "Carrying 7/20 ENC", with " (overloaded)" outside FREE.
+                  The number is the in-game receipt every weight protocol
+                  reads.
     CmdGet        the containers contrib's `get` and `get ... from`
                   (containers.py:152), minus the contrib's own refusal line
                   when the ceiling hook (Character.at_pre_object_receive,
@@ -19,8 +20,12 @@ commands/default_cmdsets.py; CmdPut adds one the cmdset did not have.
                   ObjectParent for anything else) has already said why
                   (W4.2 Q2).
 
-None copies the contrib's `func`: each calls `super().func()`, so a fix
-upstream reaches them (W2.2 Q3, W4.2 Q1).
+CmdGet and CmdPut call `super().func()`, so a fix upstream reaches them
+(W2.2 Q3, W4.2 Q1). CmdInventory builds its own tables since GR-T9: the
+contrib's filter is inside its `func` (clothing.py:673), and a held item
+must not stand under *carrying* (GR5; GR-T9's STOPP 0, val 1). It builds
+them with the contrib's own tools, and a change to the contrib's tables
+does not reach it.
 """
 
 from evennia.contrib.game_systems.clothing.clothing import (
@@ -28,8 +33,20 @@ from evennia.contrib.game_systems.clothing.clothing import (
 )
 from evennia.contrib.game_systems.containers.containers import CmdContainerGet
 from evennia.contrib.game_systems.containers.containers import CmdPut as ContribCmdPut
+from evennia.utils import crop, group_objects_by_key_and_desc
+from evennia.utils.ansi import raw as raw_ansi
 
-from world import encumbrance
+from world import encumbrance, gear
+
+# clothing.py:664 -- the contrib's line for an empty inventory, kept word for word.
+EMPTY = "You are not carrying or wearing anything."
+
+# The headers, the contrib's two (clothing.py:682, :695) and GR5's between.
+CARRYING = "|wYou are carrying:|n"
+HOLDING = "|wYou are holding:|n"
+WEARING = "You are wearing:|n"
+NOTHING = " Nothing."
+BOTH_HANDS = "both hands"
 
 # containers.py:211 -- what CmdContainerGet says for any refused move_to.
 CONTRIB_REFUSAL = "This can't be picked up."
@@ -47,16 +64,61 @@ class CmdInventory(ClothingCmdInventory):
       inventory
       inv
 
-    Shows what you carry and what you wear. The last line is the ENC you
-    carry against your limit (STR+SIZ); above the limit you are overloaded.
+    Shows what you carry, what you hold and in which hand, and what you
+    wear. The last line is the ENC you carry against your limit (STR+SIZ);
+    above the limit you are overloaded. What you hold is carried too.
     """
 
+    def _table(self, objs):
+        """The contrib's table for a list of items (clothing.py:674-683)."""
+        table = self.styled_table(border="header")
+        for key, desc, _ in group_objects_by_key_and_desc(objs, caller=self.caller):
+            table.add_row(f"{key}|n", "{}|n".format(crop(raw_ansi(desc or ""), width=50) or ""))
+        return str(table) if table.nrows > 0 else NOTHING
+
+    def _holding(self, hands):
+        """GR5: each held item once, with its hand; a staff is in both."""
+        table = self.styled_table(border="header")
+        seen = []
+        for hand in gear.HANDS:
+            obj = hands[hand]
+            if obj is None or obj in seen:
+                continue
+            seen.append(obj)
+            both = hands[gear.RIGHT] == hands[gear.LEFT]
+            # Named as the contrib's tables name an item (utils.py:1844).
+            table.add_row(
+                f"{obj.get_numbered_name(1, self.caller, return_string=True)}|n",
+                BOTH_HANDS if both else f"{hand} hand",
+            )
+        return str(table) if table.nrows > 0 else NOTHING
+
+    def _useless(self):
+        """GR22: one line per useless arm, the words `wield` refuses with."""
+        return [
+            " " + gear.ARM_USELESS.format(hand=hand)
+            for hand in gear.HANDS
+            if gear.hand_state(self.caller, hand) == gear.USELESS
+        ]
+
     def func(self):
-        # The line goes after super(), so clothing's early return on an empty
-        # inventory (clothing.py:664) still ends in "Carrying 0/20 ENC".
-        # One read of each number; the band is the reader's rule over them.
-        super().func()
         caller = self.caller
+        items = caller.contents
+        if not items:
+            caller.msg("\n".join([EMPTY, *self._useless()]))
+        else:
+            hands = gear.held(caller)
+            in_hand = [obj for obj in hands.values() if obj is not None]
+            loose = [obj for obj in items if not obj.db.worn and obj not in in_hand]
+            worn = [obj for obj in items if obj.db.worn]
+            lines = [
+                CARRYING, self._table(loose),
+                HOLDING, self._holding(hands), *self._useless(),
+                WEARING, self._table(worn),
+            ]
+            caller.msg(text=("\n".join(lines), {"type": "inventory"}))
+        # The ENC line comes last, on an empty inventory too.
+        # One read of each number; the band is the reader's rule over them.
         carried = encumbrance.carried_enc(caller)
         limit = encumbrance.enc_limit(caller)
         line = f"Carrying {carried}/{limit} ENC"

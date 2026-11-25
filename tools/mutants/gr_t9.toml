@@ -1,0 +1,67 @@
+# GR-T9 -- inventory and look show what is held (Gear decomposition §8; GR5,
+# GR22; STOPP 0: inventory builds its own three tables, a two-handed item
+# with a useless arm is held in neither hand, the two lines' words).
+# Run: python3 tools/mutate.py tools/mutants/gr_t9.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM30 1 -- the held knife under carrying as well; what a useless hand
+#              held is not held, so it is under carrying either way
+#   GRM31 4 -- a stranger reads one item, two, both hands, and the order
+#              after the clothes; the owner still reads the line
+#   GRM32 1 -- the statue's branch gone: the living appearance, held line
+#              and all
+#   GRM33 2 -- the staff reads in the good hand; and there it is in the way,
+#              so the club is refused
+
+modules = ["tests.test_gear_display", "tests.test_gear_hands"]
+
+[[mutant]]
+id = "GRM30"
+file = "commands/inventory_commands.py"
+old = '''            loose = [obj for obj in items if not obj.db.worn and obj not in in_hand]
+'''
+new = '''            loose = [obj for obj in items if not obj.db.worn]
+'''
+expect = [
+    "test_a_held_item_is_under_holding_and_not_carrying",
+]
+
+[[mutant]]
+id = "GRM31"
+file = "typeclasses/characters.py"
+old = '''        line = self._held_line(looker)
+'''
+new = '''        line = self._held_line(looker) if looker is self else ""
+'''
+expect = [
+    "test_a_stranger_reads_one_item",
+    "test_a_stranger_reads_two",
+    "test_a_stranger_reads_both_hands",
+    "test_the_line_comes_after_the_clothes",
+]
+
+[[mutant]]
+id = "GRM32"
+file = "typeclasses/characters.py"
+old = '''        if self.is_statue:
+            return (
+                f"|wA weathered stone statue depicting'''
+new = '''        if False:
+            return (
+                f"|wA weathered stone statue depicting'''
+expect = [
+    "test_a_statue_shows_nothing_held",
+]
+
+[[mutant]]
+id = "GRM33"
+file = "world/gear.py"
+old = '''    if useless and both is not None and both == entries.get(LEFT):
+        return {hand: None for hand in HANDS}
+'''
+new = '''
+'''
+expect = [
+    "test_the_staff_reads_in_neither_hand_and_its_entries_stand",
+    "test_the_good_hand_takes_another_item_and_the_staff_lets_go",
+]
