@@ -63,18 +63,41 @@ GR6). `world.body.derived` reads `armour_total` for Strike Rank (GR18).
 later tasks read the rows (the hands, `look`), and ML reads them in a fight,
 `armour_at` among them.
 
-Imports `world.body` and `world.combat_styles`. `world.body` reaches this
-module from inside `derived` only, so neither import is circular (GR-T5's
-STOPP 0); `world.sdesc` and `typeclasses.clothing` import it at the top.
+THE HANDS
+---------
+What a hand holds is `db.hands` on the character, hand -> item, written and
+read only here (GR3, P-2). An item is held while it is in the character's
+`contents` and not worn (GR-T7's STOPP 0); an entry that fails either is
+cleared at the read, so every way an item leaves -- `drop`, `give`, `put`,
+barter's assignment, a delete, death's `move_hooks=False` -- empties the
+hand with no hook. A hand whose arm has a wound state reads empty and keeps
+its entry (GR22), so an arm that heals holds again.
+
+    held(char)                -> {"right": item or None, "left": ...}
+    hold(char, obj, hand)     -> (hands taken, None) or ((), reason)
+    release(char, obj)        -> the hands it left, () if not held
+    hand_state(char, hand)    -> EMPTY, HOLDING or USELESS
+
+`HANDS` here are the two hands, `right` and `left` (GR2); the weapon row's
+`hand` is `ONE_HAND` or `TWO_HANDS`, `combat_styles.HANDS`. Two words, two
+tuples.
+
+Imports `world.body`, `world.combat_styles` and `world.wounds`, whose
+`states_of` is the one reader of an arm's state (GR-T7's STOPP 0).
+`world.body` reaches this module from inside `derived` only, and nothing
+`world.wounds` imports reaches it at all, so no import is circular (GR-T5's
+and GR-T7's STOPP 0); `world.sdesc` and `typeclasses.clothing` import it at
+the top.
 """
 
 import time
+from collections.abc import Mapping
 from types import MappingProxyType
 
 from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 from evennia.utils import logger
 
-from world import body, combat_styles
+from world import body, combat_styles, wounds
 
 # The tag category `spawn` writes (evennia/prototypes/prototypes.py:58),
 # spelt here so this module imports nothing from Evennia's prototype system.
@@ -362,3 +385,203 @@ def fought_since(char, seconds):
     """
     stamp = char.attributes.get("fought_at")
     return stamp is not None and time.time() - stamp < seconds
+
+
+# -- the hands (GR2, GR3, GR4, GR22) ---------------------------------------------
+
+# GR2: two hands, and they are the arms. Not `combat_styles.HANDS`, which is a
+# weapon's category ("1H", "2H"): these are where an item is held.
+RIGHT = "right"
+LEFT = "left"
+HANDS = (RIGHT, LEFT)
+ARM_OF = MappingProxyType({RIGHT: "right_arm", LEFT: "left_arm"})
+
+# What a hand is, for the displays (GR-T9; GR22's *useless*).
+EMPTY = "empty"
+HOLDING = "holding"
+USELESS = "useless"
+
+# What `hold` says when it refuses (GR-T7's STOPP 0, A): each line names what
+# is in the way, as GR-T4's layer refusal does. Every name is the holder's
+# (`get_display_name(char)`); the room's line is the command's (GR-T8).
+NOT_CARRIED = "You aren't carrying that."
+WORN = "You are wearing your {item}."
+ALREADY_HELD = "You are already holding your {item}."
+HAND_FULL = "Your {hand} hand already holds your {item}."
+ARM_USELESS = "Your {hand} arm is useless."
+NO_HAND_FREE = "{obstacles}."
+NEEDS_BOTH = "Your {item} needs both hands, and {obstacles}."
+
+# The pieces the last two are built from, one per hand in the way.
+_FULL_PART = "your {hand} hand holds your {item}"
+_USELESS_PART = "your {hand} arm is useless"
+
+_SHIELD = "shield"
+
+
+def _still_held(char, obj):
+    """GR3 and GR-T7's STOPP 0 (val 2): in `contents`, and not worn."""
+    return obj is not None and obj in char.contents and not obj.db.worn
+
+
+def _entries(char):
+    """
+    The entries in `db.hands` that stand, hand -> item, empty hands left out.
+
+    Every item that has left the body, reads as None (deleted, P3) or is worn
+    is cleared, and the table is written back only when something was. A
+    useless arm clears nothing (GR22): that is `held`'s business. Anything
+    but a Mapping stored there reads as no entries and is replaced.
+    """
+    raw = char.attributes.get("hands")
+    if raw is None:
+        return {}
+    stored = {}
+    if isinstance(raw, Mapping):
+        stored = {h: raw.get(h) for h in HANDS if raw.get(h) is not None}
+    kept = {h: obj for h, obj in stored.items() if _still_held(char, obj)}
+    # `kept` is `raw` less what was cleared, so a key missing is a change.
+    if not isinstance(raw, Mapping) or set(raw) != set(kept):
+        _write(char, kept)
+    return kept
+
+
+def _write(char, entries):
+    """The one writer of `db.hands` (GR3): a plain dict, empty hands left out."""
+    char.db.hands = {hand: obj for hand, obj in entries.items() if obj is not None}
+
+
+def _useless(char):
+    """The hands whose arm has a wound state, any of the three (GR22)."""
+    states = wounds.states_of(char)
+    return {hand for hand in HANDS if ARM_OF[hand] in states}
+
+
+def held(char):
+    """
+    What each hand holds now (GR3, GR22).
+
+    An item that has left the character's `contents`, or reads as None
+    (deleted), or is worn, is cleared from `db.hands` here. A hand whose arm
+    is disabled, maimed or severed reads None and its entry stands.
+
+    Args:
+        char (Object): the character.
+
+    Returns:
+        dict: {RIGHT: item or None, LEFT: item or None}.
+    """
+    entries = _entries(char)
+    useless = _useless(char)
+    return {
+        hand: (None if hand in useless else entries.get(hand)) for hand in HANDS
+    }
+
+
+def hand_state(char, hand):
+    """
+    EMPTY, HOLDING or USELESS, for `inventory` (GR22, GR-T9).
+
+    Raises:
+        ValueError: for a hand that is not RIGHT or LEFT.
+    """
+    _check_hand(hand)
+    if hand in _useless(char):
+        return USELESS
+    return HOLDING if held(char)[hand] is not None else EMPTY
+
+
+def _check_hand(hand):
+    if hand not in HANDS:
+        raise ValueError(f"unknown hand {hand!r}; expected one of {HANDS}")
+
+
+def _obstacles(char, entries, useless, hands):
+    """What stands in each of `hands`, as the lower-case pieces, in order."""
+    parts = []
+    for hand in hands:
+        if hand in useless:
+            parts.append(_USELESS_PART.format(hand=hand))
+        elif entries.get(hand) is not None:
+            parts.append(_FULL_PART.format(
+                hand=hand, item=entries[hand].get_display_name(char)))
+    return parts
+
+
+def hold(char, obj, hand=None):
+    """
+    Put `obj` in a hand (GR4, GR22), or say why not.
+
+    Without a hand named, an item takes the right hand if it is free and the
+    left otherwise; a shield takes the left first. A two-handed row takes both
+    hands, whatever hand is named, and needs both free and both arms usable.
+    A full hand is refused, never swapped. An item held in a useless hand
+    moves to the one asked for. Anything carried can be held but what is
+    worn; the row only says whether it is a weapon.
+
+    Args:
+        char (Object): the character.
+        obj (Object): the item.
+        hand (str, optional): RIGHT or LEFT.
+
+    Returns:
+        tuple: (hands, None) with the hands taken, in HANDS order, or
+            ((), reason) with the line for the holder.
+
+    Raises:
+        ValueError: for a hand that is not RIGHT, LEFT or None.
+    """
+    if hand is not None:
+        _check_hand(hand)
+    if obj is None or obj not in char.contents:
+        return (), NOT_CARRIED
+    name = obj.get_display_name(char)
+    if obj.db.worn:
+        return (), WORN.format(item=name)
+    useless = _useless(char)
+    entries = _entries(char)
+    if any(entries.get(h) == obj and h not in useless for h in HANDS):
+        return (), ALREADY_HELD.format(item=name)
+    # The item's own entry under a useless hand is not in the way: it moves.
+    others = {h: o for h, o in entries.items() if o != obj}
+    row = weapon(obj)
+
+    if row is not None and row["hand"] == TWO_HANDS:
+        blocked = _obstacles(char, others, useless, HANDS)
+        if blocked:
+            return (), NEEDS_BOTH.format(item=name, obstacles=" and ".join(blocked))
+        taken = HANDS
+    elif hand is not None:
+        if hand in useless:
+            return (), ARM_USELESS.format(hand=hand)
+        if others.get(hand) is not None:
+            return (), HAND_FULL.format(
+                hand=hand, item=others[hand].get_display_name(char))
+        taken = (hand,)
+    else:
+        order = (LEFT, RIGHT) if row is not None and row["weapon_type"] == _SHIELD else HANDS
+        free = [h for h in order if not _obstacles(char, others, useless, (h,))]
+        if not free:
+            blocked = _obstacles(char, others, useless, HANDS)
+            line = ", and ".join(blocked)
+            return (), NO_HAND_FREE.format(obstacles=line[0].upper() + line[1:])
+        taken = (free[0],)
+
+    for h in taken:
+        others[h] = obj
+    _write(char, others)
+    return taken, None
+
+
+def release(char, obj):
+    """
+    Take `obj` out of every hand that holds it, a useless one too.
+
+    Returns:
+        tuple: the hands it left, in HANDS order; () when it was not held.
+    """
+    entries = _entries(char)
+    freed = tuple(h for h in HANDS if entries.get(h) is not None and entries[h] == obj)
+    if freed:
+        _write(char, {h: o for h, o in entries.items() if h not in freed})
+    return freed
