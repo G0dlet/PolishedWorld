@@ -6,23 +6,25 @@ lock BD7; Legend core pp. 10-13, 90).
 
 Pure functions over integers. This module stores nothing and writes
 nothing: every value is worked out from the characteristics and the
-fatigue word at the moment of asking, so a change in fatigue (or, later,
-in armour worn) shows on the next read without a writer to remember it.
+fatigue word at the moment of asking, so a change in fatigue or in armour
+worn shows on the next read without a writer to remember it.
 It is the pattern of `world.encumbrance`.
 
     combat_actions(dex, int_, fatigue_word)               -> int  (p. 10, p. 90)
     strike_rank(dex, int_, armour_points, fatigue_word)   -> int  (pp. 12-13, p. 90)
+    armour_penalty(armour_points)    -> int, what Strike Rank loses (pp. 13, 95)
     damage_modifier(str_, siz)       -> (sign, dice, sides)       (pp. 10-11)
     damage_modifier_text(str_, siz)  -> "+1D2", "-1D4", "+0"
     hit_points_max(con, siz)         -> {location: maximum}       (p. 11)
-    derived(char)                    -> the four for a character, or None
+    derived(char)                    -> the four, and the armour penalty, or None
 
 The fatigue words are `world.fatigue.LEVELS`' own; an unknown word raises
 `ValueError` rather than reading as fresh.
 
 Left to other slices:
 - +1 Combat Action for a shield or a weapon in the second hand (p. 124): ML.
-- The sum of Armour Points worn (p. 125): GR. Until then callers pass 0.
+- The sum of Armour Points worn (p. 125): `world.gear.armour_total`, which
+  `derived` reads (Gear GR18).
 - What a negative Strike Rank means for the opening beat (OQ-BD5): ML.
 - Rolling the Damage Modifier: ML.
 - The current Hit Points per location, wound levels and states: WN (WO2).
@@ -96,8 +98,8 @@ def strike_rank(dex, int_, armour_points=0, fatigue_word="fresh"):
     Args:
         dex (int): DEX.
         int_ (int): INT.
-        armour_points (int): the sum of Armour Points worn. Summing what is
-            worn is GR's; until then the caller passes 0.
+        armour_points (int): the sum of Armour Points worn;
+            `world.gear.armour_total` sums it for a character.
         fatigue_word (str): a word from `world.fatigue.LEVELS`.
 
     Returns:
@@ -107,12 +109,19 @@ def strike_rank(dex, int_, armour_points=0, fatigue_word="fresh"):
         ValueError: for a fatigue word that is not a level.
     """
     _check_word(fatigue_word)
-    armour_penalty = -(-armour_points // 5)
     return (
         _average_up(dex, int_)
-        - armour_penalty
+        - armour_penalty(armour_points)
         - STRIKE_RANK_PENALTY.get(fatigue_word, 0)
     )
+
+
+def armour_penalty(armour_points):
+    """
+    The Armour Penalty: the Armour Points carried divided by 5, rounded up
+    (core pp. 13, 95). What Strike Rank loses, as a positive number.
+    """
+    return -(-armour_points // 5)
 
 
 # --- The Damage Modifier (core pp. 10-11) ------------------------------------
@@ -253,15 +262,18 @@ def derived(char):
     written.) Nothing writes a characteristic's `mod` today, so the two agree.
 
     The fatigue word is the character's own `fatigue_desc()`; a body without
-    a fatigue gauge reads as fresh. Armour Points are 0 until GR sums them.
+    a fatigue gauge reads as fresh. The Armour Points are what the character
+    wears now, summed by `world.gear.armour_total` (Gear GR18); the penalty
+    is returned too, for `sheet` (GR-T5's STOPP 0).
 
     Args:
         char: a typeclassed object with a `stats` handler.
 
     Returns:
         dict or None: {"combat_actions": int, "strike_rank": int,
-            "damage_modifier": (sign, dice, sides), "hit_points": {...}};
-            None for a body without the five characteristics.
+            "armour_penalty": int, "damage_modifier": (sign, dice, sides),
+            "hit_points": {...}}; None for a body without the five
+            characteristics.
     """
     stats = getattr(char, "stats", None)
     if stats is None:
@@ -276,9 +288,15 @@ def derived(char):
     fatigue_desc = getattr(char, "fatigue_desc", None)
     word = (fatigue_desc() if callable(fatigue_desc) else "") or "fresh"
 
+    # Imported here rather than at module level: world.gear imports this
+    # module (body.LOCATIONS), so a top-level import back would be circular.
+    from world import gear
+
+    points = gear.armour_total(char)
     return {
         "combat_actions": combat_actions(values["dex"], values["int"], word),
-        "strike_rank": strike_rank(values["dex"], values["int"], 0, word),
+        "strike_rank": strike_rank(values["dex"], values["int"], points, word),
+        "armour_penalty": armour_penalty(points),
         "damage_modifier": damage_modifier(values["str"], values["siz"]),
         "hit_points": hit_points_max(values["con"], values["siz"]),
     }

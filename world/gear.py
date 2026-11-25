@@ -58,11 +58,13 @@ WHO READS THIS
 `world.sdesc` reads the three layer names and `LAYERS`: which types show,
 and that an armour piece without a word is passed over (GR7, OQ-GR5).
 `typeclasses.clothing` asks `layer_conflict` before a garment goes on (AR3,
-GR6). GR's later tasks read the rows (the sums, the hands, `look`), and ML
-reads them in a fight.
+GR6). `world.body.derived` reads `armour_total` for Strike Rank (GR18). GR's
+later tasks read the rows (the hands, `look`), and ML reads them in a fight,
+`armour_at` among them.
 
-Imports `world.combat_styles` and no other project module, so `world.body`,
-`world.wounds` and `world.sdesc` may import this one.
+Imports `world.body` and `world.combat_styles`. `world.body` reaches this
+module from inside `derived` only, so neither import is circular (GR-T5's
+STOPP 0); `world.sdesc` and `typeclasses.clothing` import it at the top.
 """
 
 from types import MappingProxyType
@@ -70,7 +72,7 @@ from types import MappingProxyType
 from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 from evennia.utils import logger
 
-from world import combat_styles
+from world import body, combat_styles
 
 # The tag category `spawn` writes (evennia/prototypes/prototypes.py:58),
 # spelt here so this module imports nothing from Evennia's prototype system.
@@ -278,3 +280,54 @@ def shared_locations(obj, other):
     if row is None or other_row is None:
         return ()
     return tuple(loc for loc in row["locations"] if loc in other_row["locations"])
+
+
+def _worn_rows(char):
+    """Each worn garment with an armour row, and its row."""
+    for worn in get_worn_clothes(char):
+        row = armour(worn)
+        if row is not None:
+            yield worn, row
+
+
+def armour_at(char, location):
+    """
+    The Armour Points that protect one Hit Location now (AR1, GR18).
+
+    The sum over every layer -- not the book's highest piece (core p. 95;
+    AR1 departs). A piece gives its whole `ap` while its condition is above
+    0 and none once it is broken; a carried piece gives nothing.
+
+    Args:
+        char (Object): the wearer.
+        location (str): one of `body.LOCATIONS`.
+
+    Returns:
+        int: 0 or more.
+
+    Raises:
+        ValueError: for a location the body does not have.
+    """
+    if location not in body.LOCATIONS:
+        raise ValueError(
+            f"unknown Hit Location {location!r}; expected one of {body.LOCATIONS}"
+        )
+    return sum(
+        row["ap"]
+        for worn, row in _worn_rows(char)
+        if location in row["locations"] and worn.condition > 0
+    )
+
+
+def armour_total(char):
+    """
+    The Armour Points a body carries, for the Strike Rank penalty (AR4, GR18).
+
+    Each worn piece's nominal `ap` once for every location it covers -- the
+    seven locations summed -- broken or not: a broken piece is carried all
+    the same (core p. 13). `body.derived` divides it by five.
+
+    Returns:
+        int: 0 or more.
+    """
+    return sum(row["ap"] * len(row["locations"]) for _, row in _worn_rows(char))

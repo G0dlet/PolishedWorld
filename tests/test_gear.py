@@ -5,7 +5,9 @@ pp. 94-109; Arms of Legend pp. 48-50, 71 ff.) -- for the Weapon class
 and the five pure weapons on the wear axis (GR-T2; GR13, GR21, GR24;
 Arms of Legend p. 43) -- and for the three armour layers as clothing types
 and what shows of them (GR-T3; GR6-GR8, OQ-GR5) -- and for one piece per
-layer and Hit Location (GR-T4; AR3, GR6).
+layer and Hit Location (GR-T4; AR3, GR6) -- and for the Armour Points a
+body has on each location and carries in all, which Strike Rank reads
+(GR-T5; AR1, AR4, GR18; core pp. 13, 95).
 
 Every expected row is typed here by hand from the decomposition's §3, not
 read from the module, so a row that drifts from the book fails by its cell.
@@ -614,3 +616,99 @@ class TestOnePiecePerLayerAndLocation(EvenniaCommandTest):
         bone = self._spawn("bone_armour")
         self.call(CmdWear(), "bone armour = with pride", caller=self.char1)
         self.assertEqual(bone.db.worn, "with pride")
+
+
+def _kit_piece(char, prototype_key, cleanup):
+    """A garment reading `prototype_key`'s row, carried by `char`; tagged
+    by hand for the four pieces GR-T12 has not made yet."""
+    obj = create.create_object(
+        ClothingWithBuffs, key=prototype_key.replace("_", " "), location=char,
+    )
+    obj.tags.add(prototype_key, category=gear.PROTOTYPE_TAG_CATEGORY)
+    obj.db.clothing_type = gear.ARMOUR[prototype_key]["layer"]
+    cleanup(obj.delete)
+    return obj
+
+
+def _wear_the_kit(char, cleanup):
+    """All six pieces of §3, worn; returns them by prototype key."""
+    kit = {key: _kit_piece(char, key, cleanup) for key in SIX}
+    for key, piece in kit.items():
+        assert piece.wear(char, True, quiet=True), key
+    return kit
+
+
+class TestTheSums(EvenniaTest):
+    """
+    Pressures GR18 and AR1: the highest piece in place of the sum (the
+    book's rule, AR1's departure; GRM15), a broken piece protecting
+    (GRM16), a broken piece leaving the total (GRM17), a carried piece
+    counted (GRM18), and a total that counts items, not locations.
+    """
+
+    BY_LOCATION = {
+        "head": 2, "chest": 6, "abdomen": 3,
+        "right_arm": 2, "left_arm": 2, "right_leg": 1, "left_leg": 1,
+    }
+
+    def test_nothing_worn_is_nothing_anywhere(self):
+        for location in body.LOCATIONS:
+            with self.subTest(location=location):
+                self.assertEqual(gear.armour_at(self.char1, location), 0)
+        self.assertEqual(gear.armour_total(self.char1), 0)
+
+    def test_the_six_pieces_location_by_location(self):
+        _wear_the_kit(self.char1, self.addCleanup)
+        self.assertEqual(
+            {loc: gear.armour_at(self.char1, loc) for loc in body.LOCATIONS},
+            self.BY_LOCATION,
+        )
+        self.assertEqual(gear.armour_total(self.char1), 17)
+
+    def test_a_hauberk_counts_once_on_each_location_it_covers(self):
+        _kit_piece(self.char1, "hard_leather_hauberk", self.addCleanup).wear(
+            self.char1, True, quiet=True)
+        self.assertEqual(gear.armour_total(self.char1), 4)
+
+    def test_a_broken_piece_protects_nothing(self):
+        kit = _wear_the_kit(self.char1, self.addCleanup)
+        kit["hard_leather_hauberk"].condition = 0
+        self.assertEqual(gear.armour_at(self.char1, "chest"), 4)
+        self.assertEqual(gear.armour_at(self.char1, "abdomen"), 1)
+
+    def test_a_broken_piece_still_weighs_on_strike_rank(self):
+        # GR18: it is carried all the same (p. 13).
+        kit = _wear_the_kit(self.char1, self.addCleanup)
+        kit["hard_leather_hauberk"].condition = 0
+        self.assertEqual(gear.armour_total(self.char1), 17)
+
+    def test_a_carried_piece_counts_nowhere(self):
+        _kit_piece(self.char1, "bone_armour", self.addCleanup)   # carried, not worn
+        self.assertEqual(gear.armour_at(self.char1, "chest"), 0)
+        self.assertEqual(gear.armour_total(self.char1), 0)
+
+    def test_an_unknown_location_raises(self):
+        with self.assertRaises(ValueError):
+            gear.armour_at(self.char1, "tail")
+
+
+class TestStrikeRankReadsTheArmour(EvenniaTest):
+    """
+    Pressures GR18 where BD left a 0 (world/body.py derived): Strike Rank
+    and the penalty read from what is worn, now, on every read (BD7).
+    The placeholder body's Strike Rank is 10.
+    """
+
+    def test_bone_armour_costs_one(self):
+        bone = _kit_piece(self.char1, "bone_armour", self.addCleanup)
+        self.assertEqual(body.derived(self.char1)["strike_rank"], 10)
+        bone.wear(self.char1, True, quiet=True)
+        result = body.derived(self.char1)
+        self.assertEqual((result["strike_rank"], result["armour_penalty"]), (9, 1))
+        bone.remove(self.char1, quiet=True)
+        self.assertEqual(body.derived(self.char1)["armour_penalty"], 0)
+
+    def test_the_whole_kit_costs_four(self):
+        _wear_the_kit(self.char1, self.addCleanup)
+        result = body.derived(self.char1)
+        self.assertEqual((result["strike_rank"], result["armour_penalty"]), (6, 4))

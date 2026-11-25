@@ -403,6 +403,12 @@ class CmdSheet(Command):
             msg += "|g" + "-" * 60 + "|n\n"
             msg += f"  |y{'Combat Actions':16}|n {derived['combat_actions']:>5}\n"
             msg += f"  |y{'Strike Rank':16}|n {derived['strike_rank']:>5}\n"
+            # Gear GR18 (GR-T5's STOPP 0): why Strike Rank fell, in the book's
+            # name (core pp. 13, 95); the sum of Armour Points is not shown --
+            # no location has it, and `look` gives each piece's own.
+            penalty = derived["armour_penalty"]
+            shown = f"-{penalty}" if penalty else "0"
+            msg += f"  |y{'Armour Penalty':16}|n {shown:>5}\n"
             msg += f"  |y{'Damage Modifier':16}|n {modifier:>5}\n"
             # Hero Points (HE7): a combat resource (Art Style Guide §6), so
             # in this block and only here; read on every call, never stored,

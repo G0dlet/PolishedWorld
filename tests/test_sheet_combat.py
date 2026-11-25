@@ -16,6 +16,10 @@ characteristics has no block and no row (chosen at HE-T4's STOPP 0; `hero`
 still shows its points). `TestHeroPointsRow` pressures a row read from the
 Attribute itself (a fresh character would show None/4: HEM14), a cap typed
 instead of read (HEM14b), and the row added to `status` (HEM15).
+
+Armour Penalty (Gear decomposition GR-T5; GR18): a row after Strike Rank,
+read from what is worn now. `TestArmourPenaltyRow` dresses Alaric in the six
+pieces of the decomposition's §3 -- 17 Armour Points, a penalty of 4.
 """
 
 import re
@@ -23,8 +27,11 @@ from unittest import mock
 
 from evennia.utils.test_resources import EvenniaCommandTest
 
+from evennia.utils import create
+
 from commands.character_commands import CmdSheet, CmdStats, CmdStatus
-from world import hero_points
+from typeclasses.clothing import ClothingWithBuffs
+from world import gear, hero_points
 
 
 def _row(out, label):
@@ -176,3 +183,37 @@ class TestOneSpelling(_Alaric):
         self.assertEqual(
             _row(self.sheet(), "Damage Modifier"), body.damage_modifier_text(12, 14)
         )
+
+
+class TestArmourPenaltyRow(_Alaric):
+    """
+    Pressures GR18 on the sheet: a Strike Rank that does not read what is
+    worn, a penalty row read from the sum and not divided, and the row out
+    of its place after Strike Rank.
+    """
+
+    def _wear_the_kit(self):
+        for key, row in gear.ARMOUR.items():
+            piece = create.create_object(
+                ClothingWithBuffs, key=key.replace("_", " "), location=self.char1,
+            )
+            piece.tags.add(key, category=gear.PROTOTYPE_TAG_CATEGORY)
+            piece.db.clothing_type = row["layer"]
+            self.addCleanup(piece.delete)
+            self.assertTrue(piece.wear(self.char1, True, quiet=True))
+
+    def test_nothing_worn(self):
+        out = self.sheet()
+        self.assertEqual(_row(out, "Strike Rank"), "15")
+        self.assertEqual(_row(out, "Armour Penalty"), "0")
+
+    def test_the_whole_kit_is_four_lower(self):
+        self._wear_the_kit()
+        out = self.sheet()
+        self.assertEqual(_row(out, "Strike Rank"), "11")
+        self.assertEqual(_row(out, "Armour Penalty"), "-4")
+
+    def test_the_row_comes_after_strike_rank(self):
+        out = self.sheet()
+        self.assertLess(out.index("Strike Rank"), out.index("Armour Penalty"))
+        self.assertLess(out.index("Armour Penalty"), out.index("Damage Modifier"))
