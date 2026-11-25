@@ -55,11 +55,13 @@ row comes with BACKLOG *Metal tools + craft-station / forge*.
 
 WHO READS THIS
 --------------
-Nothing in production yet. GR's later tasks read the rows (the layers, the
-sums, the hands, `look`), and ML reads them in a fight.
+`world.sdesc` reads the three layer names and `LAYERS`: which types show,
+and that an armour piece without a word is passed over (GR7, OQ-GR5). No
+production code reads a row yet. GR's later tasks read the rows (the sums,
+the hands, `look`), and ML reads them in a fight.
 
-Imports `world.combat_styles` and no other project module, so `world.body`
-and `world.wounds` may import this one.
+Imports `world.combat_styles` and no other project module, so `world.body`,
+`world.wounds` and `world.sdesc` may import this one.
 """
 
 from types import MappingProxyType

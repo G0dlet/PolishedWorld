@@ -1,0 +1,82 @@
+# GR-T3 -- three armour layers as clothing types; armour shows by order
+# (Gear decomposition §7; GR6-GR8, OQ-GR5).
+# Run: python3 tools/mutate.py tools/mutants/gr_t3.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM8  2 -- the showing order pinned; the word with all three worn, read
+#              from the tunic (`top` now first, and it has no word)
+#   GRM9  4 -- the showing order pinned; the cloak over the armour; the robe
+#              over the cuirass (the cuirass speaks first); the wordless
+#              mantle over the cuirass (the cuirass speaks)
+#   GRM10 5 -- the prototype's type against its row; the four worn tests, as
+#              the contrib's `wear` refuses a second `top`
+#   GRM11 2 -- a wordless helm over the cuirass; the helm worn after bone
+#              armour (the contrib's sort reverses `contents` within a type,
+#              so the helm is read first -- the order the sandbox showed)
+
+modules = ["tests.test_gear", "tests.test_names_sdesc"]
+
+[[mutant]]
+id = "GRM8"
+file = "world/sdesc.py"
+old = '''    "fullbody",
+    gear.ARMOUR_RIGID, gear.ARMOUR_FLEXIBLE, gear.ARMOUR_PADDING,
+    "top",
+)
+'''
+new = '''    "fullbody",
+    "top",
+    gear.ARMOUR_RIGID, gear.ARMOUR_FLEXIBLE, gear.ARMOUR_PADDING,
+)
+'''
+expect = ["test_what_shows_and_in_which_order", "test_the_word_is_the_outermost_pieces"]
+
+[[mutant]]
+id = "GRM9"
+file = "world/sdesc.py"
+old = '''    "fullbody",
+    gear.ARMOUR_RIGID, gear.ARMOUR_FLEXIBLE, gear.ARMOUR_PADDING,
+    "top",
+)
+'''
+new = '''    gear.ARMOUR_RIGID, gear.ARMOUR_FLEXIBLE, gear.ARMOUR_PADDING,
+    "fullbody",
+    "top",
+)
+'''
+expect = [
+    "test_what_shows_and_in_which_order",
+    "test_a_cloak_hides_the_armour",
+    "test_a_covered_garment_does_not_show",
+    "test_a_garment_without_a_word_hides_the_one_beneath",
+]
+
+[[mutant]]
+id = "GRM10"
+file = "world/prototypes.py"
+old = '''    # Gear GR8: linen is padding, the innermost armour layer.
+    "clothing_type": "armour_padding",
+'''
+new = '''    # Gear GR8: linen is padding, the innermost armour layer.
+    "clothing_type": "top",
+'''
+expect = [
+    "test_every_armour_prototype_wears_its_rows_layer",
+    "test_armour_goes_on_over_a_tunic_and_reads_from_the_outside_in",
+    "test_the_word_is_the_outermost_pieces",
+    "test_a_cloak_hides_the_armour",
+    "test_warmth_is_the_sum_of_the_three",
+]
+
+[[mutant]]
+id = "GRM11"
+file = "world/sdesc.py"
+old = '''            if word is None and clothing_type in gear.LAYERS:
+                continue
+'''
+new = '''            pass
+'''
+expect = [
+    "test_a_wordless_piece_worn_last_does_not_silence_its_layer",
+    "test_a_wordless_piece_does_not_silence_the_layer_beneath",
+]

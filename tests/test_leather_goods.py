@@ -81,7 +81,7 @@ LEATHER_GOODS = (
         "prototype": "bone_armour", "recipe": "bone armour", "key": "bone armour",
         "typeclass": ClothingWithBuffs,
         "materials": (("bone", 3), ("leather", 1)),
-        "tool": "knife", "tool_prototype": "stone_knife", "slot": "top",
+        "tool": "knife", "tool_prototype": "stone_knife", "slot": "armour_rigid",
         "warmth": 1, "enc": 2, "duration": 45, "learnable": True,
         "min_skill": 60,
     },

@@ -195,11 +195,18 @@ SKILL_TRIVIAL_BAND = 30      # points above a recipe's floor before it is routin
 # ============================================================
 # NOTE (verified against source): the contrib reads CLOTHING_TYPE_ORDER from
 # the *misspelled* key CLOTHING_TYPE_ORDERED (extra D, clothing.py:104-106).
-# This list is identical to the contrib default; we pin it because B.3's
-# prototypes hardcode these clothing_type strings and we don't want an upstream
-# reorder to silently shift our display order.
+# This list is the contrib default plus the three armour layers (Gear GR6);
+# we pin it because B.3's prototypes hardcode these clothing_type strings and
+# we don't want an upstream reorder to silently shift our display order. The
+# order is only the display order (`is wearing`, `inventory`, what the short
+# description reads): the layers stand just before `top`, outermost first, so
+# the body reads from the outside in -- bone armour, a linen cuirass, a tunic.
+# The three strings are world/gear.py's LAYERS; settings may not import game
+# modules, so tests/test_gear.py holds the two together.
 CLOTHING_TYPE_ORDERED = [
-    "hat", "jewelry", "top", "undershirt", "gloves",
+    "hat", "jewelry",
+    "armour_rigid", "armour_flexible", "armour_padding",
+    "top", "undershirt", "gloves",
     "fullbody", "bottom", "underpants", "socks", "shoes", "accessory",
 ]
 
@@ -207,6 +214,9 @@ CLOTHING_TYPE_ORDERED = [
 # worn_warmth() sums ALL worn pieces (covered ones included), so without a
 # per-slot cap a player could wear many fullbody cloaks for runaway warmth.
 # jewelry/accessory are intentionally omitted -> unlimited (decorative, warmth 0).
+# The armour layers are omitted too (GR6): the contrib counts per type, and
+# armour's rule is one piece per layer *and* Hit Location -- a helm and a
+# breastplate share a layer -- so the project's `wear` checks it (GR-T4).
 CLOTHING_TYPE_LIMIT = {
     "hat": 1, "top": 1, "undershirt": 1, "gloves": 1,
     "fullbody": 1, "bottom": 1, "underpants": 1, "socks": 1, "shoes": 1,
@@ -217,6 +227,9 @@ CLOTHING_TYPE_LIMIT = {
 # overriding it would clobber cant-cover-with. The default autocover dict
 # (top->undershirt, bottom->underpants, fullbody->undershirt+underpants,
 # shoes->socks) is already what we want. CLOTHING_OVERALL_LIMIT stays at its default (20).
+# Armour covers nothing by itself (GR7): autocover goes by type, so a helm
+# would cover a tunic. A cloak hides armour only by order -- `fullbody` shows
+# before the layers in world/sdesc.py SHOWING_TYPES.
 
 # ============================================================
 # MULTIMATCH FORM (Names, NM9)

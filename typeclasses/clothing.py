@@ -12,9 +12,10 @@ Garments hold data only; there are no per-garment buffs. world/thermal.py sums
 db.warmth across all worn pieces (covered layers included) each tick. This
 typeclass just mirrors that recompute on the wear/remove action.
 
-Scope: survival/thermal protection only. Combat armour (Legend armour points /
-encumbrance) is a later system; the reserved hooks below mark where those values
-will live without wiring them into any mechanic yet.
+Armour is a garment too: its layer is its clothing type, and its Armour Points,
+locations and material are the row world/gear.py keeps for its prototype
+(Gear GR6, GR16) -- nothing on this typeclass. ENC stays the `enc` Attribute,
+read by world/encumbrance.py.
 """
 
 from django.conf import settings
@@ -72,15 +73,11 @@ class ClothingWithBuffs(ObjectParent, DurableObject, ContribClothing):
     Reserved (autocreate=False -- no db Attribute, no `examine` entry until a
     system assigns them):
         rain_protection -- future wet/exposure axis, same pattern as warmth.
-        armor_points / encumbrance -- Legend combat values; owned by the combat
-            system, not survival.
     """
 
     warmth = AttributeProperty(default=0, autocreate=True)
 
     rain_protection = AttributeProperty(default=0, autocreate=False)
-    armor_points = AttributeProperty(default=0, autocreate=False)
-    encumbrance = AttributeProperty(default=0, autocreate=False)
 
     def wear(self, wearer, wearstyle, quiet=False):
         """

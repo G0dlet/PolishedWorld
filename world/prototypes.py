@@ -700,9 +700,12 @@ LINEN_CUIRASS = {
         "Layer upon layer of linen is stitched into a close-fitting chest piece, "
         "firm to the touch without any metal fittings."
     ),
-    # SOURCE: LinenCuirassRecipe (cloth x4). SINK: worn for warmth (survival); armour waits for combat (Stage 5).
-    "clothing_type": "top",
+    # SOURCE: LinenCuirassRecipe (cloth x4). SINK: worn for warmth (survival)
+    # and as armour; its row is world/gear.py ARMOUR (GR16).
+    # Gear GR8: linen is padding, the innermost armour layer.
+    "clothing_type": "armour_padding",
     # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    # Gear OQ-GR5: an armour piece has a word if and only if it covers the chest.
     "look_word": "armoured",
     "warmth": 1,
     "enc": 1,   # AoL p. 50 / Legend core p. 96: Linen, ENC 1 per chest location
@@ -805,9 +808,11 @@ BONE_ARMOUR = {
         "overlapping to shelter the chest without hiding their rough joints."
     ),
     # SOURCE: BoneArmourRecipe (bone x3 + leather). SINK: worn for warmth
-    # (survival); armour waits for combat (Stage 5).
-    "clothing_type": "top",
+    # (survival) and as armour; its row is world/gear.py ARMOUR (GR16).
+    # Gear GR8: bone is rigid, the outermost armour layer.
+    "clothing_type": "armour_rigid",
     # Names NM-T15 (OQ-NM9 (3), (6)): the word the short description shows.
+    # Gear OQ-GR5: an armour piece has a word if and only if it covers the chest.
     "look_word": "bone-clad",
     "warmth": 1,
     "enc": 2,   # AoL p. 50: Bone, ENC 2 per location; the chest

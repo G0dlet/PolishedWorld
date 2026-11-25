@@ -65,7 +65,7 @@ CLOTH_GOODS = (
     {
         "prototype": "linen_cuirass", "recipe": "linen cuirass",
         "key": "linen cuirass", "typeclass": ClothingWithBuffs,
-        "cloth": 4, "slot": "top", "warmth": 1, "enc": 1, "duration": 45,
+        "cloth": 4, "slot": "armour_padding", "warmth": 1, "enc": 1, "duration": 45,
         "min_skill": 60,
     },
     {

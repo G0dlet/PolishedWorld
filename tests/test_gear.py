@@ -1,9 +1,10 @@
 """
 Tests for world.gear -- the weapon and armour tables and their two readers
 (Gear decomposition GR-T1; locks IS1, IS2, GR8, GR12-GR16; Legend core
-pp. 94-109; Arms of Legend pp. 48-50, 71 ff.) -- and for the Weapon class
+pp. 94-109; Arms of Legend pp. 48-50, 71 ff.) -- for the Weapon class
 and the five pure weapons on the wear axis (GR-T2; GR13, GR21, GR24;
-Arms of Legend p. 43).
+Arms of Legend p. 43) -- and for the three armour layers as clothing types
+and what shows of them (GR-T3; GR6-GR8, OQ-GR5).
 
 Every expected row is typed here by hand from the decomposition's §3, not
 read from the module, so a row that drifts from the book fails by its cell.
@@ -12,16 +13,19 @@ read from the module, so a row that drifts from the book fails by its cell.
 from types import MappingProxyType
 from unittest import TestCase, mock
 
+from django.conf import settings
+from evennia.contrib.game_systems.clothing.clothing import CmdWear, get_worn_clothes
 from evennia.prototypes.spawner import spawn
 from evennia.utils import create
 from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.repair_commands import CmdRepair
+from typeclasses.clothing import ClothingWithBuffs
 from typeclasses.tools import Tool
 from typeclasses.weapons import Weapon
 from world import body, combat_styles, gear
 from world import prototypes as world_prototypes
-from world import recipes
+from world import recipes, sdesc, thermal
 
 WEAPON_FIELDS = (
     "weapon_type", "hand", "damage", "str_min", "dex_min", "size", "reach",
@@ -397,3 +401,119 @@ class TestMendingAWeapon(EvenniaCommandTest):
                 )
                 self.assertEqual(obj.condition, 60)
                 obj.location = None
+
+
+# -- G2: the layers -------------------------------------------------------------
+
+def _armour_prototypes():
+    """Every prototype in world/prototypes.py that has an armour row."""
+    return {
+        value["prototype_key"]: value
+        for value in vars(world_prototypes).values()
+        if isinstance(value, dict) and value.get("prototype_key") in gear.ARMOUR
+    }
+
+
+class TestTheLayersInConfiguration(TestCase):
+    """
+    Pressures GR6-GR8 and OQ-GR5 where they are data: a layer missing from
+    the contrib's order or standing after `top`, a layer given a type limit
+    (one helm would refuse a breastplate), the showing order changed (GRM8,
+    GRM9), a prototype whose type is not its row's layer (GRM10), and an
+    armour piece with a word that does not cover the chest, or one that
+    does and has none -- either lets the order of `contents` choose the word.
+    """
+
+    def test_the_layers_stand_just_before_top_outermost_first(self):
+        order = list(settings.CLOTHING_TYPE_ORDERED)
+        top = order.index("top")
+        self.assertEqual(tuple(order[top - 3:top]), gear.LAYERS)
+
+    def test_no_layer_has_a_type_limit(self):
+        for layer in gear.LAYERS:
+            with self.subTest(layer=layer):
+                self.assertNotIn(layer, settings.CLOTHING_TYPE_LIMIT)
+
+    def test_autocover_is_not_set(self):
+        # GR7: it goes by type, and the contrib reads cannot-cover-with from it.
+        self.assertFalse(hasattr(settings, "CLOTHING_TYPE_AUTOCOVER"))
+
+    def test_what_shows_and_in_which_order(self):
+        self.assertEqual(
+            sdesc.SHOWING_TYPES,
+            ("fullbody", "armour_rigid", "armour_flexible", "armour_padding", "top"),
+        )
+
+    def test_every_armour_prototype_wears_its_rows_layer(self):
+        found = _armour_prototypes()
+        self.assertEqual(set(found), set(gear.ARMOUR) - NOT_YET_MADE)
+        for key, prototype in found.items():
+            with self.subTest(item=key):
+                self.assertEqual(prototype["clothing_type"], gear.ARMOUR[key]["layer"])
+
+    def test_an_armour_piece_has_a_word_if_and_only_if_it_covers_the_chest(self):
+        found = _armour_prototypes()
+        self.assertEqual(len(found), 2)   # GR-T12 adds four; guard against a vacuous loop
+        for key, prototype in found.items():
+            with self.subTest(item=key):
+                self.assertEqual(
+                    bool(prototype.get("look_word")),
+                    "chest" in gear.ARMOUR[key]["locations"],
+                )
+
+    def test_a_garment_carries_no_armour_values_of_its_own(self):
+        # GR16: Armour Points are the row's; ENC is the `enc` Attribute.
+        self.assertFalse(hasattr(ClothingWithBuffs, "armor_points"))
+        self.assertFalse(hasattr(ClothingWithBuffs, "encumbrance"))
+
+
+class TestTheLayersWorn(EvenniaCommandTest):
+    """
+    Pressures GR6 and GR7 through the command a player types: the contrib's
+    `wear` refusing a cuirass over a tunic, as it did while both were a `top`
+    (GRM10); the word read from the tunic or the cuirass when bone armour
+    lies over both (GRM8); and the cloak not hiding the armour (GRM9).
+    """
+
+    character_typeclass = "typeclasses.characters.Character"
+
+    def _give(self, key):
+        obj = spawn(key)[0]
+        self.addCleanup(obj.delete)
+        obj.location = self.char1
+        return obj
+
+    def _wear_all(self):
+        pieces = [self._give(key) for key in ("wool_tunic", "linen_cuirass", "bone_armour")]
+        for piece in pieces:
+            result = self.call(CmdWear(), piece.key, caller=self.char1)
+            with self.subTest(item=piece.key):
+                self.assertNotIn("can't wear", result)
+                self.assertTrue(piece.db.worn)
+        return pieces
+
+    def test_armour_goes_on_over_a_tunic_and_reads_from_the_outside_in(self):
+        self._wear_all()
+        self.assertEqual(
+            [garment.key for garment in get_worn_clothes(self.char1)],
+            ["bone armour", "linen cuirass", "wool tunic"],
+        )
+
+    def test_the_word_is_the_outermost_pieces(self):
+        tunic, cuirass, bone = self._wear_all()
+        self.assertEqual(sdesc.garment_word(self.char1), "bone-clad")
+        bone.remove(self.char1, quiet=True)
+        self.assertEqual(sdesc.garment_word(self.char1), "armoured")
+        cuirass.remove(self.char1, quiet=True)
+        self.assertIsNone(sdesc.garment_word(self.char1))   # the tunic has no word
+
+    def test_a_cloak_hides_the_armour(self):
+        self._wear_all()
+        cloak = self._give("fur_cloak")
+        self.call(CmdWear(), "fur cloak", caller=self.char1)
+        self.assertTrue(cloak.db.worn)
+        self.assertEqual(sdesc.garment_word(self.char1), "cloaked")
+
+    def test_warmth_is_the_sum_of_the_three(self):
+        self._wear_all()
+        self.assertEqual(thermal.worn_warmth(self.char1), 2 + 1 + 1)
