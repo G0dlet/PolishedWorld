@@ -7,7 +7,8 @@ Arms of Legend p. 43) -- and for the three armour layers as clothing types
 and what shows of them (GR-T3; GR6-GR8, OQ-GR5) -- and for one piece per
 layer and Hit Location (GR-T4; AR3, GR6) -- and for the Armour Points a
 body has on each location and carries in all, which Strike Rank reads
-(GR-T5; AR1, AR4, GR18; core pp. 13, 95).
+(GR-T5; AR1, AR4, GR18; core pp. 13, 95) -- and for the stamp of a fight
+(GR-T6; GR20), which the garment wear tick reads (tests/test_garment_wear.py).
 
 Every expected row is typed here by hand from the decomposition's §3, not
 read from the module, so a row that drifts from the book fails by its cell.
@@ -712,3 +713,24 @@ class TestStrikeRankReadsTheArmour(EvenniaTest):
         _wear_the_kit(self.char1, self.addCleanup)
         result = body.derived(self.char1)
         self.assertEqual((result["strike_rank"], result["armour_penalty"]), (6, 4))
+
+
+class TestTheStampOfAFight(EvenniaTest):
+    """
+    Pressures GR20's stamp: the time written somewhere other than the
+    character, and a window that never closes (GRM20).
+    """
+
+    def test_mark_combat_stamps_now(self):
+        with mock.patch.object(gear.time, "time", return_value=5000.0):
+            gear.mark_combat(self.char1)
+        self.assertEqual(self.char1.db.fought_at, 5000.0)
+
+    def test_fought_since_inside_and_outside_the_window(self):
+        self.char1.db.fought_at = 5000.0
+        with mock.patch.object(gear.time, "time", return_value=5000.0 + 3600):
+            self.assertTrue(gear.fought_since(self.char1, 10800))
+            self.assertFalse(gear.fought_since(self.char1, 3600))
+
+    def test_no_stamp_is_no_fight(self):
+        self.assertFalse(gear.fought_since(self.char1, 10800))

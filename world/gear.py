@@ -58,7 +58,8 @@ WHO READS THIS
 `world.sdesc` reads the three layer names and `LAYERS`: which types show,
 and that an armour piece without a word is passed over (GR7, OQ-GR5).
 `typeclasses.clothing` asks `layer_conflict` before a garment goes on (AR3,
-GR6). `world.body.derived` reads `armour_total` for Strike Rank (GR18). GR's
+GR6). `world.body.derived` reads `armour_total` for Strike Rank (GR18).
+`world.garment_wear` asks `fought_since` at each tick (GR20). GR's
 later tasks read the rows (the hands, `look`), and ML reads them in a fight,
 `armour_at` among them.
 
@@ -67,6 +68,7 @@ module from inside `derived` only, so neither import is circular (GR-T5's
 STOPP 0); `world.sdesc` and `typeclasses.clothing` import it at the top.
 """
 
+import time
 from types import MappingProxyType
 
 from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
@@ -331,3 +333,32 @@ def armour_total(char):
         int: 0 or more.
     """
     return sum(row["ap"] * len(row["locations"]) for _, row in _worn_rows(char))
+
+
+# -- a fight, for the garment wear tick (GR20) -----------------------------------
+
+def mark_combat(char):
+    """
+    Stamp `char` as having fought now (GR20), as `time.time()` in
+    `db.fought_at` -- real time, the clock the wear tick's interval is in
+    (GR-T6's STOPP 0). An Attribute, so a reload between a fight and the
+    tick keeps it. No production code calls this until ML: what a fight is
+    and when it begins are ML's.
+    """
+    char.db.fought_at = time.time()
+
+
+def fought_since(char, seconds):
+    """
+    True when `char` was stamped by `mark_combat` less than `seconds` ago.
+
+    Args:
+        char (Object): the character.
+        seconds (float): the window, in real seconds -- the wear tick's
+            interval, handed in by its caller.
+
+    Returns:
+        bool: False with no stamp.
+    """
+    stamp = char.attributes.get("fought_at")
+    return stamp is not None and time.time() - stamp < seconds

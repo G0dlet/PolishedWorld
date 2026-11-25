@@ -27,6 +27,12 @@ condition points only as it crosses 1.0 -- deferred until a real need appears.
 
 Offline characters are never touched: no session, so they never enter the loop,
 exactly like survival depletion.
+
+A fight (Gear GR20; AoL p. 58: *Protected* and *Basic* do not survive combat):
+whoever fought within the tick's window -- the interval, handed in by the
+ticker as `window` -- has every worn garment wear one level harsher, after the
+environment's shift and within the same clamp. The stamp is world.gear's
+(`mark_combat`, `fought_since`); nothing writes it until ML.
 """
 
 from evennia import SESSION_HANDLER
@@ -57,9 +63,14 @@ WEAR_WARNINGS = (
 )
 
 
-def wear_all_garments():
+def wear_all_garments(window=None):
     """
     Tick callback: degrade worn garments for every online character.
+
+    `window` is the tick's interval in real seconds; the ticker passes it
+    (server/conf/at_server_startstop.py), and a fight within it makes the
+    wear one level harsher (GR20). Called without one -- `wear_all_garments()`
+    from @py -- no fight is read.
 
     Iterates logged-in sessions only, skips OOC sessions (puppet is None), and
     dedupes characters with multiple sessions so a character's clothes are never
@@ -71,15 +82,16 @@ def wear_all_garments():
         if not char or char.id in seen:
             continue
         seen.add(char.id)
-        _wear_character(char)
+        _wear_character(char, window)
 
 
-def _wear_character(char):
+def _wear_character(char, window=None):
     """
     Degrade every worn ClothingWithBuffs on `char` by its exposure-adjusted rate.
 
     The environment (regime + shelter) is read once per character, since every
-    garment shares the wearer's room. Only ClothingWithBuffs carry a condition;
+    garment shares the wearer's room; so is a fight within `window` (GR20),
+    since it is the wearer who fought. Only ClothingWithBuffs carry a condition;
     plain contrib garments are skipped so we never invent a condition on an item
     the durability system doesn't own.
     """
@@ -87,6 +99,7 @@ def _wear_character(char):
     # and avoid any import-order coupling with the clothing typeclass at load.
     from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
     from typeclasses.clothing import ClothingWithBuffs
+    from world import gear
 
     try:
         room = char.location
@@ -94,25 +107,27 @@ def _wear_character(char):
         # Exposure is sampled here at tick time, not averaged over the interval
         # (see module docstring "Sampling"): a snapshot of the current room.
         regime = thermal_regime(room)   # handles room=None -> "temperate"
+        fought = window is not None and gear.fought_since(char, window)
 
         for garment in get_worn_clothes(char):
             if not isinstance(garment, ClothingWithBuffs):
                 continue
-            tier = _effective_tier(garment, indoor, regime)
+            tier = _effective_tier(garment, indoor, regime, fought)
             _wear_one(garment, char, tier)
     except Exception:
         # One bad character/room must never kill the ticker for everyone else.
         logger.log_trace()
 
 
-def _effective_tier(garment, indoor, regime):
+def _effective_tier(garment, indoor, regime, fought=False):
     """
     Resolve a garment's effective wear level from its baseline plus environment.
 
     Baseline is db.wear_level (default "common"); an unknown value falls back to
     "common" rather than erroring in a live tick. Indoors shifts two steps toward
     Protected (fully out of the elements); an extreme outdoor regime (cold/hot)
-    shifts one step toward Rigorous. The result is clamped to the tier range.
+    shifts one step toward Rigorous; a fight since the last tick one more step
+    toward Rigorous (GR20). The result is clamped to the tier range.
     """
     base = garment.db.wear_level or "common"
     idx = TIER_ORDER.index(base) if base in TIER_ORDER else TIER_ORDER.index("common")
@@ -121,6 +136,8 @@ def _effective_tier(garment, indoor, regime):
         idx -= 2                       # sheltered: markedly gentler wear
     elif regime in ("cold", "hot"):
         idx += 1                       # exposed to the extremes: harsher wear
+    if fought:
+        idx += 1                       # GR20: a fight since the last tick
 
     idx = max(0, min(idx, len(TIER_ORDER) - 1))
     return TIER_ORDER[idx]
