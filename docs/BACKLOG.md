@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 125 · 2026-11-25** — **one entry added**, docs only, with `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1, roadmap Rev 92 and README Rev 86. BACKLOG was searched first for `harvest`, `corpse`, `hide`, `tallow`, `bone`, `sinew`, `spoil`, `quality` and `tann`. New, in *Death & Corpses*: ***`harvest_templates.py` credits the book with a rule it does not have*** (OPEN) — a docstring sentence, found while the note checked the retired v1.0 against *Arms of Legend*. No entry is annotated: the note points to *Food spoilage*, *Tanning upgrade*, *Corpse expiry fires only on direct interaction* and *`harvest` treats a player's body as a rabbit* as their owners or their record, and changes none of them.
 > **Rev 124 · 2026-11-25** — **three entries added, eight annotated, one renamed in place**, docs only, in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `gear`, `weapon`, `armour`, `wield`, `hold`, `hands`, `held`, `Strike Rank`, `clothing`, `is wearing`, `get_display_things`, `Stage 5`, `alpha-20261124-2`, `scrolls`, `Fifteen` and `_apply_garment_quality`; each entry that names one was read against the merge. **Added:** *What a looker reads of a dressed and armed body* (UX & Item Identity), *Armour's warmth in the comfort bands* (Survival) and *When the closed alpha opens — now, or after Stage 5* (Tooling & Process, Adam's question of 2026-11-24). **Annotated:** *Persistent alpha instance* and *Survival loop tuning* (the tag L6.1 deploys is `alpha-20261125`), *Tanning upgrade* (GR11), *Superior-tool longevity* (GR21), *Metal tools + craft-station / forge* (the metal knife's row), *A collapsed body's instant commands* (`wield` and `unwield` refused; `wear`, `remove`, `put`, `drop` and `give` let through), *Article and number in messages built from item keys* (GR's plural keys) and *A screen-reader pass* (GR-T11's red need: colour is enough for the alpha, Adam). **Renamed in place:** *Scribe's band→condition bypasses `quality_band`* names `_apply_quality_condition` and `CONDITION_BY_BAND`. **Read and left:** *Character panel* (it says where HE is, which stays true; nothing GR built is in the `char` snapshot), *World-loot scroll seed* (its *Fifteen rows* is L3.3's and was true; nineteen since GR-T12, Alpha Runbook §4), *Cultural Background* (its *six Combat Styles* is BD-T6's; Staff is the seventh, and nothing uses a style until ML), the death entries (a death empties the hands and a held item goes to the body with everything else; `TestEveryWayOut`) and the DONE entries *Weight and encumbrance* and *Worn clothing leaves without `remove()`*.
 > **Rev 123 · 2026-11-24** — **one entry DONE, five annotated**, docs only, in the commit that closes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 3; merged as `3dc009d`, PR #35, tagged `alpha-20261124-2`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `hero`, `Hero Point`, `Glancing`, `Heroic`, `alpha-20261124`, `Character panel`, `restore block`, `sheet`, `accrue`, `tblib` and `mutation`; each entry that names one was read against the merge. **DONE:** *Hero Points in a persistent world* (OQ-HE1 and OQ-HE3 stay the Combat Design's). **Annotated:** *Character panel: Legend combat state* (the readers; the push CL owes), *Survival loop tuning* and *Persistent alpha instance* (the tag L6.1 deploys is `alpha-20261124-2`), *A collapsed body's instant commands* (`hero` answered, seen in play) and *Runnable seam checker for the System Map* (`TestHeroCensus` checks one row at test time). The rest are unchanged by HE. No entry is added.
 > **Rev 122 · 2026-11-24** — **three entries annotated**, docs only, in the commit that decomposes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 1; Combat Design Rev 9). BACKLOG was searched first for `hero`, `Glancing`, `Major Wound`, `respawn`, `played`, `away_since` and `cap` (lessons 238 and 408); five entries name *Glancing Blow* or a Major Wound and none says how a downgrade is done. **Annotated:** *Hero Points in a persistent world* (the eight locks, and the cap against the book's Heroic Abilities, OQ-HE1), *Character panel: Legend combat state* (where the panel will read Hero Points, and the push CL owes) and *A collapsed body's instant commands* (`hero` is answered). No entry is added: the open questions are the Combat Design's and the decomposition's.
@@ -1457,6 +1458,26 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 ---
 
 ## Death & Corpses
+
+### `harvest_templates.py` credits the book with a rule it does not have
+- **What:** The module docstring of `world/harvest_templates.py` says *"AoL puts
+  meat on Survival (Easy, +20) and hide on Craft Leatherworking (Normal, 0)"*.
+  The second half is the book's (`docs/reference/arms_of_legend.md:1420`). The
+  first is not: *Arms of Legend* has no rule for taking meat, and no table of
+  skill and difficulty per kind of part. The sentence came from the retired
+  v1.0 harvesting design, which printed such a table under the heading *From
+  Arms of Legend*. Correct the docstring to say that meat on `hunting` at +20 is
+  the project's own calibration (Creature Harvesting Design §4, HTP-L3). The
+  same docstring and `typeclasses/corpse.py` name
+  `PolishedWorld_Creature_Harvesting_Design.md` as the source of the yield
+  formulas and the decay timeline; those citations now resolve (the note's
+  §5.2) and need no change.
+- **Why deferred:** A comment, in code, found in a docs-only session; code does
+  not change in a docs commit on `main`.
+- **Trigger:** The next code commit that touches `world/harvest_templates.py`
+  — a second species' template at the latest.
+- **Origin:** Creature Harvesting design chat, 2026-11-25 (Rev 125).
+- **Status:** OPEN
 
 ### Per-item corpse decay
 - **What:** Independent decay timers per loot item, so loot lingers after the

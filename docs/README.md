@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 86 · 2026-11-25** — index `PolishedWorld_Creature_Harvesting_Design.md` (creature harvesting design notes from a design chat, the twenty-second note in the one-system series and the queue's *butchery & offal* under a wider name: prior art with MUME as the lineage, Legend alignment with the finding that the book has no table of difficulty per part, the shipped loop and the numbers the code credits to this file, a map of who owns what, the rule for parts — the template is the whole answer, a part says its kind, none without a sink — hide armour as a later armour batch, a person's body left refused and asked; no departures from shipped behaviour), docs only, with roadmap Rev 92, BACKLOG Rev 125 and the series handoff Rev 20. The note takes the name of the project-knowledge file it replaces, so the closing line of *Reading order for the economy* no longer lists the creature-harvesting design among the docs that live only in project knowledge.
 > **Rev 85 · 2026-11-25** — one row changed, docs only, with Lessons Rev 16: the register's row reads 1–496 (lessons 487–496, appended between close-outs at Adam's request).
 > **Rev 84 · 2026-11-25** — one row added, docs only, in the commit that decomposes Stage 5's slice CE, with Combat Design Rev 13 and Combat Decomposition Rev 23: `PolishedWorld_Creatures_Decomposition.md` (Rev 1; thirteen locks, CE-T1–CE-T8 on `feature/creatures`, not started). Catalogue loop 68/0.
 > **Rev 83 · 2026-11-25** — two rows changed, docs only, in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8, GR-T15b; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`), with Testing Reference Rev 31, the System Map Rev 8, Evennia Reference Rev 39, BACKLOG Rev 124, roadmap Rev 91, Lessons Rev 15, the Textiles and Fishing design notes' Rev 3, and `AGENTS.md` Rev 11 outside `docs/`: the Gear decomposition's row says it is done, and the Lessons register's row reads *1–486*. No document added or removed; the directory-vs-list loop was run (67/0).
@@ -193,6 +194,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | World atlas design notes (Azgaar's Fantasy Map Generator as the source, a frozen extraction, one cell to a region, biomes, rivers and climate as data, realms as lore, the frontier as a window — before decomposition) | design (feature, pre-decomposition) | `docs/system_designs/PolishedWorld_Atlas_Design.md` |
 | Projectile design notes (bows, slings and thrown weapons, ammunition in bundles, distance per encounter, the shot spent at release, breakage and recovery — before decomposition) | design (feature, pre-decomposition) | `docs/system_designs/PolishedWorld_Projectile_Design.md` |
 | Newcomer's economy design notes (no school zone, the settlement as the school, first-steps hints, the first hour's ledger, first goods, knowledge and the guide — before decomposition) | design (feature, pre-decomposition) | `docs/system_designs/PolishedWorld_Newcomer_Design.md` |
+| Creature harvesting design notes (what a dead creature gives and with which skill, who owns the rest, the rule for parts, hide armour, a person's body — before decomposition) | design (feature, pre-decomposition) | `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` |
 | Combat design (Stage 5: the EvAdventure reading, *Legend* and *Arms of Legend* verified in source, and the decisions on timing, PvE and the haven, targeting, wounds, armour, the item schema, skills, manoeuvres and Hero Points — before decomposition) | design (stage, pre-decomposition) | `docs/PolishedWorld_Combat_Design.md` |
 | One-system design series handoff (where the series stands, the queue, the method and the gotchas — the prompt for the next design chat) | design (series handoff) | `docs/system_designs/HANDOFF.md` |
 | Agent scope & schemas | governance | `AGENTS.md` |
@@ -214,5 +216,6 @@ order. Read them this way:
    Stage 4 was actually built, including every deviation and why.
 
 *(Docs still living only in project knowledge — functional-decomposition methodology,
-Mongoose Legend notes, code standards, creature-harvesting design — get a header and
-move here as they're next touched.)*
+Mongoose Legend notes, code standards — get a header and move here as they're next
+touched. The creature-harvesting design moved on 2026-11-25, rewritten, as
+`docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md`.)*

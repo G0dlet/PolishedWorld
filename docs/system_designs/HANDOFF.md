@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 20 · 2026-11-25** — a twenty-second note, docs only, with roadmap Rev 92, BACKLOG Rev 125 and README Rev 86: `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1, the queue's *butchery & offal\** under a wider name, written at Adam's request beside Stage 5's slice CE from a handoff of its own. It replaces a project-knowledge file of the same name. The queue loses *butchery & offal*; *bone, horn & antler* and *bowyery & fletching* gain a clause on the boundary. Prefix family HT; no departure rows. No other queue entry changes.
 > **Rev 19 · 2026-11-16** — one gotcha **annotated**, docs only, in the commit that closes Names (`docs/PolishedWorld_Combat_Decomposition.md` Rev 12; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`): the `rpg/rpsystem` gotcha says the slice shipped and where its findings are now. No queue entry, prefix or tie-in changed.
 > **Rev 18 · 2026-11-14** — one passage **changed**, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80: Stage 5's design session is held, and it hands one question to *lodging & safe logout* — whether a creature may attack a statue (PV; not in Stage 5's first slice). No queue entry, prefix or tie-in changed.
 > **Rev 17 · 2026-11-14** — two passages **changed**, docs only, in the commit that closes the arrival slice (`docs/PolishedWorld_Arrival_Decomposition.md` Rev 2; merged as `185a47a`, PR #30, tagged `alpha-20261114-2`): the session note says the slice is shipped, and the gotcha on a new character's first room says where it stands now — Limbo until creation is done, then the Old Temple, which is its `home`.
@@ -97,21 +98,36 @@ nothing locked. One docs patch for `main` per session.
   task-table tuning*), README Rev 56 and this file Rev 14. Code read at `main`
   `c4f8d0b`; Evennia at `v6.1.0`. On origin as `c31650b`, tree `fac932a`
   (confirmed in a fresh clone, 2026-11-14).
-- Catalogue loop 59/0: bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Twenty-second: Creature Harvesting (what a `Creature`'s body gives and with
+  which skill; a map of who owns each part's fate; the template as the whole
+  answer, a part's kind, no part before its sink; the Anatomy Kit; hide armour
+  as a later armour batch; a person's body asked, not proposed) as
+  `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1,
+  with roadmap Rev 92 (a dated note under *Stage 0 — Hunting*), BACKLOG Rev 125
+  (new *`harvest_templates.py` credits the book with a rule it does not have*),
+  README Rev 86 and this file Rev 20. Code read at `main` `500424c`; Evennia at
+  `v6.1.0`. Written outside the method's two STOPPs, from its own handoff, one
+  choice per reply. Confirm with a fresh clone that Adam pushed it; the tree is
+  the receipt.
+- Catalogue loop 69/0 (59/0 at Rev 14; other documents have been added since): bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
   VP/VQ/VG, RP/RQ/RG, LP/LQ/LG, YP/YQ/YG, ZP/ZQ/ZG, PP/PQ/PG, NP/NQ/NG, DP/DQ/DG,
-  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG, RWP/RWQ/RWG, NCP/NCQ/NCG (+ NCP-L1–L5, RWP-L1–L7, WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
+  EP/EQ/EG, JP/JQ/JG, UP/UQ/UG, QP/QQ/QG, RWP/RWQ/RWG, NCP/NCQ/NCG, HTP/HTQ/HTG (+ HTP-L1–L5, NCP-L1–L5, RWP-L1–L7, WP-L, VP-L, GP-L, RP-L1–L7, LP-L1–L7, YP-L1–L7, ZP-L1–L7, PP-L1–L7,
   NP-L1–L8, DP-L1–L5, EP-L1–L4, JP-L1–L7, UP-L1–L3, QP-L1–L4…; departure rows D1–D9 hunting, E1–E8 cooking, J1–J7
   temperature, N1–N3 water, R1 foraging, I1–I2 light, U1–U2 forest, O1–O6 rest,
-  X1–X2 comfort, K1–K9 names, Y1–Y6 projectiles, Z1–Z2 newcomer; Rendering, Pottery, Storage, Homunculi and Atlas have none). OQ is taken. HP
+  X1–X2 comfort, K1–K9 names, Y1–Y6 projectiles, Z1–Z2 newcomer; Rendering, Pottery, Storage, Homunculi, Atlas and Creature Harvesting have none). OQ is taken. HP
   avoided; AP/SP/XP/MP are Legend/engine words; L1–L7 are launch-minimum tasks;
   webclient tasks are W1.1-style. No single letter is left for a prefix family:
   every free one reads as a Legend or engine word (AP, HP, MP — Legend's Magic
   Points — SP, XP) or is taken (IP, OQ); Projectiles used the two-letter stem RW
   (RWQ16), Newcomer took NC, and the next note takes a two-letter stem too —
-  NW, FH, AR, FS and NE had 0 hits on 2026-11-14. Free single letters for
+  NW, FH, AR, FS and NE had 0 hits on 2026-11-14; Creature Harvesting took HT
+  (BT, BU, HA and HR had 0 hits on 2026-11-25; HV is Stage 5's haven slice). No
+  single letter is free for departure rows any more either (P is the Creatures
+  decomposition's P1–P2, V has hits; 2026-11-25): a note with departures uses its
+  stem and a D, as HTD would have been. Earlier: free single letters for
   departure rows: V (reads as Water) and P (0 hits on 2026-11-14; the Trivial
   Work decomposition's P-3 and P-7 are hyphenated) — K went to Names, Y to
   Projectiles, Z to Newcomer; regrep a new one. Checked free before Names:
@@ -249,7 +265,8 @@ Claude's additions*:
   against waiting for a feather, RWQ6, RWP22; drying shafts, Project Gorgon in
   Projectile §2.5; BACKLOG DECISION #10's wood revisit, Stage 5 and bows;
   arrows as a sink; the feather orphan `:231`; sling bullets `world/prototypes.py:463`,
-  fired bullets wait, Pottery PQ16)
+  fired bullets wait, Pottery PQ16; sinew has no sink while the bow is strung
+  with twine, AD4 — Creature Harvesting HTQ4 waits for a string that differs)
 - rope & cordage* (twine exists — now also the bow drill and wick, Light LP5/LP7;
   bins and traps, Storage DP8/DP13; rope for Water VP6's well bucket, climbing,
   nets, rigging, tethering)
@@ -289,7 +306,9 @@ Claude's additions*:
   combat half stays Stage 5's)
 - bone, horn & antler* (the bonework discipline exists, `world/recipe_mastery.py:81–87`;
   horn panes for a lantern, Legend p. 114 "brass or bone" — before glass, Pottery
-  PP12; cups, combs, glue; antler from larger game, predators)
+  PP12; cups, combs, glue; antler from larger game, predators; Creature
+  Harvesting owns what the body gives, HTP4 — horn, antler, tooth and tusk wait
+  there for a sink this note would write, HTP3)
 - appraisal, weights & measures* (Evaluate p. 50, Commerce p. 57; scales and standard
   measures, short weight as fraud; crafting quality words read by an appraiser;
   ties markets, contracts, coin)
@@ -371,11 +390,6 @@ Claude's additions*:
   all, and if so what changes — Legend has no aging table in the core; statues
   do not age, `typeclasses/characters.py:472`; ties absence, upkeep &
   inheritance; possibly "never", recorded so the question is asked once)
-- butchery & offal* (Craft (Butcher) p. 57, AoL butcher `:2978`; sinew is DATA with
-  "add as a harvest part" as its source, `world/material_registry.py:219` — the
-  bowstring's missing input; gut for strings and sausage casings, blood, offal as
-  food on Cooking's clock; the carcass beyond meat, hide, bone and Rendering ZP1's
-  fat; Cooking CQ3's Craft (Butcher))
 - fowling & wild birds* (the feather orphan `world/material_registry.py:231` has no
   source; AoL fowl `:2843`; nets, snares and slings for birds, Hunting TP11's snare
   holds SIZ 3 or less; wild eggs from nests in spring; feathers for fletching and
