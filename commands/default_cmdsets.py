@@ -27,6 +27,7 @@ from commands.repair_commands import CmdRepair
 from commands.currency_commands import CmdWallet, CmdPay, CmdEconomy
 from commands.work_commands import CmdWork
 from commands.inventory_commands import CmdGet, CmdInventory, CmdPut
+from commands.gear_commands import CmdUnwield, CmdWield
 from commands.crafting_commands import (
     CmdCraftGated,
     CmdRecipes,
@@ -192,6 +193,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdCover())
         self.add(CmdUncover())
         self.add(CmdInventory())
+
+        # The hands (commands/gear_commands.py, Gear GR-T8): `wield`, alias
+        # `hold`, and `unwield`; the rules are world/gear.py's.
+        self.add(CmdWield())
+        self.add(CmdUnwield())
 
         # Containers and corpse looting (commands/inventory_commands.py).
         # CmdGet is the containers contrib's 'get', which also supports
