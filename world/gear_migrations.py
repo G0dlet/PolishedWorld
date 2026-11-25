@@ -28,7 +28,9 @@ IDEMPOTENT: an item already right is skipped, so a second run answers
 (0, 0) and changes nothing -- not even a club worn to 60 in between.
 
 Run once per existing database, in-game (the same process as the live game):
-    py from world.gear_migrations import migrate_gear; self.msg(migrate_gear())
+    py from world.gear_migrations import migrate_gear; self.msg(str(migrate_gear()))
+The answer is a tuple, so it is sent as a string: `msg` passes a tuple on as
+the `text` command's arguments, and the client shows only the first.
 
 Multiplayer: one synchronous call on Twisted's single-threaded reactor; no
 command runs between two of its writes. A held or worn item stays held or
