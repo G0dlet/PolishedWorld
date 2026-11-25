@@ -2,7 +2,7 @@
 typeclasses/weapons.py
 
 Weapons that are only weapons: club, quarterstaff, spear, bow, sling, and
-the target shield GR-T12 adds (Gear decomposition GR-T2; locks GR13, GR21).
+the target shield GR-T12 added (Gear decomposition GR-T2; locks GR13, GR21).
 
 Weapon is a *thin* typeclass, as Tool is: DurableObject mixed onto the
 game's Object base, and nothing more. It exists so that a pure weapon has

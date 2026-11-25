@@ -53,8 +53,8 @@ class _Look(EvenniaTest):
     character_typeclass = CHARACTER
 
     def _tagged(self, prototype_key):
-        """Any object with the tag `spawn` gives: five rows have no prototype
-        until GR-T12, and the line reads the tag only."""
+        """Any object with the tag `spawn` gives: the line reads the tag only,
+        so an item made by hand needs no prototype (GR-T12 added the five)."""
         obj = create.create_object("typeclasses.objects.Object", key=prototype_key)
         obj.tags.add(prototype_key, category=gear.PROTOTYPE_TAG_CATEGORY)
         self.addCleanup(obj.delete)

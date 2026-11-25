@@ -48,9 +48,9 @@ Rows and tables are read-only (MappingProxyType, tuples inside). A reader
 hands out the shared row, and a caller that could write `row["ap"] -= 1`
 would change that item for every player on the server.
 
-Five rows name prototypes that GR-T12 adds: the target shield and four pieces
-of armour. They are here first so every later rule is tested against real
-rows. The spawn-only metal `knife` (world/prototypes.py) has no row yet; its
+Five rows got their prototypes in GR-T12: the target shield and four pieces
+of armour. The rows came first, at GR-T1, so every later rule was tested
+against real rows. The spawn-only metal `knife` (world/prototypes.py) has no row yet; its
 row comes with BACKLOG *Metal tools + craft-station / forge*.
 
 WHO READS THIS

@@ -45,7 +45,8 @@ class _Items(EvenniaTest):
         return self._made("typeclasses.objects.Object", "club", "club")
 
     def _shield(self):
-        """GR-T12 adds the prototype; until then the row, on a Weapon."""
+        """A target shield made by hand as a Weapon with its tag: the row is
+        what is read, not the prototype (GR-T12 added one)."""
         return self._made("typeclasses.weapons.Weapon", "target shield", "target_shield")
 
 

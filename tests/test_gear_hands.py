@@ -43,7 +43,8 @@ class _Hands(EvenniaCommandTest):
         return obj
 
     def _shield(self):
-        """The target shield has no prototype until GR-T12: an object with its tag."""
+        """A target shield made by hand, an object with its tag: the hands read
+        the row, not the prototype (GR-T12 added one)."""
         obj = create_object(
             "typeclasses.objects.Object", key="target shield", location=self.char1,
         )
