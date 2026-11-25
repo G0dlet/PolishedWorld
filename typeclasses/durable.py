@@ -122,7 +122,14 @@ class DurableObject:
         list is preserved), so we augment that base rather than replace it. The
         mixin sits before the real base in every host's MRO, so this override
         wins while still deferring to the base via super().
+
+        Gear GR23: a weapon or a piece of armour says what it is, in one line
+        from `world.gear.describe`, between the description and the condition
+        (GR-T11). Imported here, not at the top: `world.gear` imports this
+        module. The condition line stays last.
         """
+        from world import gear
+
         base = super().get_display_desc(looker, **kwargs)
-        line = self.condition_line()
-        return f"{base}\n\n{line}" if base else line
+        parts = (base, gear.describe(self, looker), self.condition_line())
+        return "\n\n".join(part for part in parts if part)

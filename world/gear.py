@@ -59,9 +59,12 @@ WHO READS THIS
 and that an armour piece without a word is passed over (GR7, OQ-GR5).
 `typeclasses.clothing` asks `layer_conflict` before a garment goes on (AR3,
 GR6). `world.body.derived` reads `armour_total` for Strike Rank (GR18).
-`world.garment_wear` asks `fought_since` at each tick (GR20). GR's
-later tasks read the rows (the hands, `look`), and ML reads them in a fight,
-`armour_at` among them.
+`world.garment_wear` asks `fought_since` at each tick (GR20).
+`typeclasses.durable` asks `describe` for the line `look` shows between an
+item's description and its condition (GR23), importing this module inside
+the method, since this module imports it. The hands are read by the
+commands and `look`, and ML reads the rows in a fight, `armour_at` among
+them.
 
 THE HANDS
 ---------
@@ -117,6 +120,7 @@ from types import MappingProxyType
 
 from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 from evennia.utils import logger
+from evennia.utils.utils import iter_to_str
 
 from typeclasses.durable import DurableObject
 from world import body, combat_styles, wounds
@@ -498,6 +502,86 @@ def usable(obj):
         and isinstance(obj, DurableObject)
         and obj.condition > 0
     )
+
+
+# -- what an item says of itself (GR23) ------------------------------------------
+
+# GR-T11's STOPP 0: the hand in words, near `wield`'s own ("needs both hands").
+_HAND_WORDS = MappingProxyType({ONE_HAND: "one hand", TWO_HANDS: "two hands"})
+
+# A need the looker does not meet is red, as a condition below 33 is.
+_UNMET = "|r{}|n"
+
+
+def _meets(looker, key, need):
+    """
+    True unless the looker's characteristic `key` is below `need`.
+
+    Read as `body.derived` reads it, `int(stat.value)`, so a modifier would
+    follow. A looker with nothing to compare -- no `stats`, or no such
+    characteristic -- meets it: the line is plain (GR-T11's STOPP 0).
+    """
+    stats = getattr(looker, "stats", None)
+    stat = stats.get(key) if stats is not None else None
+    return stat is None or int(stat.value) >= need
+
+
+def _weapon_line(row, looker):
+    """GR23 for a weapon: type and hand; damage, Size, Reach or Range and
+    Load; the STR and DEX it needs. Manoeuvres, AP/HP, the Damage Modifier
+    and the shield's footnote 3 are not shown (GR-T11's STOPP 0)."""
+    word = row["weapon_type"]
+    article = "An" if word[0] in "aeiou" else "A"
+    parts = [f"Damage {row['damage']}", f"Size {row['size']}"]
+    if row["reach"] is not None:
+        parts.append(f"Reach {row['reach']}")
+    if row["range_m"] is not None:
+        parts += [f"Range {row['range_m']} m", f"Load {row['load']}"]
+    needs = []
+    for label, key, field in (("STR", "str", "str_min"), ("DEX", "dex", "dex_min")):
+        need = row[field]
+        if need is None:
+            continue
+        piece = f"{label} {need}"
+        needs.append(piece if _meets(looker, key, need) else _UNMET.format(piece))
+    line = f"{article} {word} for {_HAND_WORDS[row['hand']]}. {', '.join(parts)}."
+    if needs:
+        line += f" Needs {' and '.join(needs)}."
+    return line
+
+
+def _armour_line(row):
+    """GR23 for armour: the layer, the Armour Points and where, in the row's
+    order (`world.body.LOCATIONS`). The material is in the item's name."""
+    layer = row["layer"].split("_", 1)[1]
+    ap = row["ap"]
+    points = "Armour Point" if ap == 1 else "Armour Points"
+    where = iter_to_str(location.replace("_", " ") for location in row["locations"])
+    return f"{layer.capitalize()} armour: {ap} {points} on the {where}."
+
+
+def describe(obj, looker):
+    """
+    The line `look` shows for a weapon or a piece of armour (GR23).
+
+    Built from the row only, so the line and the table cannot drift. Never
+    raises: `look` asks it for whoever is looking.
+
+    Args:
+        obj (Object): any typeclassed object.
+        looker (Object or None): who looks; their STR and DEX colour a need
+            they do not meet.
+
+    Returns:
+        str or None: the line; None for an item with no row.
+    """
+    row = weapon(obj)
+    if row is not None:
+        return _weapon_line(row, looker)
+    row = armour(obj)
+    if row is not None:
+        return _armour_line(row)
+    return None
 
 
 # -- the hands (GR2, GR3, GR4, GR22) ---------------------------------------------

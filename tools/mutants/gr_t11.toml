@@ -1,0 +1,51 @@
+# GR-T11 -- what an item says of itself (Gear decomposition §9; GR23;
+# STOPP 0: the weapon line in sentences, the armour line by layer, the stone
+# knife as every weapon, `|r` on the unmet need alone, met at `>=`).
+# Run: python3 tools/mutate.py tools/mutants/gr_t11.toml --parallel 2
+#
+# Predicted fail counts:
+#   GRM38 2 -- STR 7 against the club's 7, and the bow's STR 9 against 9,
+#              read red; every other looker is above or below the need
+#   GRM39 1 -- the six armour lines: the hauberk, the trews and the
+#              vambraces sort out of the row's order; the census reads each
+#              location alone and does not see it
+#   GRM40 3 -- the club, the stone knife and the cuirass read the condition
+#              before the line; the tunic has no line and does not see it
+
+modules = ["tests.test_gear_describe"]
+
+[[mutant]]
+id = "GRM38"
+file = "world/gear.py"
+old = '''    return stat is None or int(stat.value) >= need
+'''
+new = '''    return stat is None or int(stat.value) > need
+'''
+expect = [
+    "test_a_need_met_exactly_is_plain",
+    "test_each_need_is_coloured_on_its_own",
+]
+
+[[mutant]]
+id = "GRM39"
+file = "world/gear.py"
+old = '''    where = iter_to_str(location.replace("_", " ") for location in row["locations"])
+'''
+new = '''    where = iter_to_str(location.replace("_", " ") for location in sorted(row["locations"]))
+'''
+expect = [
+    "test_each_armour_line",
+]
+
+[[mutant]]
+id = "GRM40"
+file = "typeclasses/durable.py"
+old = '''        parts = (base, gear.describe(self, looker), self.condition_line())
+'''
+new = '''        parts = (base, self.condition_line(), gear.describe(self, looker))
+'''
+expect = [
+    "test_a_club_reads_description_line_condition",
+    "test_a_stone_knife_reads_as_every_weapon",
+    "test_a_piece_of_armour_reads_its_line",
+]
