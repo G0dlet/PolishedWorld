@@ -1,5 +1,6 @@
 # PolishedWorld — Lessons register
 
+> **Rev 15 · 2026-11-25** — lessons 461–486 appended in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`), from the thirty-eight candidates the slice's handoffs carried after the register's 460 and two from its close-out, numbered in candidate order. Read against 1–460 by keyword before numbering (Adam, as recommended). **Nine recurred and are not added:** candidate 4 is 418, 5 is 392, 8 is 425, 12 is 209, 14 is 71, 17 is 183, 22 is 125 and 147, 36 is 162, and 40 (a handoff's account of `userpassword`, wrong on two points) is 447. **Two are facts about Evennia** and are in Evennia Reference §25: candidates 16 (the clothes' order within a type) and 34 (`search_prototype`'s normalised form). **Five make two:** 3, 30 and 35 (463), and 15 and 29 (470). **Thirteen refine an older lesson,** which gains *refined by N*: 1 by 480, 31 by 464 and 476, 33 by 473, 129 by 482, 158 by 462, 168 by 481, 214 by 463 and 470, 222 by 472, 343 by 478, 380 by 475, and 451 by 468.
 > **Rev 14 · 2026-11-24** — lessons 445–460 appended in the commit that closes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 3; merged as `3dc009d`, PR #35, tagged `alpha-20261124-2`), from the twenty candidates the slice's handoffs carried after the register's 444, numbered in candidate order. Read against 1–444 by keyword before numbering (Adam, as recommended). **Three recurred and are not added:** candidates 8 and 9 (a parallel run without `tblib` cannot report a failure; a failing `subTest` cannot be sent at all) are 348, and candidate 20 (a protocol's numbers are read from the body in its first step) is 433. **One pair is one lesson:** 3 and 18 (447). **Seven refine an older lesson,** which gains *refined by N*: 13 by 460, 133 by 447, 268 by 459, 343 by 448, 420 by 445, 426 by 449, and 445 by 458 within the batch.
 > **Rev 13 · 2026-11-24** — lessons 415–444 appended in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`), from thirty-seven candidates, numbered in candidate order: four from BD's close-out that no later list carried (415–418), the twenty-nine the slice's handoffs carried after the register's 414, and four from its last session. Read against 1–414 by keyword before numbering (Adam, as recommended). **One recurred and is not added:** candidate 17 (`attributes.has` returns `[]`) is 125, and 147 notes it too. **Five pairs or triples are one lesson each:** 7 and 14 (425), 11 and 18 (429), 13 and 19 (431), 16, 21 and 23 (433), 24 and 33 (436). **Twenty-two refine an older lesson,** which gains *refined by N*: 8, 25, 31, 52, 63, 115, 130, 141, 143, 161, 183, 244, 260, 290, 306, 307, 330, 342, 366, 386, and 402 twice (420, 434). Eight are new without a forerunner: 421, 422, 430, 431, 436, 437, 438, 443.
 > **Rev 12 · 2026-11-22** — lessons 396–414 appended in the commit that closes Stage 5's slice BD (`docs/PolishedWorld_Body_Decomposition.md` Rev 2; merged as `22fb018`, PR #33, tagged `alpha-20261122`), from the candidates 1–20 the slice's handoffs carried after the register's 395, numbered in candidate order. Read against 1–395 by keyword before numbering. **One recurred and is not added:** candidate 11 (a table with a formula is tested against the book's cells typed by hand — all 80 Hit Points cells, all 30 Damage Modifier edges) is 390. **Eleven refine an older lesson, which gains *refined by N*:** 57 by 397, 120 by 414, 183 by 402, 197 by 400, 230 by 412, 238 by 408, 254 by 409, 261 by 405, 269 by 407, 301 by 411, 394 by 410. **Two recurred in the close-out itself:** 408 — two more BACKLOG triggers (*Free Skill Points*, *Character panel*) and the runbook's tag line were found by searching the slice's data, not by the handoff's list; and 398 — the close-out's first draft of the runbook gave the two migrations an order *because* one depended on the other, and the code says it does not.
@@ -28,7 +29,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 ## Lessons
 
-1. **Mutate at least once per component, and prove an equivalent mutant equivalent.** A suite never seen killing a mutant is unproven. *(Origin: Adam to fill; first listed 2026-10-15)*
+1. **Mutate at least once per component, and prove an equivalent mutant equivalent.** A suite never seen killing a mutant is unproven. *(Origin: Adam to fill; first listed 2026-10-15; refined by 480)*
 2. **"Nothing changed" needs an independent receipt that the code ran.** An unchanged state is also what a step that never executed leaves behind. *(Origin: Adam to fill; first listed 2026-10-15; refined by 256, 318)*
 3. **A write past a single-writer names the invariant it bypasses, and cleans up first.** Single-writer domains (P-2) hold only while every exception is explicit. *(Origin: Adam to fill; first listed 2026-10-15)*
 4. **Assert the collection is non-empty before every "all satisfy X".** An empty collection passes every universal check. *(Origin: Adam to fill; first listed 2026-10-15; refined by 266)*
@@ -58,9 +59,9 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 28. **A harness's reading of results needs its own receipt: no `Ran` line, stop.** Django reports on stderr, so a stdout-only harness reports nothing for every mutant. *(Origin: Epic A TA3, 2026-10-17)*
 29. **A guide or patch must fail on second application — try it, don't assume it.** A block that re-applies cleanly can silently double an edit. *(Origin: Epic A TA3, 2026-10-17)*
 30. **Configuration is read from the source: confirm with `git stash list` and `settings.py` before judging "expected failures".** A clean-tree prompt meant `#10` was not active. *(Origin: Epic A TA3, 2026-10-17)*
-31. **Line numbers move with every docs commit: read anchors from current `main`, never from a handoff (this one included).** A handoff is a snapshot of a tree that no longer exists. *(Origin: Epic A TA3, 2026-10-17; refined by 304, 425)*
+31. **Line numbers move with every docs commit: read anchors from current `main`, never from a handoff (this one included).** A handoff is a snapshot of a tree that no longer exists. *(Origin: Epic A TA3, 2026-10-17; refined by 304, 425, 464, 476)*
 32. **A check that crashes has not failed — it has not searched.** The negative run must give FAIL lines, not a traceback; guard against empty sets (`all([])` is True). *(Origin: Epic A TA3 close-out, 2026-10-17)*
-33. **Filter on file names, not on line content.** A census filter `grep -v <decomp>` dropped two history lines that only mentioned the decomposition. *(Origin: Epic A TA3 close-out, 2026-10-17)*
+33. **Filter on file names, not on line content.** A census filter `grep -v <decomp>` dropped two history lines that only mentioned the decomposition. *(Origin: Epic A TA3 close-out, 2026-10-17; refined by 473)*
 34. **The sandbox `bash_tool` runs `/bin/sh`, where `**` does not expand; run the catalogue loop in `bash -c 'shopt -s globstar …'` — the count is the receipt.** The loop said "checked 5" until it ran under bash. *(Origin: Epic A TA3 close-out, 2026-10-17; refined by 154)*
 35. **A falsified claim can lack the keyword: search for the mechanism, not just the attribute name.** The `craft_cooldown` search missed `cooldowns.add("craft:<name>")` and "rate limiting on … craft". *(Origin: Epic A TA3 close-out, 2026-10-17)*
 36. **`git am` gives a new commit SHA: cite the tree as the receipt, and the SHA only once it is on origin.** The committer date changes the SHA; the tree proves the content. *(Origin: Epic A TA3 close-out, 2026-10-17)*
@@ -156,7 +157,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 126. **Resuming a menu replays the last goto's kwargs, a stale `notice` included.** The player sees an old message again. *(Origin: character creation CC3.2, 2026-10-28)*
 127. **A gate covers the failure paths.** A refusing node with no options lets an unfinished character out. *(Origin: character creation CC3.2, 2026-10-28)*
 128. **Login protocol steps are verified against the connection screen (lesson 73).** Step 1 said `create Tessa <password>`, but 6.1.0 asks for a username and creates the account in a dialogue. *(Origin: character creation CC3.2, 2026-10-28)*
-129. **Read the library's read path, not only its write path, before predicting a value.** STOPP 1 claimed hunger shows as a fraction; `GaugeTrait` rounds `.current` on read when the base is an int. *(Origin: character creation CC3.3, 2026-10-29)*
+129. **Read the library's read path, not only its write path, before predicting a value.** STOPP 1 claimed hunger shows as a fraction; `GaugeTrait` rounds `.current` on read when the base is an int. *(Origin: character creation CC3.3, 2026-10-29; refined by 482)*
 130. **`assertIn("28/28")` lets `28/28.0` through: anchor rendering asserts with `(?![.\d])` and test both sides of a slash.** Probing mutants (M4b, M4c) found the gap. *(Origin: character creation CC3.3, 2026-10-29; refined by 444)*
 131. **The second `am`'s format, corrected from lesson 104: a modified file gives two lines, `error: patch failed: <file>:<line>` then `error: <file>: patch does not apply`; a new file gives one, `already exists in index`.** The first line is what gets predicted, so its exact form matters. *(Origin: character creation CC3.3, 2026-10-29)*
 132. **`${PIPESTATUS}` in the sandbox's `/bin/sh` gives "Bad substitution" and aborts the script: keep bash-specific code in `bash -c`, and cleanup in a call of its own.** `git am --abort` never ran. *(Origin: character creation CC3.3, 2026-10-29)*
@@ -185,7 +186,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 155. **A test description that names a load is counted against the limit before the code is written.** At L = 20, 40 is still overloaded, so the recovery test had to run at 21/20. *(Origin: weight W2.2, 2026-10-29)*
 156. **A lock's premise is read against live source when it is locked.** Rev 1 excluded scribe as Lore and forage as Survival; scribe rolls Craft and forage makes no skill test at all. *(Origin: weight W2.2, 2026-10-29; refined by 345)*
 157. **`move_hooks=False` is a silent path for every hook-based mechanism: grep production code for it when a feature relies on hooks.** Death (`characters.py:1259`) was found that way. *(Origin: weight W2.2, 2026-10-29; refined by 260)*
-158. **In `@py` with statements, a `lambda` or `def` does not see names from the same line: bind them as default arguments.** `@py` runs `eval(code, {}, available_vars)`, so a function's free names resolve in an empty globals. *(Origin: weight W3.1, 2026-10-30)*
+158. **In `@py` with statements, a `lambda` or `def` does not see names from the same line: bind them as default arguments.** `@py` runs `eval(code, {}, available_vars)`, so a function's free names resolve in an empty globals. *(Origin: weight W3.1, 2026-10-30; refined by 462)*
 159. **`previous rebase directory .git/rebase-apply still exists` means an old `am` is hanging: run `git am --abort`, check HEAD, then `am` again.** *Not rewinding to ORIG_HEAD* means HEAD was untouched. *(Origin: weight W3.1, 2026-10-30)*
 160. **A receipt is read from what actually changes.** Under the `"raw"` policy success and failure both yield an item, so `len(out)` says nothing about the roll. *(Origin: weight W3.1, 2026-10-30)*
 161. **A background job in the sandbox dies when the tool call ends: run in the foreground.** `nohup … &` left a log holding only its first line. *(Origin: weight W3.1, 2026-10-30; refined by 426)*
@@ -195,7 +196,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 165. **Read the command around the hook, not just the hook: a fix below a command is receipted by a test through the command.** The crafting contrib's `CmdCraft.func` re-places products after `craft()` and would overwrite a recipe-level fix. *(Origin: weight W4.2, 2026-10-30)*
 166. **A mutation prediction of "command not found" assumes the test goes through the cmdset.** Tests that call `Cmd()` directly were killed only by the cmdset test (M47). *(Origin: weight W4.2, 2026-10-30)*
 167. **zsh refuses a glob with no match and does not run the command: write the glob exactly as in the chain.** One extra dot was enough to miss. *(Origin: weight W4.2, 2026-10-30)*
-168. **A recipe's `msg` sends a tuple, `(text, {"type": "crafting"})`: a line-collecting helper takes `text[0]`.** `captured_messages` stringified the tuple's repr. *(Origin: weight W5.1, 2026-10-30; refined by 368)*
+168. **A recipe's `msg` sends a tuple, `(text, {"type": "crafting"})`: a line-collecting helper takes `text[0]`.** `captured_messages` stringified the tuple's repr. *(Origin: weight W5.1, 2026-10-30; refined by 368, 481)*
 169. **A mutation that restores the old line can survive once delivery has moved: define it against the new path.** The new path gave the same outcome (M55). *(Origin: weight W5.1, 2026-10-30)*
 170. **A probe's attribution via `inspect.stack` lands on the innermost `tests/` frame, the mixin's file: count tests per module with `countTestCases()`.** `test_trade_ceiling` was counted under `test_barter_currency`. *(Origin: weight W5.1, 2026-10-30)*
 171. **Read tightenings against the order of the lifecycle.** Rev 9's Q3 delivered in `do_craft` while the inputs were still carried, and following it literally would have printed a false *You are overloaded.* *(Origin: weight W5.1, 2026-10-30)*
@@ -241,7 +242,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 211. **Grep the framework's templates for `{% url '<name>' %}` before removing a route name.** Evennia's `login.html:41` reverses `register` with no guard, so dropping the name breaks the login page. *(Origin: launch minimum L1.2, 2026-11-01)*
 212. **Read which cmdset `CMDSET_UNLOGGEDIN` names before testing the door it opens.** The project's is the menu_login contrib, which installs no telnet `create`; a test of `create` would have tested a command no player meets. *(Origin: launch minimum L1.2, 2026-11-01)*
 213. **A mutation script's regex for test names must not stop at digits.** Test names here carry digits, and a harness that reads a truncated name cannot say which test killed the mutant. *(Origin: launch minimum L2.2, 2026-11-01)*
-214. **A protocol step that assumes what the character knows reads it in game first.** Lesson 71 says it of inventory; the same holds for recipe tags — the dev character knew 14 of the 17 gated recipes. *(Origin: launch minimum L2.2, 2026-11-01)*
+214. **A protocol step that assumes what the character knows reads it in game first.** Lesson 71 says it of inventory; the same holds for recipe tags — the dev character knew 14 of the 17 gated recipes. *(Origin: launch minimum L2.2, 2026-11-01; refined by 463, 470)*
 215. **Never run `evennia test` while an in-game protocol reads the dev activity log.** Tests that pass a site without the mixin write fixture lines (`Char`, `#6`, game-year 229) into it, and the protocol's count is off. *(Origin: launch minimum L2.2, 2026-11-01)*
 216. **Lock event-field names against both the writer's reserved names and Python's keywords.** `from=` cannot be passed as a keyword argument, so `improve`'s fields became `old` and `new`, and `consume`'s became `verb` because `kind` is reserved. *(Origin: launch minimum L2.2, 2026-11-01)*
 217. **A field an event always writes with the same value is not data: leave it out.** `meaningful` on a logged `improve` is always true, because only a tick is logged. *(Origin: launch minimum L2.2, 2026-11-01)*
@@ -249,7 +250,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 219. **A re-delivered patch keeps v1's file name: remove v1 from the download folder before downloading v2.** Otherwise the glob matches both files. *(Origin: launch minimum L2.3, 2026-11-02)*
 220. **Read what kind of name a duck test checks for.** The clothing contrib's `get_worn_clothes` is a module function, so `hasattr(char, "get_worn_clothes")` is always false. *(Origin: launch minimum L3.1, 2026-11-03)*
 221. **Read which term a modifier lands on — the trait's `mod` or the roll — before claiming it moves a gate.** The craft floor reads `.value` (current plus `mod`); the tool modifier and the overload penalty are roll terms and move nothing. *(Origin: launch minimum L3.2, 2026-11-03)*
-222. **In a quoted heredoc, Python's `"\\n"` is a backslash and an `n`, not a newline: run `git diff --check HEAD~1` before `format-patch`.** An `rstrip` meant to remove a newline removed nothing, and L3.2b's test file ended in a blank line. *(Origin: launch minimum L3.2b, 2026-11-03)*
+222. **In a quoted heredoc, Python's `"\\n"` is a backslash and an `n`, not a newline: run `git diff --check HEAD~1` before `format-patch`.** An `rstrip` meant to remove a newline removed nothing, and L3.2b's test file ended in a blank line. *(Origin: launch minimum L3.2b, 2026-11-03; refined by 472)*
 223. **A protocol step that restores a value restores what step 1 read, not a value shown later.** `mod` was set back to 20 where step 1 had read 0. *(Origin: launch minimum L3.2, 2026-11-03)*
 224. **`give` needs no second account: `CmdGive` does not check puppeting, so `@tel` a statue in as the receiver and back afterwards.** L3.1's give was proved on the work machine with one account. *(Origin: launch minimum L3.1, 2026-11-03)*
 225. **A seeded object that a player consumes takes its seed tag with it, so tag-only idempotence recreates it: a consumable seed needs a placement ledger.** `learn` deletes the scroll and its tag, and `find_seeded` alone would put the scroll back on every `seed_world()`. *(Origin: launch minimum L3.3, 2026-11-03)*
@@ -411,7 +412,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 342. **Labels are checked against the repo before they are used in the chat: `grep -rhoE "\b<XX>[0-9]+\b"` over `docs world commands typeclasses server tests`.** The design session named targeting TG and wounds WD, both taken (Hunting TG1–TG5, Weight WD1–WD5), and it was found only at delivery; NM-T1's extra mutations then took NMM2 and NMM3, NM-T2's, hence the letter after the number (NMM1b). *(Origin: Stage 5 design session, Combat decomposition and NM-T1, candidate 1; 2026-11-14 → 15; refined by 424)*
 
-343. **An assumption in a roadmap line is not a source: read the rule before a proposal rests on it, and say so when the book disagrees.** Stage 5's text assumed Armour Points summed across layers (core p. 95 takes the highest), wear per hit and no pattern for non-combat damage; *Legend* had none of the three. *(Origin: Stage 5 design session, candidate 2; 2026-11-14; refined by 448)*
+343. **An assumption in a roadmap line is not a source: read the rule before a proposal rests on it, and say so when the book disagrees.** Stage 5's text assumed Armour Points summed across layers (core p. 95 takes the highest), wear per hit and no pattern for non-combat damage; *Legend* had none of the three. *(Origin: Stage 5 design session, candidate 2; 2026-11-14; refined by 448, 478)*
 
 344. **A count in a design note or a decomposition ages: re-count it against live source before it becomes a lock, and re-measure the next task's red run after each delivered task.** The Names note's sixteen room messages were twenty at `33fab93`; NM-T2's seventeen broken tests were 57 once NM-T1 had moved the craft tests to `1-fiber`. *(Origin: Combat decomposition and NM-T2, candidate 3; 2026-11-14 → 15)*
 
@@ -485,7 +486,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 379. **`$conj()` is the verb after a name and never reads `gender`; `$pconj()` is the verb after a pronoun — and a test with `male` and `female` cannot tell them apart.** *he stands* reads right either way; only the line without facts, *they stand*, showed the mix-up Rev 7 had written. *(Origin: Names NM-T15b, candidate 43; 2026-11-16)*
 
-380. **When a task gives an existing fixture a new meaning, tests in another module can break: the neighbours may not catch it, the whole suite does.** NM-T15b's tests wrote full facts, and after NM-T15 those characters were composed. *(Origin: Names NM-T15, candidate 44; 2026-11-16)*
+380. **When a task gives an existing fixture a new meaning, tests in another module can break: the neighbours may not catch it, the whole suite does.** NM-T15b's tests wrote full facts, and after NM-T15 those characters were composed. *(Origin: Names NM-T15, candidate 44; 2026-11-16; refined by 475)*
 
 381. **A test over every combination that checks only the length misses a skipped drop step: compare against the order written out on its own.** The next step still fits, so a word dropped too early passes a length check. *(Origin: Names NM-T15, candidate 46; 2026-11-16)*
 
@@ -627,7 +628,7 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 
 450. **An in-game step that gives a vital Major Wound says how long the clock runs and what stops it.** The head's clock kills after (CON + POW) / 2 × 5 s — 50 s at 20 — unless `wounds.stop_clock` is called; HE-T6's protocol said so and let it run. *(Origin: HE decomposition, candidate 6; 2026-11-24)*
 
-451. **A chain of `sed`, `rev` and `cut` hung in the sandbox and the cause was not found: do such text work in Python.** Written down so that the next hang is recognised rather than debugged again from nothing. *(Origin: HE decomposition, candidate 7; 2026-11-24)*
+451. **A chain of `sed`, `rev` and `cut` hung in the sandbox and the cause was not found: do such text work in Python.** Written down so that the next hang is recognised rather than debugged again from nothing. *(Origin: HE decomposition, candidate 7; 2026-11-24; refined by 468)*
 
 452. **A mutant's string that matches once today can match twice after the next task: widen it until it names one place.** HE-T3's HEM13b matched the `sheet` row once HE-T4 added it and was SKIPPED; it spans two lines since. *(Origin: HE-T4, candidate 10; 2026-11-24)*
 
@@ -646,3 +647,55 @@ Hard-won working rules for building PolishedWorld with Claude: how source is rea
 459. **A census that reads literal names is passed by a name in a variable: a mutant in that form shows what the behaviour test is worth on its own.** HE-T7's HEM25–HEM27 were killed by the death tests and the census together; HEM25b–HEM27b, the name in a variable, by the death tests alone. Refines 268. *(Origin: HE-T7, candidate 17; 2026-11-24)*
 
 460. **A protocol that writes, acts and reads around a periodic tick does it on one `py` line,** so that no tick falls between. HE-T7's `(3, 43200, True)` proves HE5 only if the survival tick added nothing between the write and the read. Refines 13. *(Origin: HE-T7, candidate 19; 2026-11-24)*
+
+461. **A "yes to every choice" given before the choices are shown is answered by writing each choice out in the result.** At HE-T9 the approval came before the list, so the result named every choice for the approval to meet. *(Origin: HE-T9, candidate 1; 2026-11-24)*
+
+462. **Read Testing Reference §3 before explaining scope in a one-shot `py`.** At HE-T8 why a lambda could not see a name was reasoned afresh, where §3 and lesson 158 already said it. Refines 158. *(Origin: HE-T8, candidate 2; 2026-11-24)*
+
+463. **The state a protocol predicts from — a body, a ledger — is read in that database before anything is predicted of it or cleaned.** At GR-T14 `wnt12`'s *maimed* arm, cited from the Wounds Decomposition, was gone, and `adam` was *exhausted*, so G5's Strike Rank of 8 read 6; GR-T12 and GR-T14 read the scroll ledger before `seed_world()` and got 19, then `created 0`. Refines 214. *(Origin: HE-T8, GR-T12 and GR-T14, candidates 3, 30 and 35; 2026-11-25)*
+
+464. **A handoff's section reference is read against the heading before it steers the reading.** At the GR decomposition's STOPP 2 a section number from the handoff led to a heading on another subject. Refines 31. *(Origin: GR decomposition, STOPP 2, candidate 6; 2026-11-24)*
+
+465. **A sum named in a reply is counted row by row before it is written.** A total at the GR decomposition's STOPP 24 did not match its rows, and the slip recurred at GR-T1. *(Origin: GR decomposition, STOPP 24, candidate 7; 2026-11-24)*
+
+466. **Ask whether a contrib's configuration is enough before proposing code of our own, and try the answer in the sandbox.** At the GR decomposition's STOPP 11–12 the armour layers became three clothing types in `CLOTHING_TYPE_ORDERED`, with one check in the garment's `wear()`, rather than a layer system beside the contrib. *(Origin: GR decomposition, STOPP 11–12, candidate 9; 2026-11-24)*
+
+467. **A slice that adds the first weapon of a type counts the items that already exist, each one's hand read in the table.** Gear Rev 1's ten items that exist were nine (Rev 2, GR9). *(Origin: GR decomposition, STOPP 20, candidate 10; 2026-11-24)*
+
+468. **Text work over the documents' very long lines is done in a short `python3`, not with `grep -o` or a chain of `sed`.** At GR-T14 `grep -o` with `.{0,400}` stopped with *exceeds complexity limits*, after a chain of `sed`, `rev`, `cut` and `grep` had hung for two minutes at the GR decomposition. Refines 451. *(Origin: GR decomposition, STOPP 33, and GR-T14, candidate 11; 2026-11-25)*
+
+469. **A replacement that finds a class's body by "the next `class`" is anchored in a line inside the class instead.** At GR-T2 a commented-out class block stood in between. *(Origin: GR-T2, candidate 13; 2026-11-25)*
+
+470. **What a protocol step presupposes — the appearance facts a short description reads, the item a search finds — is read in game before the step.** GR-T3's check of the short description's word needed appearance facts `adam` did not have, and GR-T10's steps searched for items that had to be made first. Refines 214. *(Origin: GR-T3 and GR-T10, candidates 15 and 29; 2026-11-25)*
+
+471. **`git grep -l` does not see untracked files: a new test module is added to the neighbour ring by hand.** GR-T6's new module fell out of the ring; from GR-T7 on, each new file was named by hand. *(Origin: GR-T6, candidate 18; 2026-11-25)*
+
+472. **`s.rstrip("\n") + text` followed by `+ "\n"` doubles the last line break when `text` already ends in one: read `tail -c 2 <file> | od -c` before the commit.** It happened twice, at GR-T5 and GR-T6. Refines 222. *(Origin: GR-T5 and GR-T6, candidate 19; 2026-11-25)*
+
+473. **A reading filtered with `grep -v '^\s*$'` hides a docstring's blank lines: read the block whole.** At GR-T6 a blank line inside a docstring was invisible in the filtered read. Refines 33. *(Origin: GR-T6, candidate 20; 2026-11-25)*
+
+474. **A `py` check that writes a lasting stamp clears it before and after.** GR-T6's line clears `fought_at` first, so it reads its own write, and again after, so the next check starts clean. *(Origin: GR-T6, candidate 21; 2026-11-25)*
+
+475. **The whole suite at a component boundary is the policy (Testing Reference §13), and a slice that skips it pays at the next full run.** GR ran it at the end of G3 and at the merge only; `tests/test_skill_ladders.py`, which no neighbour ring reached, was red from GR-T1 to GR-T9. Refines 380. *(Origin: GR-T9, candidate 23, and GR-T15b; 2026-11-25)*
+
+476. **A document is read from the branch it lives on.** At GR-T7's STOPP 0 Gear Rev 3 was read from `feature/gear`, which carries Rev 1; at GR-T14, after `git checkout feature/gear` for `merge-tree`, GR-T6 and GR-T7 were read from Rev 1 again, caught on the line numbers and read again from `main`. Refines 31. *(Origin: GR-T7 and GR-T14, candidate 24; 2026-11-25)*
+
+477. **A red test is written so that the first assertion to fail is the one the decomposition names.** A red that fails on another line is red for a reason no one predicted. *(Origin: GR-T9, candidate 25; followed in GR-T10–GR-T13; 2026-11-25)*
+
+478. **A word a reference carries in a decomposition is read against the lock before it is used.** GR-T8's STOPP 0 named the lines through a looker TR6; they are TR3 (Gear Rev 4). Refines 343. *(Origin: GR-T8, candidate 26; 2026-11-25)*
+
+479. **A red test at a boundary is read against the formula's value there: if the formula gives 0 at the boundary, the test proves nothing.** GR-T10's red at `ap` could not be red — `ceil(0) = 0` with the floor or without it (Gear Rev 5); the same at GR-T13, where a second `swap_typeclass` cannot show in a condition (Gear Rev 6). *(Origin: GR-T10 and GR-T13, candidate 27; 2026-11-25)*
+
+480. **A mutation that moves a boundary by one is tried in both directions: one may be equivalent, and the other seen only at a value no test reads.** GR-T10's floor moved down is equivalent and named in its spec; moved up it shows only at one past `ap` (GRM35). Refines 1. *(Origin: GR-T10, candidate 28; 2026-11-25)*
+
+481. **`self.msg` with a tuple shows its first element only: a `py` line whose answer is a tuple sends `str(...)`, and the line is tried in game before it goes into a docstring or a runbook.** GR-T13's run line for `migrate_gear` showed one count of two, fixed in `c2d5bce`. Refines 168. *(Origin: GR-T13, candidate 31; 2026-11-25)*
+
+482. **Read what reads a field before predicting a mutant on it.** `layer_conflict` and the sums read the row's layer, never the item's `clothing_type` (Gear Rev 6). Refines 129. *(Origin: GR-T12, candidate 32; 2026-11-25)*
+
+483. **A number that pins a register can stand in more tests than the one you know of: `git grep -n -w '<the number>' -- tests` before the register grows.** GR-T12's recipe count, 29 → 34, stood twice in `tests/test_min_skill_ladder.py` and once in `tests/test_recipe_mastery.py`. *(Origin: GR-T12, candidate 33; 2026-11-25)*
+
+484. **A `py` line is written new for its step, not cut from a draft.** GR-T14's cleaning line for `wnt12` carried an empty list comprehension, `[o.delete() for o in []]`, against the rule — harmless, and it should not have been there. *(Origin: GR-T14, candidate 37; 2026-11-25)*
+
+485. **A claim in a *built* text that no code does something is tried with `grep` before it is written.** GR-T15a's draft said no code asks the `Weapon` class; `migrate_gear` does (`world/gear_migrations.py:82`), and it was caught before the commit. *(Origin: GR-T15a, candidate 38; 2026-11-25)*
+
+486. **A rename is searched across the whole repository — `AGENTS.md` and the design notes included — not only in its module and its tests.** GR-T2 counted `_apply_garment_quality` in `world/recipes.py`; `AGENTS.md`'s recipe template still called it, so a recipe written from the template would have failed at its first craft, found at GR-T15b (`AGENTS.md` Rev 11). *(Origin: GR-T15b, candidate 39; 2026-11-25)*

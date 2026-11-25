@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 124 · 2026-11-25** — **three entries added, eight annotated, one renamed in place**, docs only, in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `gear`, `weapon`, `armour`, `wield`, `hold`, `hands`, `held`, `Strike Rank`, `clothing`, `is wearing`, `get_display_things`, `Stage 5`, `alpha-20261124-2`, `scrolls`, `Fifteen` and `_apply_garment_quality`; each entry that names one was read against the merge. **Added:** *What a looker reads of a dressed and armed body* (UX & Item Identity), *Armour's warmth in the comfort bands* (Survival) and *When the closed alpha opens — now, or after Stage 5* (Tooling & Process, Adam's question of 2026-11-24). **Annotated:** *Persistent alpha instance* and *Survival loop tuning* (the tag L6.1 deploys is `alpha-20261125`), *Tanning upgrade* (GR11), *Superior-tool longevity* (GR21), *Metal tools + craft-station / forge* (the metal knife's row), *A collapsed body's instant commands* (`wield` and `unwield` refused; `wear`, `remove`, `put`, `drop` and `give` let through), *Article and number in messages built from item keys* (GR's plural keys) and *A screen-reader pass* (GR-T11's red need: colour is enough for the alpha, Adam). **Renamed in place:** *Scribe's band→condition bypasses `quality_band`* names `_apply_quality_condition` and `CONDITION_BY_BAND`. **Read and left:** *Character panel* (it says where HE is, which stays true; nothing GR built is in the `char` snapshot), *World-loot scroll seed* (its *Fifteen rows* is L3.3's and was true; nineteen since GR-T12, Alpha Runbook §4), *Cultural Background* (its *six Combat Styles* is BD-T6's; Staff is the seventh, and nothing uses a style until ML), the death entries (a death empties the hands and a held item goes to the body with everything else; `TestEveryWayOut`) and the DONE entries *Weight and encumbrance* and *Worn clothing leaves without `remove()`*.
 > **Rev 123 · 2026-11-24** — **one entry DONE, five annotated**, docs only, in the commit that closes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 3; merged as `3dc009d`, PR #35, tagged `alpha-20261124-2`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `hero`, `Hero Point`, `Glancing`, `Heroic`, `alpha-20261124`, `Character panel`, `restore block`, `sheet`, `accrue`, `tblib` and `mutation`; each entry that names one was read against the merge. **DONE:** *Hero Points in a persistent world* (OQ-HE1 and OQ-HE3 stay the Combat Design's). **Annotated:** *Character panel: Legend combat state* (the readers; the push CL owes), *Survival loop tuning* and *Persistent alpha instance* (the tag L6.1 deploys is `alpha-20261124-2`), *A collapsed body's instant commands* (`hero` answered, seen in play) and *Runnable seam checker for the System Map* (`TestHeroCensus` checks one row at test time). The rest are unchanged by HE. No entry is added.
 > **Rev 122 · 2026-11-24** — **three entries annotated**, docs only, in the commit that decomposes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 1; Combat Design Rev 9). BACKLOG was searched first for `hero`, `Glancing`, `Major Wound`, `respawn`, `played`, `away_since` and `cap` (lessons 238 and 408); five entries name *Glancing Blow* or a Major Wound and none says how a downgrade is done. **Annotated:** *Hero Points in a persistent world* (the eight locks, and the cap against the book's Heroic Abilities, OQ-HE1), *Character panel: Legend combat state* (where the panel will read Hero Points, and the push CL owes) and *A collapsed body's instant commands* (`hero` is answered). No entry is added: the open questions are the Combat Design's and the decomposition's.
 > **Rev 121 · 2026-11-24** — **two entries DONE, nine annotated, one new**, docs only, in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`). BACKLOG was searched first for the twelve names the slice touched (WN-T13; lessons 238 and 408): twenty-five entries name one, and each was read against the merge. **DONE:** *`at_character_death()` restore block vs persistent wound tiers* (WN-T8–WN-T10) and *Dev characters keep a float `health.base`* (WN-T6, closed by the trait's removal). **Annotated with what shipped:** *Free Skill Points*, *Characteristic improvement*, *Two-stage healing* (status now BLOCKED on HL's design session), *Character panel: Legend combat state* (BLOCKED on CL), *Survival loop tuning*, *A collapsed body's instant commands* (the clock fix), *`descs` tables…* (WN-T11 changed health's key-0 word, not its reading; the trigger did not fire), *Runnable seam checker*, *Persistent alpha instance* and *Hero Points in a persistent world*. **New:** *Others cannot tell a body lies senseless* (OQ-WN5's last word, BLOCKED on ML with OQ-WN3). The other fourteen are done, unchanged by WN, or already say what WN did.
@@ -285,6 +286,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   pottery needs no kiln at all: a pit firing makes it (PP3), and the kiln is
   built of the pit's bricks (PP5). Decisions #7–#9 stay this epic's
   decomposition's.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** GR built no metal — stone, bone, leather,
+  linen and wood (GR9). The spawn-only metal `knife` has no row in
+  `world/gear.py` yet, and the module says its row comes with this entry
+  (`world/gear.py:53–54`). The book's knife is of any material (core
+  p. 103), and a knife's frailty is its starting condition, not a weaker row
+  (GR14), so the row need not differ from the stone knife's; what metal does
+  to the condition is this entry's. From `AGENTS.md` Rev 11 the content agent
+  flags a weapon whose row does not exist.
 - **Status:** OPEN — next: decompose the metallurgy epic (tools first)
 
 ### Superior-tool longevity / condition bonus
@@ -295,6 +304,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** Metal tools + forge (when start-condition becomes tier-driven
   rather than a flat prototype value).
 - **Origin:** Component G design (Rev 8), deferred by decision.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** a pure weapon's starting condition now
+  follows its quality, by the garments' table — 100, 90, 70, 50 —
+  through `_apply_quality_condition` (GR21). The stone knife and the stone
+  axe are weapons since GR-T1 and stay `Tool`s at their prototype's 40 at
+  every band, through `_apply_tool_quality` (`world/recipes.py:104`), pinned
+  by `tests/test_gear.py::TestThePureWeapons::test_the_stone_knife_and_axe_keep_their_prototypes_condition`.
+  The collision this entry waits on stands.
 - **Status:** BLOCKED (metal tools + forge)
 
 ### `tool_wear_on_fumble` tuning
@@ -865,6 +881,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   a roll term on the leather craft, never a requirement, so today's two-hide
   recipe still makes leather (ZP11, ZG6). The term's size is set with bark
   and water in this entry's decomposition (ZQ12). Nothing decided.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** GR makes leather armour in two hardnesses
+  of one material, `leather`, and the hardness is the work (GR11): *soft
+  leather trews*, three pieces over three locations at rung 40; the *hard
+  leather hauberk* and *vambraces*, four pieces each over two locations —
+  two a location — at rung 60 (`world/recipes.py:457`, `:493`, `:511`). The
+  item's material reads *hard leather* in its row (`world/gear.py:218–223`).
+  This entry is where hard leather becomes a material of its own; the
+  tanning questions above stand.
 - **Status:** OPEN
 
 ### `SkillXPHandler.add()` does not raise on an unknown skill key
@@ -892,7 +916,9 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **What:** `SCRIBE_CONDITION_BY_TIER` maps a `skill_check` result tier straight to a
   start-condition, where the house pattern routes tier → `QUALITY_BY_TIER` →
   `crafting_quality.quality_band()` → a band→condition table (E.3's
-  `_apply_garment_quality` / `GARMENT_CONDITION_BY_BAND`).
+  `_apply_quality_condition` / `CONDITION_BY_BAND`, so named since Gear GR-T2;
+  until Rev 124 this line named `_apply_garment_quality` /
+  `GARMENT_CONDITION_BY_BAND`).
 - **Why deferred:** Deliberate, not an oversight. `scribe` is a standalone Command,
   not a `MongooseCraftRecipe`: it never computes a `quality` number and stamps no
   `db.quality`, so routing through `quality_band()` would mean synthesising a quality
@@ -2326,6 +2352,28 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   as above and adds Hero Points. The tick now feeds a second counter beside
   healing's, a Hero Point per game day (HE4); it changes no gauge and no time
   to death.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** the tag is now `alpha-20261125` (Alpha
+  Runbook Rev 15), which carries WN and HE as above and adds GR. GR adds no
+  gauge and no tick and changes no time to death; armour's warmth in a
+  temperate room is its own entry, *Armour's warmth in the comfort bands*.
+- **Status:** OPEN
+
+### Armour's warmth in the comfort bands
+- **What:** Each of the six pieces of armour GR made has warmth 1
+  (`world/prototypes.py`), so a whole kit is 6 against the temperate band's
+  ceiling of 4 (`world/thermal.py:41`, `COMFORT_BANDS`), and what is worn
+  under it counts too. Two stacks of `HeatStress` make thirst ×1.2 and fatigue
+  ×1.08 — 10 % and 4 % a stack (`world/survival_buffs.py:75–92`) — and the
+  buff is **silent**: nothing tells the wearer why the thirst runs faster.
+  Deliberate: GR-T12's choice, *armour is warm to wear*, against warmth 0 on
+  the vambraces and the helm, a kit of 4 (Gear Decomposition, GR-T12's
+  *Shipped* line).
+- **Why deferred:** Before ML no one has a reason to wear a whole kit, so the
+  alpha's thirst data will hold little armour; the number is tuned when
+  armour is worn for a reason.
+- **Trigger:** ML's decomposition, or *Survival loop tuning*, whichever comes
+  first.
+- **Origin:** Gear GR-T12, read again at GR-T15b.
 - **Status:** OPEN
 
 ### A `rate` multiplier below ×1.5 is lost to the gauges' rounding
@@ -2393,6 +2441,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   as written: it answers a collapsed or senseless body, the switch included —
   seen at home on a body senseless from a Major Wound to the head (HE-T6's
   protocol). The entry's list is otherwise unchanged.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** GR's `wield` and `unwield` join the
+  refused list: both ask `refuse_if_collapsed(fatigue.CANNOT_HANDLE)` first
+  (`commands/gear_commands.py:79`, `:113`; GR-T8). `wear` and `remove`, the
+  contrib's (`commands/default_cmdsets.py:191–192`), go through — GR-T4's
+  layer check in `ClothingWithBuffs.wear` does not ask the body — and so do
+  `put` (`commands/inventory_commands.py:166`), `drop` and `give`, beside
+  `get`. A collapsed body cannot take a club in hand, and can put on armour,
+  bag it or give it away. The entry's list is otherwise unchanged.
 - **Status:** OPEN
 
 ---
@@ -3375,6 +3431,42 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** The next task that touches item naming, or a UX pass before the
   alpha cohort plays.
 - **Origin:** Alpha Content AC2.1–AC4.3 in-game protocols.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** GR adds two plural keys, `soft leather
+  trews` and `hard leather vambraces`, beside the older `leather boots`, and
+  each gets *a* where Evennia counts: `get_numbered_name`
+  (`evennia/objects/objects.py:1677`), called by the grouping
+  (`evennia/utils/utils.py:1844`) — *a hard leather vambraces*, seen at
+  GR-T14. The fix this entry proposes, an item that says it is plural, serves
+  all three. The lines *is wearing* and *is holding*, which carry no article
+  at all, are *What a looker reads of a dressed and armed body*.
+- **Status:** OPEN
+
+### What a looker reads of a dressed and armed body
+- **What:** Four things in `look` at a character, seen at Gear GR-T14's
+  protocol. (1) The clothing contrib's line starts with the looker's name for
+  the body, and for a stranger that is a short description in lower case —
+  *a bone-clad, lean, grey-eyed man is wearing …* (`clothing.py:372`); GR-T9's
+  line under it takes the capital (`typeclasses/characters.py:975`).
+  (2) Neither line has articles: the contrib lists garments by `garment.name`,
+  the key (`clothing.py:365–367`), and GR-T9's line by the item's display name,
+  *is holding stone knife in the right hand* — pinned so by
+  `tests/test_gear_display.py:142`, `:150` and `:158`. The grammar is
+  *Article and number in messages built from item keys*'s. (3) The looker reads
+  the body's name twice in a row, once in *is wearing* and once in *is
+  holding*. (4) The owner's own `look` ends with everything carried, the held
+  item too: the contrib's `get_display_things` leaves out what is worn
+  (`clothing.py:385` on, `not obj.db.worn`), not what is held, so the owner
+  reads it in *is holding* and again in the list (`characters.py:977` shows
+  the list to the owner only). `inventory` lists a held item under both on
+  purpose (GR-T9's STOPP 0); `look` was not decided.
+- **Why deferred:** Cosmetic, and the four share one place: the project
+  already overrides `get_display_desc` (`typeclasses/characters.py:948`) and
+  `get_display_things` (`:977`), so one change can compose one sentence —
+  or keep two lines — with the capital, the articles, the name once and the
+  list without the held item. Which form is not decided here.
+- **Trigger:** The next change to `get_display_desc`, or CL or ML, which both
+  read the body; the tests above change with it.
+- **Origin:** Gear GR-T14's protocol (Adam), and GR-T15b's reading.
 - **Status:** OPEN
 
 ### `recipes` lists floored recipes under "can craft"
@@ -3661,6 +3753,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   room panel the name, with the pose under it in a muted `span.pw-room-pose`
   (NM-T17) — whether a screen reader reads that span as part of the row is
   for this pass.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** `look` at a weapon or a piece of armour
+  lists its needs, and a need the looker does not meet is wrapped in `|r…|n`
+  and nothing else (`world/gear.py:513`, `:546`; GR-T11): without ANSI, *STR 9*
+  reads the same met or not. It is the first place where colour alone carries
+  the meaning — a condition below 33 is red too, but its number is printed
+  (`typeclasses/durable.py:108`). Colour is enough for the alpha, whose
+  clients show it (Adam, answering GR-T11's question); a word beside the need
+  is the likely fix, and its form is this pass's.
 - **Status:** OPEN
 
 ### Webclient: `TypeError` on Enter while disconnected
@@ -4273,7 +4373,35 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   on `3dc009d`, PR #35, tree `da67ec5`), which carries WN and Hero Points;
   runbook §7, Rev 14. HE needs no migration (HE6): a character with nothing
   stored has two points and *Glancing Blow* on.
+- **Annotation (2026-11-25, Gear Decomposition Rev 8):** GR shipped before the alpha opened as
+  well: L6.1 deploys **`alpha-20261125`** (annotated, on `e6c9e2b`, PR #36,
+  tree `dde8040`), which carries WN, HE and GR; runbook §7, Rev 15. The
+  alpha's database is made fresh and needs neither `seed_world()` nor
+  `migrate_gear()`; a database made before the tag needs both, once each
+  (runbook §7, *Gear on a database made before `alpha-20261125`*). Whether
+  L6.1 waits for the rest of Stage 5 is its own entry, *When the closed alpha
+  opens — now, or after Stage 5*.
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
+
+### When the closed alpha opens — now, or after Stage 5
+- **What:** Adam's question (2026-11-24): should L6.1 wait until Stage 5 is
+  whole? Six of its fourteen slices are merged — NM, SC, BD, WN, HE and GR
+  (`docs/PolishedWorld_Combat_Decomposition.md` §2) — and eight remain, the
+  close-out with them. Not decided; Adam leans towards waiting.
+- **What each answer means:** *Now* — L6.1 deploys `alpha-20261125` onto a
+  fresh database, and every later slice that changes what a player meets is
+  deployed onto a running alpha, with its one-off lines on the players'
+  database (GR's would have been two, `seed_world()` and `migrate_gear()`,
+  Alpha Runbook §7) and new rules met mid-alpha. *After Stage 5* — the
+  cohort's first world has combat, and the runbook's §7 moves its tag at
+  every merge until then (lesson 418). Either way the tag goes out before the
+  first player makes a character (Body Decomposition OQ-BD4, Wounds
+  Decomposition OQ-WN7).
+- **Why deferred:** Adam's decision; nothing built assumes either answer
+  (Gear Decomposition §13, point 10).
+- **Trigger:** Adam deciding — at the latest, before L6.1 runs.
+- **Origin:** Adam, 2026-11-24, at the Gear decomposition; filed at GR-T15b.
+- **Status:** OPEN
 
 ### Two treasury tests assume the developer's settings match the shipped ones
 

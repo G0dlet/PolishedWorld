@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 83 · 2026-11-25** — two rows changed, docs only, in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8, GR-T15b; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`), with Testing Reference Rev 31, the System Map Rev 8, Evennia Reference Rev 39, BACKLOG Rev 124, roadmap Rev 91, Lessons Rev 15, the Textiles and Fishing design notes' Rev 3, and `AGENTS.md` Rev 11 outside `docs/`: the Gear decomposition's row says it is done, and the Lessons register's row reads *1–486*. No document added or removed; the directory-vs-list loop was run (67/0).
 > **Rev 82 · 2026-11-25** — one row changed, docs only, in the first half of the commit pair that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 7, GR-T15a; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`), with Combat Design Rev 12, Combat Decomposition Rev 22, Body Decomposition Rev 4 and the Alpha Runbook Rev 15: the Gear decomposition's row says it is merged and its close-out half done. No document added or removed; the directory-vs-list loop was run (67/0).
 > **Rev 81 · 2026-11-25** — one row changed, docs only: `PolishedWorld_Gear_Decomposition.md` is in progress (Rev 6; GR-T1–GR-T13, components G1–G5, shipped on `feature/gear`).
 > **Rev 80 · 2026-11-25** — one row changed, docs only: `PolishedWorld_Gear_Decomposition.md` is in progress (Rev 5; GR-T1–GR-T11, components G1–G4, shipped on `feature/gear`).
@@ -134,7 +135,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–460) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–486) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
@@ -158,7 +159,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Body decomposition (Stage 5, slice BD: Resilience, Evade, Unarmed and Brawn; Combat Styles and weapon types as data; Combat Actions, Strike Rank, Damage Modifier and Hit Points per location read on demand — done, merged as `22fb018`) | tactical (feature tasks) | `docs/PolishedWorld_Body_Decomposition.md` |
 | Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — done, merged as `c3df740`) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
 | Hero Points decomposition (Stage 5, slice HE: the points behind one module, a point per game day played up to four, *Glancing Blow* as a trim of a blow's damage, the command `hero`, a row in `sheet` — done, merged as `3dc009d`) | tactical (feature tasks) | `docs/PolishedWorld_Hero_Points_Decomposition.md` |
-| Gear decomposition (Stage 5, slice GR: weapons and armour as a table read by prototype, three armour layers, Armour Points into Strike Rank, two hands and `wield`, a line in `look`, five recipes — merged as `e6c9e2b`; the close-out's second half, GR-T15b, is next) | tactical (feature tasks) | `docs/PolishedWorld_Gear_Decomposition.md` |
+| Gear decomposition (Stage 5, slice GR: weapons and armour as a table read by prototype, three armour layers, Armour Points into Strike Rank, two hands and `wield`, a line in `look`, five recipes — done, merged as `e6c9e2b`) | tactical (feature tasks) | `docs/PolishedWorld_Gear_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |

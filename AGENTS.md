@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 11 · 2026-11-25** — weapons, after Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8, GR-T15b). §4's helper is **`_apply_quality_condition`**, renamed at GR-T2 from `_apply_garment_quality`, which no longer exists — a recipe written from the old template would fail with `NameError` at its first craft; the required cases are three, the new one a pure weapon (GR21). §3's table gains **`typeclasses.weapons.Weapon`**, and `Object` is no longer for weapons; a weapon or a piece of armour reads its rules from a row in `world/gear.py`, which is not yours to write, so a prototype without its row is a FLAG.
 > **Rev 10 · 2026-11-12** — the opening line names the tone: *cozy dark hard fantasy* instead of *high-fantasy*, and §3's `desc` style points at `docs/PolishedWorld_Tone_Guide.md` §5, which every description you write must follow. Nothing else changes.
 > **Rev 9 · 2026-11-04** — the opening line says **Python ≥ 3.12** and names the pinned Evennia 6.1.0 (`requirements.txt`, Launch Minimum L1.1), whose wheel requires it; it said *Python 3.11+*. Nothing else changes.
 > **Rev 8 · 2026-10-26** — §4 says **when `_finalize_item` is required, not only when it is forbidden**, and the recipe schema carries **`requires_knowledge` and `min_skill`** (Alpha Content close-out, AC6). AC4.1 found the gap: §4 forbade `_finalize_item` unasked, while every garment output must call `_apply_garment_quality(obj)` — without it a shoddy garment was born at condition 100 while the linen shirt is born at 50. AC5.1 found the schema silent on `min_skill`, which every recipe now declares. The example is `LinenShirtRecipe` as it stands in `world/recipes.py`.
@@ -276,8 +277,9 @@ Only these `typeclass` strings exist — never use any other without FLAGging:
 
 | typeclass | Use for | Required / common keys |
 |---|---|---|
-| `typeclasses.objects.Object` | inert items, materials, weapons, containers | `tags` |
+| `typeclasses.objects.Object` | inert items, materials, containers | `tags` |
 | `typeclasses.tools.Tool` | crafting tools that wear down (an `Object` with `condition`) | `tags` (`crafting_tool`) |
+| `typeclasses.weapons.Weapon` | weapons and shields that are not tools (an `Object` with `condition`); only with a row in `world/gear.py` (below) | `repair_materials`, `repair_tool_tag` |
 | `typeclasses.consumables.Food` | edible | `restore_amount`, `consume_message` |
 | `typeclasses.consumables.Drink` | drinkable | `charges`, `max_charges`, `restore_amount`, `refillable` |
 | `typeclasses.clothing.ClothingWithBuffs` | wearables | `clothing_type`, `warmth` |
@@ -288,6 +290,13 @@ Only these `typeclass` strings exist — never use any other without FLAGging:
 
 Every prototype has: `prototype_key`, `typeclass`, `key`, usually `aliases` and
 `desc`.
+
+A weapon or a piece of armour reads its rules — damage, hands, Armour Points,
+layer, locations — from a row in `world/gear.py` (`WEAPONS`, `ARMOUR`), keyed by
+its `prototype_key`. That file is not yours (§0): a weapon or armour prototype
+whose row does not exist is a FLAG. Claude/Adam add the row; then you add the
+data. (The stone knife and the stone axe are weapons with a row and stay
+`Tool`s.)
 
 Every **item** prototype — everything except a `Creature` and a `ResourceNode` —
 also carries `enc`: its Legend Encumbrance as a non-negative `int` (`0`, `1`,
@@ -415,7 +424,7 @@ class LinenShirtRecipe(MongooseCraftRecipe):
     min_skill = 40                        # Craft floor; the brief gives the rung
 
     def _finalize_item(self, obj, outcome):
-        _apply_garment_quality(obj)       # required: the output is a garment
+        _apply_quality_condition(obj)     # required: the output is a garment
 ```
 
 Rules:
@@ -434,17 +443,19 @@ Rules:
   `tests/test_min_skill_ladder.py` fails a recipe without its own declaration.
   Write it directly after `craft_duration`. A brief that gives no value: STOP and
   FLAG.
-- `_finalize_item` — **required** in two cases, each a one-line call to an
+- `_finalize_item` — **required** in three cases, each a one-line call to an
   existing helper and nothing else:
   - the output is a garment (a `ClothingWithBuffs` typeclass) →
-    `_apply_garment_quality(obj)`, as above;
+    `_apply_quality_condition(obj)`, as above;
+  - the output is a weapon that is not a tool (a `Weapon` typeclass) →
+    `_apply_quality_condition(obj)`, the garments' table;
   - the output is a tool whose start condition the prototype sets (stone knife,
     bone needle, stone axe) → `_apply_tool_quality(obj)`.
 
   In every other case do **not** add one unless explicitly asked — it is
   quality-scaling balance logic. If asked, copy the existing `WaterskinRecipe`
   pattern exactly and FLAG any new thresholds. A reviewer checks both
-  directions: a garment or tool recipe without the call is as wrong as a
+  directions: a garment, weapon or tool recipe without the call is as wrong as a
   `_finalize_item` nobody asked for.
 
 ---
