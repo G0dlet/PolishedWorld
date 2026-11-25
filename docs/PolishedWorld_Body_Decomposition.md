@@ -1,5 +1,6 @@
 # PolishedWorld — Body Decomposition (Stage 5, slice 3: BD)
 
+> **Rev 4 · 2026-11-25** — **BD4 gains its seventh style,** docs only, in the first half of the commit pair that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 7; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`): *Staff* (`bludgeon`, 2H, no second hand, STR + DEX), added by GR15 under BD4's own rule. The quarterstaff is two-handed in *Arms of Legend*, and BD's count of the types with an item missed it; the line that said no item needed a two-handed style is corrected beside its words. No other line changes.
 > **Rev 3 · 2026-11-24** — **OQ-SC1 closed**, docs only, in the commit that closes Stage 5's slice WN (`docs/PolishedWorld_Wounds_Decomposition.md` Rev 5; merged as `c3df740`, PR #34, tagged `alpha-20261124`): Combat Design WN7 answers it, and WN-T8 built it. No other line changes.
 > **Rev 2 · 2026-11-22** — **BD is DONE.** `feature/body` is merged to `main` as `22fb018` (PR #33, merge commit, tree `e030305`, the tree `git merge-tree` predicted) and tagged `alpha-20261122`, annotated (OQ-BD4, Adam). Docs only, BD-T9, with Combat Decomposition Rev 16, Combat Design Rev 5, BACKLOG Rev 117, the Alpha Runbook Rev 12, the Survival Loop decomposition Rev 16, roadmap Rev 86, README Rev 67 and Lessons Rev 12 (396–414). *Shipped* lines for BD-T1–BD-T9, and **one task the slice added, BD-T5b** (§7): every skill's ladder keyed by the top of its band, with a migration. OQ-BD2, OQ-BD3, OQ-BD4 and OQ-BD6 closed (§9). **Departures recorded where they landed:** OQ-BD6 went as two tables for one task, not one table with a guard (BD-T3); `ensure_style` lives in `world/skill_base.py`, not beside the data (BD-T6); the Combat block on `sheet` stands between *Vital Status* and *Skills*, not between the characteristics and the skills (BD-T7); the suite ran at home, not at work (BD-T8). No lock changes.
 > **Rev 1 · 2026-11-16** — first version, docs only, with `docs/PolishedWorld_Combat_Decomposition.md` Rev 15, roadmap Rev 85 and README Rev 66. Decomposes Stage 5's third slice, BD, from Combat Design §4.10 (CS1, CS2, CS4) and the book's derived values (core pp. 10–14): four Common skills, six Combat Styles over twelve weapon types, and Combat Actions, Strike Rank, Damage Modifier and Hit Points per location read on demand. Nine locks (BD1–BD9, Adam, one at a time, each as recommended), seven code tasks, a merge and a close-out (BD-T1–BD-T9). Read against live source the same day: `main` at `618351f` (tree `201c3f7`), *Legend* core from the project's `Legend.pdf` with page numbers taken from the text's page markers, *Arms of Legend* from `docs/reference/arms_of_legend.md`. **Run in the sandbox and recorded in §4:** a prototype of the four tables against the book's own examples and every column of the Hit Points table, and the four skills added to a scratch clone to count the existing tests that notice. **One lock moves a decision between slices:** CS4 leaves BD for WN and ML (BD8). No code is written by this document.
@@ -69,7 +70,7 @@ Adam took the nine as recommended, one at a time.
 - **An assumption, stated:** if characteristics ever improve (the book allows it, p. 68), an untrained style follows the new value and a trained one stays. That is the book's behaviour for a base, and it differs from storing every style at creation.
 - *Rejected:* every style on every character from creation — a backfill per new style, and a row per style in `progress`, most of them *(not yet trainable)*.
 
-**BD4 — Six styles to start, and a rule that fills the list.**
+**BD4 — Six styles to start, and a rule that fills the list.** *(Rev 4: seven since GR — the seventh by the rule itself.)*
 
 | Style | Main type | Hand | Second hand | Base |
 | --- | --- | --- | --- | --- |
@@ -77,10 +78,11 @@ Adam took the nine as recommended, one at a time.
 | *Mace and Shield* | `bludgeon` | 1H | `shield` | STR + DEX |
 | *Axe and Shield* | `axe` | 1H | `shield` | STR + DEX |
 | *Spear and Shield* | `spear` | 1H | `shield` | STR + DEX |
+| *Staff* *(Rev 4, GR15)* | `bludgeon` | 2H | — | STR + DEX |
 | *Bow* | `bow` | 2H | — | DEX × 2 |
 | *Sling* | `sling` | 1H | — | DEX × 2 |
 
-- **Only types with an item today.** Club, hatchet, knife and shortspear are all `1H` in *Arms of Legend*'s table (l. 1736–1768), so nothing that can be held today needs a two-handed style.
+- **Only types with an item today.** Club, hatchet, knife and shortspear are all `1H` in *Arms of Legend*'s table (l. 1736–1768), so nothing that can be held today needs a two-handed style. *(Rev 4: the quarterstaff, which had an item, is `2H` (AoL pp. 71 ff.), and this count missed it; GR15 adds* Staff*, Combat Design Rev 11.)*
 - **The rule:** *the slice that adds the first weapon of a type adds its style in the same commit.* Under BD3 that is one row of data.
 - **A style is named for the combination before the shield exists.** Whoever fights with a club trains *Mace and Shield*; the book's rule for a missing weapon (p. 124) leaves the skill unchanged and takes only the shield's protection and its Combat Action. When GR builds a shield, the club fighter has already trained for it.
 - **Players do not invent styles. *A departure from the book*** (p. 124: *Adventurers can create their own combinations*): the list is the server's. BD-T9 enters it in Combat Design §5.
