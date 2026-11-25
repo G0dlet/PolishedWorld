@@ -14,6 +14,10 @@ A Creature carries the data the downstream tasks read:
     harvest_template -- key into the harvest tables (H4.2); decides which parts
                         its corpse yields.
     flee_skill       -- opposed value the hunt check rolls against (H2.2).
+    con              -- Mongoose Legend CON, set by the prototype; None for a
+                        creature that has none and cannot be hurt (CE3, CE13).
+    resilience       -- set only where the book's row leaves CON x 3 + 10
+                        (CE7). Both are read through world.creature_wounds.
 
 `at_death()` is intentionally a minimal stub here: it announces the kill and
 removes the creature. Task H3.2 overrides the body to spawn a Corpse first, once
@@ -49,6 +53,14 @@ class Creature(ObjectParent, DefaultObject):
     natural_ap = AttributeProperty(default=0, autocreate=True)
     harvest_template = AttributeProperty(default="rabbit", autocreate=True)
     flee_skill = AttributeProperty(default=30, autocreate=True)
+
+    # --- Constitution (Creatures CE3, CE7, CE13) ------------------------------
+    # autocreate=False, unlike the four above, and written out because
+    # Evennia's default is True: here None *is* the answer -- no CON, no Hit
+    # Points -- so a row holding None says nothing, and a read must not write
+    # one. Only the prototype writes them.
+    con = AttributeProperty(default=None, autocreate=False)
+    resilience = AttributeProperty(default=None, autocreate=False)
 
     def at_object_creation(self):
         """Lock the creature so it cannot be picked up, given, or traded."""

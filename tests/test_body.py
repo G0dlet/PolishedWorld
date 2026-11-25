@@ -196,6 +196,20 @@ class TestHitPointsMax(EvenniaTestCase):
             body.hit_points_max(0, 0)
 
 
+class TestGeneralHitPoints(EvenniaTestCase):
+    """A creature's one pool and its rating, rounded up (p. 146; CE4)."""
+
+    def test_the_books_example(self):
+        # CON 12, SIZ 16: 14, and a rating of 7 (p. 146).
+        self.assertEqual(body.general_hit_points(12, 16), 14)
+        self.assertEqual(body.critical_rating(14), 7)
+
+    def test_odd_numbers_round_up(self):
+        # 15 / 2 = 7.5 is 8, and 7 / 2 = 3.5 is 4.
+        self.assertEqual(body.general_hit_points(11, 4), 8)
+        self.assertEqual(body.critical_rating(7), 4)
+
+
 class TestDerived(EvenniaTest):
     """
     Pressures BD7's "read on every read": a value stored or cached would miss

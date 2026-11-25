@@ -16,6 +16,8 @@ It is the pattern of `world.encumbrance`.
     damage_modifier(str_, siz)       -> (sign, dice, sides)       (pp. 10-11)
     damage_modifier_text(str_, siz)  -> "+1D2", "-1D4", "+0"
     hit_points_max(con, siz)         -> {location: maximum}       (p. 11)
+    general_hit_points(con, siz)     -> int, a creature's one pool (p. 146)
+    critical_rating(hit_points)      -> int, half of it rounded up (p. 146)
     derived(char)                    -> the four, and the armour penalty, or None
 
 The fatigue words are `world.fatigue.LEVELS`' own; an unknown word raises
@@ -52,9 +54,14 @@ def _check_word(fatigue_word):
         )
 
 
+def _half_up(n):
+    """Half of an integer, rounded up (pp. 10, 13, 146)."""
+    return -(-n // 2)
+
+
 def _average_up(a, b):
     """The average of two integers, rounded up (pp. 10, 13)."""
-    return -(-(a + b) // 2)
+    return _half_up(a + b)
 
 
 def combat_actions(dex, int_, fatigue_word="fresh"):
@@ -245,6 +252,41 @@ def hit_points_max(con, siz):
         else:
             result[location] = _FIRST_COLUMN[location] + band
     return result
+
+
+# --- General Hit Points (a creature's) ---------------------------------------
+
+def general_hit_points(con, siz):
+    """
+    General Hit Points: the average of CON and SIZ, rounded up (core p. 146).
+
+    One pool and no locations: the book keeps locational Hit Points for
+    major villains (p. 146), and a character's are `hit_points_max`. The
+    book's example has an even sum (12 and 16 give 14); an odd one rounds
+    up, as its other averages do (pp. 10, 13; Creatures CE4).
+
+    Args:
+        con (int): CON.
+        siz (int): SIZ.
+
+    Returns:
+        int
+    """
+    return _average_up(con, siz)
+
+
+def critical_rating(hit_points):
+    """
+    The Critical Wound rating: half of General Hit Points, rounded up
+    (core p. 146).
+
+    Args:
+        hit_points (int): General Hit Points, `general_hit_points`.
+
+    Returns:
+        int
+    """
+    return _half_up(hit_points)
 
 
 # --- A character's body ------------------------------------------------------

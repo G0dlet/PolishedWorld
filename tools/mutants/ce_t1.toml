@@ -1,0 +1,71 @@
+# CE-T1 -- a creature's numbers and their readers (Creatures decomposition §6).
+# Run: python3 tools/mutate.py tools/mutants/ce_t1.toml --parallel 2
+#
+# Predicted fail counts:
+#   CEM1   3 -- an odd sum (11 + 4), odd Hit Points (10 + 3) and body's odd case
+#   CEM2   2 -- odd Hit Points (7 -> 3, not 4), here and in body; the book's
+#              example and the rabbit have even Hit Points and cannot see it
+#   CEM3   2 -- the formula (22, 43, 52) and the rabbit (18, not 22)
+#   CEM4   1 -- the five printed rows read as the formula's
+#   CEM4b  1 -- a bare creature gets a `con` row holding None
+#   CEM4c  2 -- a `resilience` row on the bare creature and on the rabbit
+
+modules = ["tests.test_creature_wounds", "tests.test_body"]
+
+[[mutant]]
+id = "CEM1"
+file = "world/body.py"
+old = '''    return _average_up(con, siz)
+'''
+new = '''    return (con + siz) // 2
+'''
+expect = ["test_an_odd_sum_rounds_up", "test_odd_numbers_round_up"]
+
+[[mutant]]
+id = "CEM2"
+file = "world/body.py"
+old = '''    return _half_up(hit_points)
+'''
+new = '''    return hit_points // 2
+'''
+expect = ["test_odd_hit_points_round_the_rating_up"]
+
+[[mutant]]
+id = "CEM3"
+file = "world/creature_wounds.py"
+old = '''    return con * 3 + 10
+'''
+new = '''    return con * 2 + 10
+'''
+expect = ["test_the_formula", "test_four_two_twenty_two_nothing"]
+
+[[mutant]]
+id = "CEM4"
+file = "world/creature_wounds.py"
+old = '''    stored = creature.resilience
+    if stored is not None:
+        return stored
+    return con * 3 + 10
+'''
+new = '''    return con * 3 + 10
+'''
+expect = ["test_a_stored_value_goes_before_the_formula"]
+
+[[mutant]]
+id = "CEM4b"
+file = "typeclasses/creatures.py"
+old = '''    con = AttributeProperty(default=None, autocreate=False)
+'''
+new = '''    con = AttributeProperty(default=None)
+'''
+expect = ["test_neither_is_written_at_creation_or_by_the_readers"]
+
+[[mutant]]
+id = "CEM4c"
+file = "typeclasses/creatures.py"
+old = '''    resilience = AttributeProperty(default=None, autocreate=False)
+'''
+new = '''    resilience = AttributeProperty(default=None)
+'''
+expect = ["test_neither_is_written_at_creation_or_by_the_readers",
+          "test_the_rabbit_stores_its_con_and_no_resilience"]
