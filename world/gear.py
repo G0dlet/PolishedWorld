@@ -87,7 +87,28 @@ Imports `world.body`, `world.combat_styles` and `world.wounds`, whose
 `world.body` reaches this module from inside `derived` only, and nothing
 `world.wounds` imports reaches it at all, so no import is circular (GR-T5's
 and GR-T7's STOPP 0); `world.sdesc` and `typeclasses.clothing` import it at
-the top.
+the top. `typeclasses.durable` imports only Evennia, so its `DurableObject`
+is imported here at the top as well (GR-T10's STOPP 0).
+
+WHAT ML IS GIVEN
+----------------
+Four doors, and no production code opens any of them until ML: what a use
+is, what a fight is, and which damage reaches a weapon are ML's (GR19, GR20).
+
+    wear_weapon(obj)          -> the new condition, after one use
+    damage_weapon(obj, dmg)   -> the new condition, after a blow it took
+    usable(obj)               -> True for a weapon above condition 0
+    mark_combat(char)         -> stamps a fight, for the garment wear tick
+
+A use takes `WEAPON_WEAR_PER_USE`. A blow takes nothing at or below the
+row's `ap` and otherwise `ceil(100 * (damage - ap) / hp)` (IS3): the book's
+Hit Points on the one axis. Below `ap` the floor is what stops a blow from
+healing the weapon; at `ap` the formula itself gives 0. Both doors raise
+`ValueError` for an item with no weapon row, a caller's mistake, and return
+None, touching nothing, for a weapon with no condition (an item made before
+the slice, until GR-T13's migration). `usable` raises for nothing: ML asks
+it of whatever is in a hand (GR-T10's STOPP 0). A broken weapon can still
+be held (GR19).
 """
 
 import time
@@ -97,6 +118,7 @@ from types import MappingProxyType
 from evennia.contrib.game_systems.clothing.clothing import get_worn_clothes
 from evennia.utils import logger
 
+from typeclasses.durable import DurableObject
 from world import body, combat_styles, wounds
 
 # The tag category `spawn` writes (evennia/prototypes/prototypes.py:58),
@@ -385,6 +407,97 @@ def fought_since(char, seconds):
     """
     stamp = char.attributes.get("fought_at")
     return stamp is not None and time.time() - stamp < seconds
+
+
+# -- a weapon's wear (IS3, IS5, GR19) --------------------------------------------
+
+# GR19: what one use takes from a weapon's condition. Not a tool's 5 a craft
+# (world/crafting_base.py, MongooseCraftRecipe.tool_wear): a craft is not a
+# blow, and twenty blows is a fight or two. So a club at 100 lasts a hundred
+# uses and a stone knife at 40 forty, on the one axis at two rates (GR13).
+WEAPON_WEAR_PER_USE = 1
+
+NO_WEAPON_ROW = "no weapon row for #{id} ({key}, prototype {prototype!r})"
+
+
+def _weapon_row_or_raise(obj):
+    """The row, or ValueError naming the item and its tag (GR-T10's STOPP 0)."""
+    prototype = _prototype_key(obj)
+    row = WEAPONS.get(prototype) if prototype else None
+    if row is None:
+        raise ValueError(
+            NO_WEAPON_ROW.format(id=obj.id, key=obj.key, prototype=prototype))
+    return row
+
+
+def wear_weapon(obj):
+    """
+    Take one use from a weapon's condition (GR19). What a use is is ML's.
+
+    Args:
+        obj (Object): an item with a weapon row.
+
+    Returns:
+        int or None: the new condition; None, and nothing done, for a weapon
+            with no condition (not a DurableObject).
+
+    Raises:
+        ValueError: for an item with no weapon row.
+    """
+    _weapon_row_or_raise(obj)
+    if not isinstance(obj, DurableObject):
+        return None
+    return obj.apply_wear(WEAPON_WEAR_PER_USE)
+
+
+def damage_weapon(obj, damage):
+    """
+    Take a blow's damage from a weapon's condition (IS3, IS5, GR19).
+
+    Nothing at or below the row's `ap`; above it, the damage past the Armour
+    Points as a share of the row's `hp`, in hundredths, rounded up. Integer
+    arithmetic, so no float decides a rounding.
+
+    Args:
+        obj (Object): an item with a weapon row.
+        damage (int): the damage the blow did to the weapon.
+
+    Returns:
+        int or None: the new condition; None, and nothing done, for a weapon
+            with no condition (not a DurableObject).
+
+    Raises:
+        ValueError: for an item with no weapon row.
+    """
+    row = _weapon_row_or_raise(obj)
+    if not isinstance(obj, DurableObject):
+        return None
+    # The floor: below `ap` the share is negative, and `apply_wear` would heal.
+    if damage <= row["ap"]:
+        return obj.condition
+    lost = -(-100 * (damage - row["ap"]) // row["hp"])
+    return obj.apply_wear(lost)
+
+
+def usable(obj):
+    """
+    True for a weapon that can be used: a row and a condition above 0 (GR19).
+
+    Asked of whatever is in a hand, so it raises for nothing: a torch, a
+    tunic or an item with no condition reads False (GR-T10's STOPP 0). A
+    broken weapon can still be held; it cannot be used.
+
+    Args:
+        obj (Object): any typeclassed object.
+
+    Returns:
+        bool
+    """
+    return (
+        weapon(obj) is not None
+        and isinstance(obj, DurableObject)
+        and obj.condition > 0
+    )
 
 
 # -- the hands (GR2, GR3, GR4, GR22) ---------------------------------------------
