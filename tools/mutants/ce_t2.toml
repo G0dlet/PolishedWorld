@@ -2,11 +2,13 @@
 # Run: python3 tools/mutate.py tools/mutants/ce_t2.toml --parallel 2
 #
 # Predicted fail counts:
-#   CEM5   1 -- death at 0 (CE5's rejected reading): 4 points kill
+#   CEM5  10 -- death at 0 (CE5's rejected reading): 4 points kill; since
+#              CE-T3 every test that takes a rabbit to 0 sees it
 #   CEM6   1 -- the CON refusal after the write: a row is left, and an
 #              amount of 0 is no longer refused
 #   CEM6b  1 -- no guard for a deleted creature: the second blow raises
-#   CEM7   1 -- the damage set and not added: 3 and 3 leave 1 Hit Point
+#   CEM7   2 -- the damage set and not added: 3 and 3 leave 1 Hit Point,
+#              and a blow at 0 lands on 1 (CE-T3)
 #   CEM8   1 -- at_death(None): the room reads *dies*, not the killer
 #   CEM8b  1 -- a string source passed on to at_death
 #   CEM8c  1 -- a None source keeps the stored one
@@ -16,9 +18,9 @@ modules = ["tests.test_creature_wounds"]
 [[mutant]]
 id = "CEM5"
 file = "world/creature_wounds.py"
-old = '''    return {"dies": left <= -critical_rating_of(creature), "hit_points": left}
+old = '''    answer = {"dies": left <= -critical_rating_of(creature), "hit_points": left,
 '''
-new = '''    return {"dies": left <= 0, "hit_points": left}
+new = '''    answer = {"dies": left <= 0, "hit_points": left,
 '''
 expect = ["test_death_is_at_minus_the_rating"]
 

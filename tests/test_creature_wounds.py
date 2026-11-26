@@ -1,7 +1,8 @@
 """
 Tests for world.creature_wounds -- a creature's numbers (Creatures
 decomposition, slice CE, task CE-T1; Combat Design CR1, CE2-CE4, CE7, CE13)
-and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9).
+and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9), and
+the state at 0 Hit Points on stored points in time (CE-T3; CE6).
 
 Every expected number is the book's -- core p. 146 and *Monsters of Legend*
 pp. 12 and 103-122 -- typed here and never computed from the code under
@@ -211,7 +212,7 @@ class TestNoRowForNone(EvenniaTest):
 # An attack roll that succeeded: the door only reads whether it did (CE9).
 MADE = {"result": "success", "success": True, "roll": 30, "target": 60}
 MISSED = {"result": "failure", "success": False, "roll": 90, "target": 60}
-ROWS = ("general_damage", "damage_source")
+ROWS = ("general_damage", "damage_source", "hurt_state")
 
 
 def _rabbit_in(room):
@@ -258,17 +259,18 @@ class TestTheRoadsToDeath(EvenniaTestCase):
     """
     One road to a creature's death, `at_death`, and its callers by name
     (CE9). A caller that reaches it some other way -- a `delete()` with no
-    corpse, a second death of its own -- fails here first. CE-T3 adds the
-    alarm.
+    corpse, a second death of its own -- fails here first. CE-T3 added the
+    alarm, `_state_due`.
     """
 
     def test_the_door_and_hunt(self):
         self.assertEqual(
             _callers_of_at_death(),
             {("commands/hunting_commands.py", "CmdHunt.func"),
-             ("typeclasses/creatures.py", "Creature.apply_health_damage")},
-            "Creatures CE9: a creature dies by `at_death` only, from the door "
-            "and from `hunt`; a new caller is a new road to death",
+             ("typeclasses/creatures.py", "Creature.apply_health_damage"),
+             ("world/creature_wounds.py", "_state_due")},
+            "Creatures CE9: a creature dies by `at_death` only, from the door, "
+            "its alarm and `hunt`; a new caller is a new road to death",
         )
 
 
@@ -288,10 +290,52 @@ class TestHitPointsLeft(EvenniaTest):
         rabbit = spawn("rabbit")[0]
         cw.damage_of(rabbit)
         cw.hit_points_of(rabbit)
-        self.assertEqual(_rows(rabbit), (False, False))
+        self.assertEqual(_rows(rabbit), (False, False, False))
 
 
-class TestTheDoor(EvenniaTest):
+# CE-T3: the die, the clock and the alarm, patched in the module (Testing
+# Reference §27.2). The rabbit's Resilience is 22: 15 wins, 50 loses.
+ROLL = "world.skillcheck.randint"
+WIN, LOSE = 15, 50
+NOW = 1000.0
+FALL = "rabbit sags onto its side, breathing fast and shallow."
+
+
+class _AtZero(EvenniaTest):
+    """
+    `world.creature_wounds.time` and `.delay` patched, and the die; every
+    line to a room recorded as (room, text, from_obj). An alarm is fired by
+    calling `cw._state_due` by hand, in the order the test writes.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.clock = self._patch(mock.patch("world.creature_wounds.time"))
+        self.clock.time.return_value = NOW
+        self.alarm = self._patch(mock.patch("world.creature_wounds.delay"))
+        self.roll = self._patch(mock.patch(ROLL, return_value=WIN))
+        self.told = self._patch(mock.patch.object(
+            type(self.room1), "msg_contents", autospec=True))
+
+    def _patch(self, patcher):
+        found = patcher.start()
+        self.addCleanup(patcher.stop)
+        return found
+
+    def at(self, seconds):
+        """The clock `seconds` after NOW."""
+        self.clock.time.return_value = NOW + seconds
+
+    def lines(self):
+        return [(c.args[0], c.args[1], c.kwargs.get("from_obj"))
+                for c in self.told.call_args_list]
+
+
+def _answer(dies, hit_points, test=None, state=None):
+    return {"dies": dies, "hit_points": hit_points, "test": test, "state": state}
+
+
+class TestTheDoor(_AtZero):
     """
     `Creature.apply_health_damage` on a rabbit: 4 General Hit Points and a
     Critical Wound rating of 2 (CE-T1), so it dies at -2 (CE5).
@@ -304,23 +348,21 @@ class TestTheDoor(EvenniaTest):
             answer = rabbit.apply_health_damage(amount, location="chest")
             seen.append((answer, cw.hit_points_of(rabbit), bool(rabbit.pk)))
         self.assertEqual(seen, [
-            ({"dies": False, "hit_points": 3}, 3, True),
-            ({"dies": False, "hit_points": 2}, 2, True),
-            ({"dies": False, "hit_points": 1}, 1, True),
+            (_answer(False, 3), 3, True),
+            (_answer(False, 2), 2, True),
+            (_answer(False, 1), 1, True),
         ])
 
     def test_death_is_at_minus_the_rating(self):
-        # CE5: the rule, not the example. At 0 and at -1 it lives (what
-        # happens there is CE-T3's); at -2 it dies (CEM5 dies at 0).
+        # CE5: the rule, not the example. At 0 and at -1 it lives and
+        # tests (CE-T3; the die wins here); at -2 it dies (CEM5 dies at 0).
         seen = []
         for amount in (4, 5, 6):
             rabbit = _rabbit_in(self.room1)
-            seen.append(rabbit.apply_health_damage(amount, location="chest"))
-        self.assertEqual(seen, [
-            {"dies": False, "hit_points": 0},
-            {"dies": False, "hit_points": -1},
-            {"dies": True, "hit_points": -2},
-        ])
+            answer = rabbit.apply_health_damage(amount, location="chest")
+            seen.append((answer["dies"], answer["hit_points"], answer["state"]))
+        self.assertEqual(seen, [(False, 0, "standing"), (False, -1, "standing"),
+                                (True, -2, None)])
 
     def test_six_at_once_leaves_one_corpse_and_no_rabbit(self):
         rabbit = _rabbit_in(self.room1)
@@ -335,33 +377,26 @@ class TestTheDoor(EvenniaTest):
         second = rabbit.apply_health_damage(3, location="chest")
         self.assertEqual(
             (first, second, rabbit.pk, len(_corpses(self.room1))),
-            ({"dies": False, "hit_points": 1}, {"dies": True, "hit_points": -2},
+            (_answer(False, 1), _answer(True, -2),
              None, 1),
         )
 
     def test_the_source_reaches_at_death(self):
         # CEM8 (`at_death(None)`): the room would read *dies*, not the killer.
         rabbit = _rabbit_in(self.room1)
-        with mock.patch.object(type(self.room1), "msg_contents",
-                               autospec=True) as told:
-            rabbit.apply_health_damage(6, location="chest", source=self.char1)
-        self.assertEqual(
-            [(c.args[1], c.kwargs.get("from_obj")) for c in told.call_args_list],
-            [("$You() fells rabbit.", self.char1)],
-        )
+        rabbit.apply_health_damage(6, location="chest", source=self.char1)
+        self.assertEqual(self.lines(),
+                         [(self.room1, "$You() fells rabbit.", self.char1)])
 
     def test_a_source_that_is_not_an_object_dies_without_a_killer(self):
         # A string, as the survival ticker gives a character: at_death would
         # call "survival".msg() half-way through the death.
         rabbit = _rabbit_in(self.room1)
-        with mock.patch.object(type(self.room1), "msg_contents",
-                               autospec=True) as told:
-            answer = rabbit.apply_health_damage(6, location=wounds.ALL,
-                                                source="survival")
+        answer = rabbit.apply_health_damage(6, location=wounds.ALL,
+                                            source="survival")
         self.assertEqual(
-            (answer["dies"], [c.args[1] for c in told.call_args_list],
-             len(_corpses(self.room1))),
-            (True, ["rabbit dies."], 1),
+            (answer["dies"], self.lines(), len(_corpses(self.room1))),
+            (True, [(self.room1, "rabbit dies.", None)], 1),
         )
 
     def test_the_latest_source_is_stored_and_none_clears_it(self):
@@ -381,7 +416,8 @@ class TestTheDoor(EvenniaTest):
         answers = [rabbit.apply_health_damage(amount, location="chest",
                                               source=self.char1)
                    for amount in (0, -1)]
-        self.assertEqual((answers, _rows(rabbit)), ([None, None], (False, False)))
+        self.assertEqual((answers, _rows(rabbit)),
+                         ([None, None], (False, False, False)))
 
     def test_every_refusal_writes_nothing_whatever_the_amount(self):
         # CEM6: a refusal after the write leaves a row. No subTest (Testing
@@ -405,7 +441,7 @@ class TestTheDoor(EvenniaTest):
                     pass
                 else:
                     bad.append((name, amount, "no ValueError"))
-                if _rows(creature) != (False, False):
+                if _rows(creature) != (False, False, False):
                     bad.append((name, amount, _rows(creature)))
         self.assertEqual(bad, [])
 
@@ -415,7 +451,7 @@ class TestTheDoor(EvenniaTest):
             rabbit = _rabbit_in(self.room1)
             seen.append(rabbit.apply_health_damage(1, location=location,
                                                    made=MADE))
-        self.assertEqual(seen, [{"dies": False, "hit_points": 3}] * 3)
+        self.assertEqual(seen, [_answer(False, 3)] * 3)
 
     def test_a_deleted_creature_answers_nothing(self):
         # Two blows in one tick: the first kills and deletes, the second
@@ -423,3 +459,143 @@ class TestTheDoor(EvenniaTest):
         rabbit = _rabbit_in(self.room1)
         rabbit.apply_health_damage(6, location="chest")
         self.assertIsNone(rabbit.apply_health_damage(3, location="chest"))
+
+
+# --- CE-T3: the state at 0 Hit Points -------------------------------------
+
+
+class TestAtZero(_AtZero):
+    """
+    A rabbit taken to 0 by a blow of 4 tests Resilience (p. 146; CE6):
+    won, it stands and tests again a round on; lost, it falls senseless and
+    dies its rating in Combat Actions on -- 2 x 2.5 seconds.
+    """
+
+    def _zero(self, roll, **kwargs):
+        self.roll.return_value = roll
+        rabbit = _rabbit_in(self.room1)
+        answer = rabbit.apply_health_damage(4, location="chest", **kwargs)
+        return rabbit, answer
+
+    def test_lost_it_falls_and_dies_five_seconds_on(self):
+        # Red before green; CEM10 (the time in rounds) gives NOW + 10.
+        rabbit, answer = self._zero(LOSE)
+        self.assertEqual(
+            (answer["state"], answer["test"]["success"], cw.state_of(rabbit),
+             self.lines(), self.alarm.call_args),
+            ("dying", False, {"kind": "dying", "due": NOW + 5},
+             [(self.room1, FALL, None)],
+             mock.call(5.0, cw._state_due, rabbit, "dying", NOW + 5,
+                       persistent=True)),
+        )
+
+    def test_before_its_time_the_alarm_waits_and_at_it_one_corpse(self):
+        rabbit, _ = self._zero(LOSE)
+        self.at(3)
+        cw._state_due(rabbit, "dying", NOW + 5)
+        early = (bool(rabbit.pk), self.alarm.call_args)
+        self.at(5)
+        cw._state_due(rabbit, "dying", NOW + 5)
+        self.assertEqual(
+            (early, rabbit.pk, len(_corpses(self.room1))),
+            ((True, mock.call(2.0, cw._state_due, rabbit, "dying", NOW + 5,
+                              persistent=True)), None, 1),
+        )
+
+    def test_won_it_stands_says_nothing_and_falls_on_a_later_loss(self):
+        rabbit, answer = self._zero(WIN)
+        first = (answer["state"], answer["test"]["success"],
+                 cw.state_of(rabbit), self.lines())
+        self.at(5)
+        self.roll.return_value = WIN
+        cw._state_due(rabbit, "standing", NOW + 5)
+        again = cw.state_of(rabbit)
+        self.at(10)
+        self.roll.return_value = LOSE
+        cw._state_due(rabbit, "standing", NOW + 10)
+        fell = (cw.state_of(rabbit), self.lines())
+        self.at(15)
+        cw._state_due(rabbit, "dying", NOW + 15)
+        self.assertEqual(
+            (first, again, fell, rabbit.pk, len(_corpses(self.room1))),
+            (("standing", True, {"kind": "standing", "due": NOW + 5}, []),
+             {"kind": "standing", "due": NOW + 10},
+             ({"kind": "dying", "due": NOW + 15}, [(self.room1, FALL, None)]),
+             None, 1),
+        )
+
+    def test_ninety_six_loses_at_any_resilience(self):
+        seen = []
+        for roll in (95, 96):
+            self.roll.return_value = roll
+            beast = _creature(con=4, siz=4, resilience=95)
+            beast.move_to(self.room1, quiet=True, move_hooks=False)
+            seen.append(beast.apply_health_damage(4, location="chest")["state"])
+        self.assertEqual(seen, ["standing", "dying"])
+
+    def test_the_test_is_plain_not_against_the_attack_roll(self):
+        # CEM9: the attack roll's 30 taken off the test turns a 15 into a loss.
+        rabbit, answer = self._zero(WIN, made=MADE)
+        self.assertEqual(answer["state"], "standing")
+
+    def test_a_blow_at_zero_tests_nothing_and_moves_no_time(self):
+        # An earlier death is not bought back, and no test is rolled twice
+        # (CEM11b tests at every blow at 0).
+        seen = []
+        for roll in (WIN, LOSE):
+            rabbit, _ = self._zero(roll)
+            self.at(2)
+            self.roll.return_value = LOSE if roll == WIN else WIN
+            second = rabbit.apply_health_damage(1, location="chest")
+            seen.append((second, cw.state_of(rabbit)))
+            self.at(0)
+        self.assertEqual(
+            (seen, self.alarm.call_count),
+            ([(_answer(False, -1, None, "standing"),
+               {"kind": "standing", "due": NOW + 5}),
+              (_answer(False, -1, None, "dying"),
+               {"kind": "dying", "due": NOW + 5})], 2),
+        )
+
+    def test_the_killer_in_the_room_is_named_and_gone_is_not(self):
+        # CEM12 passes the killer wherever it stands.
+        seen = []
+        for leaves in (False, True):
+            rabbit, _ = self._zero(LOSE, source=self.char1)
+            self.char1.move_to(self.room2 if leaves else self.room1, quiet=True,
+                               move_hooks=False)
+            self.told.reset_mock()
+            self.at(5)
+            cw._state_due(rabbit, "dying", NOW + 5)
+            seen.append([line[1:] for line in self.lines()])
+            self.at(0)
+        self.assertEqual(seen, [[("$You() fells rabbit.", self.char1)],
+                                [("rabbit dies.", None)]])
+
+    def test_nothing_or_a_deleted_creature_and_the_alarm_says_nothing(self):
+        # P1: after a reload the creature's place holds None; in the same
+        # process a deleted Creature, whose pk is None.
+        rabbit, _ = self._zero(LOSE)
+        rabbit.delete()
+        self.told.reset_mock()
+        self.at(5)
+        cw._state_due(None, "dying", NOW + 5)
+        cw._state_due(rabbit, "dying", NOW + 5)
+        self.assertEqual((self.lines(), len(_corpses(self.room1))), ([], 0))
+
+    def test_hunt_first_and_the_alarm_late_leave_one_corpse(self):
+        # P2: one road to death, and the pk guard holds.
+        rabbit, _ = self._zero(LOSE)
+        rabbit.at_death(self.char1)
+        self.at(5)
+        cw._state_due(rabbit, "dying", NOW + 5)
+        self.assertEqual(len(_corpses(self.room1)), 1)
+
+    def test_a_stale_alarm_does_nothing(self):
+        # CEM11: an alarm that does not read the state again re-tests here.
+        rabbit, _ = self._zero(WIN)
+        self.at(5)
+        cw._state_due(rabbit, "standing", NOW + 5)   # won again: NOW + 10
+        self.roll.return_value = LOSE
+        cw._state_due(rabbit, "standing", NOW + 5)   # the old alarm, late
+        self.assertEqual(cw.state_of(rabbit), {"kind": "standing", "due": NOW + 10})

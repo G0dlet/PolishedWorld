@@ -6,7 +6,8 @@
 #   CEM2   2 -- odd Hit Points (7 -> 3, not 4), here and in body; the book's
 #              example and the rabbit have even Hit Points and cannot see it
 #   CEM3   2 -- the formula (22, 43, 52) and the rabbit (18, not 22)
-#   CEM4   1 -- the five printed rows read as the formula's
+#   CEM4   2 -- the five printed rows read as the formula's; since CE-T3
+#              also 96 against a stored 95
 #   CEM4b  1 -- a bare creature gets a `con` row holding None
 #   CEM4c  2 -- a `resilience` row on the bare creature and on the rabbit
 

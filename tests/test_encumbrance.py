@@ -989,6 +989,10 @@ ROLL_SITES = {
     # resilience_test: W3.1's question asked and answered -- physical, the
     # whole physical_modifier() (WN7, closing OQ-SC1).
     "world/wounds.py": 1,
+    # The Resilience test at 0 Hit Points (Creatures CE-T3): asked and
+    # answered by CE7 -- no modifier, since a creature has neither fatigue
+    # nor load. Not physical.
+    "world/creature_wounds.py": 1,
 }
 ROLL_NAMES = ("skill_check", "opposed_check", "opposed_against")
 # The public forms of world/skillcheck.py that roll nothing, so a call to one
