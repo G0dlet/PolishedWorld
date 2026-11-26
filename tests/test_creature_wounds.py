@@ -9,12 +9,22 @@ test.
 
 from evennia.prototypes.spawner import spawn
 from evennia.utils.create import create_object
-from evennia.utils.test_resources import EvenniaTestCase
+from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
 from evennia.utils.utils import class_from_module
 
 from typeclasses.creatures import Creature
 from world import creature_wounds as cw
 from world import prototypes as world_prototypes
+
+
+# Every class here that makes an object is an EvenniaTest, not an
+# EvenniaTestCase. A creature made with no home takes settings.DEFAULT_HOME,
+# `#2`; under EvenniaTestCase there is no such row, and a `#2` an earlier
+# test in the same worker left in the idmapper cache becomes a home that is
+# not in the database -- an IntegrityError at teardown, in whichever test
+# meets it (a parallel run, 2026-11-26; reproduced by a probe). EvenniaTest
+# makes its own rooms first, so `#2` is a row of the test (its Room2).
+# A class that makes nothing, such as the census, needs neither.
 
 
 def _creature(**attributes):
@@ -75,7 +85,7 @@ class TestCreatureCensus(EvenniaTestCase):
         )
 
 
-class TestTheRabbit(EvenniaTestCase):
+class TestTheRabbit(EvenniaTest):
     """The rabbit as the prototype makes it (CE2): CON 4, SIZ 4, no armour."""
 
     def test_four_two_twenty_two_nothing(self):
@@ -85,7 +95,7 @@ class TestTheRabbit(EvenniaTestCase):
         self.assertEqual(_four(rabbit), (4, 2, 22, 0))
 
 
-class TestHitPointsAndRating(EvenniaTestCase):
+class TestHitPointsAndRating(EvenniaTest):
     """General Hit Points and the rating, both rounded up (p. 146; CE4)."""
 
     def test_the_books_example(self):
@@ -130,7 +140,7 @@ PRINTED = {                      # the five that do not (Decomposition §3)
 }
 
 
-class TestResilience(EvenniaTestCase):
+class TestResilience(EvenniaTest):
     """CON x 3 + 10, unless the species stores its own (Monsters p. 12; CE7)."""
 
     def test_the_formula(self):
@@ -146,7 +156,7 @@ class TestResilience(EvenniaTestCase):
         self.assertEqual(got, {name: r for name, (_, r) in PRINTED.items()})
 
 
-class TestWithoutCon(EvenniaTestCase):
+class TestWithoutCon(EvenniaTest):
     """A creature without CON has no numbers, and no reader raises (CE13)."""
 
     def test_none_from_the_three_and_its_armour_from_the_fourth(self):
@@ -162,7 +172,7 @@ class TestWithoutCon(EvenniaTestCase):
         self.assertEqual(cw.armour_points_of(_creature(con=4, natural_ap=3)), 3)
 
 
-class TestNoRowForNone(EvenniaTestCase):
+class TestNoRowForNone(EvenniaTest):
     """
     `con` and `resilience` are not autocreated (CE-T1's STOPP 0): None is
     the answer, so a row holding None says nothing, and a read must not
