@@ -1,5 +1,6 @@
 # AGENTS.md — PolishedWorld
 
+> **Rev 12 · 2026-11-26** — creatures, after Stage 5's slice CE (`docs/PolishedWorld_Creatures_Decomposition.md` Rev 9, CE-T8b). §3.4's example is the rabbit as it stands, with **`con`**, which a creature now needs: without it the creature cannot be hurt (CE13) and `TestCreatureCensus` fails. `resilience` is written only where the book's printed value leaves CON × 3 + 10 (CE7), and `natural_ap` is the book's value, since it is read as the creature's armour. An animal the books lack, and a species whose armour differs by Hit Location, are a FLAG. §3's table and §6's checklist say the same.
 > **Rev 11 · 2026-11-25** — weapons, after Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8, GR-T15b). §4's helper is **`_apply_quality_condition`**, renamed at GR-T2 from `_apply_garment_quality`, which no longer exists — a recipe written from the old template would fail with `NameError` at its first craft; the required cases are three, the new one a pure weapon (GR21). §3's table gains **`typeclasses.weapons.Weapon`**, and `Object` is no longer for weapons; a weapon or a piece of armour reads its rules from a row in `world/gear.py`, which is not yours to write, so a prototype without its row is a FLAG.
 > **Rev 10 · 2026-11-12** — the opening line names the tone: *cozy dark hard fantasy* instead of *high-fantasy*, and §3's `desc` style points at `docs/PolishedWorld_Tone_Guide.md` §5, which every description you write must follow. Nothing else changes.
 > **Rev 9 · 2026-11-04** — the opening line says **Python ≥ 3.12** and names the pinned Evennia 6.1.0 (`requirements.txt`, Launch Minimum L1.1), whose wheel requires it; it said *Python 3.11+*. Nothing else changes.
@@ -283,7 +284,7 @@ Only these `typeclass` strings exist — never use any other without FLAGging:
 | `typeclasses.consumables.Food` | edible | `restore_amount`, `consume_message` |
 | `typeclasses.consumables.Drink` | drinkable | `charges`, `max_charges`, `restore_amount`, `refillable` |
 | `typeclasses.clothing.ClothingWithBuffs` | wearables | `clothing_type`, `warmth` |
-| `typeclasses.creatures.Creature` | huntable fauna | `siz`, `harvest_template`, optional `natural_ap`, `flee_skill` |
+| `typeclasses.creatures.Creature` | huntable fauna | `siz`, `con`, `harvest_template`, optional `natural_ap`, `resilience`, `flee_skill` (§3.4) |
 | `typeclasses.resources.ResourceNode` | gatherable node | `resource_type`, `max_yield`, `regen_interval`, `available`, `yield_prototype` |
 | `typeclasses.scroll.Scroll` | recipe scrolls — the existing `scroll` prototype only; never author one | — |
 | `typeclasses.books.Book` | recipe books — the existing `book` prototype only; never author one | — |
@@ -361,12 +362,36 @@ RABBIT = {
     "aliases": ["bunny", "coney"],
     "desc": "A small wild rabbit...",
     "siz": 4,                       # Mongoose Legend SIZ; drives harvest yield
+    # con 4 is the hawk's (Monsters of Legend p. 113: CON 2D3, average 4): the
+    # books have no rabbit (pp. 103-122), and the hawk is the only wild animal
+    # of its size. With siz 4: 4 General Hit Points, a Critical Wound rating
+    # of 2 and Resilience 22 (Creatures CE2, CE7; world/creature_wounds.py).
+    "con": 4,                       # REQUIRED: the book's average, with its page
     "harvest_template": "rabbit",   # MUST be a key in HARVEST_TEMPLATES (§5)
     "tags": [("rabbit", "creature")],
-    # Omit flee_skill / natural_ap to take the Creature defaults (30 / 0)
-    # unless a specific value is requested.
+    # Omit flee_skill to take the Creature default (30). Omit natural_ap only
+    # where the book gives the species no armour (default 0), and resilience
+    # unless the book's printed value leaves CON x 3 + 10.
 }
 ```
+
+- **`con` is required:** a whole number above 0, the book's average for the
+  species (*Monsters of Legend* p. 11), with its page in a comment. A creature
+  without it cannot be hurt — its door refuses with `ValueError` (Creatures
+  CE13) — and `TestCreatureCensus` in `tests/test_creature_wounds.py` fails.
+- **`resilience` only where the book's printed value leaves CON × 3 + 10**
+  (*Monsters* p. 12; CE7), with its page. Where the two agree, leave it out:
+  the formula is the reader's.
+- **`natural_ap` is the book's Armour Points for the species,** with its page.
+  It is read as the creature's armour (`armour_points_of`), so a value left out
+  is not harmless. A species whose armour differs by Hit Location — the
+  minotaur's head, *Monsters* p. 85 — is a **FLAG**: a creature has one figure
+  (Combat Design OQ-CE5).
+- **An animal the books lack is a FLAG, and you write no prototype for it.**
+  Propose the nearest row by size and kind, with its page — the books have no
+  rabbit, so it took the hawk's CON (CE2). The choice is not yours: a borrowed
+  CON sets the animal's Hit Points, its Critical Wound rating and its
+  Resilience, which is to say how it dies.
 
 ### 3.5 ResourceNode
 No `enc`: a node is not carried (its `yield_prototype` is, and carries its own).
@@ -506,6 +531,9 @@ or `grep` `world/prototypes.py`), not by trusting an example you were shown:
 - [ ] Every harvest part `prototype` exists in `prototypes.py`.
 - [ ] Every harvest part `skill` is `"hunting"` or `"craft"` (else FLAGged).
 - [ ] Every creature `harvest_template` has a matching key in `HARVEST_TEMPLATES`.
+- [ ] Every creature has a whole `con` above 0 with its *Monsters of Legend* page,
+      a `natural_ap` that is the book's, and a `resilience` only where the printed
+      value leaves CON × 3 + 10 (§3.4) — or a FLAG for an animal the books lack.
 - [ ] Every `ResourceNode` `yield_prototype` equals an existing `prototype_key`.
 - [ ] No `|` characters in any string. No new typeclass paths. No invented attrs.
 - [ ] No `value` / price / vendor / "availability" fields anywhere.

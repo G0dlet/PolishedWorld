@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 126 · 2026-11-26** — **one entry added, four annotated**, docs only, in the commit that closes Stage 5's slice CE (`docs/PolishedWorld_Creatures_Decomposition.md` Rev 9; merged as `02238ac`, PR #37, tagged `alpha-20261126`). BACKLOG was searched first for the names the slice touched (lessons 238, 408): `General Hit Points`, `Critical Wound`, `wounded quarry`, `natural_ap`, `flee_skill`, `Resilience`, `rabbit`, `at_death` and a creature's hurt, damage, wounds, Hit Points and CON; fourteen entries hit, and two bear on what CE built. **Annotated:** *Survival loop tuning* and *Persistent alpha instance* with the tag `alpha-20261126` (lesson 490); *When the closed alpha opens* — seven of the fourteen slices merged, CE among them; *Seasonal supply & population memory* — a creature can now die of its wounds after its hunter has left, with no killer, and a stock written only when the killer is a player misses that death. **New,** in *Health & Injury*: ***`typeclasses/creatures.py` still calls `natural_ap` reserved*** (OPEN) — a docstring line found at CE-T8's STOPP 0.
 > **Rev 125 · 2026-11-25** — **one entry added**, docs only, with `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1, roadmap Rev 92 and README Rev 86. BACKLOG was searched first for `harvest`, `corpse`, `hide`, `tallow`, `bone`, `sinew`, `spoil`, `quality` and `tann`. New, in *Death & Corpses*: ***`harvest_templates.py` credits the book with a rule it does not have*** (OPEN) — a docstring sentence, found while the note checked the retired v1.0 against *Arms of Legend*. No entry is annotated: the note points to *Food spoilage*, *Tanning upgrade*, *Corpse expiry fires only on direct interaction* and *`harvest` treats a player's body as a rabbit* as their owners or their record, and changes none of them.
 > **Rev 124 · 2026-11-25** — **three entries added, eight annotated, one renamed in place**, docs only, in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `gear`, `weapon`, `armour`, `wield`, `hold`, `hands`, `held`, `Strike Rank`, `clothing`, `is wearing`, `get_display_things`, `Stage 5`, `alpha-20261124-2`, `scrolls`, `Fifteen` and `_apply_garment_quality`; each entry that names one was read against the merge. **Added:** *What a looker reads of a dressed and armed body* (UX & Item Identity), *Armour's warmth in the comfort bands* (Survival) and *When the closed alpha opens — now, or after Stage 5* (Tooling & Process, Adam's question of 2026-11-24). **Annotated:** *Persistent alpha instance* and *Survival loop tuning* (the tag L6.1 deploys is `alpha-20261125`), *Tanning upgrade* (GR11), *Superior-tool longevity* (GR21), *Metal tools + craft-station / forge* (the metal knife's row), *A collapsed body's instant commands* (`wield` and `unwield` refused; `wear`, `remove`, `put`, `drop` and `give` let through), *Article and number in messages built from item keys* (GR's plural keys) and *A screen-reader pass* (GR-T11's red need: colour is enough for the alpha, Adam). **Renamed in place:** *Scribe's band→condition bypasses `quality_band`* names `_apply_quality_condition` and `CONDITION_BY_BAND`. **Read and left:** *Character panel* (it says where HE is, which stays true; nothing GR built is in the `char` snapshot), *World-loot scroll seed* (its *Fifteen rows* is L3.3's and was true; nineteen since GR-T12, Alpha Runbook §4), *Cultural Background* (its *six Combat Styles* is BD-T6's; Staff is the seventh, and nothing uses a style until ML), the death entries (a death empties the hands and a held item goes to the body with everything else; `TestEveryWayOut`) and the DONE entries *Weight and encumbrance* and *Worn clothing leaves without `remove()`*.
 > **Rev 123 · 2026-11-24** — **one entry DONE, five annotated**, docs only, in the commit that closes Stage 5's slice HE (`docs/PolishedWorld_Hero_Points_Decomposition.md` Rev 3; merged as `3dc009d`, PR #35, tagged `alpha-20261124-2`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `hero`, `Hero Point`, `Glancing`, `Heroic`, `alpha-20261124`, `Character panel`, `restore block`, `sheet`, `accrue`, `tblib` and `mutation`; each entry that names one was read against the merge. **DONE:** *Hero Points in a persistent world* (OQ-HE1 and OQ-HE3 stay the Combat Design's). **Annotated:** *Character panel: Legend combat state* (the readers; the push CL owes), *Survival loop tuning* and *Persistent alpha instance* (the tag L6.1 deploys is `alpha-20261124-2`), *A collapsed body's instant commands* (`hero` answered, seen in play) and *Runnable seam checker for the System Map* (`TestHeroCensus` checks one row at test time). The rest are unchanged by HE. No entry is added.
@@ -2083,6 +2084,21 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 
 ---
 
+### `typeclasses/creatures.py` still calls `natural_ap` reserved
+- **What:** The module docstring of `typeclasses/creatures.py` (`:13`) says
+  `natural_ap` is *"natural armour, reserved for a future combat/skinning
+  axis"*. Since CE-T1 it is read: `creature_wounds.armour_points_of`
+  (`world/creature_wounds.py:248`) answers it as the creature's Armour Points,
+  and the Critical Wound table's roll takes it off (CE8). Correct the line to
+  say what reads it.
+- **Why deferred:** A comment, in code, found in a docs-only session; code does
+  not change in a docs commit on `main`.
+- **Trigger:** The next code commit that touches `typeclasses/creatures.py` —
+  ML's at the latest, or the first species with the book's `natural_ap`
+  (`AGENTS.md` §3.4).
+- **Origin:** Creatures Decomposition CE-T8's STOPP 0, 2026-11-26 (Rev 126).
+- **Status:** OPEN
+
 ## Survival
 
 ### Fatigue-exhaustion consequence
@@ -2377,6 +2393,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Runbook Rev 15), which carries WN and HE as above and adds GR. GR adds no
   gauge and no tick and changes no time to death; armour's warmth in a
   temperate room is its own entry, *Armour's warmth in the comfort bands*.
+- **Annotation (2026-11-26, Creatures Decomposition Rev 9):** the tag is now `alpha-20261126` (Alpha
+  Runbook Rev 16), which carries WN, HE and GR as above and adds CE. CE adds
+  no gauge and no tick: a creature's healing is counted when its damage is
+  read, not by the survival tick, and no time to death changes.
 - **Status:** OPEN
 
 ### Armour's warmth in the comfort bands
@@ -3011,6 +3031,14 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   wood cut and stacked ahead. The calibration it sets — one tree keeps one fire
   alive while it grows — is the design's YP13. The open choices, the Trigger and
   part (1)'s light-week exception are unchanged.
+- **Annotation (2026-11-26, Creatures Decomposition Rev 9):** a creature now has three roads
+  to `at_death`: `hunt`, the door `Creature.apply_health_damage` and its
+  alarm, `creature_wounds._state_due`. The alarm passes the stored killer only
+  if it still stands in the creature's room, else `None` (Combat Design CE9),
+  so a rabbit that dies of its wounds after its hunter has left dies with no
+  killer, and a stock written only *when `killer` is a player* misses it. When
+  this is built, key the write on the death, or read the creature's
+  `damage_source` in `at_death`, before it is deleted. Nothing else changes.
 - **Status:** BLOCKED (economy milestone + two game-months of activity-log data);
   part (1) OPEN on a light week. Rough size 3–5 commits, lazy, additive.
 
@@ -4402,6 +4430,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (runbook §7, *Gear on a database made before `alpha-20261125`*). Whether
   L6.1 waits for the rest of Stage 5 is its own entry, *When the closed alpha
   opens — now, or after Stage 5*.
+- **Annotation (2026-11-26, Creatures Decomposition Rev 9):** CE shipped before the alpha opened
+  too: L6.1 deploys **`alpha-20261126`** (annotated, on `02238ac`, PR #37,
+  tree `4497632`), which carries WN, HE, GR and CE; runbook §7, Rev 16. The
+  alpha's database is made fresh and needs nothing; a database made before
+  the tag deletes every living creature once, and the spawn script makes new
+  ones (runbook §7, *Creatures on a database made before `alpha-20261126`*).
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### When the closed alpha opens — now, or after Stage 5
@@ -4422,6 +4456,12 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (Gear Decomposition §13, point 10).
 - **Trigger:** Adam deciding — at the latest, before L6.1 runs.
 - **Origin:** Adam, 2026-11-24, at the Gear decomposition; filed at GR-T15b.
+- **Annotation (2026-11-26, Creatures Decomposition Rev 9):** seven of the fourteen slices are
+  merged now — NM, SC, BD, WN, HE, GR and CE (`02238ac`, PR #37, tagged
+  `alpha-20261126`) — and seven remain: HV, HL, ML, DL, DR, PJ and CL. CE
+  changes nothing a player meets before ML; on a running alpha its one-off
+  step would be the deletion of every living creature (Alpha Runbook §7).
+  Still not decided.
 - **Status:** OPEN
 
 ### Two treasury tests assume the developer's settings match the shipped ones

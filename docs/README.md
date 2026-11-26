@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 94 · 2026-11-26** — two rows changed, docs only, in the commit that closes Stage 5's slice CE (`docs/PolishedWorld_Creatures_Decomposition.md` Rev 9, CE-T8b; merged as `02238ac`, PR #37, tagged `alpha-20261126`), with Testing Reference Rev 32, the System Map Rev 9, Evennia Reference Rev 40, BACKLOG Rev 126, roadmap Rev 93, Lessons Rev 17 and `AGENTS.md` Rev 12 outside `docs/`: the Creatures decomposition's row says it is done, and the Lessons register's row reads *1–510*. No document added or removed; the directory-vs-list loop was run (69/0).
 > **Rev 93 · 2026-11-26** — one row changed, docs only, in the first half of the commit pair that closes Stage 5's slice CE (`docs/PolishedWorld_Creatures_Decomposition.md` Rev 8, CE-T8a; merged as `02238ac`, PR #37, tagged `alpha-20261126`), with Combat Design Rev 14 and Combat Decomposition Rev 24: the Creatures decomposition's row says it is merged and its close-out half done. No document added or removed; the directory-vs-list loop was run (69/0).
 > **Rev 92 · 2026-11-26** — one row changed, docs only, with Creatures Decomposition Rev 7 and the Alpha Runbook Rev 16: `PolishedWorld_Creatures_Decomposition.md` is in progress (CE-T1–CE-T7: merged to `main` as `02238ac`, PR #37, and tagged `alpha-20261126`; CE-T8, the documentation, is next). Catalogue loop 69/0.
 > **Rev 91 · 2026-11-26** — one row changed, docs only, with Creatures Decomposition Rev 6: `PolishedWorld_Creatures_Decomposition.md` is in progress (CE-T1–CE-T6, components C1–C3, shipped on `feature/creatures`).
@@ -145,7 +146,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–496) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–510) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
@@ -170,7 +171,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — done, merged as `c3df740`) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
 | Hero Points decomposition (Stage 5, slice HE: the points behind one module, a point per game day played up to four, *Glancing Blow* as a trim of a blow's damage, the command `hero`, a row in `sheet` — done, merged as `3dc009d`) | tactical (feature tasks) | `docs/PolishedWorld_Hero_Points_Decomposition.md` |
 | Gear decomposition (Stage 5, slice GR: weapons and armour as a table read by prototype, three armour layers, Armour Points into Strike Rank, two hands and `wield`, a line in `look`, five recipes — done, merged as `e6c9e2b`) | tactical (feature tasks) | `docs/PolishedWorld_Gear_Decomposition.md` |
-| Creatures decomposition (Stage 5, slice CE: a creature's Constitution, General Hit Points and a Critical Wound rating, one door for hurt with the character's call, the book's rules at 0 Hit Points, the Critical Wound table, healing counted at the read, a line in `look` — in progress: merged as `02238ac` and tagged `alpha-20261126`, the first half of its close-out done) | tactical (feature tasks) | `docs/PolishedWorld_Creatures_Decomposition.md` |
+| Creatures decomposition (Stage 5, slice CE: a creature's Constitution, General Hit Points and a Critical Wound rating, one door for hurt with the character's call, the book's rules at 0 Hit Points, the Critical Wound table, healing counted at the read, a line in `look` — done, merged as `02238ac` and tagged `alpha-20261126`) | tactical (feature tasks) | `docs/PolishedWorld_Creatures_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
