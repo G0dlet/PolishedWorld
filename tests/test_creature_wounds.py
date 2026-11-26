@@ -3,8 +3,8 @@ Tests for world.creature_wounds -- a creature's numbers (Creatures
 decomposition, slice CE, task CE-T1; Combat Design CR1, CE2-CE4, CE7, CE13)
 and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9), the
 state at 0 Hit Points on stored points in time (CE-T3; CE6), the
-Critical Wound table rolled in the door (CE-T4; CE8), and healing counted
-at the read (CE-T5; CE10, CE11).
+Critical Wound table rolled in the door (CE-T4; CE8), healing counted
+at the read (CE-T5; CE10, CE11), and what `look` says (CE-T6; CE12, CE13).
 
 Every expected number is the book's -- core pp. 145-147 and *Monsters of
 Legend* pp. 12 and 103-122, and core p. 86's healing table -- typed here and never computed from the code
@@ -13,6 +13,7 @@ under test.
 
 import ast
 import pathlib
+import re
 from unittest import mock
 
 from django.test import override_settings
@@ -1050,3 +1051,153 @@ class TestHealing(_AtZero):
             (whole, hurt, cw.is_hurt(rabbit), rabbit.attributes.get("general_damage")),
             (False, True, False, 1),
         )
+
+
+# --- CE-T6: what `look` says -----------------------------------------------
+
+# The lines, typed here and never read from the module: a changed word fails.
+LOOK_HURT = "It holds itself stiffly, favouring one side."
+LOOK_BADLY = "There is a smell of blood about it, and it trembles when it moves."
+LOOK_STANDING = "It is still on its feet, but it sways, head hanging low."
+LOOK_DYING = "It lies on its side, breathing fast and shallow."
+LOOK_OUT = "It lies where it dropped, its sides rising and falling steadily."
+DESC = world_prototypes.RABBIT["desc"]
+
+
+class TestLook(_AtZero):
+    """
+    CE12: one line after the description, from `hurt_of`'s key -- the state
+    first, then the healed figure against the rating -- and none for an
+    unhurt creature, nor for one without CON (CE13). The name and the
+    room's list do not change. `look` collapses blank lines, so the line
+    reads on the line after the description.
+    """
+
+    def _hit(self, creature, amount):
+        return creature.apply_health_damage(amount, location="chest",
+                                            source=self.char1)
+
+    def _look(self, creature):
+        return creature.return_appearance(self.char1)
+
+    def _unnamed(self, creature):
+        """`look` below its first line, the name and the dbref a builder sees."""
+        return self._look(creature).split("\n", 1)[1]
+
+    def _states(self):
+        """One rabbit in each of the six keys, in `hurt_of`'s words."""
+        found = {"unhurt": _rabbit_in(self.room1)}
+        for key, amount in (("hurt", 1), ("badly_hurt", 2), ("standing", 4)):
+            found[key] = _rabbit_in(self.room1)
+            self._hit(found[key], amount)
+        self.roll.return_value = LOSE
+        found["dying"] = _rabbit_in(self.room1)
+        self._hit(found["dying"], 4)                  # row 01; the test lost
+        self.die.return_value = 7
+        found["out"] = _rabbit_in(self.room1)
+        self._hit(found["out"], 3)                    # row 07 lost, 1 left
+        self.die.return_value, self.roll.return_value = 1, WIN
+        return found
+
+    def test_the_badly_hurt_rabbits_line(self):
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 2)
+        self.assertIn(f"{DESC}\n{LOOK_BADLY}", self._look(rabbit))
+
+    def test_each_states_line(self):
+        # Each on the line after the description, and the only line added.
+        expected = {"hurt": LOOK_HURT, "badly_hurt": LOOK_BADLY,
+                    "standing": LOOK_STANDING, "dying": LOOK_DYING,
+                    "out": LOOK_OUT}
+        states = self._states()
+        wrong = []
+        for key, line in expected.items():
+            desc = states[key].get_display_desc(self.char1)
+            if desc != f"{DESC}\n\n{line}":
+                wrong.append((key, desc))
+            if f"{DESC}\n{line}" not in self._look(states[key]):
+                wrong.append((key, "look"))
+        self.assertEqual(wrong, [])
+
+    def test_the_boundary_at_the_rating(self):
+        # CEM20 (below, not at or below) reads the rabbit's 2 and the
+        # beast's 7 as hurt; CEM20b (the rating plus one) reads 1 and 6 as
+        # badly hurt. Rabbit: 4 Hit Points, rating 2; beast: 14 and 7.
+        found = []
+        for make, amount in ((lambda: _rabbit_in(self.room1), 1),
+                             (lambda: _rabbit_in(self.room1), 2),
+                             (lambda: _creature(con=12, siz=16), 6),
+                             (lambda: _creature(con=12, siz=16), 7)):
+            creature = make()
+            self._hit(creature, amount)
+            found.append(cw.hurt_of(creature))
+        self.assertEqual(found, ["hurt", "badly_hurt", "hurt", "badly_hurt"])
+
+    def test_an_unhurt_creature_is_unchanged_byte_for_byte(self):
+        # A new rabbit, and one healed whole with its 1 still stored: the
+        # read is the healed figure, not the row. CEM21 shows the healed
+        # one as hurt.
+        fresh = _rabbit_in(self.room1)
+        healed = _rabbit_in(self.room1)
+        self._hit(healed, 1)
+        self.game_at(48 * H)
+        self.assertEqual(
+            (fresh.get_display_desc(self.char1), healed.get_display_desc(self.char1),
+             self._unnamed(healed) == self._unnamed(fresh),
+             healed.attributes.get("general_damage"), cw.hurt_of(healed)),
+            (DESC, DESC, True, 1, "unhurt"),
+        )
+
+    def test_without_con_nothing_is_shown(self):
+        # CE13, with a damage row written by hand: no key, the description
+        # as Evennia gives it, and look does not raise.
+        beast = _creature(general_damage=3)
+        self.assertEqual(
+            (cw.hurt_of(beast), beast.get_display_desc(self.char1), cw.is_hurt(beast)),
+            (None, beast.default_description, False),
+        )
+        self.assertIn(beast.default_description, self._look(beast))
+
+    def test_the_state_comes_before_the_figures(self):
+        # Knocked out with 1 Hit Point: OUT, not badly hurt. CEM21b, which
+        # does not read the state, shows LOOK_BADLY.
+        out = self._states()["out"]
+        look = self._look(out)
+        self.assertEqual(
+            (cw.hit_points_of(out), cw.hurt_of(out), LOOK_OUT in look, LOOK_BADLY in look),
+            (1, "out", True, False),
+        )
+
+    def test_no_digit_in_any_line(self):
+        # Tone Guide section 7; and the unhurt key has no line.
+        self.assertEqual(
+            (sorted(cw.LOOK_LINES),
+             [line for line in cw.LOOK_LINES.values() if re.search(r"\d", line)]),
+            (["badly_hurt", "dying", "hurt", "out", "standing"], []),
+        )
+
+    def test_the_name_and_the_rooms_list_are_the_same_in_every_state(self):
+        # CE12: the name is the search path (`hunt rabbit`). A rabbit alone
+        # in room2 is listed the same whole and badly hurt.
+        alone = _rabbit_in(self.room2)
+        listed = self.room2.get_display_things(self.char1)
+        self._hit(alone, 2)
+        states = self._states()
+        self.assertEqual(
+            ({creature.get_display_name(self.char1) for creature in states.values()},
+             self.room2.get_display_things(self.char1) == listed, "rabbit" in listed),
+            ({"rabbit"}, True, True),
+        )
+
+    def test_is_hurt_and_hurt_of_agree_in_every_state(self):
+        # CE10: is_hurt is the answer; hurt_of never says otherwise.
+        disagree = [key for key, creature in self._states().items()
+                    if (cw.hurt_of(creature) != "unhurt") != cw.is_hurt(creature)]
+        self.assertEqual(disagree, [])
+
+    def test_the_game_clock_is_read_once(self):
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 1)
+        before = self.game.call_count
+        cw.hurt_of(rabbit)
+        self.assertEqual(self.game.call_count - before, 1)

@@ -6,6 +6,7 @@ CR2). CE-T1: its numbers, read on demand. CE-T2: the door, and death at
 minus the Critical Wound rating (CE5, CE9). CE-T3: the state at 0 Hit
 Points, on stored points in time (CE6). CE-T4: the Critical Wound table,
 rolled in the door (CE8). CE-T5: healing counted at the read (CE10, CE11).
+CE-T6: what `look` says (CE12).
 
 A creature has General Hit Points, not a character's seven locations: the
 book keeps locational Hit Points for major villains (core p. 146). What is
@@ -21,6 +22,8 @@ Everything here is worked out at the read, and the readers write nothing.
     is_hurt(creature)               -> bool                       (CE10)
     hit_points_of(creature)         -> int, what is left, or None without CON
     state_of(creature)              -> {"kind", "due"}, or None  (CE6)
+    hurt_of(creature)               -> a key of LOOK_LINES, UNHURT, or None
+                                       without CON              (CE12, CE13)
     CRITICAL_TABLE                  -> twenty Rows               (p. 147; CE8)
     damage(creature, amount, location, made=None, *, source=None)
                                     -> the door behind Creature.apply_health_damage
@@ -67,6 +70,11 @@ data and never stored (CE8): a single blow above the rating rolls it, and
 the door carries out the rows that kill or knock senseless; the rest of
 every row's effects go back in the answer for ML, and the 1D3 Combat
 Actions of Dazed and Stunned are ML's and not rolled.
+
+What `look` says (CE12) is `hurt_of`'s key, the stored state first and
+then the healed figure against the rating, and `LOOK_LINES`'s line for
+it, which `Creature.get_display_desc` adds after the description. An
+unhurt creature, and one without CON, has no line.
 """
 
 import time
@@ -109,6 +117,25 @@ FALL_ROOM = "{key} sags onto its side, breathing fast and shallow."
 # shallow: the room can tell the two apart, as `look` will (CE12).
 OUT_ROOM = "{key} drops where it stands, its sides still rising and falling."
 WAKE_ROOM = "{key} twitches, then struggles back onto its feet."
+
+# What `look` says (CE12; CE-T6's STOPP 0): `hurt_of`'s keys. A state's
+# key is its kind; the other three are worked out from the healed figure.
+# Identifiers, not words a player reads.
+UNHURT = "unhurt"
+HURT = "hurt"
+BADLY_HURT = "badly_hurt"   # Hit Points at or below the rating
+
+# The line after the description (Tone Guide §5, §7): the thing itself, no
+# number and no game word, for any species. The two senseless kinds echo
+# the room's lines, FALL_ROOM's fast breath and OUT_ROOM's steady one, so
+# whoever comes in after the fall can tell them apart. UNHURT has none.
+LOOK_LINES = {
+    HURT: "It holds itself stiffly, favouring one side.",
+    BADLY_HURT: "There is a smell of blood about it, and it trembles when it moves.",
+    STANDING: "It is still on its feet, but it sways, head hanging low.",
+    DYING: "It lies on its side, breathing fast and shallow.",
+    OUT: "It lies where it dropped, its sides rising and falling steadily.",
+}
 
 
 class Row(NamedTuple):
@@ -291,14 +318,42 @@ def hit_points_of(creature):
 
 def state_of(creature):
     """
-    The creature's state at 0 Hit Points as a plain dict, {"kind": STANDING
-    or DYING, "due": a time.time()}, or None when it has none (CE6). It
-    writes nothing.
+    The creature's state as a plain dict, {"kind": STANDING, DYING or OUT,
+    "due": a time.time()}, or None when it has none (CE6, CE8). It writes
+    nothing.
     """
     stored = creature.attributes.get(STATE)
     if not stored:
         return None
     return {"kind": stored["kind"], "due": stored["due"]}
+
+
+def hurt_of(creature):
+    """
+    How the creature fares, as a key for `look` (CE12). A stored state
+    answers first, by its kind: STANDING is on its feet at 0 or below, and
+    OUT lies senseless with Hit Points left, which the figure alone would
+    read as badly hurt. Else the game clock is read once and the healed
+    figure decides: UNHURT, BADLY_HURT at or below the Critical Wound
+    rating, else HURT -- the same figure `is_hurt` reads (CE10). It writes
+    nothing and never raises.
+
+    Returns:
+        str: UNHURT, HURT, BADLY_HURT, STANDING, DYING or OUT; or None for
+            a creature without CON (CE13).
+    """
+    maximum = general_hit_points_of(creature)
+    if maximum is None:
+        return None
+    state = state_of(creature)
+    if state is not None:
+        return state["kind"]
+    hurt, _ = _healed(creature, gametime_utils.get_absolute_gametime())
+    if hurt == 0:
+        return UNHURT
+    if wounds.hit_points(maximum, hurt) <= critical_rating_of(creature):
+        return BADLY_HURT
+    return HURT
 
 
 def _set_state(creature, kind, seconds):

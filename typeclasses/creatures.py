@@ -21,7 +21,9 @@ A Creature carries the data the downstream tasks read:
 
 What the creature's hurt stores -- `general_damage` and `damage_source` --
 is not declared here: world.creature_wounds owns it, writes it only in its
-door, and reads it through `damage_of` (CE-T2).
+door, and reads it through `damage_of` (CE-T2). `look` at a hurt creature
+gains one line after its description, from `creature_wounds.hurt_of`
+(CE12); its name, the search path, does not change.
 
 `at_death()` is intentionally a minimal stub here: it announces the kill and
 removes the creature. Task H3.2 overrides the body to spawn a Corpse first, once
@@ -73,6 +75,20 @@ class Creature(ObjectParent, DefaultObject):
         # only its corpse (H3) is. This also blocks carrying a creature in
         # inventory or pushing it through barter as if it were an item.
         self.locks.add("get:false()")
+
+    def get_display_desc(self, looker, **kwargs):
+        """
+        The description, then one line of how the creature fares (Creatures
+        CE12), as `typeclasses/durable.py` adds its condition. An unhurt
+        creature, and one without CON (CE13), gets the description back
+        unchanged. It reads and writes nothing else, so any number of
+        lookers may look at once.
+        """
+        base = super().get_display_desc(looker, **kwargs)
+        line = creature_wounds.LOOK_LINES.get(creature_wounds.hurt_of(self))
+        if not line:
+            return base
+        return f"{base}\n\n{line}" if base else line
 
     def apply_health_damage(self, amount, *, location, source=None, made=None):
         """
