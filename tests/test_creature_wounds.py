@@ -2,11 +2,12 @@
 Tests for world.creature_wounds -- a creature's numbers (Creatures
 decomposition, slice CE, task CE-T1; Combat Design CR1, CE2-CE4, CE7, CE13)
 and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9), the
-state at 0 Hit Points on stored points in time (CE-T3; CE6), and the
-Critical Wound table rolled in the door (CE-T4; CE8).
+state at 0 Hit Points on stored points in time (CE-T3; CE6), the
+Critical Wound table rolled in the door (CE-T4; CE8), and healing counted
+at the read (CE-T5; CE10, CE11).
 
 Every expected number is the book's -- core pp. 145-147 and *Monsters of
-Legend* pp. 12 and 103-122 -- typed here and never computed from the code
+Legend* pp. 12 and 103-122, and core p. 86's healing table -- typed here and never computed from the code
 under test.
 """
 
@@ -14,6 +15,7 @@ import ast
 import pathlib
 from unittest import mock
 
+from django.test import override_settings
 from evennia.prototypes.spawner import spawn
 from evennia.utils.create import create_object
 from evennia.utils.test_resources import EvenniaTest, EvenniaTestCase
@@ -213,7 +215,7 @@ class TestNoRowForNone(EvenniaTest):
 # An attack roll that succeeded: the door only reads whether it did (CE9).
 MADE = {"result": "success", "success": True, "roll": 30, "target": 60}
 MISSED = {"result": "failure", "success": False, "roll": 90, "target": 60}
-ROWS = ("general_damage", "damage_source", "hurt_state")
+ROWS = ("general_damage", "damage_source", "hurt_state", "heal_anchor")
 
 
 def _rabbit_in(room):
@@ -291,7 +293,7 @@ class TestHitPointsLeft(EvenniaTest):
         rabbit = spawn("rabbit")[0]
         cw.damage_of(rabbit)
         cw.hit_points_of(rabbit)
-        self.assertEqual(_rows(rabbit), (False, False, False))
+        self.assertEqual(_rows(rabbit), (False, False, False, False))
 
 
 # CE-T3: the die, the clock and the alarm, patched in the module (Testing
@@ -311,6 +313,12 @@ class _AtZero(EvenniaTest):
     `world.creature_wounds.time` and `.delay` patched, and the die; every
     line to a room recorded as (room, text, from_obj). An alarm is fired by
     calling `cw._state_due` by hand, in the order the test writes.
+
+    CE-T5: the game clock is patched where the module reads it,
+    `world.gametime_utils.get_absolute_gametime` (the module is imported
+    whole), and stands at 0 unless a test moves it: an anchor of 0 is
+    falsy, so every test that hurts at 0 presses `is None` against a
+    truth test. A corpse takes the same time; no test reads it.
     """
 
     def setUp(self):
@@ -322,6 +330,8 @@ class _AtZero(EvenniaTest):
         self.die = self._patch(mock.patch(DIE, return_value=1))
         self.told = self._patch(mock.patch.object(
             type(self.room1), "msg_contents", autospec=True))
+        self.game = self._patch(mock.patch(
+            "world.gametime_utils.get_absolute_gametime", return_value=0))
 
     def _patch(self, patcher):
         found = patcher.start()
@@ -331,6 +341,10 @@ class _AtZero(EvenniaTest):
     def at(self, seconds):
         """The clock `seconds` after NOW."""
         self.clock.time.return_value = NOW + seconds
+
+    def game_at(self, seconds):
+        """The game clock at `seconds` of game time (CE-T5)."""
+        self.game.return_value = seconds
 
     def lines(self):
         return [(c.args[0], c.args[1], c.kwargs.get("from_obj"))
@@ -430,7 +444,7 @@ class TestTheDoor(_AtZero):
                                               source=self.char1)
                    for amount in (0, -1)]
         self.assertEqual((answers, _rows(rabbit)),
-                         ([None, None], (False, False, False)))
+                         ([None, None], (False, False, False, False)))
 
     def test_every_refusal_writes_nothing_whatever_the_amount(self):
         # CEM6: a refusal after the write leaves a row. No subTest (Testing
@@ -454,7 +468,7 @@ class TestTheDoor(_AtZero):
                     pass
                 else:
                     bad.append((name, amount, "no ValueError"))
-                if _rows(creature) != (False, False, False):
+                if _rows(creature) != (False, False, False, False):
                     bad.append((name, amount, _rows(creature)))
         self.assertEqual(bad, [])
 
@@ -728,7 +742,8 @@ class TestTheRoll(_AtZero):
                 bad.append((number, answer["row"], answer["effects"]))
             if rabbit.pk:
                 added = {a.key for a in rabbit.attributes.all()} - before
-                if added != {"general_damage"}:
+                # CE-T5: the first blow anchors the healing.
+                if added != {"general_damage", "heal_anchor"}:
                     bad.append((number, sorted(added)))
         self.assertEqual(bad, [])
 
@@ -856,4 +871,182 @@ class TestTheRowsThatTest(_AtZero):
              {"kind": "dying", "due": NOW + 10 + 17.5},
              ["testbeast drops where it stands, its sides still rising and falling."],
              0, True),
+        )
+
+
+# --- CE-T5: healing at the read --------------------------------------------
+
+# Game seconds. Core p. 86: Resilience 11-30 heals a Hit Point per 48 hours
+# (the rabbit's 22), 31-50 per 36 (the CON 12, SIZ 16 beast's 46), 91+ per 12.
+H = 3600
+
+
+@override_settings(TIME_FACTOR=4)
+class TestHealing(_AtZero):
+    """
+    CE11: one point per interval of game time, counted at the read from
+    `heal_anchor`, which only the door writes -- to now on a blow that finds
+    no damage left or no anchor, else on by whole intervals -- and on by the
+    time a creature lies senseless when the door knocks it out. Nothing heals
+    under a state. CE10: `is_hurt`. TIME_FACTOR is held at 4: the knock-out's
+    real minutes become game seconds by it.
+    """
+
+    def _hit(self, creature, amount, seconds):
+        self.game_at(seconds)
+        return creature.apply_health_damage(amount, location="chest",
+                                            source=self.char1)
+
+    def _read(self, creature, *seconds):
+        found = []
+        for at in seconds:
+            self.game_at(at)
+            found.append(cw.damage_of(creature))
+        return found
+
+    def _beast(self, **extra):
+        beast = _creature(con=12, siz=16, **extra)
+        beast.move_to(self.room1, quiet=True, move_hooks=False)
+        return beast
+
+    def test_three_points_read_three_just_under_48_hours_and_two_at_it(self):
+        # The red: without healing, 3 at 48 hours. Whole intervals only.
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 3, 0)
+        self.assertEqual(self._read(rabbit, 48 * H - 1, 48 * H), [3, 2])
+
+    def test_it_never_reads_below_nothing(self):
+        # Without the floor, 144 hours would read 0 and 1000 hours -17, and
+        # the Hit Points would pass the maximum.
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 3, 0)
+        found = self._read(rabbit, 144 * H, 1000 * H)
+        self.assertEqual((found, cw.hit_points_of(rabbit)), ([0, 0], 4))
+
+    def test_the_read_writes_nothing(self):
+        # CEM18: a read that writes the healed figure (or the anchor) would
+        # change the rows here.
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 3, 0)
+        before = {a.key: a.value for a in rabbit.attributes.all()}
+        self.game_at(100 * H)
+        cw.damage_of(rabbit)
+        cw.hit_points_of(rabbit)
+        cw.is_hurt(rabbit)
+        after = {a.key: a.value for a in rabbit.attributes.all()}
+        self.assertEqual(after, before)
+
+    def test_a_blow_lands_on_the_healed_figure_and_keeps_the_part_interval(self):
+        # 3 at 0; at 50 hours one point has healed, so a blow of 1 makes 3,
+        # and the anchor moves to 48, not 50 (CEM17): the next point at 96.
+        # The anchor of 0 is an anchor, not a missing one.
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 3, 0)
+        answer = self._hit(rabbit, 1, 50 * H)
+        self.assertEqual(
+            (answer["hit_points"], rabbit.attributes.get("heal_anchor"),
+             self._read(rabbit, 96 * H - 1, 96 * H)),
+            (1, 48 * H, [3, 2]),
+        )
+
+    def test_death_is_counted_on_the_healed_figure(self):
+        # CEM18b: 3 at 0, healed to 1 at 96 hours; 3 more is 4, 0 Hit Points
+        # and a test (won). On the stored 3 it would be 6, -2, and dead.
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 3, 0)
+        answer = self._hit(rabbit, 3, 96 * H)
+        self.assertEqual(
+            (answer["dies"], answer["hit_points"], answer["state"], bool(rabbit.pk)),
+            (False, 0, "standing", True),
+        )
+
+    def test_a_blow_after_full_healing_anchors_at_now(self):
+        # CEM17b: 1 at 0, whole again by 48 hours; a blow of 1 at 200 hours
+        # is a new wound, healed at 248 and not at once.
+        rabbit = _rabbit_in(self.room1)
+        self._hit(rabbit, 1, 0)
+        self._hit(rabbit, 1, 200 * H)
+        self.assertEqual(
+            (rabbit.attributes.get("heal_anchor"),
+             self._read(rabbit, 248 * H - 1, 248 * H)),
+            (200 * H, [1, 0]),
+        )
+
+    def test_damage_without_an_anchor_does_not_heal_until_the_door_anchors_it(self):
+        # A creature hurt before CE-T5 (STOPP 0, choice 2). CEM17c reads a
+        # missing anchor as 0, the epoch, and heals it whole at 1000 hours.
+        rabbit = _rabbit_in(self.room1)
+        rabbit.attributes.add("general_damage", 1)
+        before = self._read(rabbit, 1000 * H)
+        answer = self._hit(rabbit, 1, 1000 * H)
+        self.assertEqual(
+            (before, answer["hit_points"], rabbit.attributes.get("heal_anchor"),
+             self._read(rabbit, 1048 * H - 1, 1048 * H)),
+            ([1], 2, 1000 * H, [2, 1]),
+        )
+
+    def test_a_stored_resilience_sets_the_interval(self):
+        # Resilience 95 is the 91+ row, 12 hours; the formula's 46 would be
+        # 36 and read 3 at 12.
+        beast = self._beast(resilience=95)
+        self._hit(beast, 3, 0)
+        self.assertEqual(self._read(beast, 12 * H - 1, 12 * H), [3, 2])
+
+    def test_without_con_the_readers_raise_nothing_and_it_is_not_hurt(self):
+        # CE13, choice 4: no interval without Resilience, so the stored
+        # figure; `interval_for(None)` would raise. `is_hurt` is False, since
+        # the door never hurts such a creature.
+        old = _creature(siz=4)
+        old.attributes.add("general_damage", 2)
+        self.game_at(1000 * H)
+        self.assertEqual((cw.damage_of(old), cw.is_hurt(old)), (2, False))
+
+    def test_standing_at_zero_does_not_heal(self):
+        # CEM19: 4 at 0 is 0 Hit Points, the test won; at 100 hours two
+        # points would have healed.
+        rabbit = _rabbit_in(self.room1)
+        answer = self._hit(rabbit, 4, 0)
+        self.assertEqual((answer["state"], self._read(rabbit, 100 * H)),
+                         ("standing", [4]))
+
+    def _knocked_out(self):
+        # 1 at 0; at 35 hours 55 minutes 8 more, row 07 lost: out for eight
+        # minutes with 5 Hit Points left, 480 real seconds, 1920 game seconds.
+        beast = self._beast()
+        self._hit(beast, 1, 0)
+        self.die.return_value = 7
+        self.roll.return_value = LOSE
+        answer = self._hit(beast, 8, 35 * H + 55 * 60)
+        self.roll.return_value = WIN
+        return beast, answer
+
+    def test_senseless_it_does_not_heal(self):
+        beast, answer = self._knocked_out()
+        self.assertEqual(
+            (answer["state"], answer["hit_points"], self._read(beast, 100 * H)),
+            ("out", 5, [9]),
+        )
+
+    def test_the_time_senseless_is_not_counted_once_it_wakes(self):
+        # The anchor moves on by the 1920 game seconds senseless. CEM19b
+        # (no move) and CEM19c (480, the real seconds) both read 8 at
+        # 36 hours 8 minutes.
+        beast, _ = self._knocked_out()
+        self.at(480)
+        cw._state_due(beast, "out", NOW + 480)
+        self.assertEqual(
+            (cw.state_of(beast), beast.attributes.get("heal_anchor"),
+             self._read(beast, 36 * H + 8 * 60, 36 * H + 32 * 60)),
+            (None, 1920, [9, 8]),
+        )
+
+    def test_is_hurt(self):
+        rabbit = _rabbit_in(self.room1)
+        whole = cw.is_hurt(rabbit)
+        self._hit(rabbit, 1, 0)
+        hurt = cw.is_hurt(rabbit)
+        self.game_at(48 * H)
+        self.assertEqual(
+            (whole, hurt, cw.is_hurt(rabbit), rabbit.attributes.get("general_damage")),
+            (False, True, False, 1),
         )

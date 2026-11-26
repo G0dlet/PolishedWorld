@@ -86,9 +86,9 @@ expect = ["test_row_seven_lost_at_zero_is_dying_with_no_test_at_zero"]
 [[mutant]]
 id = "CEM16"
 file = "world/creature_wounds.py"
-old = '''    _set_state(creature, OUT, amount * wounds.MINUTE)
+old = '''    seconds = amount * wounds.MINUTE
 '''
-new = '''    _set_state(creature, OUT, amount * ROUND_SECONDS_AT_ZERO)
+new = '''    seconds = amount * ROUND_SECONDS_AT_ZERO
 '''
 expect = ["test_rows_seven_and_fourteen_lost_knock_it_out_for_the_damage_in_minutes"]
 

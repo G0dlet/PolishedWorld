@@ -5,7 +5,7 @@ A creature's hurt (Creatures decomposition, slice CE; Combat Design CR1,
 CR2). CE-T1: its numbers, read on demand. CE-T2: the door, and death at
 minus the Critical Wound rating (CE5, CE9). CE-T3: the state at 0 Hit
 Points, on stored points in time (CE6). CE-T4: the Critical Wound table,
-rolled in the door (CE8).
+rolled in the door (CE8). CE-T5: healing counted at the read (CE10, CE11).
 
 A creature has General Hit Points, not a character's seven locations: the
 book keeps locational Hit Points for major villains (core p. 146). What is
@@ -17,7 +17,8 @@ Everything here is worked out at the read, and the readers write nothing.
     critical_rating_of(creature)    -> int, or None without CON  (p. 146)
     resilience_of(creature)         -> int, or None without CON  (Monsters p. 12)
     armour_points_of(creature)      -> int, its natural armour   (CE9)
-    damage_of(creature)             -> int, the damage it carries (CE3)
+    damage_of(creature)             -> int, the damage it carries, healed (CE3, CE11)
+    is_hurt(creature)               -> bool                       (CE10)
     hit_points_of(creature)         -> int, what is left, or None without CON
     state_of(creature)              -> {"kind", "due"}, or None  (CE6)
     CRITICAL_TABLE                  -> twenty Rows               (p. 147; CE8)
@@ -39,7 +40,18 @@ and no class declares it (CE-T2's STOPP 0): `general_damage`, the damage
 taken -- not the Hit Points left (CE3) -- and `damage_source`, the latest
 blow's source. Neither row exists until the door writes it, so a creature
 without `general_damage` is unhurt. Read the damage through `damage_of`,
-never the row: from CE-T5 the stored figure is not yet healed.
+never the row: the stored figure is not yet healed.
+
+Healing (CE11; core p. 86) is counted at the read: one point per
+`healing.interval_for(resilience)` game seconds since `heal_anchor`, the
+game second the stored figure is healed up to, from
+`gametime_utils.get_absolute_gametime()`. Only the door writes it (CE-T5's
+STOPP 0): to now on a blow that finds no damage left or no anchor -- a
+creature hurt before CE-T5 heals from its next blow, never from the
+epoch -- else on by the whole intervals it counted in, as a resource node
+keeps its part interval; and, when it knocks a creature out, on by the
+time it will lie senseless, so that time is never counted. Nothing heals
+under a state, nor without CON: the stored figure is the answer.
 
 The state at 0 (CE6) is `hurt_state`, one row holding {"kind", "due"} so
 the two are never read half-changed. The kind names what happens at `due`,
@@ -61,10 +73,11 @@ import time
 from random import randint
 from typing import NamedTuple
 
+from django.conf import settings
 from evennia.objects.objects import DefaultObject
 from evennia.utils.utils import delay
 
-from world import body, wounds
+from world import body, gametime_utils, healing, wounds
 from world.skillcheck import CRITICAL, skill_check
 
 # The door's two Attributes (CE-T2). Not `body_damage`: a creature has no
@@ -72,6 +85,7 @@ from world.skillcheck import CRITICAL, skill_check
 # census in tests/test_client_state.py holds every write to it.
 DAMAGE = "general_damage"
 SOURCE = "damage_source"
+ANCHOR = "heal_anchor"   # game seconds; the stored damage is healed up to it
 
 # CE6: two calibration constants, real seconds, the module's own -- not
 # CT2's ROUND_SECONDS, the dial for a fight's text (WN3's reason). The
@@ -207,15 +221,56 @@ def armour_points_of(creature):
     return creature.natural_ap
 
 
+def _interval(creature):
+    """Game seconds per Hit Point healed, by the creature's Resilience (p. 86)."""
+    return healing.interval_for(resilience_of(creature))
+
+
+def _healed(creature, now):
+    """
+    The damage the creature carries at game second `now`, and the whole
+    intervals counted to get there (CE11). It writes nothing. Without
+    damage: (0, 0). Without an anchor, without CON or with a state: the
+    stored figure and 0 -- nothing heals then (CE-T5's STOPP 0).
+
+    Returns:
+        tuple: (int damage, never below 0; int intervals)
+    """
+    stored = creature.attributes.get(DAMAGE, default=0)
+    if not stored:
+        return 0, 0
+    anchor = creature.attributes.get(ANCHOR)
+    if anchor is None or creature.con is None or state_of(creature) is not None:
+        return stored, 0
+    intervals = max(0, (now - anchor) // _interval(creature))
+    return max(0, stored - intervals), intervals
+
+
 def damage_of(creature):
     """
-    The damage the creature carries: its stored `general_damage`, 0 when it
-    has none (CE3: without the row it is unhurt). It writes nothing.
+    The damage the creature carries now: its stored `general_damage` less a
+    point per whole interval of game time since `heal_anchor` (CE11), never
+    below 0; 0 when it has none (CE3: without the row it is unhurt). It
+    writes nothing, and never raises: without CON it answers the stored
+    figure.
 
     Returns:
         int
     """
-    return creature.attributes.get(DAMAGE, default=0)
+    return _healed(creature, gametime_utils.get_absolute_gametime())[0]
+
+
+def is_hurt(creature):
+    """
+    Whether the creature carries any damage now (CE10: the wounded quarry is
+    the damage). False without CON, which the door never hurts (CE13).
+
+    Returns:
+        bool
+    """
+    if creature.con is None:
+        return False
+    return damage_of(creature) > 0
 
 
 def hit_points_of(creature):
@@ -290,7 +345,12 @@ def _knock_out(creature, amount):
     many minutes on as the blow did damage -- the character's rule (p. 145,
     WN11), since the book gives none for a creature (CE8).
     """
-    _set_state(creature, OUT, amount * wounds.MINUTE)
+    seconds = amount * wounds.MINUTE
+    _set_state(creature, OUT, seconds)
+    # The time senseless is not counted (CE11): the anchor moves on by it,
+    # in game seconds, so the creature wakes with its part interval kept.
+    anchor = creature.attributes.get(ANCHOR)
+    creature.attributes.add(ANCHOR, anchor + int(seconds * settings.TIME_FACTOR))
     _tell(creature, OUT_ROOM)
 
 
@@ -376,9 +436,13 @@ def damage(creature, amount, location, made=None, *, source=None):
     a creature without CON (CE13); an amount of 0 or less, which answers
     None.
 
-    The stored damage grows by the amount, and `damage_source` becomes this
-    blow's source: a None removes the row, so it always says what the
-    latest call said (CE9; the alarm reads it).
+    The game clock is read once, and the healing up to it is counted in
+    (CE11): the stored damage becomes the healed figure plus the amount, and
+    the anchor moves to now when the blow finds no damage left or no
+    anchor, else on by the whole intervals counted. Everything after reads
+    the healed figure, so a blow never kills with damage already healed.
+    `damage_source` becomes this blow's source: a None removes the row, so
+    it always says what the latest call said (CE9; the alarm reads it).
 
     Then, in this order (CE-T4's STOPP 0): death outright, at minus the
     rating (CE5), which rolls nothing more; the Critical Wound table, for a
@@ -436,8 +500,15 @@ def damage(creature, amount, location, made=None, *, source=None):
         )
     if amount <= 0:
         return None
-    total = damage_of(creature) + amount
+    now = gametime_utils.get_absolute_gametime()
+    healed, intervals = _healed(creature, now)
+    total = healed + amount
     creature.attributes.add(DAMAGE, total)
+    anchor = creature.attributes.get(ANCHOR)
+    if healed == 0 or anchor is None:
+        creature.attributes.add(ANCHOR, now)
+    elif intervals:
+        creature.attributes.add(ANCHOR, anchor + intervals * _interval(creature))
     if source is None:
         creature.attributes.remove(SOURCE)
     else:

@@ -1,0 +1,97 @@
+# CE-T5 -- healing at the read, and the hurt creature's reader
+# (Creatures decomposition §8).
+# Run: python3 tools/mutate.py tools/mutants/ce_t5.toml --parallel 2
+#
+# CEM17-CEM19 are the decomposition's; the lettered ones were added at
+# CE-T5's STOPP 0, for its choices 1, 2, 3 and 5.
+
+modules = ["tests.test_creature_wounds"]
+
+# The anchor moved to now at a blow, not on by whole intervals (CE11).
+[[mutant]]
+id = "CEM17"
+file = "world/creature_wounds.py"
+old = '''    elif intervals:
+        creature.attributes.add(ANCHOR, anchor + intervals * _interval(creature))
+'''
+new = '''    elif intervals:
+        creature.attributes.add(ANCHOR, now)
+'''
+expect = ["test_a_blow_lands_on_the_healed_figure_and_keeps_the_part_interval"]
+
+# Whole again, the anchor is not moved to now (choice 1): a new wound heals
+# from the old anchor, at once.
+[[mutant]]
+id = "CEM17b"
+file = "world/creature_wounds.py"
+old = '''    if healed == 0 or anchor is None:
+'''
+new = '''    if anchor is None:
+'''
+expect = ["test_a_blow_after_full_healing_anchors_at_now"]
+
+# A missing anchor read as 0, the epoch (choice 2).
+[[mutant]]
+id = "CEM17c"
+file = "world/creature_wounds.py"
+old = '''    anchor = creature.attributes.get(ANCHOR)
+    if anchor is None or creature.con is None or state_of(creature) is not None:
+'''
+new = '''    anchor = creature.attributes.get(ANCHOR, default=0)
+    if anchor is None or creature.con is None or state_of(creature) is not None:
+'''
+expect = ["test_damage_without_an_anchor_does_not_heal_until_the_door_anchors_it"]
+
+# The read writing the healed figure.
+[[mutant]]
+id = "CEM18"
+file = "world/creature_wounds.py"
+old = '''    return _healed(creature, gametime_utils.get_absolute_gametime())[0]
+'''
+new = '''    found = _healed(creature, gametime_utils.get_absolute_gametime())[0]
+    if creature.attributes.has(DAMAGE):
+        creature.attributes.add(DAMAGE, found)
+    return found
+'''
+expect = ["test_the_read_writes_nothing"]
+
+# The blow landing on the stored figure, not the healed one (choice 5).
+[[mutant]]
+id = "CEM18b"
+file = "world/creature_wounds.py"
+old = '''    total = healed + amount
+'''
+new = '''    total = creature.attributes.get(DAMAGE, default=0) + amount
+'''
+expect = ["test_death_is_counted_on_the_healed_figure"]
+
+# Healing counted under a state.
+[[mutant]]
+id = "CEM19"
+file = "world/creature_wounds.py"
+old = '''    if anchor is None or creature.con is None or state_of(creature) is not None:
+'''
+new = '''    if anchor is None or creature.con is None:
+'''
+expect = ["test_standing_at_zero_does_not_heal", "test_senseless_it_does_not_heal"]
+
+# The knock-out does not move the anchor on (choice 3): the time senseless
+# is counted once it wakes.
+[[mutant]]
+id = "CEM19b"
+file = "world/creature_wounds.py"
+old = '''    creature.attributes.add(ANCHOR, anchor + int(seconds * settings.TIME_FACTOR))
+'''
+new = '''    creature.attributes.add(ANCHOR, anchor)
+'''
+expect = ["test_the_time_senseless_is_not_counted_once_it_wakes"]
+
+# The anchor moved on in real seconds, not game seconds.
+[[mutant]]
+id = "CEM19c"
+file = "world/creature_wounds.py"
+old = '''    creature.attributes.add(ANCHOR, anchor + int(seconds * settings.TIME_FACTOR))
+'''
+new = '''    creature.attributes.add(ANCHOR, anchor + int(seconds))
+'''
+expect = ["test_the_time_senseless_is_not_counted_once_it_wakes"]

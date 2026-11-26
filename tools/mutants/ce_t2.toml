@@ -36,12 +36,16 @@ old = '''    if creature.con is None:
         )
     if amount <= 0:
         return None
-    total = damage_of(creature) + amount
+    now = gametime_utils.get_absolute_gametime()
+    healed, intervals = _healed(creature, now)
+    total = healed + amount
     creature.attributes.add(DAMAGE, total)
 '''
 new = '''    if amount <= 0:
         return None
-    total = damage_of(creature) + amount
+    now = gametime_utils.get_absolute_gametime()
+    healed, intervals = _healed(creature, now)
+    total = healed + amount
     creature.attributes.add(DAMAGE, total)
     if creature.con is None:
         raise ValueError(
@@ -63,7 +67,7 @@ expect = ["test_a_deleted_creature_answers_nothing"]
 [[mutant]]
 id = "CEM7"
 file = "world/creature_wounds.py"
-old = '''    total = damage_of(creature) + amount
+old = '''    total = healed + amount
 '''
 new = '''    total = amount
 '''
