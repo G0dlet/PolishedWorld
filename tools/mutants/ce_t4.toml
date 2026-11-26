@@ -1,0 +1,115 @@
+# CE-T4 -- the Critical Wound table (Creatures decomposition §7).
+# Run: python3 tools/mutate.py tools/mutants/ce_t4.toml --parallel 2
+#
+# CEM13-CEM16 are the decomposition's; the lettered ones were added at
+# CE-T4's STOPP 0, for its choices 1, 4, 5 and 6.
+
+modules = ["tests.test_creature_wounds"]
+
+# At or above the rating for above (p. 147: "exceeds").
+[[mutant]]
+id = "CEM13"
+file = "world/creature_wounds.py"
+old = '''    if amount > rating:
+'''
+new = '''    if amount >= rating:
+'''
+expect = ["test_a_blow_at_the_rating_rolls_nothing_and_one_above_rolls"]
+
+# The table before death outright (choice 1): a blow that kills rolls.
+[[mutant]]
+id = "CEM13b"
+file = "world/creature_wounds.py"
+old = '''    if answer["dies"]:
+        return answer
+    found = state_of(creature)
+'''
+new = '''    found = state_of(creature)
+'''
+expect = ["test_a_blow_that_kills_outright_rolls_nothing"]
+
+# The armour added to the roll, not taken off.
+[[mutant]]
+id = "CEM14"
+file = "world/creature_wounds.py"
+old = '''    number = randint(1, 20) - armour_points_of(creature)
+'''
+new = '''    number = randint(1, 20) + armour_points_of(creature)
+'''
+expect = ["test_the_broos_armour_is_taken_off_the_roll"]
+
+# A critical's damage not added.
+[[mutant]]
+id = "CEM14b"
+file = "world/creature_wounds.py"
+old = '''    if critical:
+        number += amount
+'''
+new = '''    if critical:
+        pass
+'''
+expect = ["test_a_critical_adds_the_damage_and_a_success_does_not"]
+
+# Below 0 for below 1: a 0 is read as CRITICAL_TABLE[-1], row 20.
+[[mutant]]
+id = "CEM14c"
+file = "world/creature_wounds.py"
+old = '''    if number < 1:
+'''
+new = '''    if number < 0:
+'''
+expect = ["test_below_one_is_no_row"]
+
+# Rows 17-19 kill with no test.
+[[mutant]]
+id = "CEM15"
+file = "world/creature_wounds.py"
+old = '''            if lost and row.test == DEATH:
+'''
+new = '''            if row.test == DEATH:
+'''
+expect = ["test_rows_seventeen_to_nineteen_lost_kill_and_won_live"]
+
+# Rows 07 and 14 lost at 0 knock out instead of falling (choice 5).
+[[mutant]]
+id = "CEM15b"
+file = "world/creature_wounds.py"
+old = '''                if left > 0:
+                    _knock_out(creature, amount)
+'''
+new = '''                if True:
+                    _knock_out(creature, amount)
+'''
+expect = ["test_row_seven_lost_at_zero_is_dying_with_no_test_at_zero"]
+
+# The waking in rounds, not minutes.
+[[mutant]]
+id = "CEM16"
+file = "world/creature_wounds.py"
+old = '''    seconds = amount * wounds.MINUTE
+'''
+new = '''    seconds = amount * ROUND_SECONDS_AT_ZERO
+'''
+expect = ["test_rows_seven_and_fourteen_lost_knock_it_out_for_the_damage_in_minutes"]
+
+# OUT kept at 0 (CE-T3's rule unchanged; choice 6).
+[[mutant]]
+id = "CEM16b"
+file = "world/creature_wounds.py"
+old = '''        elif state["kind"] == OUT:
+            _set_state(creature, DYING, _dying_seconds(creature))
+'''
+new = '''        elif False:
+            _set_state(creature, DYING, _dying_seconds(creature))
+'''
+expect = ["test_out_taken_to_zero_is_dying_with_no_line_and_no_senseless_test"]
+
+# The senseless test rolled for a creature already senseless (choice 6).
+[[mutant]]
+id = "CEM16c"
+file = "world/creature_wounds.py"
+old = '''            if row.test == DEATH or (row.test == SENSELESS and found is None):
+'''
+new = '''            if row.test == DEATH or row.test == SENSELESS:
+'''
+expect = ["test_out_taken_to_zero_is_dying_with_no_line_and_no_senseless_test"]

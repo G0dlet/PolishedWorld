@@ -1,0 +1,55 @@
+# CE-T6 -- what `look` says (Creatures decomposition §8).
+# Run: python3 tools/mutate.py tools/mutants/ce_t6.toml --parallel 2
+#
+# CEM20-CEM21 are the decomposition's; the lettered ones were added at
+# CE-T6's STOPP 0, for its choices 2 and 5.
+
+modules = ["tests.test_creature_wounds"]
+
+# The boundary at the rating moved down by one: below, not at or below.
+[[mutant]]
+id = "CEM20"
+file = "world/creature_wounds.py"
+old = '''    if wounds.hit_points(maximum, hurt) <= critical_rating_of(creature):
+'''
+new = '''    if wounds.hit_points(maximum, hurt) < critical_rating_of(creature):
+'''
+expect = ["test_the_boundary_at_the_rating"]
+
+# The boundary moved up by one: the rating plus one.
+[[mutant]]
+id = "CEM20b"
+file = "world/creature_wounds.py"
+old = '''    if wounds.hit_points(maximum, hurt) <= critical_rating_of(creature):
+'''
+new = '''    if wounds.hit_points(maximum, hurt) <= critical_rating_of(creature) + 1:
+'''
+expect = ["test_the_boundary_at_the_rating"]
+
+# The line shown for an unhurt creature: no damage falls through to HURT.
+[[mutant]]
+id = "CEM21"
+file = "world/creature_wounds.py"
+old = '''    if hurt == 0:
+        return UNHURT
+'''
+new = '''    if hurt < 0:
+        return UNHURT
+'''
+expect = ["test_an_unhurt_creature_is_unchanged_byte_for_byte"]
+
+# The state not read (choice 2): OUT with Hit Points left reads as badly hurt.
+[[mutant]]
+id = "CEM21b"
+file = "world/creature_wounds.py"
+old = '''    state = state_of(creature)
+    if state is not None:
+        return state["kind"]
+    hurt, _ = _healed(creature, gametime_utils.get_absolute_gametime())
+'''
+new = '''    state = None
+    if state is not None:
+        return state["kind"]
+    hurt, _ = _healed(creature, gametime_utils.get_absolute_gametime())
+'''
+expect = ["test_the_state_comes_before_the_figures"]

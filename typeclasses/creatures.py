@@ -14,6 +14,16 @@ A Creature carries the data the downstream tasks read:
     harvest_template -- key into the harvest tables (H4.2); decides which parts
                         its corpse yields.
     flee_skill       -- opposed value the hunt check rolls against (H2.2).
+    con              -- Mongoose Legend CON, set by the prototype; None for a
+                        creature that has none and cannot be hurt (CE3, CE13).
+    resilience       -- set only where the book's row leaves CON x 3 + 10
+                        (CE7). Both are read through world.creature_wounds.
+
+What the creature's hurt stores -- `general_damage` and `damage_source` --
+is not declared here: world.creature_wounds owns it, writes it only in its
+door, and reads it through `damage_of` (CE-T2). `look` at a hurt creature
+gains one line after its description, from `creature_wounds.hurt_of`
+(CE12); its name, the search path, does not change.
 
 `at_death()` is intentionally a minimal stub here: it announces the kill and
 removes the creature. Task H3.2 overrides the body to spawn a Corpse first, once
@@ -27,7 +37,7 @@ from evennia.objects.objects import DefaultObject
 from .objects import ObjectParent
 from evennia.utils.create import create_object
 
-from world import gametime_utils
+from world import creature_wounds, gametime_utils
 from typeclasses.corpse import Corpse
 
 
@@ -50,6 +60,14 @@ class Creature(ObjectParent, DefaultObject):
     harvest_template = AttributeProperty(default="rabbit", autocreate=True)
     flee_skill = AttributeProperty(default=30, autocreate=True)
 
+    # --- Constitution (Creatures CE3, CE7, CE13) ------------------------------
+    # autocreate=False, unlike the four above, and written out because
+    # Evennia's default is True: here None *is* the answer -- no CON, no Hit
+    # Points -- so a row holding None says nothing, and a read must not write
+    # one. Only the prototype writes them.
+    con = AttributeProperty(default=None, autocreate=False)
+    resilience = AttributeProperty(default=None, autocreate=False)
+
     def at_object_creation(self):
         """Lock the creature so it cannot be picked up, given, or traded."""
         super().at_object_creation()
@@ -57,6 +75,56 @@ class Creature(ObjectParent, DefaultObject):
         # only its corpse (H3) is. This also blocks carrying a creature in
         # inventory or pushing it through barter as if it were an item.
         self.locks.add("get:false()")
+
+    def get_display_desc(self, looker, **kwargs):
+        """
+        The description, then one line of how the creature fares (Creatures
+        CE12), as `typeclasses/durable.py` adds its condition. An unhurt
+        creature, and one without CON (CE13), gets the description back
+        unchanged. It reads and writes nothing else, so any number of
+        lookers may look at once.
+        """
+        base = super().get_display_desc(looker, **kwargs)
+        line = creature_wounds.LOOK_LINES.get(creature_wounds.hurt_of(self))
+        if not line:
+            return base
+        return f"{base}\n\n{line}" if base else line
+
+    def apply_health_damage(self, amount, *, location, source=None, made=None):
+        """
+        The one door for a creature's hurt, with a character's name and
+        arguments (Creatures CE9; Combat Design PV2, PD1): ML's blow and
+        PJ's shot both come here. It puts the amount on the creature
+        through `creature_wounds.damage`, which checks and writes, and
+        carries out the death the answer gives (CE5).
+
+        Args:
+            amount (int): what got through the armour (WO6). 0 or less
+                writes nothing.
+            location (str): checked as a character's is (WO5) and not used:
+                General Hit Points have no locations.
+            source (Object, str or None): what dealt the blow; stored. Only
+                an object reaches `at_death` as the killer -- a string, as
+                the survival ticker gives a character, would be asked to
+                `msg()` half-way through the death -- so anything else dies
+                with no killer, and the room reads *dies*.
+            made (dict or None): the attack roll's successful `skill_check`
+                dict, when the source has one.
+
+        Raises:
+            ValueError: from `creature_wounds.damage`, before anything is
+                written -- among them a creature without CON (CE13).
+
+        Returns:
+            dict or None: the door's answer -- None if nothing was written,
+                else its seven keys (`creature_wounds.damage`) -- for the
+                caller to read. `dies` is whether this blow kills, by the
+                rating or by the Critical Wound table (CE5, CE8).
+        """
+        outcome = creature_wounds.damage(self, amount, location, made, source=source)
+        if outcome and outcome["dies"]:
+            self.at_death(source if isinstance(source, DefaultObject) else None)
+        return outcome
 
     def at_death(self, killer=None):
         """

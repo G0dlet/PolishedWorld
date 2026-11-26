@@ -1,0 +1,66 @@
+# CE-T3 -- the state at 0 Hit Points (Creatures decomposition §7).
+# Run: python3 tools/mutate.py tools/mutants/ce_t3.toml --parallel 2
+#
+# Predicted fail counts (the first run, 2026-11-26):
+# (CE-T4 moved CEM9's, CEM10's and CEM11b's strings with the code: the test
+# into _resilience_test, the time of death into _dying_seconds, the test at
+# 0 under `if left <= 0`.)
+#
+#   CEM9   6 -- the attack roll's 30 taken off the test (CE6 tests plainly):
+#              every won test at the rabbit's 22 is lost, and 95 at 95 too
+#   CEM10  5 -- the time of death in rounds: 10 seconds, not 5
+#   CEM11  1 -- the alarm does not read the state again: a stale one re-tests
+#   CEM11b 1 -- a blow at 0 tests again and moves the time
+#   CEM12  1 -- the killer passed wherever it stands
+
+modules = ["tests.test_creature_wounds"]
+
+[[mutant]]
+id = "CEM9"
+file = "world/creature_wounds.py"
+old = '''    return skill_check(resilience_of(creature))
+'''
+new = '''    return skill_check(resilience_of(creature), -30)
+'''
+expect = ["test_the_test_is_plain_not_against_the_attack_roll"]
+
+[[mutant]]
+id = "CEM10"
+file = "world/creature_wounds.py"
+old = '''    return critical_rating_of(creature) * ACTION_SECONDS_AT_ZERO
+'''
+new = '''    return critical_rating_of(creature) * ROUND_SECONDS_AT_ZERO
+'''
+expect = ["test_lost_it_falls_and_dies_five_seconds_on"]
+
+[[mutant]]
+id = "CEM11"
+file = "world/creature_wounds.py"
+old = '''    if state is None or state["kind"] != kind or state["due"] != due:
+        return
+'''
+new = '''    if state is None:
+        return
+'''
+expect = ["test_a_stale_alarm_does_nothing"]
+
+[[mutant]]
+id = "CEM11b"
+file = "world/creature_wounds.py"
+old = '''        if state is None:
+            answer["test"] = _test(creature)
+'''
+new = '''        if True:
+            answer["test"] = _test(creature)
+'''
+expect = ["test_a_blow_at_zero_tests_nothing_and_moves_no_time"]
+
+[[mutant]]
+id = "CEM12"
+file = "world/creature_wounds.py"
+old = '''    killer = (source if isinstance(source, DefaultObject)
+              and here is not None and source.location == here else None)
+'''
+new = '''    killer = source if isinstance(source, DefaultObject) else None
+'''
+expect = ["test_the_killer_in_the_room_is_named_and_gone_is_not"]

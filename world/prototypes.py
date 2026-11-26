@@ -487,6 +487,11 @@ RABBIT = {
     # siz 4 overrides the typeclass default (8): a rabbit is small prey. This
     # value drives harvest yield (H4) and feeds the hunt difficulty (H2.2).
     "siz": 4,
+    # con 4 is the hawk's (Monsters of Legend p. 113: CON 2D3, average 4): the
+    # books have no rabbit (pp. 103-122), and the hawk is the only wild animal
+    # of its size. With siz 4: 4 General Hit Points, a Critical Wound rating
+    # of 2 and Resilience 22 (Creatures CE2, CE7; world/creature_wounds.py).
+    "con": 4,
     # Explicit even though it matches the default -- the rabbit is the canonical
     # owner of the "rabbit" harvest table (meat + a small hide, H4.2).
     "harvest_template": "rabbit",
