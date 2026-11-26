@@ -19,6 +19,10 @@ A Creature carries the data the downstream tasks read:
     resilience       -- set only where the book's row leaves CON x 3 + 10
                         (CE7). Both are read through world.creature_wounds.
 
+What the creature's hurt stores -- `general_damage` and `damage_source` --
+is not declared here: world.creature_wounds owns it, writes it only in its
+door, and reads it through `damage_of` (CE-T2).
+
 `at_death()` is intentionally a minimal stub here: it announces the kill and
 removes the creature. Task H3.2 overrides the body to spawn a Corpse first, once
 the Corpse typeclass (H3.1) exists. Defining the seam now lets the hunt command
@@ -31,7 +35,7 @@ from evennia.objects.objects import DefaultObject
 from .objects import ObjectParent
 from evennia.utils.create import create_object
 
-from world import gametime_utils
+from world import creature_wounds, gametime_utils
 from typeclasses.corpse import Corpse
 
 
@@ -69,6 +73,40 @@ class Creature(ObjectParent, DefaultObject):
         # only its corpse (H3) is. This also blocks carrying a creature in
         # inventory or pushing it through barter as if it were an item.
         self.locks.add("get:false()")
+
+    def apply_health_damage(self, amount, *, location, source=None, made=None):
+        """
+        The one door for a creature's hurt, with a character's name and
+        arguments (Creatures CE9; Combat Design PV2, PD1): ML's blow and
+        PJ's shot both come here. It puts the amount on the creature
+        through `creature_wounds.damage`, which checks and writes, and
+        carries out the death the answer gives (CE5).
+
+        Args:
+            amount (int): what got through the armour (WO6). 0 or less
+                writes nothing.
+            location (str): checked as a character's is (WO5) and not used:
+                General Hit Points have no locations.
+            source (Object, str or None): what dealt the blow; stored. Only
+                an object reaches `at_death` as the killer -- a string, as
+                the survival ticker gives a character, would be asked to
+                `msg()` half-way through the death -- so anything else dies
+                with no killer, and the room reads *dies*.
+            made (dict or None): the attack roll's successful `skill_check`
+                dict, when the source has one.
+
+        Raises:
+            ValueError: from `creature_wounds.damage`, before anything is
+                written -- among them a creature without CON (CE13).
+
+        Returns:
+            dict or None: the door's answer -- None if nothing was written,
+                else {"dies", "hit_points"} -- for the caller to read.
+        """
+        outcome = creature_wounds.damage(self, amount, location, made, source=source)
+        if outcome and outcome["dies"]:
+            self.at_death(source if isinstance(source, DefaultObject) else None)
+        return outcome
 
     def at_death(self, killer=None):
         """

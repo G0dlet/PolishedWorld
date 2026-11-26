@@ -1,0 +1,97 @@
+# CE-T2 -- the door: damage, and death outright (Creatures decomposition §7).
+# Run: python3 tools/mutate.py tools/mutants/ce_t2.toml --parallel 2
+#
+# Predicted fail counts:
+#   CEM5   1 -- death at 0 (CE5's rejected reading): 4 points kill
+#   CEM6   1 -- the CON refusal after the write: a row is left, and an
+#              amount of 0 is no longer refused
+#   CEM6b  1 -- no guard for a deleted creature: the second blow raises
+#   CEM7   1 -- the damage set and not added: 3 and 3 leave 1 Hit Point
+#   CEM8   1 -- at_death(None): the room reads *dies*, not the killer
+#   CEM8b  1 -- a string source passed on to at_death
+#   CEM8c  1 -- a None source keeps the stored one
+
+modules = ["tests.test_creature_wounds"]
+
+[[mutant]]
+id = "CEM5"
+file = "world/creature_wounds.py"
+old = '''    return {"dies": left <= -critical_rating_of(creature), "hit_points": left}
+'''
+new = '''    return {"dies": left <= 0, "hit_points": left}
+'''
+expect = ["test_death_is_at_minus_the_rating"]
+
+[[mutant]]
+id = "CEM6"
+file = "world/creature_wounds.py"
+old = '''    if creature.con is None:
+        raise ValueError(
+            f"{creature.key} has no CON and cannot be hurt (Creatures CE13): "
+            "its prototype must set `con`"
+        )
+    if amount <= 0:
+        return None
+    total = damage_of(creature) + amount
+    creature.attributes.add(DAMAGE, total)
+'''
+new = '''    if amount <= 0:
+        return None
+    total = damage_of(creature) + amount
+    creature.attributes.add(DAMAGE, total)
+    if creature.con is None:
+        raise ValueError(
+            f"{creature.key} has no CON and cannot be hurt (Creatures CE13): "
+            "its prototype must set `con`"
+        )
+'''
+expect = ["test_every_refusal_writes_nothing_whatever_the_amount"]
+
+[[mutant]]
+id = "CEM6b"
+file = "world/creature_wounds.py"
+old = '''    if not creature.pk:
+        return None
+'''
+new = ''''''
+expect = ["test_a_deleted_creature_answers_nothing"]
+
+[[mutant]]
+id = "CEM7"
+file = "world/creature_wounds.py"
+old = '''    total = damage_of(creature) + amount
+'''
+new = '''    total = amount
+'''
+expect = ["test_three_and_three_add_up"]
+
+[[mutant]]
+id = "CEM8"
+file = "typeclasses/creatures.py"
+old = '''            self.at_death(source if isinstance(source, DefaultObject) else None)
+'''
+new = '''            self.at_death(None)
+'''
+expect = ["test_the_source_reaches_at_death"]
+
+[[mutant]]
+id = "CEM8b"
+file = "typeclasses/creatures.py"
+old = '''            self.at_death(source if isinstance(source, DefaultObject) else None)
+'''
+new = '''            self.at_death(source)
+'''
+expect = ["test_a_source_that_is_not_an_object_dies_without_a_killer"]
+
+[[mutant]]
+id = "CEM8c"
+file = "world/creature_wounds.py"
+old = '''    if source is None:
+        creature.attributes.remove(SOURCE)
+    else:
+        creature.attributes.add(SOURCE, source)
+'''
+new = '''    if source is not None:
+        creature.attributes.add(SOURCE, source)
+'''
+expect = ["test_the_latest_source_is_stored_and_none_clears_it"]

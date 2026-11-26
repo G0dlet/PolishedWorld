@@ -1,11 +1,16 @@
 """
 Tests for world.creature_wounds -- a creature's numbers (Creatures
-decomposition, slice CE, task CE-T1; Combat Design CR1, CE2-CE4, CE7, CE13).
+decomposition, slice CE, task CE-T1; Combat Design CR1, CE2-CE4, CE7, CE13)
+and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9).
 
 Every expected number is the book's -- core p. 146 and *Monsters of Legend*
 pp. 12 and 103-122 -- typed here and never computed from the code under
 test.
 """
+
+import ast
+import pathlib
+from unittest import mock
 
 from evennia.prototypes.spawner import spawn
 from evennia.utils.create import create_object
@@ -15,6 +20,10 @@ from evennia.utils.utils import class_from_module
 from typeclasses.creatures import Creature
 from world import creature_wounds as cw
 from world import prototypes as world_prototypes
+from world import wounds
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PRODUCTION = ("commands", "server", "typeclasses", "web", "world")
 
 
 # Every class here that makes an object is an EvenniaTest, not an
@@ -195,3 +204,222 @@ class TestNoRowForNone(EvenniaTest):
              bool(rabbit.attributes.has("resilience"))),
             (4, False),
         )
+
+
+# --- CE-T2: the door ------------------------------------------------------
+
+# An attack roll that succeeded: the door only reads whether it did (CE9).
+MADE = {"result": "success", "success": True, "roll": 30, "target": 60}
+MISSED = {"result": "failure", "success": False, "roll": 90, "target": 60}
+ROWS = ("general_damage", "damage_source")
+
+
+def _rabbit_in(room):
+    """A rabbit as the prototype makes it, standing in `room`."""
+    rabbit = spawn("rabbit")[0]
+    rabbit.move_to(room, quiet=True, move_hooks=False)
+    return rabbit
+
+
+def _rows(creature):
+    """Which of the door's two Attributes the creature holds."""
+    return tuple(bool(creature.attributes.has(key)) for key in ROWS)
+
+
+def _corpses(room):
+    return [obj for obj in room.contents if obj.key == "rabbit corpse"]
+
+
+def _callers_of_at_death():
+    """(file, qualified function) of every `X.at_death(...)` in production."""
+    found = set()
+    for top in PRODUCTION:
+        for path in sorted((ROOT / top).rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            rel = path.relative_to(ROOT).as_posix()
+
+            def walk(node, stack):
+                for child in ast.iter_child_nodes(node):
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                          ast.ClassDef)):
+                        walk(child, stack + [child.name])
+                        continue
+                    if (isinstance(child, ast.Call)
+                            and isinstance(child.func, ast.Attribute)
+                            and child.func.attr == "at_death"):
+                        found.add((rel, ".".join(stack)))
+                    walk(child, stack)
+
+            walk(tree, [])
+    return found
+
+
+class TestTheRoadsToDeath(EvenniaTestCase):
+    """
+    One road to a creature's death, `at_death`, and its callers by name
+    (CE9). A caller that reaches it some other way -- a `delete()` with no
+    corpse, a second death of its own -- fails here first. CE-T3 adds the
+    alarm.
+    """
+
+    def test_the_door_and_hunt(self):
+        self.assertEqual(
+            _callers_of_at_death(),
+            {("commands/hunting_commands.py", "CmdHunt.func"),
+             ("typeclasses/creatures.py", "Creature.apply_health_damage")},
+            "Creatures CE9: a creature dies by `at_death` only, from the door "
+            "and from `hunt`; a new caller is a new road to death",
+        )
+
+
+class TestHitPointsLeft(EvenniaTest):
+    """`hit_points_of` and `damage_of` read; neither writes (CE3)."""
+
+    def test_unhurt_and_without_con(self):
+        rabbit = spawn("rabbit")[0]
+        old = _creature(siz=4)
+        self.assertEqual(
+            (cw.damage_of(rabbit), cw.hit_points_of(rabbit),
+             cw.damage_of(old), cw.hit_points_of(old)),
+            (0, 4, 0, None),
+        )
+
+    def test_no_row_at_creation_or_by_the_readers(self):
+        rabbit = spawn("rabbit")[0]
+        cw.damage_of(rabbit)
+        cw.hit_points_of(rabbit)
+        self.assertEqual(_rows(rabbit), (False, False))
+
+
+class TestTheDoor(EvenniaTest):
+    """
+    `Creature.apply_health_damage` on a rabbit: 4 General Hit Points and a
+    Critical Wound rating of 2 (CE-T1), so it dies at -2 (CE5).
+    """
+
+    def test_one_two_and_three_points_it_lives(self):
+        seen = []
+        for amount in (1, 2, 3):
+            rabbit = _rabbit_in(self.room1)
+            answer = rabbit.apply_health_damage(amount, location="chest")
+            seen.append((answer, cw.hit_points_of(rabbit), bool(rabbit.pk)))
+        self.assertEqual(seen, [
+            ({"dies": False, "hit_points": 3}, 3, True),
+            ({"dies": False, "hit_points": 2}, 2, True),
+            ({"dies": False, "hit_points": 1}, 1, True),
+        ])
+
+    def test_death_is_at_minus_the_rating(self):
+        # CE5: the rule, not the example. At 0 and at -1 it lives (what
+        # happens there is CE-T3's); at -2 it dies (CEM5 dies at 0).
+        seen = []
+        for amount in (4, 5, 6):
+            rabbit = _rabbit_in(self.room1)
+            seen.append(rabbit.apply_health_damage(amount, location="chest"))
+        self.assertEqual(seen, [
+            {"dies": False, "hit_points": 0},
+            {"dies": False, "hit_points": -1},
+            {"dies": True, "hit_points": -2},
+        ])
+
+    def test_six_at_once_leaves_one_corpse_and_no_rabbit(self):
+        rabbit = _rabbit_in(self.room1)
+        rabbit.apply_health_damage(6, location="chest")
+        self.assertEqual((rabbit.pk, len(_corpses(self.room1))), (None, 1))
+
+    def test_three_and_three_add_up(self):
+        # CEM7: a door that sets the damage and does not add it leaves the
+        # rabbit at 1 Hit Point after the second blow.
+        rabbit = _rabbit_in(self.room1)
+        first = rabbit.apply_health_damage(3, location="chest")
+        second = rabbit.apply_health_damage(3, location="chest")
+        self.assertEqual(
+            (first, second, rabbit.pk, len(_corpses(self.room1))),
+            ({"dies": False, "hit_points": 1}, {"dies": True, "hit_points": -2},
+             None, 1),
+        )
+
+    def test_the_source_reaches_at_death(self):
+        # CEM8 (`at_death(None)`): the room would read *dies*, not the killer.
+        rabbit = _rabbit_in(self.room1)
+        with mock.patch.object(type(self.room1), "msg_contents",
+                               autospec=True) as told:
+            rabbit.apply_health_damage(6, location="chest", source=self.char1)
+        self.assertEqual(
+            [(c.args[1], c.kwargs.get("from_obj")) for c in told.call_args_list],
+            [("$You() fells rabbit.", self.char1)],
+        )
+
+    def test_a_source_that_is_not_an_object_dies_without_a_killer(self):
+        # A string, as the survival ticker gives a character: at_death would
+        # call "survival".msg() half-way through the death.
+        rabbit = _rabbit_in(self.room1)
+        with mock.patch.object(type(self.room1), "msg_contents",
+                               autospec=True) as told:
+            answer = rabbit.apply_health_damage(6, location=wounds.ALL,
+                                                source="survival")
+        self.assertEqual(
+            (answer["dies"], [c.args[1] for c in told.call_args_list],
+             len(_corpses(self.room1))),
+            (True, ["rabbit dies."], 1),
+        )
+
+    def test_the_latest_source_is_stored_and_none_clears_it(self):
+        rabbit = _rabbit_in(self.room1)
+        rabbit.apply_health_damage(1, location="chest", source=self.char1)
+        stored = rabbit.attributes.get("damage_source")
+        rabbit.apply_health_damage(1, location="chest", source=self.char2)
+        replaced = rabbit.attributes.get("damage_source")
+        rabbit.apply_health_damage(1, location="chest")
+        self.assertEqual(
+            (stored, replaced, bool(rabbit.attributes.has("damage_source"))),
+            (self.char1, self.char2, False),
+        )
+
+    def test_nothing_for_zero_and_less(self):
+        rabbit = _rabbit_in(self.room1)
+        answers = [rabbit.apply_health_damage(amount, location="chest",
+                                              source=self.char1)
+                   for amount in (0, -1)]
+        self.assertEqual((answers, _rows(rabbit)), ([None, None], (False, False)))
+
+    def test_every_refusal_writes_nothing_whatever_the_amount(self):
+        # CEM6: a refusal after the write leaves a row. No subTest (Testing
+        # Reference §28.1): the failures are collected.
+        old = _creature(siz=4)
+        old.move_to(self.room1, quiet=True, move_hooks=False)
+        cases = (
+            ("a place that is none", None, "tail", None),
+            ("ALL with an attack roll (WN5)", None, wounds.ALL, MADE),
+            ("an attack roll that missed", None, "chest", MISSED),
+            ("a creature without CON (CE13)", old, "chest", None),
+        )
+        bad = []
+        for name, target, location, made in cases:
+            for amount in (3, 0):
+                creature = target or _rabbit_in(self.room1)
+                try:
+                    creature.apply_health_damage(amount, location=location,
+                                                 made=made, source=self.char1)
+                except ValueError:
+                    pass
+                else:
+                    bad.append((name, amount, "no ValueError"))
+                if _rows(creature) != (False, False):
+                    bad.append((name, amount, _rows(creature)))
+        self.assertEqual(bad, [])
+
+    def test_a_successful_roll_and_every_place_are_taken(self):
+        seen = []
+        for location in (wounds.RANDOM, "head", "left_leg"):
+            rabbit = _rabbit_in(self.room1)
+            seen.append(rabbit.apply_health_damage(1, location=location,
+                                                   made=MADE))
+        self.assertEqual(seen, [{"dies": False, "hit_points": 3}] * 3)
+
+    def test_a_deleted_creature_answers_nothing(self):
+        # Two blows in one tick: the first kills and deletes, the second
+        # holds the same reference.
+        rabbit = _rabbit_in(self.room1)
+        rabbit.apply_health_damage(6, location="chest")
+        self.assertIsNone(rabbit.apply_health_damage(3, location="chest"))
