@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 90 · 2026-11-26** — one row changed, docs only, with Creatures Decomposition Rev 5: `PolishedWorld_Creatures_Decomposition.md` is in progress (CE-T1–CE-T5: components C1 and C2, and C3 but for CE-T6; shipped on `feature/creatures`).
 > **Rev 89 · 2026-11-26** — one row changed, docs only, with Creatures Decomposition Rev 4: `PolishedWorld_Creatures_Decomposition.md` is in progress (CE-T1–CE-T4, components C1 and C2, shipped on `feature/creatures`).
 > **Rev 88 · 2026-11-26** — one row changed, docs only, with Creatures Decomposition Rev 3: `PolishedWorld_Creatures_Decomposition.md` is in progress (CE-T1–CE-T3, components C1 and C2 but for CE-T4, shipped on `feature/creatures`).
 > **Rev 87 · 2026-11-25** — one row changed, docs only, with Creatures Decomposition Rev 2: `PolishedWorld_Creatures_Decomposition.md` is in progress (CE-T1, component C1, shipped on `feature/creatures`).
@@ -166,7 +167,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Wounds decomposition (Stage 5, slice WN: damage per location behind one module, `health` as the worst location's margin, the Resilience test, the clocks, starvation's rate, healing and respawn — done, merged as `c3df740`) | tactical (feature tasks) | `docs/PolishedWorld_Wounds_Decomposition.md` |
 | Hero Points decomposition (Stage 5, slice HE: the points behind one module, a point per game day played up to four, *Glancing Blow* as a trim of a blow's damage, the command `hero`, a row in `sheet` — done, merged as `3dc009d`) | tactical (feature tasks) | `docs/PolishedWorld_Hero_Points_Decomposition.md` |
 | Gear decomposition (Stage 5, slice GR: weapons and armour as a table read by prototype, three armour layers, Armour Points into Strike Rank, two hands and `wield`, a line in `look`, five recipes — done, merged as `e6c9e2b`) | tactical (feature tasks) | `docs/PolishedWorld_Gear_Decomposition.md` |
-| Creatures decomposition (Stage 5, slice CE: a creature's Constitution, General Hit Points and a Critical Wound rating, one door for hurt with the character's call, the book's rules at 0 Hit Points, the Critical Wound table, healing counted at the read, a line in `look` — in progress: CE-T1–CE-T4 shipped) | tactical (feature tasks) | `docs/PolishedWorld_Creatures_Decomposition.md` |
+| Creatures decomposition (Stage 5, slice CE: a creature's Constitution, General Hit Points and a Critical Wound rating, one door for hurt with the character's call, the book's rules at 0 Hit Points, the Critical Wound table, healing counted at the read, a line in `look` — in progress: CE-T1–CE-T5 shipped) | tactical (feature tasks) | `docs/PolishedWorld_Creatures_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
