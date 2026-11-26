@@ -55,6 +55,9 @@ ROOM FIELDS
                     weather echoes (world/weather.py)
     thermal_regime  None = follow season and weather; "cold" / "temperate" /
                     "hot" pins a microclimate (world/thermal.py:thermal_regime)
+    is_haven        a haven (world/haven.py, PV3): no attack begins there and a
+                    player's body stays its owner's. Written only when True;
+                    a room without the Attribute is no haven (HV2, HV3)
     spawn_creatures None, or {creature prototype_key: target count}; the
                     seeder also adds the tag CreatureSpawnScript queries
 
@@ -89,6 +92,7 @@ ROOMS = (
         ),
         "is_indoor": True,
         "thermal_regime": None,
+        "is_haven": True,
         "spawn_creatures": None,
     },
     {
@@ -102,6 +106,7 @@ ROOMS = (
         ),
         "is_indoor": False,
         "thermal_regime": None,
+        "is_haven": False,
         "spawn_creatures": None,
     },
     {
@@ -114,6 +119,7 @@ ROOMS = (
         ),
         "is_indoor": False,
         "thermal_regime": None,
+        "is_haven": False,
         "spawn_creatures": {"rabbit": 3},
     },
     {
@@ -126,6 +132,7 @@ ROOMS = (
         ),
         "is_indoor": False,
         "thermal_regime": None,
+        "is_haven": False,
         "spawn_creatures": None,
     },
     {
@@ -139,6 +146,7 @@ ROOMS = (
         ),
         "is_indoor": False,
         "thermal_regime": None,
+        "is_haven": False,
         "spawn_creatures": {"rabbit": 1},
     },
     {
@@ -151,6 +159,7 @@ ROOMS = (
         ),
         "is_indoor": False,
         "thermal_regime": None,
+        "is_haven": False,
         "spawn_creatures": None,
     },
 )

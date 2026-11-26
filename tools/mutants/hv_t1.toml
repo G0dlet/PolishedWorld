@@ -1,0 +1,75 @@
+# HV-T1 -- the haven flag, its reader and the seed (Haven decomposition §6).
+# Run: python3 tools/mutate.py tools/mutants/hv_t1.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the tests were
+# written, lesson 497):
+#   HVM1   1 -- a stored False; no Attribute still reads None, so not the seed
+#   HVM1b  5 -- no Attribute, the flag taken off and 'yes' in the reader's
+#              tests; the five seeded rooms and the temple after a re-seed
+#   HVM2   1 -- the five rooms read as havens
+#   HVM2b  1 -- the five rooms hold the Attribute, though they read False
+#   HVM3   1 -- the temple reads False
+
+modules = ["tests.test_haven", "tests.test_seeding"]
+
+[[mutant]]
+id = "HVM1"
+# The read is `is not None`: a stored False is a haven.
+file = "world/haven.py"
+old = '''    return bool(room.db.is_haven)
+'''
+new = '''    return room.db.is_haven is not None
+'''
+expect = ["test_false_is_no_haven"]
+
+[[mutant]]
+id = "HVM1b"
+# What is stored, not a bool (HV-T1's STOPP 0, choice 2): None and 'yes'.
+file = "world/haven.py"
+old = '''    return bool(room.db.is_haven)
+'''
+new = '''    return room.db.is_haven
+'''
+expect = [
+    "test_a_room_without_the_attribute_is_no_haven",
+    "test_the_flag_taken_off_is_no_haven",
+    "test_the_string_yes_is_a_haven",
+    "test_rooms_carry_their_data",
+    "test_a_reseed_leaves_the_haven_flags_as_staff_left_them",
+]
+
+[[mutant]]
+id = "HVM2"
+# The seed writes the flag true on every room.
+file = "world/seeding.py"
+old = '''        if spec["is_haven"]:
+            attributes.append(("is_haven", True))
+'''
+new = '''        if True:
+            attributes.append(("is_haven", True))
+'''
+expect = ["test_rooms_carry_their_data"]
+
+[[mutant]]
+id = "HVM2b"
+# The seed writes the row's value on every room, False on five (HV-T1's
+# STOPP 0, choice 1): the reader cannot see it, the Attribute can.
+file = "world/seeding.py"
+old = '''        if spec["is_haven"]:
+            attributes.append(("is_haven", True))
+'''
+new = '''        attributes.append(("is_haven", bool(spec["is_haven"])))
+'''
+expect = ["test_rooms_carry_their_data"]
+
+[[mutant]]
+id = "HVM3"
+# The seed writes the flag on no room.
+file = "world/seeding.py"
+old = '''        if spec["is_haven"]:
+            attributes.append(("is_haven", True))
+'''
+new = '''        if False:
+            attributes.append(("is_haven", True))
+'''
+expect = ["test_rooms_carry_their_data"]
