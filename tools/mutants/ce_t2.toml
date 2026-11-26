@@ -1,6 +1,8 @@
 # CE-T2 -- the door: damage, and death outright (Creatures decomposition §7).
 # Run: python3 tools/mutate.py tools/mutants/ce_t2.toml --parallel 2
 #
+# (CE-T4 moved CEM5's string: the rating is read once, as `rating`.)
+#
 # Predicted fail counts:
 #   CEM5  10 -- death at 0 (CE5's rejected reading): 4 points kill; since
 #              CE-T3 every test that takes a rabbit to 0 sees it
@@ -18,9 +20,9 @@ modules = ["tests.test_creature_wounds"]
 [[mutant]]
 id = "CEM5"
 file = "world/creature_wounds.py"
-old = '''    answer = {"dies": left <= -critical_rating_of(creature), "hit_points": left,
+old = '''    answer = {"dies": left <= -rating, "hit_points": left, "test": None,
 '''
-new = '''    answer = {"dies": left <= 0, "hit_points": left,
+new = '''    answer = {"dies": left <= 0, "hit_points": left, "test": None,
 '''
 expect = ["test_death_is_at_minus_the_rating"]
 

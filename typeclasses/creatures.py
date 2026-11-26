@@ -101,7 +101,9 @@ class Creature(ObjectParent, DefaultObject):
 
         Returns:
             dict or None: the door's answer -- None if nothing was written,
-                else {"dies", "hit_points"} -- for the caller to read.
+                else its seven keys (`creature_wounds.damage`) -- for the
+                caller to read. `dies` is whether this blow kills, by the
+                rating or by the Critical Wound table (CE5, CE8).
         """
         outcome = creature_wounds.damage(self, amount, location, made, source=source)
         if outcome and outcome["dies"]:

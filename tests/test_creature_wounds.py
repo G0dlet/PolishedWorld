@@ -1,12 +1,13 @@
 """
 Tests for world.creature_wounds -- a creature's numbers (Creatures
 decomposition, slice CE, task CE-T1; Combat Design CR1, CE2-CE4, CE7, CE13)
-and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9), and
-the state at 0 Hit Points on stored points in time (CE-T3; CE6).
+and its door, `Creature.apply_health_damage` (CE-T2; CR2, CE5, CE9), the
+state at 0 Hit Points on stored points in time (CE-T3; CE6), and the
+Critical Wound table rolled in the door (CE-T4; CE8).
 
-Every expected number is the book's -- core p. 146 and *Monsters of Legend*
-pp. 12 and 103-122 -- typed here and never computed from the code under
-test.
+Every expected number is the book's -- core pp. 145-147 and *Monsters of
+Legend* pp. 12 and 103-122 -- typed here and never computed from the code
+under test.
 """
 
 import ast
@@ -297,6 +298,10 @@ class TestHitPointsLeft(EvenniaTest):
 # Reference §27.2). The rabbit's Resilience is 22: 15 wins, 50 loses.
 ROLL = "world.skillcheck.randint"
 WIN, LOSE = 15, 50
+# CE-T4: the Critical Wound table's 1D20, the module's own die. It stands at
+# 1 unless a test says otherwise: row 01, Dazed, tests nothing and stores
+# nothing, so a blow above the rating changes no state the test reads.
+DIE = "world.creature_wounds.randint"
 NOW = 1000.0
 FALL = "rabbit sags onto its side, breathing fast and shallow."
 
@@ -314,6 +319,7 @@ class _AtZero(EvenniaTest):
         self.clock.time.return_value = NOW
         self.alarm = self._patch(mock.patch("world.creature_wounds.delay"))
         self.roll = self._patch(mock.patch(ROLL, return_value=WIN))
+        self.die = self._patch(mock.patch(DIE, return_value=1))
         self.told = self._patch(mock.patch.object(
             type(self.room1), "msg_contents", autospec=True))
 
@@ -331,8 +337,15 @@ class _AtZero(EvenniaTest):
                 for c in self.told.call_args_list]
 
 
-def _answer(dies, hit_points, test=None, state=None):
-    return {"dies": dies, "hit_points": hit_points, "test": test, "state": state}
+def _answer(dies, hit_points, test=None, state=None, row=None, effects=(),
+            row_test=None):
+    return {"dies": dies, "hit_points": hit_points, "test": test, "state": state,
+            "row": row, "effects": effects, "row_test": row_test}
+
+
+# A blow of 3 on a rabbit is above its rating of 2 (CE-T4), and the die's 1
+# is row 01.
+DAZED_ROW = {"row": 1, "effects": ("dazed",)}
 
 
 class TestTheDoor(_AtZero):
@@ -350,7 +363,7 @@ class TestTheDoor(_AtZero):
         self.assertEqual(seen, [
             (_answer(False, 3), 3, True),
             (_answer(False, 2), 2, True),
-            (_answer(False, 1), 1, True),
+            (_answer(False, 1, **DAZED_ROW), 1, True),
         ])
 
     def test_death_is_at_minus_the_rating(self):
@@ -377,7 +390,7 @@ class TestTheDoor(_AtZero):
         second = rabbit.apply_health_damage(3, location="chest")
         self.assertEqual(
             (first, second, rabbit.pk, len(_corpses(self.room1))),
-            (_answer(False, 1), _answer(True, -2),
+            (_answer(False, 1, **DAZED_ROW), _answer(True, -2),
              None, 1),
         )
 
@@ -599,3 +612,248 @@ class TestAtZero(_AtZero):
         self.roll.return_value = LOSE
         cw._state_due(rabbit, "standing", NOW + 5)   # the old alarm, late
         self.assertEqual(cw.state_of(rabbit), {"kind": "standing", "due": NOW + 10})
+
+
+# --- CE-T4: the Critical Wound table --------------------------------------
+
+# Core p. 147, cell by cell: the category (the book's merged cells read as
+# Dazed for 01-07 and Stunned for 08-14), the effects in the order the cell
+# names them, and the test the row calls for. Knocked prone, knocked down
+# and falls prone are one key, "prone" (CE-T4's STOPP 0); 1D3 Combat
+# Actions are ML's and not rolled.
+BOOK = (
+    ("Dazed", ("dazed",), None),                                    # 01
+    ("Dazed", ("dazed",), None),                                    # 02
+    ("Dazed", ("knocked_back", "dazed"), None),                     # 03
+    ("Dazed", ("knocked_back", "dazed"), None),                     # 04
+    ("Dazed", ("prone", "dazed"), None),                            # 05
+    ("Dazed", ("prone", "dazed"), None),                            # 06
+    ("Dazed", ("dazed",), "senseless"),                             # 07
+    ("Stunned", ("stunned",), None),                                # 08
+    ("Stunned", ("stunned",), None),                                # 09
+    ("Stunned", ("knocked_back", "stunned"), None),                 # 10
+    ("Stunned", ("knocked_back", "stunned"), None),                 # 11
+    ("Stunned", ("prone", "stunned"), None),                        # 12
+    ("Stunned", ("prone", "stunned"), None),                        # 13
+    ("Stunned", ("stunned",), "senseless"),                         # 14
+    ("Arm Disabled", ("arm_disabled", "dazed", "drops_held"), None),  # 15
+    ("Leg Disabled", ("leg_disabled", "dazed", "prone"), None),     # 16
+    ("Abdominal Injury", ("stunned",), "death"),                    # 17
+    ("Chest Injury", ("stunned",), "death"),                        # 18
+    ("Head Injury", ("stunned",), "death"),                         # 19
+    ("Fatal Injury", ("fatal",), None),                             # 20
+)
+CRIT = {"result": "critical", "success": True, "roll": 3, "target": 60}
+OUT_LINE = "rabbit drops where it stands, its sides still rising and falling."
+WAKE = "rabbit twitches, then struggles back onto its feet."
+
+
+class TestTheTable(EvenniaTestCase):
+    """The table as data (CE8): makes no object, so needs no rooms."""
+
+    def test_the_twenty_rows_cell_by_cell(self):
+        # A wrong cell, or the table one row out (n for n - 1).
+        table = cw.CRITICAL_TABLE
+        seen = tuple((row.category, row.effects, row.test) for row in table)
+        bad = [(number, got, want)
+               for number, (got, want) in enumerate(zip(seen, BOOK), start=1)
+               if got != want]
+        self.assertEqual((type(table), len(table), bad), (tuple, 20, []))
+
+
+class TestTheRoll(_AtZero):
+    """
+    When the table is rolled and which row it gives (p. 147; CE8): a single
+    blow above the rating, 1D20 less the Armour Points, plus the damage on a
+    critical hit; below 1 is no row, above 20 is row 20.
+    """
+
+    def _blow(self, amount, die, natural_ap=0, **kwargs):
+        self.die.return_value = die
+        rabbit = _rabbit_in(self.room1)
+        rabbit.natural_ap = natural_ap
+        return rabbit, rabbit.apply_health_damage(amount, location="chest",
+                                                  **kwargs)
+
+    def test_a_blow_at_the_rating_rolls_nothing_and_one_above_rolls(self):
+        # Red before green. CEM13 (at or above) rolls for the 2.
+        _, at = self._blow(2, 1)
+        rolled_at = self.die.call_args_list[:]
+        _, above = self._blow(3, 1)
+        self.assertEqual(
+            ((at["row"], rolled_at), (above["row"], self.die.call_args_list)),
+            ((None, []), (1, [mock.call(1, 20)])),
+        )
+
+    def test_a_blow_that_kills_outright_rolls_nothing(self):
+        # CEM13b: the table before death outright (STOPP 0, choice 1).
+        _, answer = self._blow(6, 20)
+        self.assertEqual((answer, self.die.call_count, self.roll.call_count),
+                         (_answer(True, -2), 0, 0))
+
+    def test_the_broos_armour_is_taken_off_the_roll(self):
+        # p. 147: 13 less 3 is row 10. CEM14 adds the armour: row 16.
+        _, answer = self._blow(3, 13, natural_ap=3)
+        self.assertEqual((answer["row"], answer["effects"]),
+                         (10, ("knocked_back", "stunned")))
+
+    def test_below_one_is_no_row(self):
+        # 3 less 3 and 2 less 3. CEM14c (below 0) reads the 0 as row 20.
+        seen = [self._blow(3, die, natural_ap=3)[1] for die in (3, 2)]
+        self.assertEqual(seen, [_answer(False, 1)] * 2)
+
+    def test_a_critical_adds_the_damage_and_a_success_does_not(self):
+        # CEM14b leaves the critical at 10.
+        seen = [self._blow(3, 10, made=made)[1]["row"] for made in (MADE, CRIT)]
+        self.assertEqual(seen, [10, 13])
+
+    def test_above_twenty_is_row_twenty(self):
+        # 19 plus 4: the rabbit at 0 dies of row 20, not of its Hit Points.
+        rabbit, answer = self._blow(4, 19, made=CRIT)
+        self.assertEqual(
+            (answer, rabbit.pk, len(_corpses(self.room1))),
+            (_answer(True, 0, row=20, effects=("fatal",)), None, 1),
+        )
+
+    def test_every_rows_effects_reach_the_answer_and_none_is_stored(self):
+        # CE8: the fight's rows are handed back and stored nowhere. The
+        # test is won wherever a row calls for one.
+        bad = []
+        for number in range(1, 21):
+            self.die.return_value = number
+            rabbit = _rabbit_in(self.room1)
+            before = {a.key for a in rabbit.attributes.all()}
+            answer = rabbit.apply_health_damage(3, location="chest")
+            if (answer["row"], answer["effects"]) != (number, BOOK[number - 1][1]):
+                bad.append((number, answer["row"], answer["effects"]))
+            if rabbit.pk:
+                added = {a.key for a in rabbit.attributes.all()} - before
+                if added != {"general_damage"}:
+                    bad.append((number, sorted(added)))
+        self.assertEqual(bad, [])
+
+
+class TestTheRowsThatTest(_AtZero):
+    """
+    The rows the door carries out (CE8): 17-19 test Resilience or die, 20
+    dies, 07 and 14 test Resilience or are knocked senseless -- with Hit
+    Points left, awake after the blow's damage in minutes (p. 145); at 0 or
+    below, dying (STOPP 0, choices 5 and 6).
+    """
+
+    def _row(self, number, amount, *rolls, beast=None):
+        self.die.return_value = number
+        self.roll.side_effect = list(rolls)
+        target = beast or _rabbit_in(self.room1)
+        return target, target.apply_health_damage(amount, location="chest",
+                                                  source=self.char1)
+
+    def test_rows_seventeen_to_nineteen_lost_kill_and_won_live(self):
+        # CEM15 kills without the test: the won rabbits die too.
+        seen = []
+        for number in (17, 18, 19):
+            for roll in (LOSE, WIN):
+                self.told.reset_mock()
+                rabbit, answer = self._row(number, 3, roll)
+                seen.append((number, answer["dies"],
+                             answer["row_test"]["success"], bool(rabbit.pk),
+                             [line[1:] for line in self.lines()]))
+        killed = [("$You() fells rabbit.", self.char1)]
+        self.assertEqual(seen, [
+            (17, True, False, False, killed), (17, False, True, True, []),
+            (18, True, False, False, killed), (18, False, True, True, []),
+            (19, True, False, False, killed), (19, False, True, True, []),
+        ])
+
+    def test_row_twenty_kills_with_no_test(self):
+        rabbit, answer = self._row(20, 3, WIN)
+        self.assertEqual(
+            (answer, self.roll.call_count, rabbit.pk, len(_corpses(self.room1))),
+            (_answer(True, 1, row=20, effects=("fatal",)), 0, None, 1),
+        )
+
+    def test_rows_seven_and_fourteen_lost_knock_it_out_for_the_damage_in_minutes(self):
+        # p. 145, three points: 180 seconds. CEM16 counts rounds: 15. Early,
+        # the alarm sets itself again for what is left; at its time the
+        # rabbit wakes with its Hit Point and no state.
+        seen = []
+        for number in (7, 14):
+            self.told.reset_mock()
+            self.at(0)
+            rabbit, answer = self._row(number, 3, LOSE)
+            fell = (answer["state"], cw.state_of(rabbit), self.lines(),
+                    self.alarm.call_args)
+            self.at(179)
+            cw._state_due(rabbit, "out", NOW + 180)
+            early = (cw.state_of(rabbit), self.alarm.call_args)
+            self.at(180)
+            cw._state_due(rabbit, "out", NOW + 180)
+            seen.append((number, fell, early, cw.state_of(rabbit),
+                         self.lines()[1:], cw.hit_points_of(rabbit), rabbit))
+        out = {"kind": "out", "due": NOW + 180}
+        self.assertEqual(
+            [s[:6] for s in seen],
+            [(number, ("out", out, [(self.room1, OUT_LINE, None)],
+                       mock.call(180, cw._state_due, rabbit, "out", NOW + 180,
+                                 persistent=True)),
+              (out, mock.call(1.0, cw._state_due, rabbit, "out", NOW + 180,
+                              persistent=True)),
+              None, [(self.room1, WAKE, None)], 1)
+             for number, *_, rabbit in seen],
+        )
+
+    def test_row_seven_won_with_hit_points_left_changes_nothing(self):
+        rabbit, answer = self._row(7, 3, WIN)
+        self.assertEqual(
+            (answer, cw.state_of(rabbit), self.lines()),
+            (_answer(False, 1, row=7, effects=("dazed",),
+                     row_test=answer["row_test"]), None, []),
+        )
+        self.assertTrue(answer["row_test"]["success"])
+
+    def test_row_seven_lost_at_zero_is_dying_with_no_test_at_zero(self):
+        # Choice 5: senseless at 0 is the book's dying (p. 146). CEM15b
+        # knocks it out instead: the room reads the wrong line.
+        rabbit, answer = self._row(7, 4, LOSE, LOSE)
+        self.assertEqual(
+            (answer["state"], answer["test"], answer["row_test"]["success"],
+             cw.state_of(rabbit), self.lines(), self.roll.call_count),
+            ("dying", None, False, {"kind": "dying", "due": NOW + 5},
+             [(self.room1, FALL, None)], 1),
+        )
+
+    def test_row_seven_won_at_zero_then_tests_at_zero(self):
+        # Two rules, each with its trigger (choice 5): the row's test won,
+        # the test at 0 lost.
+        rabbit, answer = self._row(7, 4, WIN, LOSE)
+        self.assertEqual(
+            (answer["row_test"]["success"], answer["test"]["success"],
+             answer["state"], self.lines()),
+            (True, False, "dying", [(self.room1, FALL, None)]),
+        )
+
+    def test_out_taken_to_zero_is_dying_with_no_line_and_no_senseless_test(self):
+        # Choice 6. CON 12 and SIZ 16: 14 Hit Points and a rating of 7
+        # (p. 146's example), Resilience 46. 8 on row 07, lost: out for
+        # eight minutes at 6. 8 more on row 07: -2, above -7. No row test
+        # (CEM16c rolls one and the room reads the fall), and dying from
+        # now, 7 x 2.5 seconds (CEM16b keeps it out).
+        beast = _creature(con=12, siz=16)
+        beast.move_to(self.room1, quiet=True, move_hooks=False)
+        _, first = self._row(7, 8, LOSE, beast=beast)
+        self.at(10)
+        _, second = self._row(7, 8, LOSE, beast=beast)
+        lines = [line[1] for line in self.lines()]
+        self.at(20)
+        calls = self.alarm.call_count
+        cw._state_due(beast, "out", NOW + 480)   # the old alarm
+        self.assertEqual(
+            (first["state"], second["hit_points"], second["row"],
+             second["row_test"], second["test"], second["state"],
+             cw.state_of(beast), lines, self.alarm.call_count - calls,
+             bool(beast.pk)),
+            ("out", -2, 7, None, None, "dying",
+             {"kind": "dying", "due": NOW + 10 + 17.5},
+             ["testbeast drops where it stands, its sides still rising and falling."],
+             0, True),
+        )
