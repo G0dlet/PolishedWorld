@@ -1,5 +1,6 @@
 # PolishedWorld — Comfort, Haven & the Good Evening Design Notes (the tone, one comfort read, havens, the threshold, softness in text, company and gifts)
 
+> **Rev 2 · 2026-11-27** — dated notes, docs only, with the Haven Decomposition Rev 8 (HV-T7a), Combat Design Rev 16 and README Rev 102: Stage 5's slice HV built the haven (merged as `0f25d51`, PR #38, tagged `alpha-20261127`). X1's row, the row *safe*, EP9, EP11, EP13, EQ7, EQ12 and §16's layer 5 say what was decided and built, each beside the words it answers; the design chat's text is kept. **One sentence no longer holds:** EP11's *since nothing else kills there*. What waits: the comfort read (layer 4, HV8), how a haven shows itself (layer 2, EP19; Combat Design OQ-HV1) and a player's own house (EQ3).
 > **Rev 1 · 2026-11-09** — first version, docs only, with roadmap Rev 62, BACKLOG Rev 89, README Rev 40, Evennia Reference Rev 30 and the series handoff `docs/system_designs/HANDOFF.md` Rev 3. Written from a design chat, the sixteenth note in the one-system series, and the first that is not one system: it names the tone the other fifteen are written in — *hard survival, but cozy*, put as **hard roads, warm hearths** — and takes in the queue's entry *comfort, morale & the good evening*, whose question was whether one term gathers comfort or each system invents its own buff. It was written off the queue at Adam's request; the next note is still the newcomer's economy (roadmap Rev 61). **Nothing here is locked**, with one exception: the tone line itself, which Adam asked for and which this patch adds under the roadmap's *North star* as a lens, not a fifth pillar (EP1, EQ2). Every numbered item is a proposal (EP…), a goal (EG…) or an open question (EQ…); the letter is *E*, for ease and hearth, free across `docs/`, `world/`, `commands/`, `typeclasses/` and `server/` when checked (Cooking's departure rows E1–E8 share the letter, not the shape); this document's own departure rows are X1–X2. Adam took the chat's recommendations as given; they are recorded as leanings (EQ2–EQ4). Three things were found while writing that the chat did not weigh, and they are recorded rather than decided: a haven that stopped all taking would be the risk-free storage Housing BG5 and Storage DG4 forbid, so the proposal guards bodies, never goods set down (EP10, EQ5); the first chat's suggestion that comfort join the rest slice of roadmap Stage 4.6 meets that stage's rule of no new content (EQ6); and the shipped weather broadcast skips indoor characters, which is the opposite of the contrast this design wants (X2). One defect was found in the chat and is filed rather than designed: room echoes cannot start at Evennia 6.1.0 (§11, BACKLOG *⚠️ Room echoes cannot start*). Prior art was read on 2026-11-09; code seams were read against `main` at `3bb964e` (Evennia 6.1.0).
 > **Canonical:** `docs/system_designs/PolishedWorld_Comfort_Design.md` @ G0dlet/PolishedWorld — git wins. If a project-knowledge copy's Rev is lower than the repo's, it's stale.
 
@@ -96,7 +97,7 @@ Each row is a change to behaviour that `main` has today; each is a proposal.
 
 | # | Shipped today | Proposed | Where shipped |
 |---|---|---|---|
-| X1 | A player corpse is its owner's to loot for 72 game hours anywhere; after that anyone may take from it | In a haven, a player corpse stays its owner's until it crumbles (EP11) — Stage 5's decision, with the haven | `typeclasses/corpse.py:279`, `:293`; `server/conf/lockfuncs.py:35` |
+| X1 | A player corpse is its owner's to loot for 72 game hours anywhere; after that anyone may take from it | In a haven, a player corpse stays its owner's until it crumbles (EP11) — Stage 5's decision, with the haven *(Rev 2: decided and built — PV3, HV4; `PlayerCorpse.grace_active` reads the body's room; merged as `0f25d51`)* | `typeclasses/corpse.py:279`, `:293`; `server/conf/lockfuncs.py:35` |
 | X2 | A weather change is told to every online character outdoors; characters indoors hear nothing | Characters indoors hear a muted line for the change (*rain begins to drum on the roof*) (EP15) | `world/weather.py:36–41`, `:60–87` (the skip at `:84–86`) |
 
 Unchanged: the survival tick and every gauge, everywhere (EG1); `is_indoor` and the thermal regime (`world/thermal.py:68`); the death contract outside havens; `rest` (Rest Design's O3 is its own).
@@ -124,7 +125,7 @@ Unchanged: the survival tick and every gauge, everywhere (EG1); `is_indoor` and 
 | **fed** | hunger and thirst are both above their lowest descriptions, or a well-fed buff holds (Cooking CP15) | `typeclasses/characters.py:282`, `:300` |
 | **bedded** | the room or the character offers bedding (Rest NP10's `bedding()`; the temple's pallets, NP12) | not shipped |
 | **company** | another puppeted character is in the room | — |
-| **safe** | the room is a haven (EP9) | not shipped |
+| **safe** | the room is a haven (EP9) | not shipped *(Rev 2: shipped as a source, `world/haven.py`'s `is_haven`; nothing reads it as comfort, since the read is not built — Combat Design HV8)* |
 
 The count, 0–6, is read as a word: *uneasy* (0–1), *settled* (2–3), *comfortable* (4–5), *content* (6) (EQ8). Fire counts through *warm* (Temperature KP8) and light through nothing — a dark warm room is comfortable; Light owns darkness's own effects.
 
@@ -140,15 +141,15 @@ The count, 0–6, is read as a word: *uneasy* (0–1), *settled* (2–3), *comfo
 
 ## 9. Havens
 
-**EP9 — A haven is a room flag set by staff.** A proposed `is_haven` room attribute on authored settlement interiors: the Old Temple first — already indoors, the respawn point and the newcomer's lit room (`world/seed_data.py:81–92`; Light LP2, Rest NP12) — then a tavern's common room or a hall when settlements exist. Staff set it; no player command sets it (EQ12).
+**EP9 — A haven is a room flag set by staff.** A proposed `is_haven` room attribute on authored settlement interiors: the Old Temple first — already indoors, the respawn point and the newcomer's lit room (`world/seed_data.py:81–92`; Light LP2, Rest NP12) — then a tavern's common room or a hall when settlements exist. Staff set it; no player command sets it (EQ12). *(Rev 2: built — the seed sets it on the Old Temple when it makes the room, staff use `@set here/is_haven = True`, and there is no command of its own; Combat Design HV2, HV3.)*
 
 **EP10 — A haven guards bodies, never goods set down.** In a haven no one may attack, no one may take from another character's person — awake, asleep or a statue — and a player corpse stays its owner's (EP11). Anything set on the floor, on a shelf or in a container in the room is as open as it is today: a haven is not a bank, and Housing BG5 and Storage DG4 stand (EQ5).
 
-**EP11 — The corpse in a haven (X1).** A body that dies in a haven — of hunger, thirst or cold, since nothing else kills there — stays its owner's until it crumbles, rather than for the 72 game hours of the grace (`typeclasses/corpse.py:279`). It is bounded by the corpse's own decay, so it does not become storage (EQ7).
+**EP11 — The corpse in a haven (X1).** A body that dies in a haven — of hunger, thirst or cold, since nothing else kills there — stays its owner's until it crumbles, rather than for the 72 game hours of the grace (`typeclasses/corpse.py:279`). It is bounded by the corpse's own decay, so it does not become storage (EQ7). *(Rev 2: built as written (HV4), with one correction: more can die in a haven than this counts. Since slice WN a bleed-out clock started outside runs on inside, and from close combat a wounded player will run for the temple; X1 then keeps the belongings of whoever reaches the door (Haven Decomposition §11, point 3). Nobody can put anything into a body, so it only empties.)*
 
 **EP12 — Havens are few, and the wild has none.** The streets, the yard and the fields are not havens; a camp is comfort, never a haven (Rest NP17–NP18). Danger begins at the door (EG1).
 
-**EP13 — Enforcement is Stage 5's.** Today nothing attacks and nothing takes from a person, so the flag has only two readers before combat: the comfort read (EP4) and X1. Stage 5's design session decides PvP, theft from a person and the corpse together, and reads this section.
+**EP13 — Enforcement is Stage 5's.** Today nothing attacks and nothing takes from a person, so the flag has only two readers before combat: the comfort read (EP4) and X1. Stage 5's design session decides PvP, theft from a person and the corpse together, and reads this section. *(Rev 2: decided (Combat Design PV1–PV6, HV1–HV8) and built. The readers built are the body (X1) and a guard that answers whether an attack may begin — `hunt` is its one caller in play, refused in a haven, and its half about player against player has no caller before close combat. The comfort read is not built (HV8); theft from a person does not come in Stage 5 (PV4).)*
 
 ---
 
@@ -222,7 +223,7 @@ The count, 0–6, is read as a word: *uneasy* (0–1), *settled* (2–3), *comfo
 2. **Any small session — the echo defect** (BACKLOG *⚠️ Room echoes cannot start*), then the Old Temple rewritten warm with two or three echoes (EP17–EP19). Independent of everything else.
 3. **With or after Stage 4.6 — the threshold and the indoor weather line** (EP14, EP15, X2). Small; no new content.
 4. **With the first good state — the comfort read** (EP4–EP8), with Cooking CP15's well fed or a later good state, whichever is decomposed first.
-5. **With Stage 5's design session — havens** (EP9–EP13, X1).
+5. **With Stage 5's design session — havens** (EP9–EP13, X1). *(Rev 2: done for the flag and its two readers, Stage 5's slice HV. Waiting: the comfort read, layer 4 (HV8); how a haven shows itself, layer 2 (EP19, Combat Design OQ-HV1); a player's own house (EQ3).)*
 
 **Prerequisites:** none for 1–3; a good state to lengthen for 4; Stage 5 for 5. **Not prerequisites:** the webclient, Housing, the economy milestone.
 
@@ -260,12 +261,12 @@ Re-read every row against live source before a decomposition locks anything (les
 - **EQ4** — One comfort term, or one per system? *Leaning (chat, 2026-11-09): one term (EP6).*
 - **EQ5** — Found while writing: a haven that forbade all taking would be risk-free storage (Housing BG5, Storage DG4). *Leaning: a haven guards bodies, never goods set down (EP10).*
 - **EQ6** — Found while writing: the first chat suggested comfort join Stage 4.6's rest slice, but the roadmap gives that stage no new content (Rev 61). *Leaning: no — 4.6's decomposition reads this document and leaves room (one place where a good state's duration is set), and the comfort read ships with the first good state (§16 step 4).*
-- **EQ7** — Does a corpse in a haven stay its owner's until it crumbles (X1)? *Leaning: yes; Stage 5 decides it with the haven.*
+- **EQ7** — Does a corpse in a haven stay its owner's until it crumbles (X1)? *Leaning: yes; Stage 5 decides it with the haven.* *(Rev 2: decided yes — PV3, HV4 — and built.)*
 - **EQ8** — The word ladder and the multiplier. *Leaning: four words on 0–6, and 1 + comfort/6 (EP4, EP5).*
 - **EQ9** — Must company be awake and active, or is a puppeted character enough? *Leaning: puppeted is enough; idleness is not tracked.*
 - **EQ10** — Is `give` logged? The activity log's ten kinds have no gift (`world/activity_log.py:60`). *Leaning: a `gift` kind later, with the economy milestone — gifts are part of an economy's health, and roadmap decision (G) moved that measurement there.*
 - **EQ11** — Do echoes run in empty rooms? *Leaning: the callback returns at once when no puppeted character is present; the rate is the builder's, minutes apart.*
-- **EQ12** — Who sets the haven flag? *Leaning: staff only, until settlements & commons and law/crime/bounties say otherwise.*
+- **EQ12** — Who sets the haven flag? *Leaning: staff only, until settlements & commons and law/crime/bounties say otherwise.* *(Rev 2: decided as leaned — HV3: the seed and `@set`, no command.)*
 - **EQ13** — Does comfort show in the webclient? *Leaning: as the word in the survival panel; the webclient decomposition's to place.*
 - **EQ14** — Which design owns the tavern — this one, *markets & taverns*, or *lodging & safe logout*? *Leaning: this one owns comfort and havens; the tavern as a business is markets & taverns', beds for rent Rest's and lodging's (Rest NQ18).*
 
