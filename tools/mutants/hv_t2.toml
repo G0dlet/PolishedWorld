@@ -1,0 +1,69 @@
+# HV-T2 -- the grace reads the room (Haven decomposition §7, HV4).
+# Run: python3 tools/mutate.py tools/mutants/hv_t2.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the tests were
+# written, lesson 497):
+#   HVM4  16 -- seven new cases (every one but the owner in a haven and the
+#              body outside with the looters in a haven); eight of today's in
+#              tests/test_death_contract.py, since outside a haven `and` reads
+#              no grace at all (the boundary, the clock that moves, the heat,
+#              the bad death time, which no longer raises, the deleted owner,
+#              the command, both look lines); and the owner's own corpse in
+#              tests/test_containers.py, which asks grace_active
+#   HVM5   2 -- the two cases whose looters stand in a room the body is not in
+#   HVM6   1 -- look in a haven, at 0 and at 73 hours
+#
+# `haven.is_haven(self.location)` stands twice in corpse.py, so HVM5's `old`
+# starts with `return` and HVM6's with `if`: each matches once.
+
+modules = ["tests.test_death_contract", "tests.test_containers"]
+
+[[mutant]]
+id = "HVM4"
+# `and` for `or`: a haven ends the grace's reach instead of lengthening it.
+file = "typeclasses/corpse.py"
+old = '''        return haven.is_haven(self.location) or (
+'''
+new = '''        return haven.is_haven(self.location) and (
+'''
+expect = [
+    "test_stranger_refused_in_a_haven_past_the_grace",
+    "test_outside_a_haven_as_today",
+    "test_body_in_a_haven_with_the_looters_outside",
+    "test_the_flag_taken_off_opens_a_body_past_the_grace",
+    "test_the_flag_set_closes_a_body_that_had_opened",
+    "test_stranger_refused_in_a_haven_and_item_stays",
+    "test_the_claim_line_has_no_number",
+    "test_stranger_refused_inside_the_grace",
+    "test_the_same_corpse_opens_as_the_clock_moves",
+    "test_heat_does_not_open_early",
+    "test_bad_death_time_denies_stranger_without_raising",
+    "test_deleted_owner_body_stays_locked_then_opens",
+    "test_stranger_refused_once_and_item_stays",
+    "test_owner_and_stranger_read_different_words",
+    "test_time_left_counts_down",
+    "test_your_own_corpse_during_the_grace",
+]
+
+[[mutant]]
+id = "HVM5"
+# The owner's room read in place of the body's.
+file = "typeclasses/corpse.py"
+old = '''        return haven.is_haven(self.location) or (
+'''
+new = '''        return haven.is_haven(getattr(self.owner_character(), "location", None)) or (
+'''
+expect = [
+    "test_body_in_a_haven_with_the_looters_outside",
+    "test_body_outside_with_the_looters_in_a_haven",
+]
+
+[[mutant]]
+id = "HVM6"
+# look counts hours in a haven: a span that has run out, or none at all.
+file = "typeclasses/corpse.py"
+old = '''        if haven.is_haven(self.location):
+'''
+new = '''        if False:
+'''
+expect = ["test_the_claim_line_has_no_number"]

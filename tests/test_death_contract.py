@@ -9,6 +9,17 @@ bug:
 - TestGraceBoundary -- an off-by-one or an inverted comparison on the grace
   edge. Tested just before, exactly on, and after the boundary, with the clock
   pinned so "exactly on" is exact.
+- TestGraceInAHaven -- the grace not reading the room (HV4): a body in a
+  haven opening at 72 hours like any other (HVM4, `and` for `or`).
+- TestGraceReadsTheBodysRoom -- the wrong room read: the owner's, not the
+  body's (HVM5). The looters stand in one room and the body lies in another.
+- TestHavenFlagMovesTheAnswer -- the departure (Haven §11, 2) undone without
+  anyone seeing: the flag taken off opens a body past the grace at once, and
+  the flag set closes one that had opened.
+- TestLootInAHavenThroughTheCommand -- the lock right but the route wrong, in
+  a haven past the grace.
+- TestLookInAHaven -- `look` counting hours in a haven (HVM6), where the span
+  has no end and today's count would print one that has run out.
 - TestGraceClockIsUnscaled -- building the grace on the env-scaled decay clock.
   Then a cold snap re-locks a corpse that had already opened, and a heatwave
   opens it early.
@@ -147,6 +158,117 @@ class TestGraceBoundary(GraceTestBase):
             self.assertFalse(corpse.access(self.stranger, "get_from"))
         with clock_at(NOW + GRACE * HOUR):
             self.assertTrue(corpse.access(self.stranger, "get_from"))
+
+
+# --- The haven (Haven Decomposition HV-T2, HV4) ------------------------------
+# room2 is the haven. Unless a test is about which room is read (HVM5), the
+# owner and the stranger stand where the body lies, as they would in play, so
+# a mutant reading the owner's room changes nothing here and is killed only by
+# TestGraceReadsTheBodysRoom (lesson 181).
+
+class HavenTestBase(GraceTestBase):
+    def setUp(self):
+        super().setUp()
+        self.haven = self.room2
+        self.haven.db.is_haven = True
+
+    def stand_in(self, room):
+        """Put the owner and the stranger in `room`."""
+        for char in (self.owner, self.stranger):
+            char.move_to(room, quiet=True, move_hooks=False)
+
+
+class TestGraceInAHaven(HavenTestBase):
+    def test_stranger_refused_in_a_haven_past_the_grace(self):
+        self.stand_in(self.haven)
+        for hours in (GRACE - 1, GRACE + 1, 287):
+            corpse = make_corpse(self.haven, self.owner, hours)
+            with clock_at():
+                self.assertTrue(corpse.grace_active, hours)
+                self.assertFalse(corpse.access(self.stranger, "get_from"), hours)
+
+    def test_owner_passes_in_a_haven(self):
+        self.stand_in(self.haven)
+        for hours in (GRACE - 1, GRACE + 1, 287):
+            corpse = make_corpse(self.haven, self.owner, hours)
+            with clock_at():
+                self.assertTrue(corpse.access(self.owner, "get_from"), hours)
+
+    def test_outside_a_haven_as_today(self):
+        refused = make_corpse(self.room1, self.owner, GRACE - 1)
+        opened = make_corpse(self.room1, self.owner, GRACE + 1)
+        with clock_at():
+            self.assertFalse(refused.access(self.stranger, "get_from"))
+            self.assertTrue(opened.access(self.stranger, "get_from"))
+
+
+class TestGraceReadsTheBodysRoom(HavenTestBase):
+    def test_body_in_a_haven_with_the_looters_outside(self):
+        self.stand_in(self.room1)
+        corpse = make_corpse(self.haven, self.owner, GRACE + 1)
+        with clock_at():
+            self.assertFalse(corpse.access(self.stranger, "get_from"))
+            self.assertTrue(corpse.access(self.owner, "get_from"))
+
+    def test_body_outside_with_the_looters_in_a_haven(self):
+        self.stand_in(self.haven)
+        corpse = make_corpse(self.room1, self.owner, GRACE + 1)
+        with clock_at():
+            self.assertTrue(corpse.access(self.stranger, "get_from"))
+
+
+class TestHavenFlagMovesTheAnswer(HavenTestBase):
+    """The departure of Haven §11, 2, held so that it is a decision: a staff
+    hand on the flag moves the answer, which the weather never can."""
+
+    def test_the_flag_taken_off_opens_a_body_past_the_grace(self):
+        self.stand_in(self.haven)
+        corpse = make_corpse(self.haven, self.owner, 100)
+        with clock_at():
+            self.assertFalse(corpse.access(self.stranger, "get_from"))
+            self.haven.attributes.remove("is_haven")
+            self.assertTrue(corpse.access(self.stranger, "get_from"))
+
+    def test_the_flag_set_closes_a_body_that_had_opened(self):
+        corpse = make_corpse(self.room1, self.owner, 100)
+        with clock_at():
+            self.assertTrue(corpse.access(self.stranger, "get_from"))
+            self.room1.db.is_haven = True
+            self.assertFalse(corpse.access(self.stranger, "get_from"))
+
+
+class TestLootInAHavenThroughTheCommand(EvenniaCommandTest):
+    """`get <item> from <corpse>` in a haven, past the grace: the route."""
+
+    def setUp(self):
+        super().setUp()
+        self.assertFalse(self.char1.locks.lock_bypass)
+        self.room1.db.is_haven = True
+        self.corpse = make_corpse(self.room1, self.char2, GRACE + 1)
+        self.item = create_object(OBJECT, key="flint knife", location=self.corpse)
+
+    def test_stranger_refused_in_a_haven_and_item_stays(self):
+        with clock_at():
+            out = self.call(CmdContainerGet(), "flint knife from corpse")
+        self.assertEqual(out.count(REFUSAL), 1)
+        self.assertEqual(self.item.location, self.corpse)
+
+
+class TestLookInAHaven(HavenTestBase):
+    def test_the_claim_line_has_no_number(self):
+        self.stand_in(self.haven)
+        line = "claim on what it holds lasts for as long as it lies here."
+        # GRACE + 1, not later: past 96 hours a body in the fastest decay
+        # would crumble on look (shortest_keep_game_hours).
+        for hours in (0, GRACE + 1):
+            corpse = make_corpse(self.haven, self.owner, hours)
+            with clock_at():
+                mine = corpse.return_appearance(self.owner)
+                theirs = corpse.return_appearance(self.stranger)
+            self.assertIn(f"Your {line}", mine, hours)
+            self.assertIn(f"Its owner's {line}", theirs, hours)
+            self.assertNotIn("in-game", mine, hours)
+            self.assertNotIn("in-game", theirs, hours)
 
 
 class TestGraceClockIsUnscaled(GraceTestBase):
