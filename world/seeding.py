@@ -150,6 +150,9 @@ def _seed_rooms(counts):
         tags = [(spec["seed_id"], SEED_CATEGORY), AREA_TAG]
         if spec["thermal_regime"]:
             attributes.append(("thermal_regime", spec["thermal_regime"]))
+        # On the haven alone; a room without the Attribute is none (HV2, HV3).
+        if spec["is_haven"]:
+            attributes.append(("is_haven", True))
         if spec["spawn_creatures"]:
             attributes.append(("spawn_creatures", dict(spec["spawn_creatures"])))
             tags.append(SPAWN_TAG)

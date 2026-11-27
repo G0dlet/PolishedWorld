@@ -37,9 +37,10 @@ def corpse_grace(accessing_obj, accessed_obj, *args, **kwargs):
     Owner-first loot grace for a PlayerCorpse (lock string: `corpse_grace()`).
 
     Passes for the corpse's owner at any time, and for anyone once the grace
-    has run out (`PlayerCorpse.grace_active`, an unscaled clock that never
-    runs backwards). Takes no arguments: the owner is read from the corpse's
-    `owner` Attribute at check time, so the id lives in one place.
+    is over (`PlayerCorpse.grace_active`: never while the body lies in a
+    haven, else on an unscaled clock the weather cannot turn back; a staff
+    flag on the room can). Takes no arguments: the owner is read from the
+    corpse's `owner` Attribute at check time, so the id lives in one place.
 
     `owner` is a character id, stamped by `at_character_death()`. A deleted
     owner never matches an id again, so their body simply opens when the grace

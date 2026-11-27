@@ -27,6 +27,7 @@ from evennia.objects.models import ObjectDB
 from evennia.objects.objects import DefaultObject
 
 from world import gametime_utils
+from world import haven
 from world import activity_log
 from world import weather as weather_logic
 from .objects import ObjectParent
@@ -272,15 +273,18 @@ class PlayerCorpse(Corpse):
     # contract promises "days", never this number.
     _PLAYER_EXPIRY_HOURS = 288
 
-    # Owner-first loot grace (roadmap, Death-consequence policy (iii)): for this
-    # many game-hours after death only the owner may take from the corpse; then
-    # anyone may. A calibration knob, not a contract term. UNSCALED game-hours
-    # (`_raw_elapsed_game_hours`), so a cold snap can never re-lock an opened
-    # corpse. 72 = 3 game days = 18 real hours at TIME_FACTOR 4, a quarter of
-    # the neutral recovery window. It must stay below the FASTEST possible
-    # expiry (288 / 3.0 in summer rain = 96), or a body could crumble before
-    # anyone but its owner may touch it; tests/test_death_contract.py derives
-    # that bound from the modifier tables.
+    # Owner-first loot grace (roadmap, Death-consequence policy (iii)): for
+    # this many game-hours after death only the owner may take from the corpse;
+    # then anyone may -- unless the body lies in a haven, where the claim lasts
+    # for as long as it lies there (HV4, `grace_active`). A calibration knob,
+    # not a contract term. UNSCALED game-hours (`_raw_elapsed_game_hours`), so
+    # the weather can never re-lock an opened corpse; a staff hand can, by
+    # flagging its room a haven, and taking the flag off opens a body past this
+    # many hours at once (Haven Decomposition §11, 2). 72 = 3 game days = 18
+    # real hours at TIME_FACTOR 4, a quarter of the neutral recovery window. It
+    # must stay below the FASTEST possible expiry (288 / 3.0 in summer rain =
+    # 96), or a body could crumble before anyone but its owner may touch it;
+    # tests/test_death_contract.py derives that bound from the modifier tables.
     _PLAYER_GRACE_HOURS = 72
 
     # --- The name (Names K3, NM-T11) ------------------------------------------
@@ -329,26 +333,33 @@ class PlayerCorpse(Corpse):
         super().at_object_creation()   # get:false() + death_time default
         # Owner-first looting via the get_from lock. This is a DIFFERENT lock
         # from the inherited get:false(): get_from governs taking items OUT of
-        # the corpse (CmdContainerGet) and putting items IN (`put` runs the
-        # contrib's check, containers.py:265, and refuses with db.put_err_msg,
-        # unset here, so the contrib's generic line, not get_from_err_msg);
-        # get governs pocketing the carcass itself.
-        # corpse_grace() (server/conf/lockfuncs.py) reads `owner` and the clock
-        # at access time, so the lock string never changes and nothing has to
-        # fire when the grace ends.
+        # the corpse (CmdContainerGet), and is the first of two checks on
+        # putting items IN: `put` asks it first (containers.py:265) and refuses
+        # with db.put_err_msg -- unset here, so the contrib's generic line --
+        # and whoever passes it, the owner always, is refused by
+        # ObjectParent.at_pre_put_in with the same words. Nobody puts anything
+        # into a body, in a haven or out (Haven Decomposition §4 P2). get
+        # governs pocketing the carcass itself.
+        # corpse_grace() (server/conf/lockfuncs.py) reads `owner`, the clock
+        # and the body's room at access time, so the lock string never changes
+        # and nothing has to fire when the grace ends or a haven is flagged.
         self.locks.add("get_from:corpse_grace()")
         # The command prints this on refusal and is the only writer of that line
         # (the lockfunc stays silent). Static on purpose: the time left is shown
-        # by `look`, which can compute it.
-        self.db.get_from_err_msg = (
-            "That body's belongings are still its owner's to reclaim. "
-            "You can't take from it yet."
-        )
+        # by `look`, which can compute it. It promises no later day, since in a
+        # haven none comes (HV-T3); a body made before keeps its old line.
+        self.db.get_from_err_msg = "That body's belongings are still its owner's to reclaim."
 
     @property
     def grace_active(self):
-        """True while only the owner may loot. Unscaled clock: never re-locks."""
-        return self._raw_elapsed_game_hours() < self._PLAYER_GRACE_HOURS
+        """
+        True while only the owner may loot: for as long as the body lies in
+        a haven (HV4), else for _PLAYER_GRACE_HOURS on the unscaled clock,
+        which the weather never turns back. A staff flag on the room can.
+        """
+        return haven.is_haven(self.location) or (
+            self._raw_elapsed_game_hours() < self._PLAYER_GRACE_HOURS
+        )
 
     @property
     def is_expired(self):
@@ -370,7 +381,8 @@ class PlayerCorpse(Corpse):
         slot, so a looter sees exactly what is left to take without needing
         CmdContainerLook. While the owner's grace runs, one line says whose
         claim it is and roughly how long it lasts -- the time-left half of the
-        refusal that `get_from_err_msg` cannot carry.
+        refusal that `get_from_err_msg` cannot carry; in a haven, that it lasts
+        for as long as the body lies there, since there is no span to count.
 
         Multiplayer note: the first trigger past expiry crumbles the corpse;
         a later look/get finds nothing (a graceful "not found"), and a stale
@@ -383,11 +395,17 @@ class PlayerCorpse(Corpse):
         appearance = super().return_appearance(looker, **kwargs)
         if not self.grace_active:
             return appearance
+        whose = "Your" if looker.id == self.db.owner else "Its owner's"
+        # In a haven the claim has no end, so there is no span to count (HV4).
+        if haven.is_haven(self.location):
+            return (
+                f"{appearance}\n{whose} claim on what it holds lasts for as "
+                "long as it lies here."
+            )
         # Local import: world.death_contract imports this module.
         from world.death_contract import format_game_span
 
         left = self._PLAYER_GRACE_HOURS - self._raw_elapsed_game_hours()
-        whose = "Your" if looker.id == self.db.owner else "Its owner's"
         return (
             f"{appearance}\n{whose} claim on what it holds lasts about "
             f"{format_game_span(left)} more."

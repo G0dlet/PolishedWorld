@@ -31,6 +31,7 @@ from django.conf import settings
 
 from typeclasses import corpse as _corpse
 from typeclasses.corpse import PlayerCorpse
+from world import haven
 from world.survival_buffs import DeathWeakness
 
 HOURS_PER_GAME_DAY = 24
@@ -96,6 +97,8 @@ def death_message(body_room=None):
             corpse was made (no location, or the spawn failed). Without a body
             the text claims none, and says the belongings stayed with the
             character -- which is what `at_character_death()` does then.
+            In a haven the claim lasts for as long as the body lies there
+            (HV4), so the line names no span of the grace.
 
     Returns:
         str: "You have died." (unchanged first line, so T13's ordering and the
@@ -103,11 +106,17 @@ def death_message(body_room=None):
     """
     chill = DeathWeakness.name
     if body_room is not None:
+        # The body still crumbles in a haven (Haven §11, 6), so only the claim
+        # changes; the words are the ones `look` uses there.
+        if haven.is_haven(body_room):
+            claim = "for as long as it lies there only you may take from it"
+        else:
+            grace = format_game_span(grace_game_hours())
+            claim = f"for the first {grace} only you may take from it"
         contract = (
             f"Your body lies at {body_room.key}. It keeps your belongings for at "
-            f"least {format_game_span(shortest_keep_game_hours())}, and for the "
-            f"first {format_game_span(grace_game_hours())} only you may take "
-            f"from it. {chill} will pass. {REST_LINE} See |whelp death|n."
+            f"least {format_game_span(shortest_keep_game_hours())}, and {claim}. "
+            f"{chill} will pass. {REST_LINE} See |whelp death|n."
         )
     else:
         contract = (
@@ -133,8 +142,9 @@ def help_text():
         "whatever is still inside is lost.\n\n"
         f"|wYour claim|n: for the first {format_game_span(grace)} (about "
         f"{format_real_span(grace)}) only you may take from your body. After "
-        "that, anyone who finds it may. Looking at the body shows how long "
-        "your claim has left.\n\n"
+        "that, anyone who finds it may. In a haven, only you may take from it, "
+        "for as long as it lies there. Looking at the body shows how long your "
+        "claim lasts.\n\n"
         f"|w{DeathWeakness.name}|n: a weakness that passes on its own after "
         f"about {_plural(chill_minutes, 'real minute')}. {REST_LINE}\n\n"
         "The world's clock stands still while the server is down, so downtime "

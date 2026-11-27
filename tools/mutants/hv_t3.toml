@@ -1,0 +1,78 @@
+# HV-T3 -- the death contract's texts (Haven decomposition §7, HV4).
+# Run: python3 tools/mutate.py tools/mutants/hv_t3.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the tests were
+# written, lesson 497; one mutant for each choice taken at STOPP 0 that no
+# listed mutant holds):
+#   HVM7   2 -- the haven's line, asked directly and through a death in a haven
+#   HVM8   3 -- today's line word for word, and the two of today's tests that
+#              read the grace's span in room1's line (the contract, the shared
+#              numbers); `test_line_is_exactly_the_shared_builder` lives, since
+#              both its sides are then the haven's line
+#   HVM9   1 -- help names the haven's rule once
+#   HVM9b  1 -- help says how long the claim lasts, not what it has left
+#   HVM9c  1 -- the stored refusal is the whole line; the command tests count
+#              REFUSAL as a substring and stay green
+#
+# `haven.is_haven(body_room)` stands once in death_contract.py, so HVM7's and
+# HVM8's `old` match once each.
+
+modules = ["tests.test_death_contract", "tests.test_containers"]
+
+[[mutant]]
+id = "HVM7"
+# The death line asks nothing and gives the 72 hours everywhere.
+file = "world/death_contract.py"
+old = '''        if haven.is_haven(body_room):
+'''
+new = '''        if False:
+'''
+expect = [
+    "test_the_haven_line_says_the_claim_and_no_grace_span",
+    "test_a_death_in_a_haven_gets_the_haven_line",
+]
+
+[[mutant]]
+id = "HVM8"
+# The death line gives the haven's sentence everywhere.
+file = "world/death_contract.py"
+old = '''        if haven.is_haven(body_room):
+'''
+new = '''        if True:
+'''
+expect = [
+    "test_another_room_is_todays_line_word_for_word",
+    "test_line_names_the_body_room_and_the_contract",
+    "test_help_and_death_line_use_the_same_numbers",
+]
+
+[[mutant]]
+id = "HVM9"
+# help death loses its sentence.
+file = "world/death_contract.py"
+old = '''        "that, anyone who finds it may. In a haven, only you may take from it, "
+        "for as long as it lies there. Looking at the body shows how long your "
+'''
+new = '''        "that, anyone who finds it may. Looking at the body shows how long your "
+'''
+expect = ["test_help_names_the_havens_rule_once"]
+
+[[mutant]]
+id = "HVM9b"
+# help death still says what the claim has left, which look in a haven does not show.
+file = "world/death_contract.py"
+old = '''        "claim lasts.\n\n"
+'''
+new = '''        "claim has left.\n\n"
+'''
+expect = ["test_help_says_look_shows_how_long_the_claim_lasts"]
+
+[[mutant]]
+id = "HVM9c"
+# The stored refusal promises a day that never comes in a haven.
+file = "typeclasses/corpse.py"
+old = '''        self.db.get_from_err_msg = "That body's belongings are still its owner's to reclaim."
+'''
+new = '''        self.db.get_from_err_msg = "That body's belongings are still its owner's to reclaim. You can't take from it yet."
+'''
+expect = ["test_the_stored_refusal_is_the_whole_line"]

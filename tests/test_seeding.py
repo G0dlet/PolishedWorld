@@ -23,8 +23,9 @@ WHAT IS WORTH TESTING HERE
 5. **The Treasury is not seeded** (AD7). It is found by dbref, not by tag, so
    the test counts its typeclass in the whole database.
 6. **The data is sound before it is built**: unique seed_ids, every node
-   prototype resolves, every room carries its desc, is_indoor and
-   thermal_regime, every exit joins the rooms it names, every room can be
+   prototype resolves, every room carries its desc, is_indoor,
+   thermal_regime and is_haven (the flag written on the haven alone, HV-T1),
+   every exit joins the rooms it names, every room can be
    reached from Limbo and every passage leads back, and a missing
    Limbo stops the seeder before it creates anything.
 7. **Scrolls are placed once** (Launch Minimum L3.3): the first run places
@@ -50,6 +51,7 @@ from evennia.utils.test_resources import EvenniaCommandTest, EvenniaTest
 
 from commands.crafting_commands import CmdLearn
 from world import seed_data
+from world.haven import is_haven
 from world.thermal import thermal_regime
 from world.seeding import (
     AREA_TAG,
@@ -206,8 +208,29 @@ class TestSeedData(SeedingBase):
                 self.assertEqual(room.db.desc, spec["desc"])
                 self.assertEqual(room.db.is_indoor, spec["is_indoor"])
                 self.assertEqual(room.db.thermal_regime, spec["thermal_regime"])
+                # Through the one reader (HV2): the haven and the five that are not.
+                self.assertIs(is_haven(room), spec["is_haven"])
+                # Written on the haven alone (HV-T1's STOPP 0): a room that is
+                # no haven holds no Attribute, as a hand-built room does and
+                # as `@set here/is_haven =` leaves one. (`has` answers [] for
+                # a missing key, not False: Evennia Reference.)
+                self.assertIs(bool(room.attributes.has("is_haven")), spec["is_haven"])
         # What is_indoor is for: the temple is temperate whatever the season.
         self.assertEqual(thermal_regime(find_seeded("alpha.room.temple")), "temperate")
+
+    def test_a_reseed_leaves_the_haven_flags_as_staff_left_them(self):
+        # Skip, never sync (HV3): staff who take the flag off the temple and
+        # put it on the meadow are not undone by the next seed_world().
+        self.seed()
+        temple = find_seeded("alpha.room.temple")
+        meadow = find_seeded("alpha.room.meadow")
+        temple.attributes.remove("is_haven")
+        meadow.db.is_haven = True
+
+        self.seed()
+
+        self.assertIs(is_haven(find_seeded("alpha.room.temple")), False)
+        self.assertIs(is_haven(find_seeded("alpha.room.meadow")), True)
 
     def test_exits_join_the_rooms_they_name(self):
         self.seed()
