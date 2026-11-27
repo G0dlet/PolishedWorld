@@ -35,6 +35,7 @@ LADDER = {
     "stone axe": 0,
     "waterskin": 0,
     "cloth": 20,
+    "bandage": 20,
     "leather": 20,
     "hood": 20,
     "bandolier": 20,
@@ -102,8 +103,8 @@ class TestMinSkillLadder(EvenniaTestCase):
         self.recipes = dict(_RECIPE_CLASSES)
 
     def test_every_recipe_declares_its_rung(self):
-        self.assertEqual(len(LADDER), 34)
-        self.assertEqual(len(self.recipes), 34)
+        self.assertEqual(len(LADDER), 35)
+        self.assertEqual(len(self.recipes), 35)
         self.assertEqual(set(self.recipes), set(LADDER))
         for name, expected in LADDER.items():
             with self.subTest(recipe=name):

@@ -295,8 +295,14 @@ def render_recipe_detail(cls, extra_lines=None):
     # Prettify the key (underscores -> spaces) for now; resolving the
     # prototype's real key/desc and correct article/pluralisation (e.g.
     # "a pair of leather boots") is deferred -> docs/BACKLOG.md.
+    # A key that repeats is counted in the Needs line's form ("2x bandage";
+    # Healing HL-T5, the first recipe with two of one product). A key that
+    # appears once is shown as before.
     outputs = list(getattr(cls, "output_prototypes", []) or [])
-    produced = ", ".join(o.replace("_", " ") for o in outputs) if outputs else "something"
+    produced = ", ".join(
+        (f"{qty}x " if qty > 1 else "") + key.replace("_", " ")
+        for key, qty in Counter(outputs).items()
+    ) if outputs else "something"
 
     lines = [
         f"\n|w{cls.name.title()}|n",

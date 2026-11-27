@@ -1,0 +1,71 @@
+# HL-T5 -- the bandage, from cloth (Healing decomposition §8; HL5).
+# Run: python3 tools/mutate.py tools/mutants/hl_t5.toml --parallel 2
+#
+# Predicted fail counts over the four modules (worked through before the
+# run, lesson 497). test_one_cloth_makes_two_bandages_on_every_tier is a
+# subTest over the four tiers, so a mutant it kills fails four times and
+# runs serially (Testing Reference §28.1).
+#   HLM14 5 -- test_recipe_sources 1 (a gated recipe with no profession
+#          and no scroll); test_bandage 4 (every tier: the craft is refused
+#          for a character who knows nothing, so no line and no bandage).
+#          The floor test still passes: the cloth is kept either way.
+#   HLM15 5 -- test_bandage: the card ("2x bandage" is gone) and every
+#          tier (one bandage, and the line names "bandage", not "two
+#          bandages").
+#   HLM16 4 -- test_bandage: every tier (the two bandages and the line are
+#          right; the cloth is still there). The card still says "1x
+#          cloth": only the craft shows the cloth is not used up.
+#
+# Run 2026-11-27: all three killed by the predicted tests, each serially.
+# The counts above are subTests; the harness counts tests, and read 2, 2
+# and 1. The killers were right and the unit was not: a prediction over a
+# subTest is written in tests, not in tiers.
+
+modules = [
+    "tests.test_bandage",
+    "tests.test_recipe_sources",
+    "tests.test_material_registry",
+    "tests.test_min_skill_ladder",
+]
+
+[[mutant]]
+id = "HLM14"
+# The recipe gated: only a character who has learned it may make bandages.
+file = "world/recipes.py"
+old = '''    name = "bandage"
+    discipline = "weaving"
+'''
+new = '''    name = "bandage"
+    discipline = "weaving"
+    requires_knowledge = True
+'''
+expect = [
+    "test_every_knowledge_gated_recipe_has_a_source",
+    "test_one_cloth_makes_two_bandages_on_every_tier",
+]
+
+[[mutant]]
+id = "HLM15"
+# The wrong count out: one bandage from one cloth.
+file = "world/recipes.py"
+old = '''    output_prototypes = ["bandage", "bandage"]      # two bandages from it
+'''
+new = '''    output_prototypes = ["bandage"]      # two bandages from it
+'''
+expect = [
+    "test_the_recipe_card",
+    "test_one_cloth_makes_two_bandages_on_every_tier",
+]
+
+[[mutant]]
+id = "HLM16"
+# No cloth used up: the recipe asks for a cloth and keeps it.
+file = "world/recipes.py"
+old = '''    min_skill = 20                                  # E.1 rung 20: cloth's floor
+'''
+new = '''    min_skill = 20                                  # E.1 rung 20: cloth's floor
+
+    def _should_consume(self, tier):
+        return False
+'''
+expect = "test_one_cloth_makes_two_bandages_on_every_tier"

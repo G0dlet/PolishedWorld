@@ -260,8 +260,16 @@ MATERIALS = {
         "sinks": [
             "linen shirt recipe", "breeches recipe", "robe recipe", "hood recipe",
             "reversible clothes recipe", "linen cuirass recipe", "sack recipe",
-            "tent recipe", "garments", "sacks/packs", "sails/tents",
+            "tent recipe", "bandage recipe", "garments", "sacks/packs", "sails/tents",
         ],
+    },
+    "bandage": {
+        "prototype_key": "bandage", "category": INTERMEDIATE, "status": EXISTS,
+        "blocked_on": "",
+        "source": "BandageRecipe (cloth x1 -> bandage x2)",
+        # Healing HL-T5. No recipe consumes it until the healer's kit (HL-T6):
+        # tests/test_material_registry.py AWAITING_CONSUMER holds the gap.
+        "sinks": ["treat (First Aid, HL5)", "healer's kit recipe"],
     },
     "leather": {
         "prototype_key": "leather", "category": INTERMEDIATE, "status": EXISTS,

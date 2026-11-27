@@ -521,6 +521,23 @@ CLOTH = {
     "enc": 0,   # Q6: at least the shirt it is sewn into (shirt ENC 0)
 }
 
+# --- Healing: the bandage (Healing HL-T5; Combat Design HL5) ---
+# First Aid uses up one bandage, or one cloth at -20 %. Its tag-key "bandage"
+# is what `treat` (HL-T10) and the healer's kit's recipe (HL-T6) match.
+# Source = BandageRecipe (world/recipes.py), two from one cloth.
+
+BANDAGE = {
+    "prototype_key": "bandage",
+    "typeclass": "typeclasses.objects.Object",
+    "key": "bandage",
+    "desc": (
+        "A strip of plain cloth, cut clean and rolled tight, "
+        "kept for binding a wound."
+    ),
+    "tags": [("bandage", "crafting_material")],
+    "enc": 0,   # lighter than the cloth it is cut from (cloth ENC 0)
+}
+
 NEEDLE = {
     "prototype_key": "needle",
     "typeclass": "typeclasses.tools.Tool",

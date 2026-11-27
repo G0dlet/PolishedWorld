@@ -50,6 +50,37 @@ from world.knowledge import meets_floor, routine_for
 from world import activity_log
 
 
+def output_phrase(objs, looker):
+    """The products of one craft as the phrase the craft lines format.
+
+    A name that appears once is shown as it always was: its display name, no
+    article, so every single-product line reads as before. A name that appears
+    more than once is counted through Evennia's own get_numbered_name ("two
+    bandages"), the form `inventory` already uses. The bandage (Healing HL-T5)
+    is the first recipe with two of one product; joined one by one it read
+    "bandage, bandage".
+
+    Args:
+        objs (list): the spawned products, in spawn order.
+        looker (Object): the crafter the line is for.
+
+    Returns:
+        str: the names in first-seen order, joined with ", ".
+    """
+    groups = {}
+    for obj in objs:
+        groups.setdefault(obj.get_display_name(looker=looker), []).append(obj)
+    parts = []
+    for name, same in groups.items():
+        if len(same) == 1:
+            parts.append(name)
+        else:
+            parts.append(
+                same[0].get_numbered_name(len(same), looker, key=name, return_string=True)
+            )
+    return ", ".join(parts)
+
+
 class MongooseCraftRecipe(CraftingRecipe):
     """Base recipe adding Mongoose Legend d100 skill resolution + sinks."""
 
@@ -439,9 +470,7 @@ class MongooseCraftRecipe(CraftingRecipe):
         set_down = []
         if craft_result:
             set_down = self.crafter.receive_or_set_down(craft_result)
-            outputs = ", ".join(
-                obj.get_display_name(looker=self.crafter) for obj in craft_result
-            )
+            outputs = output_phrase(craft_result, self.crafter)
             template = self.tier_messages.get(tier, "You finish crafting {outputs}.")
             self.msg(template.format(outputs=outputs))
             if set_down:

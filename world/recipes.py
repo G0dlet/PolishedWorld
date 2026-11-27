@@ -14,7 +14,7 @@ Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowle
   common / ungated (inherit requires_knowledge = False) -- survival, tool and
     weapon recipes nobody has to LEARN: twine, waterskin, stone knife, bone needle,
     stone axe, club, sling bullet, sling, quarterstaff, spear, bow, milling stones,
-    target shield.
+    target shield, bandage.
     Not having to learn a recipe is not the same as being able to make it: the
     skill ladder below still floors some of them.
   learnable / knowledge-gated (requires_knowledge = True) -- refined goods that a
@@ -181,6 +181,35 @@ class ClothRecipe(MongooseCraftRecipe):
     tool_tag = None                                 # handwoven; no tool benefit
     craft_duration = 25                             # between twine (20) and waterskin (45)
     min_skill = 20                               # E.1 rung 20 (AC5.1)
+
+
+class BandageRecipe(MongooseCraftRecipe):
+    """Cut one bolt of cloth into two bandages (Healing HL-T5; lock HL5).
+
+    Ungated: First Aid needs a bandage, or a cloth at -20 %, and anyone may
+    make one (HL5). Two from one cloth (OQ-HL8): one would make the bandage a
+    tax of craft time on the -20 %; two make a crafter's cloth go further
+    than a torn tunic's. No tool: under the inherited raw policy every
+    attempt yields, so a knife could only move a quality nothing reads.
+    min_skill is the input chain's: cloth sits at 20, and no product sits
+    below a recipe that makes one of its inputs.
+    """
+
+    name = "bandage"
+    discipline = "weaving"
+    consumable_tags = ["cloth"]                     # one bolt
+    output_prototypes = ["bandage", "bandage"]      # two bandages from it
+    tool_tag = None                                 # torn and rolled by hand
+    craft_duration = 25                             # rung 20's, as cloth's
+    min_skill = 20                                  # E.1 rung 20: cloth's floor
+
+    # Two products, so the two lines whose verb agrees with {outputs} are
+    # plural ("two bandages come out poorly made"); the others read either way.
+    tier_messages = {
+        **MongooseCraftRecipe.tier_messages,
+        "failure": "The work fights you; {outputs} come out poorly made.",
+        "fumble": "You botch the work badly — {outputs} are shoddy, barely usable.",
+    }
 
 
 class LeatherRecipe(MongooseCraftRecipe):

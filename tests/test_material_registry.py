@@ -15,7 +15,8 @@ the wrong thing. These tests make the registry answer to the code:
        (crafting_material for MATERIALS, crafting_tool for TOOLS).
   (a') an EXISTS entry's own prototype_key carries the entry's tag.
   (b)  no unregistered tags: every such tag on a prototype is a registry key.
-  (c)  every EXISTS material is consumed by some recipe.
+  (c)  every EXISTS material is consumed by some recipe -- or is a named debt
+       in AWAITING_CONSUMER, which a twin test holds unpaid (Healing HL-T5).
   (d)  every EXISTS tool is used: some recipe's tool_tag, or some node
        prototype's required_tool (T3).
   (e)  every recipe input (consumable_tags, tool_tag) is an EXISTS entry.
@@ -109,6 +110,15 @@ MIN_RECIPES = 8
 MIN_ITEM_PROTOTYPES = 29
 # (h)'s floor, set at AC4.0b's count: raw_hide and bone name the rabbit.
 MIN_CREATURE_SOURCES = 2
+
+# (c)'s debts (Healing HL-T5): an EXISTS material made before the recipe that
+# consumes it. The bandage is made from HL-T5 on; the healer's kit's recipe
+# (HL-T6) is its first consumer and `treat` (HL-T10) its use, and nothing
+# merges before HL-T13, so main never sees the gap. Each entry names the task
+# that pays it. test_c_debts_are_not_yet_paid fails the day a recipe consumes
+# the material, and the entry is removed in that commit: the exemption cannot
+# outlive its reason.
+AWAITING_CONSUMER = {"bandage": "HL-T6, the healer's kit"}
 
 # (i): a status-group header and an entry line, as render_ledger() writes them.
 LEDGER_HEADER = re.compile(r"^(TOOLS )?(EXISTS|DATA|BLOCKED|DECISION) \((\d+)\) -- ")
@@ -251,10 +261,21 @@ class TestMaterialRegistry(EvenniaTestCase):
 
     def test_c_every_exists_material_is_consumed(self):
         for key, entry in reg.MATERIALS.items():
-            if entry["status"] != reg.EXISTS:
+            if entry["status"] != reg.EXISTS or key in AWAITING_CONSUMER:
                 continue
             with self.subTest(material=key):
                 self.assertIn(key, self.consumed)
+
+    def test_c_debts_are_not_yet_paid(self):
+        """Each AWAITING_CONSUMER entry is an EXISTS material no recipe consumes.
+
+        The day a recipe consumes it this fails, and the entry goes.
+        """
+        for key, task in AWAITING_CONSUMER.items():
+            with self.subTest(material=key, paid_by=task):
+                self.assertIn(key, reg.MATERIALS)
+                self.assertEqual(reg.MATERIALS[key]["status"], reg.EXISTS)
+                self.assertNotIn(key, self.consumed)
 
     def test_d_every_exists_tool_is_used(self):
         for key, entry in reg.TOOLS.items():
