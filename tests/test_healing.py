@@ -4,17 +4,24 @@ Tests for natural healing on the survival tick (survival loop S2.1).
 Locks: A1 (`healing.accrue` writes health and pushes `char`), B1 (the table is
 keyed on Resilience -- RP-L4; a trait since BD-T4, CON x 2 stood in before),
 C1 (`at_post_puppet` clears the tick's stamp), D1 (one line per tick in which
-a point lands).
+a point lands), HL10 (the book's table read twelve times faster, Healing
+HL-T2).
+
+Only the book's table is typed in hours: it is printed and never moves. The
+interval a character heals by is read from `interval_for`, except in the one
+test that pins its six values (Testing Reference §27.2).
 
 Mutations each class is meant to kill are named in its docstring (SL-M13..M17,
-SL-M42, SL-M43).
+SL-M42, SL-M43, HLM5, HLM6).
 """
 
 from unittest import mock
 
+from django.conf import settings
 from django.test import SimpleTestCase
 from evennia.utils.test_resources import EvenniaTest
 
+from server.conf.at_server_startstop import SURVIVAL_TICK_INTERVAL
 from world import client_state, healing, survival_ticker, wounds
 from world.survival_buffs import Dehydrated, Starving
 
@@ -38,12 +45,49 @@ class TestTable(SimpleTestCase):
         }
         for value, hours in cases.items():
             with self.subTest(resilience=value):
-                self.assertEqual(healing.interval_for(value), hours * H)
+                self.assertEqual(healing.book_interval_for(value), hours * H)
+
+
+class TestTwelveTimesFaster(SimpleTestCase):
+    """
+    Pressures HL10: the book's rows divided by `SPEED_FACTOR`, the fastest
+    row too. HLM5 (the factor 1) and HLM6 (multiplied in place of divided)
+    fail the row test. The two tests after it hold the factor's bounds, so
+    nobody changes it without seeing what it does to the table and the tick.
+    """
+
+    def test_each_row_in_game_seconds(self):
+        # The red: the book's rows as they stood were 72 to 12 game hours.
+        cases = {
+            0: 21600, 10: 21600,
+            11: 14400, 30: 14400,
+            31: 10800, 50: 10800,
+            51: 7200, 70: 7200,
+            71: 5400, 90: 5400,
+            91: 3600, 200: 3600,
+        }
+        for value, seconds in cases.items():
+            with self.subTest(resilience=value):
+                self.assertEqual(healing.interval_for(value), seconds)
+
+    def test_every_row_divides_into_whole_seconds(self):
+        # `//` would round a row down without a word for a factor such as 7.
+        for hours in [h for _, h in healing.ROWS] + [healing.FASTEST_HOURS]:
+            with self.subTest(hours=hours):
+                self.assertEqual(hours * H % healing.SPEED_FACTOR, 0)
+
+    def test_the_fastest_row_is_longer_than_one_survival_tick(self):
+        # One tick is 600 real seconds at the game clock's factor, 2400 game
+        # seconds at 4: a factor that put a row under it would grant more
+        # than a point a tick.
+        tick = SURVIVAL_TICK_INTERVAL * settings.TIME_FACTOR
+        self.assertGreater(healing.interval_for(10**6), tick)
 
 
 class HealingTestBase(EvenniaTest):
     """
-    CON 10 -> Resilience 20 -> 48 game hours a point; three points on every
+    CON 10 -> Resilience 20 -> 48 game hours a point in the book, four at the
+    keyboard (HL10); three points on every
     location (the fixture's arms, 3, stop there). `hurt()` is the largest
     damage on any location, which a heal lowers by one (WN10).
     """
@@ -71,7 +115,8 @@ class TestResilience(HealingTestBase):
         for value, hours in ((10, 72), (11, 48), (30, 48), (31, 36)):
             with self.subTest(resilience=value):
                 self.char1.skills.resilience.current = value
-                self.assertEqual(healing.interval_for(healing.resilience(self.char1)), hours * H)
+                self.assertEqual(
+                    healing.book_interval_for(healing.resilience(self.char1)), hours * H)
 
     def test_con_alone_moves_nothing_once_the_trait_exists(self):
         # The receipt for the rewrite above: with the trait, CON 16 still
@@ -81,7 +126,8 @@ class TestResilience(HealingTestBase):
 
     def test_fixture_interval(self):
         self.assertEqual(healing.resilience(self.char1), 20)
-        self.assertEqual(self.interval, 48 * H)
+        self.assertEqual(healing.book_interval_for(20), 48 * H)
+        self.assertEqual(self.interval, healing.interval_for(20))
 
 
 class TestResilienceThroughTheNet(HealingTestBase):
@@ -99,14 +145,14 @@ class TestResilienceThroughTheNet(HealingTestBase):
         self.char1.skills.remove("resilience")
         self.assertIsNone(self.char1.skills.get("resilience"))
         self.assertEqual(healing.resilience(self.char1), 20)
-        self.assertEqual(healing.accrue(self.char1, 48 * H), 1)
+        self.assertEqual(healing.accrue(self.char1, self.interval), 1)
 
     def test_the_trait_chooses_the_row(self):
         self.char1.skills.resilience.current = 45
         self.assertEqual(healing.resilience(self.char1), 45)
-        self.assertEqual(healing.interval_for(healing.resilience(self.char1)), 36 * H)
-        # 36 hours heal a point at 45; at 20 they would not.
-        self.assertEqual(healing.accrue(self.char1, 36 * H), 1)
+        self.assertEqual(healing.book_interval_for(healing.resilience(self.char1)), 36 * H)
+        # The 31-50 row's interval heals a point at 45; at 20 it would not.
+        self.assertEqual(healing.accrue(self.char1, healing.interval_for(45)), 1)
 
     def test_neither_trait_nor_con_grants_nothing(self):
         self.char1.skills.remove("resilience")

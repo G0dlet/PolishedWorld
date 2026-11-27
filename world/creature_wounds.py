@@ -46,7 +46,8 @@ without `general_damage` is unhurt. Read the damage through `damage_of`,
 never the row: the stored figure is not yet healed.
 
 Healing (CE11; core p. 86) is counted at the read: one point per
-`healing.interval_for(resilience)` game seconds since `heal_anchor`, the
+`healing.book_interval_for(resilience)` game seconds -- the book's rate, not
+a character's twelve times faster (HL10) -- since `heal_anchor`, the
 game second the stored figure is healed up to, from
 `gametime_utils.get_absolute_gametime()`. Only the door writes it (CE-T5's
 STOPP 0): to now on a blow that finds no damage left or no anchor -- a
@@ -249,8 +250,11 @@ def armour_points_of(creature):
 
 
 def _interval(creature):
-    """Game seconds per Hit Point healed, by the creature's Resilience (p. 86)."""
-    return healing.interval_for(resilience_of(creature))
+    """
+    Game seconds per Hit Point healed, by the creature's Resilience: the
+    book's row (p. 86; CE11), not a character's (HL10).
+    """
+    return healing.book_interval_for(resilience_of(creature))
 
 
 def _healed(creature, now):

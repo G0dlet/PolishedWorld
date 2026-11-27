@@ -7,6 +7,14 @@ that reads it, through `world.skill_base.value_of` (Body decomposition BD6):
 the trait's value once the character has the skill, its base CON x 2 (p. 14)
 until then. The wound's test reads it the same way (`wounds.resilience_test`). The table below keeps the book's rows as printed.
 
+A character reads the table twelve times faster (HL10, Combat Design Rev
+17): `interval_for` divides the book's interval by `SPEED_FACTOR`, the
+fastest row too, because a character heals only while the player is at the
+keyboard -- at Resilience 11-30 a point an hour of play. Twelve is a guess
+until the alpha's data (BACKLOG *Survival loop tuning*). A creature heals
+at the book's rate whether or not anyone is there (CE11), so
+`world.creature_wounds` reads `book_interval_for`.
+
 The clock is game time: the survival tick hands `accrue()` the game seconds
 since its last run (`survival_ticker._tick_game_seconds`). Seconds collect in
 `db.heal_progress`; each whole interval is one hit point, the remainder is
@@ -34,6 +42,12 @@ ROWS = (
 )
 FASTEST_HOURS = 12  # 91+
 
+# HL10: the book's intervals divided by this for a character. Every row
+# divided by it must be a whole number of game seconds (a test holds it), and
+# the fastest row must stay longer than one survival tick (a test holds that
+# too): 3600 game seconds against the tick's 2400.
+SPEED_FACTOR = 12
+
 # Sent by the survival tick when at least one point lands (lock D1). No
 # number in it (Tone Guide section 5): the panel shows the number.
 HEALED = "Your wounds ache a little less."
@@ -42,9 +56,10 @@ HEALED = "Your wounds ache a little less."
 BLOCKING = (Starving, Dehydrated)
 
 
-def interval_for(resilience):
+def book_interval_for(resilience):
     """
-    Game seconds per hit point for a Resilience value (the table's row).
+    Game seconds per hit point for a Resilience value, as the book prints
+    the row (p. 86). A creature heals by it (CE11).
 
     Args:
         resilience (int or float): the Resilience value.
@@ -56,6 +71,20 @@ def interval_for(resilience):
         if resilience <= top:
             return hours * HOUR
     return FASTEST_HOURS * HOUR
+
+
+def interval_for(resilience):
+    """
+    Game seconds per hit point a character heals by: the book's row divided
+    by `SPEED_FACTOR` (HL10).
+
+    Args:
+        resilience (int or float): the Resilience value.
+
+    Returns:
+        int: seconds of game time per hit point.
+    """
+    return book_interval_for(resilience) // SPEED_FACTOR
 
 
 def resilience(char):

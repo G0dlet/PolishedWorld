@@ -1,0 +1,47 @@
+# HL-T2 -- the table, twelve times faster (Healing decomposition §7; HL10).
+# Run: python3 tools/mutate.py tools/mutants/hl_t2.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the run, lesson
+# 497). HLM7 is not the decomposition's "the fastest row not divided":
+# HL-T2's STOPP 0 put the division in one place, `interval_for`, so that
+# mutant has nothing to mutate, and HLM7 is the choice the STOPP took in its
+# place -- a creature heals at the book's rate (CE11), not a character's.
+#   HLM5  1 -- the row test; every other test reads the interval
+#   HLM6  1 -- the row test; the tick test passes, a longer row is longer
+#   HLM7  several in test_creature_wounds.TestHealing: its intervals are
+#         the book's hours, 48 for the rabbit and 12 at Resilience 95
+
+modules = ["tests.test_healing", "tests.test_creature_wounds"]
+
+[[mutant]]
+id = "HLM5"
+# The factor 1: the book's table as it stood.
+file = "world/healing.py"
+old = '''SPEED_FACTOR = 12
+'''
+new = '''SPEED_FACTOR = 1
+'''
+expect = "test_each_row_in_game_seconds"
+
+[[mutant]]
+id = "HLM6"
+# Multiplied in place of divided.
+file = "world/healing.py"
+old = '''    return book_interval_for(resilience) // SPEED_FACTOR
+'''
+new = '''    return book_interval_for(resilience) * SPEED_FACTOR
+'''
+expect = "test_each_row_in_game_seconds"
+
+[[mutant]]
+id = "HLM7"
+# A creature heals twelve times faster too.
+file = "world/creature_wounds.py"
+old = '''    return healing.book_interval_for(resilience_of(creature))
+'''
+new = '''    return healing.interval_for(resilience_of(creature))
+'''
+expect = [
+    "test_three_points_read_three_just_under_48_hours_and_two_at_it",
+    "test_a_stored_resilience_sets_the_interval",
+]
