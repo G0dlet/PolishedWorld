@@ -21,7 +21,8 @@ Knowledge partition (Stage 3, Component A -- MongooseCraftRecipe.requires_knowle
     character must LEARN before crafting: cloth, leather, linen shirt, leather boots,
     breeches, robe, hood, reversible clothes, linen cuirass, sack, backpack,
     scrollcase, saddlebag, shoes, bandolier, bone armour, tent, soft leather
-    trews, bone helm, hard leather vambraces, hard leather hauberk.
+    trews, bone helm, hard leather vambraces, hard leather hauberk, healer's
+    kit.
   Rationale: survival/tools stay ungated so no one can be locked out of staying
   alive or making a first tool; refinement/goods are where the learn-buy-sell-teach
   economy (Stage 3 B/C/D) has something to trade. The flag is declaration only --
@@ -84,8 +85,10 @@ def _apply_quality_condition(obj):
     A plain module-level function, NOT a CraftingRecipe subclass, so Evennia's
     _load_recipes() (which registers only issubclass(CraftingRecipeBase) classes
     *defined* in this module) never picks it up as a phantom recipe. Called from
-    each garment recipe (every ClothingWithBuffs output) and each pure weapon's
-    (every Weapon output, GR21), so they share one quality->condition mapping
+    each garment recipe (every ClothingWithBuffs output), each pure weapon's
+    (every Weapon output, GR21) and the healer's kit's (Healing HL-T6: its
+    condition is how many operations it lasts), so they share one
+    quality->condition mapping
     instead of duplicating branches. Named for both since GR-T2; it was
     _apply_garment_quality, and the table GARMENT_CONDITION_BY_BAND.
 
@@ -552,6 +555,37 @@ class HardLeatherHauberkRecipe(MongooseCraftRecipe):
     def _finalize_item(self, obj, outcome):
         # Garment quality -> start condition (+ superior alias), the same
         # mapping as the linen shirt. See _apply_quality_condition.
+        _apply_quality_condition(obj)
+
+
+class HealersKitRecipe(MongooseCraftRecipe):
+    """Stitch a leather satchel and stock it for surgery (Healing HL-T6; HL3, HL9).
+
+    Gated, with a scroll in the temple (GR24's pattern): knowing this recipe
+    is having the Healing skill (HL3; world.skill_base.knows_healing). The
+    book's kit is a leather satchel stocked with bandages and barber's tools
+    (Legend p. 114): leather, two bandages, twine for the sutures and a bone
+    for the tools. The needle is a tool and is never consumed, so it is the
+    tool the kit is stitched with, as every stitched good's is (OQ-HL8).
+    Quality sets the start condition, as a garment's does, so a better
+    crafter's kit lasts more operations (typeclasses.healers_kit). min_skill
+    is the input chain's: leather and the bandage sit at 20, and rung 20 is
+    the lowest a first reader of the scroll can reach soon (HL3: she is the
+    only teacher until she has made five).
+    """
+
+    name = "healer's kit"
+    discipline = "leatherwork"
+    requires_knowledge = True
+    consumable_tags = ["leather", "bandage", "bandage", "twine", "bone"]
+    output_prototypes = ["healers_kit"]
+    tool_tag = "needle"
+    craft_duration = 30
+    min_skill = 20                               # E.1 rung 20: leather's and the bandage's floor
+
+    def _finalize_item(self, obj, outcome):
+        # Quality -> start condition (+ superior alias), the garments' and
+        # weapons' mapping. See _apply_quality_condition.
         _apply_quality_condition(obj)
 
 

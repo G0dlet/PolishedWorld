@@ -947,6 +947,21 @@ HARD_LEATHER_HAUBERK = {
     "repair_tool_tag": "needle",
 }
 
+HEALERS_KIT = {
+    "prototype_key": "healers_kit",
+    "typeclass": "typeclasses.healers_kit.HealersKit",
+    "key": "healer's kit",
+    # "healers kit": the name as it is often typed, without the apostrophe.
+    "aliases": ["kit", "healers kit"],
+    "desc": (
+        "A stitched leather satchel, its pockets stocked with rolled "
+        "bandages, a coil of twine and a set of small bone tools."
+    ),
+    # SOURCE: HealersKitRecipe (leather, bandage x2, twine, bone; Healing
+    # HL-T6). SINK: worn by `operate` (HL-T12), never mended (OQ-HL8).
+    "enc": 1,   # Legend core p. 114: Healer's kit, ENC 1
+}
+
 SLING = {
     "prototype_key": "sling",
     "typeclass": "typeclasses.weapons.Weapon",

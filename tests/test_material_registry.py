@@ -112,13 +112,11 @@ MIN_ITEM_PROTOTYPES = 29
 MIN_CREATURE_SOURCES = 2
 
 # (c)'s debts (Healing HL-T5): an EXISTS material made before the recipe that
-# consumes it. The bandage is made from HL-T5 on; the healer's kit's recipe
-# (HL-T6) is its first consumer and `treat` (HL-T10) its use, and nothing
-# merges before HL-T13, so main never sees the gap. Each entry names the task
-# that pays it. test_c_debts_are_not_yet_paid fails the day a recipe consumes
-# the material, and the entry is removed in that commit: the exemption cannot
-# outlive its reason.
-AWAITING_CONSUMER = {"bandage": "HL-T6, the healer's kit"}
+# consumes it. Each entry names the task that pays it.
+# test_c_debts_are_not_yet_paid fails the day a recipe consumes the material,
+# and the entry is removed in that commit: the exemption cannot outlive its
+# reason. Empty since HL-T6: the healer's kit consumes the bandage.
+AWAITING_CONSUMER = {}
 
 # (i): a status-group header and an entry line, as render_ledger() writes them.
 LEDGER_HEADER = re.compile(r"^(TOOLS )?(EXISTS|DATA|BLOCKED|DECISION) \((\d+)\) -- ")

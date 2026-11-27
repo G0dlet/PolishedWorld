@@ -7,6 +7,7 @@ Commands for viewing character stats, skills, and vital status.
 from evennia import Command
 
 from world import body
+from world import skill_base
 from world import hero_points
 from world import wounds
 from world import fatigue as fatigue_rules
@@ -177,6 +178,9 @@ class CmdSkills(Command):
             self.caller.msg("You have no skills to display.")
             return
         
+        # Healing's trait is made the first time it is shown (HL3, OQ-HL7).
+        skill_base.ensure_healing(char)
+
         # Get all skills
         skill_keys = sorted(list(char.skills.all()))
         
@@ -279,6 +283,9 @@ class CmdProgress(Command):
         if not hasattr(char, "skills"):
             self.caller.msg("You have no skills to display.")
             return
+
+        # Healing's trait is made the first time it is shown (HL3, OQ-HL7).
+        skill_base.ensure_healing(char)
 
         skill_keys = sorted(char.skills.all())
         if not skill_keys:
@@ -419,6 +426,8 @@ class CmdSheet(Command):
 
         # === SKILLS ===
         if hasattr(char, 'skills'):
+            # Healing's trait is made the first time it is shown (HL3, OQ-HL7).
+            skill_base.ensure_healing(char)
             skill_keys = sorted(list(char.skills.all()))
             
             if skill_keys:

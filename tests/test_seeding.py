@@ -293,8 +293,8 @@ class TestScrollSeed(EvenniaCommandTest):
 
     def test_first_run_places_nineteen_stamped_scrolls_in_the_temple(self):
         summary = self.seed()
-        self.assertEqual(summary["scrolls"], {"created": 19, "skipped": 0})
-        self.assertEqual(scroll_count(), 19)
+        self.assertEqual(summary["scrolls"], {"created": 20, "skipped": 0})
+        self.assertEqual(scroll_count(), 20)
         temple = find_seeded("alpha.room.temple")
         for spec in seed_data.SCROLLS:
             with self.subTest(seed_id=spec["seed_id"]):
@@ -315,9 +315,9 @@ class TestScrollSeed(EvenniaCommandTest):
 
         summary = self.seed()
 
-        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 19})
+        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 20})
         self.assertIsNone(find_seeded("alpha.scroll.tent"))
-        self.assertEqual(scroll_count(), 18)
+        self.assertEqual(scroll_count(), 19)
 
     def test_a_scroll_missing_from_the_ledger_is_still_skipped_while_it_exists(self):
         self.seed()
@@ -325,14 +325,15 @@ class TestScrollSeed(EvenniaCommandTest):
 
         summary = self.seed()
 
-        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 19})
-        self.assertEqual(scroll_count(), 19)
+        self.assertEqual(summary["scrolls"], {"created": 0, "skipped": 20})
+        self.assertEqual(scroll_count(), 20)
 
     def test_a_database_seeded_before_gear_gets_exactly_the_four_armour_scrolls(self):
         # Gear GR-T12: Adam's databases were seeded with the fifteen rows
         # that came before GR24's four. The next seed_world() places the four
         # and nothing else -- the ledger holds the fifteen, even the ones
-        # learned since -- and the one after that places none.
+        # learned since -- and the one after that places none. The list is
+        # held at the nineteen GR24 knew; HL-T6's row has a test of its own.
         with mock.patch.object(seed_data, "SCROLLS", seed_data.SCROLLS[:15]):
             before = self.seed()
         self.assertEqual(before["scrolls"], {"created": 15, "skipped": 0})
@@ -340,8 +341,9 @@ class TestScrollSeed(EvenniaCommandTest):
         self.call(CmdLearn(), "scroll of tent", caller=self.char1)
         self.assertIsNone(find_seeded("alpha.scroll.tent"))   # receipt: learned
 
-        second = self.seed()
-        third = self.seed()
+        with mock.patch.object(seed_data, "SCROLLS", seed_data.SCROLLS[:19]):
+            second = self.seed()
+            third = self.seed()
 
         self.assertEqual(second["scrolls"], {"created": 4, "skipped": 15})
         self.assertEqual(third["scrolls"], {"created": 0, "skipped": 19})
@@ -354,6 +356,26 @@ class TestScrollSeed(EvenniaCommandTest):
                 self.assertEqual(scroll.db.recipe, recipe)
                 self.assertEqual(scroll.location, temple)
         self.assertIsNone(find_seeded("alpha.scroll.tent"))
+
+    def test_a_database_seeded_before_healing_gets_exactly_the_healers_kit_scroll(self):
+        # Healing HL-T6: every database was seeded with the nineteen rows
+        # before the healer's kit's. The next seed_world() places that one
+        # and nothing else, and the one after that places none.
+        with mock.patch.object(seed_data, "SCROLLS", seed_data.SCROLLS[:19]):
+            before = self.seed()
+        self.assertEqual(before["scrolls"], {"created": 19, "skipped": 0})
+        self.assertIsNone(find_seeded("alpha.scroll.healers_kit"))
+
+        second = self.seed()
+        third = self.seed()
+
+        self.assertEqual(second["scrolls"], {"created": 1, "skipped": 19})
+        self.assertEqual(third["scrolls"], {"created": 0, "skipped": 20})
+        scroll = find_seeded("alpha.scroll.healers_kit")
+        self.assertEqual(scroll.db.recipe, "healer's kit")
+        self.assertEqual(scroll.key, "scroll of healer's kit")
+        self.assertEqual(scroll.location, find_seeded("alpha.room.temple"))
+        self.assertEqual(scroll_count(), 20)
 
     def test_reseed_scroll_adds_exactly_one(self):
         self.seed()
@@ -368,7 +390,7 @@ class TestScrollSeed(EvenniaCommandTest):
         self.assertEqual(first.location, find_seeded("alpha.room.temple"))
         self.assertIsNone(second)
         self.assertEqual(len(scrolls_tagged("alpha.scroll.tent")), 1)
-        self.assertEqual(scroll_count(), 19)
+        self.assertEqual(scroll_count(), 20)
 
     def test_reseed_scroll_spawns_nothing_while_the_seeded_scroll_is_carried(self):
         self.seed()
@@ -382,4 +404,4 @@ class TestScrollSeed(EvenniaCommandTest):
         # cloth is knowledge-gated but has two profession grantors, so no row.
         with self.assertRaises(ValueError):
             reseed_scroll("cloth")
-        self.assertEqual(scroll_count(), 19)
+        self.assertEqual(scroll_count(), 20)

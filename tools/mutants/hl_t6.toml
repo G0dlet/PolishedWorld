@@ -1,0 +1,95 @@
+# HL-T6 -- the healer's kit, its scroll, and `healing` (Healing decomposition
+# §8; HL3, HL9).
+# Run: python3 tools/mutate.py tools/mutants/hl_t6.toml --parallel 2
+#
+# Predicted fail counts, in tests (Testing Reference §28.1: the harness counts
+# tests, not subTests), worked through before the run (lesson 497):
+#   HLM17 2 -- test_healers_kit: a character who does not know the recipe
+#          gets a trait from ensure_healing, and every skill list shows it.
+#   HLM18 3 -- test_healers_kit: the three tests that read the base (the
+#          trait at creation of it, a second call, every skill list): 21 is
+#          not 29.
+#   HLM19 3 -- test_recipe_sources 1 (the scroll row names an ungated
+#          recipe); test_healers_kit 2 (an unlearned character is not
+#          refused; disassemble refuses a common recipe, so the spent kit
+#          teaches nothing).
+#   HLM20 3 -- test_healers_kit 1 (apply_allocation refuses a character with
+#          the pair and no trait); test_first_aid 2 (both of its allocation
+#          tests, for the same reason). Outside these modules the chargen
+#          tests fall too.
+#
+# Run 2026-11-27 (sandbox, --parallel 2, baseline 81 tests OK in 26 s): all
+# four killed by exactly the predicted tests, in the predicted counts -- 2, 3,
+# 3 and 3; HLM17 and HLM18 serially.
+
+modules = [
+    "tests.test_healers_kit",
+    "tests.test_recipe_sources",
+    "tests.test_material_registry",
+    "tests.test_min_skill_ladder",
+    "tests.test_seeding",
+    "tests.test_first_aid",
+]
+
+[[mutant]]
+id = "HLM17"
+# The trait made for a character who does not know the recipe.
+file = "world/skill_base.py"
+old = '''    if not knows_healing(char):
+        return None
+    existing = char.skills.get("healing")
+'''
+new = '''    existing = char.skills.get("healing")
+'''
+expect = [
+    "test_a_character_who_does_not_know_it_gets_nothing",
+    "test_no_skill_list_makes_it_for_one_who_does_not",
+]
+
+[[mutant]]
+id = "HLM18"
+# The pair INT + DEX, First Aid's.
+file = "world/skill_base.py"
+old = '''    "healing": {"name": "Healing", "pair": ("int", "pow"), "descs": ladder("healing")},
+'''
+new = '''    "healing": {"name": "Healing", "pair": ("int", "dex"), "descs": ladder("healing")},
+'''
+expect = [
+    "test_a_character_who_knows_the_recipe_gets_it_at_int_plus_pow",
+    "test_a_second_call_leaves_a_trained_value",
+    "test_every_skill_list_makes_it_for_one_who_knows",
+]
+
+[[mutant]]
+id = "HLM19"
+# The recipe ungated: anyone may make a kit, and knowing it is no gate.
+file = "world/recipes.py"
+old = '''    name = "healer's kit"
+    discipline = "leatherwork"
+    requires_knowledge = True
+'''
+new = '''    name = "healer's kit"
+    discipline = "leatherwork"
+'''
+expect = [
+    "test_every_scroll_row_names_a_knowledge_gated_recipe",
+    "test_a_character_who_has_not_learned_it_is_refused",
+    "test_a_spent_kit_taken_apart_can_teach_the_skill",
+]
+
+[[mutant]]
+id = "HLM20"
+# The pair added to SKILL_BASE_PAIRS, as a Common skill's is.
+file = "world/chargen.py"
+old = '''    "first_aid": ("int", "dex"),  # HL2
+}
+'''
+new = '''    "first_aid": ("int", "dex"),  # HL2
+    "healing": ("int", "pow"),
+}
+'''
+expect = [
+    "test_its_pair_is_not_a_creation_pair",
+    "test_the_allocation_writes_int_plus_dex",
+    "test_the_allocation_passes_for_a_backfilled_character",
+]

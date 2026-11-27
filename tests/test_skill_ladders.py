@@ -63,6 +63,11 @@ LADDERS = {
     "unarmed": ("harmless", "clumsy", "scrappy", "practised", "hard-fisted", "dangerous"),
     "first_aid": ("squeamish", "fumbling", "steady", "deft", "sure-handed", "unflinching"),
 }
+# Healing (HL-T6) has a ladder and no trait at creation, so it is kept out of
+# LADDERS, which TestEveryBand reads on a fixture character.
+ADVANCED = {
+    "healing": ("butcher", "barber", "bonesetter", "physician", "surgeon", "master surgeon"),
+}
 FIVE_OLDER = ("athletics", "craft", "hunting", "perception", "stealth")
 
 # Both ends of every band, and far above the last key.
@@ -86,20 +91,20 @@ def _backfill():
 
 
 class TestTheTable(EvenniaTest):
-    def test_ten_skills_with_these_words(self):
+    def test_eleven_skills_with_these_words(self):
         # The Combat Styles' rows (BD-T6) share one ladder and are pressed
         # in tests/test_combat_styles.py; every other row is one of the ten
-        # (First Aid since HL-T4).
+        # every character has (First Aid since HL-T4) or Healing (HL-T6).
         self.assertEqual(
             {
                 key: tuple(words)
                 for key, words in skill_base.SKILL_LADDERS.items()
                 if not key.startswith("style_")
             },
-            LADDERS,
+            {**LADDERS, **ADVANCED},
         )
         # Seven styles since GR-T1 added Staff (Gear GR15).
-        self.assertEqual(len(skill_base.SKILL_LADDERS), 10 + 7)
+        self.assertEqual(len(skill_base.SKILL_LADDERS), 11 + 7)
 
     def test_a_ladder_is_keyed_by_the_top_of_each_band(self):
         for key, words in LADDERS.items():

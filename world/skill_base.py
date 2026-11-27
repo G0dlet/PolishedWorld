@@ -56,8 +56,15 @@ It is a table of its own and not a row of COMBAT_SKILL_TRAITS: that table
 is what combat reads (BD5), and `backfill_combat_skills` keeps meaning the
 four on a database it has already run on. Creation reads both tables;
 `world.character_migrations.backfill_first_aid` reads this one.
-`healing` (INT + POW) is not here: it has no trait until it is learned
-(HL2, HL3).
+
+HEALING_TRAITS is Healing's (HL-T6; HL2, HL3): an Advanced skill, INT + POW
+(p. 14), that no character has at creation. Its pair stands in this table and
+not in `chargen.SKILL_BASE_PAIRS`, as a Combat Style's does: `apply_allocation`
+refuses a character with a base pair and no trait. Knowing the healer's kit's
+recipe is having the skill (`knows_healing`), and `ensure_healing` makes the
+trait at its base the first time the skill is needed: when a skill list is
+shown (`skills`, `progress`, `sheet`) and, from HL-T12, before surgery's test.
+A character who does not know the recipe gets nothing.
 
 Combat Styles (BD-T6; BD3, BD4). `base_for` and `value_of` answer for a
 style's key with no trait on the character, and `ensure_style` makes the
@@ -78,8 +85,9 @@ from world.chargen import SKILL_BASE_PAIRS
 LADDER_TOPS = (19, 39, 59, 79, 94, 100)
 
 # Skill -> its six words, in band order (Tone Guide section 5: concrete,
-# nothing epic). One table for the ten skills and, below it, the styles:
-# creation, both backfills, `ensure_style` and the ladder migration read it.
+# nothing epic). One table for the eleven skills and, below it, the styles:
+# creation, both backfills, `ensure_style`, `ensure_healing` and the ladder
+# migration read it.
 SKILL_LADDERS = {
     "athletics": ("feeble", "weak", "capable", "athletic", "strong", "mighty"),
     "perception": (
@@ -101,6 +109,10 @@ SKILL_LADDERS = {
     # The hands and the stomach, what a tired person notices (HL-T4).
     "first_aid": (
         "squeamish", "fumbling", "steady", "deft", "sure-handed", "unflinching",
+    ),
+    # A surgeon's road, in trades, as Hunting's ends in one (HL-T6).
+    "healing": (
+        "butcher", "barber", "bonesetter", "physician", "surgeon", "master surgeon",
     ),
 }
 # Every Combat Style reads the same six words (BD-T6).
@@ -139,6 +151,15 @@ FIRST_AID_TRAITS = {
     "first_aid": {"name": "First Aid", "descs": ladder("first_aid")},
 }
 
+# Healing (HL2, HL3): an Advanced skill, made only for a character who knows
+# the healer's kit's recipe. The pair is here, not in SKILL_BASE_PAIRS.
+HEALING_TRAITS = {
+    "healing": {"name": "Healing", "pair": ("int", "pow"), "descs": ladder("healing")},
+}
+
+# The recipe whose knowledge is the skill (HL3; world/recipes.py).
+HEALERS_KIT_RECIPE = "healer's kit"
+
 
 def base_for(char, key):
     """
@@ -157,6 +178,8 @@ def base_for(char, key):
     pair = SKILL_BASE_PAIRS.get(key)
     if pair is None and key in combat_styles.STYLES:
         pair = combat_styles.pair_for(key)
+    if pair is None and key in HEALING_TRAITS:
+        pair = HEALING_TRAITS[key]["pair"]
     stats = getattr(char, "stats", None)
     if pair is None or stats is None:
         return None
@@ -260,3 +283,51 @@ def ensure_style(char, style_key):
         return None
     char.skills.add(style_key, style["name"], **kwargs)
     return char.skills.get(style_key)
+
+
+def knows_healing(char):
+    """
+    Whether a character has the Healing skill: it knows the kit's recipe (HL3).
+
+    Args:
+        char: a typeclassed object; one without `knows_recipe` (no
+            Character) does not.
+
+    Returns:
+        bool: True if the character has learned the healer's kit's recipe.
+    """
+    knows = getattr(char, "knows_recipe", None)
+    return bool(knows is not None and knows(HEALERS_KIT_RECIPE))
+
+
+def ensure_healing(char):
+    """
+    The Healing trait, made at its base if a character who knows the recipe
+    lacks it (HL3, `ensure_style`'s form; OQ-HL7).
+
+    Called the first time the skill is needed: by the commands that list
+    skills, and from HL-T12 before surgery's test. An existing trait is
+    returned as it is: a trained value is never written over.
+
+    Multiplayer: the read and the write are one synchronous stretch on
+    Twisted's single-threaded reactor, so two calls cannot both find the
+    trait missing.
+
+    Args:
+        char: a typeclassed object with `skills` and `stats` handlers.
+
+    Returns:
+        Trait or None: the trait; None, with nothing written, when the
+            character does not know the healer's kit's recipe or a
+            characteristic is missing.
+    """
+    if not knows_healing(char):
+        return None
+    existing = char.skills.get("healing")
+    if existing is not None:
+        return existing
+    kwargs = _counter_kwargs(char, "healing")
+    if kwargs is None:
+        return None
+    char.skills.add("healing", HEALING_TRAITS["healing"]["name"], **kwargs)
+    return char.skills.get("healing")

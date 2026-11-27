@@ -214,7 +214,7 @@ MATERIALS = {
         "sinks": [
             "bone needle recipe", "scrollcase recipe", "bone armour recipe",
             "spear recipe", "bone helm recipe", "target shield recipe",
-            "bone tools/weapons",
+            "healer's kit recipe", "bone tools/weapons",
         ],
     },
     "sinew": {
@@ -249,7 +249,7 @@ MATERIALS = {
         "source": "TwineRecipe (fiber x3)",
         "sinks": [
             "waterskin recipe", "stone axe recipe", "spear recipe", "bow recipe",
-            "tent recipe", "lashing/binding",
+            "tent recipe", "healer's kit recipe", "lashing/binding",
         ],
     },
     "cloth": {
@@ -267,8 +267,7 @@ MATERIALS = {
         "prototype_key": "bandage", "category": INTERMEDIATE, "status": EXISTS,
         "blocked_on": "",
         "source": "BandageRecipe (cloth x1 -> bandage x2)",
-        # Healing HL-T5. No recipe consumes it until the healer's kit (HL-T6):
-        # tests/test_material_registry.py AWAITING_CONSUMER holds the gap.
+        # Healing HL-T5; the healer's kit (HL-T6) is its first consumer.
         "sinks": ["treat (First Aid, HL5)", "healer's kit recipe"],
     },
     "leather": {
@@ -280,7 +279,7 @@ MATERIALS = {
             "saddlebag recipe", "bandolier recipe", "sling recipe",
             "bone armour recipe", "soft leather trews recipe",
             "hard leather vambraces recipe", "hard leather hauberk recipe",
-            "target shield recipe", "saddles",
+            "target shield recipe", "healer's kit recipe", "saddles",
         ],
     },
     "pigment": {
@@ -378,7 +377,7 @@ TOOLS = {
         "source": "BoneNeedleRecipe (bone -> bone_needle)",
         "used_by": [
             "garment recipes (optional)", "backpack, saddlebag (optional)",
-            "tent (optional)",
+            "tent (optional)", "healer's kit (optional)",
         ],
     },
     "grindstone": {
