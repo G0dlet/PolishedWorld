@@ -29,8 +29,6 @@ from world import room_text
 from world import survival_ticker
 from world import timed_actions
 from world import activity_log
-from world import gametime_utils
-from world import healing
 from world import wounds
 from world import sdesc as sdesc_rules
 from world import skill_base
@@ -560,28 +558,18 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
 
     def turn_to_stone(self, announce=True):
         """
-        The statue begins (Wounds WN-T10, choice B): the stamp for time away
-        and, with `announce`, the line and the room's push. Called by
+        The statue begins (Wounds WN-T10, choice B): with `announce`, the line
+        and the room's push. Called by
         `at_post_unpuppet` when nothing holds the body, by the wound module
         when a hold ends on a body with no player, and quietly by
         `at_character_death` for a body that died with no player -- it comes
         to the temple without a word, and the death pushes the rooms.
 
-        The last session out stamps `db.away_since` for the healing credited
-        at the next puppet (S2.2): time away is the statue's time, so a body
-        that lay where it fell is not credited for it -- no tick ran on it.
+        A statue is a snapshot (HL10, Healing HL-T3): nothing is stamped here
+        and nothing is credited at the next puppet, so the body comes back
+        with the wounds and the `db.heal_progress` it left with. A stamp of
+        time away stored before HL is left where it is, unread.
         """
-        # S2.2 (SL7): stamp when the character went away, for the healing
-        # credited at the next puppet -- or None while a condition stops
-        # healing: the gauges are frozen while away, so the state at logout
-        # is the state throughout. Before the location check, so a character
-        # without a room is stamped too. A cold `evennia stop` reaches this
-        # through `unpuppet_all()`; after a crash, the server's maintenance
-        # runs it for link-dead puppets (OQ-S1).
-        self.db.away_since = (
-            None if healing.is_blocked(self) else gametime_utils.get_absolute_gametime()
-        )
-    
         # Note: we deliberately do NOT call super() in at_post_unpuppet.
         # Default behavior would set self.location = None, which would
         # break the statue logout system.
@@ -617,9 +605,8 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         DefaultCharacter's version would send the one-message look, and it
         never calls its own parent, so nothing else is skipped
         (tests/test_room_look.py TestHookMro). Without a location the look
-        and the arrival line are left out instead of raising. The time spent
-        away is credited to natural healing before the panels are pushed
-        (S2.2, `_credit_time_away`).
+        and the arrival line are left out instead of raising. Nothing is
+        credited for the time away (HL10): a statue heals nothing.
         """
         self.msg(_("\nYou become |c{name}|n.\n").format(name=self.key))
         if self.location is not None:
@@ -628,11 +615,6 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
                 "$You() has entered the game.", from_obj=self, exclude=[self]
             )
 
-        # S2.2 (SL7): the game time spent away is credited to healing, once.
-        # Before the panel push below, so its first snapshot already shows
-        # the healed health. The clock stood still while the server was down,
-        # so downtime heals nobody.
-        self._credit_time_away()
         # C.3: the `progress` baseline is taken at every puppet.
         self.snapshot_skill_baseline()
         # S2.1: the survival tick's clock starts again at this puppet. ndb
@@ -663,24 +645,6 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         # cmdset replaces the character's until node_done -- that is the gate.
         start_or_resume_chargen(self)
 
-    def _credit_time_away(self):
-        """
-        Credit the game seconds since `db.away_since` to natural healing,
-        clear the stamp, and say `healing.HEALED` once if a point landed.
-
-        No stamp (never logged out since S2.2, or away Starving or
-        Dehydrated) credits nothing. The tick after this puppet starts from
-        zero (S2.1's cleared `ndb.survival_tick_at`), so the same span is
-        never credited twice.
-        """
-        since = self.db.away_since
-        self.db.away_since = None
-        if since is None:
-            return
-        elapsed = gametime_utils.get_absolute_gametime() - since
-        if healing.accrue(self, elapsed):
-            self.msg(healing.HEALED)
-      
     # === Display & Appearance ===
 
     def process_sdesc(self, sdesc, obj, **kwargs):

@@ -5,16 +5,19 @@ Locks: A1 (`healing.accrue` writes health and pushes `char`), B1 (the table is
 keyed on Resilience -- RP-L4; a trait since BD-T4, CON x 2 stood in before),
 C1 (`at_post_puppet` clears the tick's stamp), D1 (one line per tick in which
 a point lands), HL10 (the book's table read twelve times faster, Healing
-HL-T2).
+HL-T2; a statue heals nothing and nothing names its old stamp, HL-T3).
 
 Only the book's table is typed in hours: it is printed and never moves. The
 interval a character heals by is read from `interval_for`, except in the one
 test that pins its six values (Testing Reference §27.2).
 
 Mutations each class is meant to kill are named in its docstring (SL-M13..M17,
-SL-M42, SL-M43, HLM5, HLM6).
+SL-M42, SL-M43, HLM5, HLM6, HLM8..HLM10).
 """
 
+import ast
+import textwrap
+from pathlib import Path
 from unittest import mock
 
 from django.conf import settings
@@ -24,6 +27,36 @@ from evennia.utils.test_resources import EvenniaTest
 from server.conf.at_server_startstop import SURVIVAL_TICK_INTERVAL
 from world import client_state, healing, survival_ticker, wounds
 from world.survival_buffs import Dehydrated, Starving
+
+
+ROOT = Path(__file__).resolve().parent.parent
+PRODUCTION = ("commands", "server", "typeclasses", "web", "world")
+STAMP = "away_since"
+
+
+def _names_the_stamp(tree):
+    """How many times a module names the stamp: as an attribute or a key."""
+    count = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == STAMP:
+            count += 1
+        elif isinstance(node, ast.Constant) and node.value == STAMP:
+            count += 1
+    return count
+
+
+def away_since_census():
+    """The production files that name the stamp, as paths from the root."""
+    found = set()
+    for top in PRODUCTION:
+        for path in sorted((ROOT / top).rglob("*.py")):
+            if _names_the_stamp(ast.parse(path.read_text(encoding="utf-8"))):
+                found.add(path.relative_to(ROOT).as_posix())
+    return found
+
+
+def _census_fixture(source):
+    return _names_the_stamp(ast.parse(textwrap.dedent(source)))
 
 H = healing.HOUR
 
@@ -309,17 +342,21 @@ class TestTickHeals(HealingTestBase):
         self.assertNotIn(healing.HEALED, lines)
 
 
-class TestTimeAway(HealingTestBase):
+class TestTheStatueHealsNothing(HealingTestBase):
     """
-    Pressures S2.2 (SL7): the stamp at the last unpuppet and the credit at the
-    next puppet. Mutations: SL-M18 (stamp before the multisession bail),
-    SL-M19 (stamp kept after crediting -- the next login credits it again),
-    SL-M20 (stamp while Starving), SL-M44 (credit after the panel push, so
-    the first snapshot shows the old health).
+    Pressures HL10 (Healing HL-T3): a statue is a snapshot, so the time a
+    body spends logged out heals nothing -- no stamp is written at the
+    logout and nothing is credited at the login. S2.2's tests (SL7's credit)
+    became these. Mutations: HLM8 (the credit left in), HLM9 (the stamp still
+    written), HLM10 (the login zeroing `heal_progress`).
+
+    The clock is patched at both ends, so a credit that came back would have
+    ten game days to spend: sixty intervals against three points of damage.
     """
 
     CLOCK = "world.gametime_utils.get_absolute_gametime"
     T = 1_000_000
+    TEN_DAYS = 10 * 24 * 3600
 
     def _leave(self, at):
         with mock.patch(self.CLOCK, return_value=at):
@@ -331,79 +368,101 @@ class TestTimeAway(HealingTestBase):
             self.char1.at_post_puppet()
         return [c.args[0] for c in msg.call_args_list if c.args]
 
-    def test_two_intervals_away_grant_two_and_one_line(self):
-        start = self.hurt()
-        self._leave(self.T)
-        self.assertEqual(self.char1.db.away_since, self.T)
-        lines = self._return(self.T + 2 * self.interval)
-        self.assertEqual(self.hurt(), start - 2)
-        self.assertEqual(lines.count(healing.HEALED), 1)
-        self.assertIsNone(self.char1.db.away_since)
+    def _body(self):
+        # A body made whole has no `body_damage` left: read it as {}, so a
+        # credit that came back fails on the numbers and not on a None.
+        return dict(self.char1.db.body_damage or {}), self.char1.db.heal_progress
 
-    def test_the_credit_is_spent_once(self):
+    def test_ten_days_away_heal_nothing_and_say_nothing(self):
+        self.char1.db.heal_progress = self.interval - 60
+        before = self._body()
         self._leave(self.T)
-        self._return(self.T + self.interval)
-        start = self.hurt()
-        # A second puppet with no logout between (a reload, a second
-        # session): nothing left to credit.
-        lines = self._return(self.T + 3 * self.interval)
-        self.assertEqual(self.hurt(), start)
+        lines = self._return(self.T + self.TEN_DAYS)
+        self.assertEqual(self._body(), before)
         self.assertNotIn(healing.HEALED, lines)
 
-    def test_logged_out_under_a_condition_stamps_nothing(self):
-        for buffclass in (Starving, Dehydrated):
-            with self.subTest(condition=buffclass.key):
-                self.char1.db.away_since = 123
-                self.char1.buffs.add(buffclass)
-                self._leave(self.T)
-                self.assertIsNone(self.char1.db.away_since)
-                self.char1.buffs.remove(buffclass.key)
-                start = self.hurt()
-                self._return(self.T + 2 * self.interval)
-                self.assertEqual(self.hurt(), start)
-                self.account.puppet_object(self.session, self.char1)
+    def test_a_logout_writes_no_stamp(self):
+        # A statue without a room too: S2.2 stamped it before the location
+        # check, and the logout must still not raise.
+        # A loop and no subTest: a parallel worker cannot send a failing
+        # subTest back (Testing Reference §28.1).
+        for room in (self.room1, None):
+            self.char1.location = room
+            self._leave(self.T)
+            self.assertFalse(self.char1.attributes.has("away_since"), room)
+            self.account.puppet_object(self.session, self.char1)
 
-    def test_a_session_leaving_while_another_remains_stamps_nothing(self):
-        self.char1.db.away_since = None
+    def test_a_stored_stamp_is_left_unread(self):
+        # Characters that logged out before the merge carry one. It stays
+        # where it is and nothing is credited for it -- the one behaviour
+        # that shows HLM8, since a credit with no stamp credits nothing (the
+        # census sees its name too).
+        self.char1.db.away_since = self.T
+        self.char1.db.heal_progress = self.interval - 60
+        before = self._body()
+        lines = self._return(self.T + self.TEN_DAYS)
+        self.assertEqual(self.char1.db.away_since, self.T)
+        self.assertEqual(self._body(), before)
+        self.assertNotIn(healing.HEALED, lines)
+
+    def test_the_tick_after_login_does_not_heal_the_time_away(self):
+        # S2.1's C1 seen from the end: the puppet clears the tick's stamp, so
+        # the first tick after ten days away counts nothing either.
+        self.char1.db.heal_progress = self.interval - 60
+        before = self._body()
+        self._leave(self.T)
+        back = self.T + self.TEN_DAYS
+        self._return(back)
+        with mock.patch(self.CLOCK, return_value=back + 10):
+            survival_ticker._deplete_character(self.char1)
+        self.assertEqual(self._body(), before)
+
+    def test_a_session_leaving_while_another_remains_is_no_statue(self):
+        # The multisession bail in `at_post_unpuppet` (S2.2's SL-M18 read it
+        # through the stamp; nothing else in the suite held it).
         self.assertEqual(self.char1.sessions.count(), 1)
         sessions = self.char1.sessions
         with mock.patch.object(sessions, "count", wraps=sessions.count) as count, \
-                mock.patch(self.CLOCK, return_value=self.T):
+                mock.patch.object(self.char1, "turn_to_stone") as stone:
             self.char1.at_post_unpuppet(self.account, session=self.session)
         self.assertTrue(count.called)  # receipt: the hook ran and read the sessions
-        self.assertIsNone(self.char1.db.away_since)
+        stone.assert_not_called()
 
-    def test_no_stamp_credits_nothing(self):
-        self.char1.db.away_since = None
-        start = self.hurt()
-        lines = self._return(self.T)
-        self.assertEqual(self.hurt(), start)
-        self.assertNotIn(healing.HEALED, lines)
 
-    def test_the_tick_after_login_does_not_credit_the_span_again(self):
-        self._leave(self.T)
-        back = self.T + self.interval + 500
-        self._return(back)
-        progress, hurt = self.char1.db.heal_progress, self.hurt()
-        self.assertEqual(progress, 500)
-        with mock.patch(self.CLOCK, return_value=back + 10):
-            survival_ticker._deplete_character(self.char1)
-        self.assertEqual(self.char1.db.heal_progress, progress)
-        self.assertEqual(self.hurt(), hurt)
+class TestAwaySinceCensus(SimpleTestCase):
+    """
+    HL10: nothing in production names the stamp of time away. Stamps stored
+    before HL stay where they are, unread (WN2b's form; HV-T1's walk).
+    """
 
-    def test_the_credit_lands_before_the_panel_push(self):
-        self.char1.db.away_since = self.T
-        order = []
-        with mock.patch(self.CLOCK, return_value=self.T + self.interval), \
-                mock.patch.object(healing, "accrue",
-                                  side_effect=lambda c, s: order.append("accrue") or 0), \
-                mock.patch.object(client_state, "push",
-                                  side_effect=lambda obj, *d, **k: order.append(d)):
-            self.char1.at_post_puppet()
-        self.assertIn(tuple(client_state.DOMAINS), order)
-        self.assertLess(order.index("accrue"), order.index(tuple(client_state.DOMAINS)))
+    def test_nothing_in_production_names_the_stamp(self):
+        self.assertEqual(
+            away_since_census(), set(),
+            "HL10: a statue is a snapshot and the stamp of time away is gone. "
+            "A module that reads or writes `away_since` brings the credit back.",
+        )
 
-    def test_a_statue_without_a_room_is_stamped(self):
-        self.char1.location = None
-        self._leave(self.T)
-        self.assertEqual(self.char1.db.away_since, self.T)
+
+class TestAwaySinceCensusFixtures(SimpleTestCase):
+    """The census counts each form that names the stamp, and no other."""
+
+    def test_a_read_is_found(self):
+        self.assertEqual(_census_fixture("t = char.db.away_since"), 1)
+
+    def test_a_write_is_found(self):
+        self.assertEqual(_census_fixture("self.db.away_since = now"), 1)
+
+    def test_a_read_through_an_alias_is_found(self):
+        # WN2b's census was blind to a local alias; this one reads any owner.
+        self.assertEqual(_census_fixture("db = self.db\nt = db.away_since"), 1)
+
+    def test_an_attributes_call_is_found(self):
+        self.assertEqual(_census_fixture("char.attributes.get('away_since')"), 1)
+
+    def test_a_docstring_that_mentions_it_is_not(self):
+        self.assertEqual(
+            _census_fixture('"""Once stamped `db.away_since` at logout."""'), 0
+        )
+
+    def test_another_name_is_not(self):
+        self.assertEqual(_census_fixture("char.db.away_until = 1"), 0)

@@ -29,12 +29,13 @@ WHAT EACH TEST PUTS PRESSURE ON
   only clocked locations are hurt there is no room to heal and the counter
   is zeroed (WN10; p. 87).
 - `TestTheStatue`: `is_statue` is False for a body with no player and a
-  clock, and True once it is stopped -- which turns it to stone, the line
-  and the `away_since` stamp together (choice B); a logout with a clock says
-  no stone line and stamps nothing; one without does both; a wound's
-  unconsciousness holds the body too, and its waking turns it to stone; a
-  body that dies with no player becomes a statue where it comes back,
-  stamped and without a line. `holds_body` only reads: a passed
+  clock, and True once it is stopped -- which turns it to stone, with the
+  line (choice B); a logout with a clock says no stone line and does not
+  turn it to stone; one without does both; a wound's unconsciousness holds
+  the body too, and its waking turns it to stone; a body that dies with no
+  player becomes a statue where it comes back, without a line. A spy on
+  `turn_to_stone` is the receipt that it ran (the stamp of time away was,
+  until Healing HL-T3 removed it). `holds_body` only reads: a passed
   unconsciousness is not woken by it (choice C).
 - `TestNoWakingWhileAClockIsDue` (the fix WN-T10's in-game check asked
   for): the waking alarm fired first at a survived head's deadline wakes no
@@ -211,32 +212,37 @@ class TestHealing(_Clock):
         self.assertEqual(dict(self.char1.db.body_damage), {"left_arm": 6})
 
 
+def _spy_stone(char):
+    """Wrap `char.turn_to_stone`: it still runs, and the spy says how."""
+    return mock.patch.object(char, "turn_to_stone", wraps=char.turn_to_stone)
+
+
 class TestTheStatue(_Clock):
     def test_no_player_and_a_clock_is_no_statue_until_it_is_stopped(self):
         self.blow(6, "left_arm", char=self.char2)
         self.assertFalse(self.char2.has_account)
         self.assertFalse(self.char2.is_statue)
-        self.char2.db.away_since = None
-        with mock.patch.object(self.char1, "msg") as witness:
+        with mock.patch.object(self.char1, "msg") as witness, \
+                _spy_stone(self.char2) as stone:
             wounds.stop_clock(self.char2, "left_arm")
         self.assertTrue(self.char2.is_statue)
         self.assertIn(STONE, "\n".join(_said(witness)))
-        self.assertIsNotNone(self.char2.db.away_since)
+        stone.assert_called_once_with()
 
-    def test_a_logout_with_a_clock_says_no_stone_line_and_stamps_nothing(self):
+    def test_a_logout_with_a_clock_says_no_stone_line_and_is_no_stone(self):
         self.blow(6, "left_arm", char=self.char2)
-        self.char2.db.away_since = None
-        with mock.patch.object(self.char1, "msg") as witness:
+        with mock.patch.object(self.char1, "msg") as witness, \
+                _spy_stone(self.char2) as stone:
             self.char2.at_post_unpuppet()
         self.assertNotIn(STONE, "\n".join(_said(witness)))
-        self.assertIsNone(self.char2.db.away_since)
+        stone.assert_not_called()
 
-    def test_a_logout_without_a_hold_turns_to_stone_and_stamps(self):
-        self.char2.db.away_since = None
-        with mock.patch.object(self.char1, "msg") as witness:
+    def test_a_logout_without_a_hold_turns_to_stone(self):
+        with mock.patch.object(self.char1, "msg") as witness, \
+                _spy_stone(self.char2) as stone:
             self.char2.at_post_unpuppet()
         self.assertIn(STONE, "\n".join(_said(witness)))
-        self.assertIsNotNone(self.char2.db.away_since)
+        stone.assert_called_once_with()
 
     def test_unconsciousness_holds_the_body_and_its_waking_turns_it_to_stone(self):
         wounds.knock_out(self.char2, "head", 1)
@@ -250,13 +256,14 @@ class TestTheStatue(_Clock):
     def test_a_death_with_no_player_is_a_statue_where_it_comes_back_without_a_line(self):
         self.blow(8, "head", char=self.char2)
         self.char1.move_to(self.room2, quiet=True)
-        self.char2.db.away_since = None
         self.at(52.5)
-        with mock.patch.object(self.char1, "msg") as witness:
+        with mock.patch.object(self.char1, "msg") as witness, \
+                _spy_stone(self.char2) as stone:
             wounds._clock_due(self.char2, "head", NOW + 52.5)
         self.assertEqual(self.char2.location, self.room2)
         self.assertTrue(self.char2.is_statue)
-        self.assertIsNotNone(self.char2.db.away_since)
+        # The only receipt here: the statue comes back without a line.
+        stone.assert_called_once_with(announce=False)
         self.assertNotIn(STONE, "\n".join(_said(witness)))
 
     def test_holds_body_only_reads(self):

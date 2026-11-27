@@ -1,0 +1,68 @@
+# HL-T3 -- time away is credited to nothing (Healing decomposition §7; HL10).
+# Run: python3 tools/mutate.py tools/mutants/hl_t3.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the run, lesson
+# 497). The census reads the source, so a mutant that names the stamp is
+# also caught by it; the ten-days test cannot see HLM8 or HLM9 on its own,
+# since a credit with no stamp credits nothing and a stamp no one reads
+# heals nothing.
+#   HLM8   2 -- the stored stamp is credited and cleared; the census
+#   HLM9   2 -- a logout writes the stamp; the census
+#   HLM10  3 -- ten days away, the stored stamp and the tick after login:
+#          each reads `heal_progress` back after a puppet
+#
+# Run 2026-11-27: HLM9 and HLM10 as predicted; HLM8 failed 3, not 2. Its
+# login clears the stamp by writing None, which stores an Attribute, and the
+# logout test's second turn (after a puppet) asks `attributes.has`.
+
+modules = ["tests.test_healing", "tests.test_wound_clocks"]
+
+[[mutant]]
+id = "HLM8"
+# The credit left in at the login.
+file = "typeclasses/characters.py"
+old = '''        # C.3: the `progress` baseline is taken at every puppet.
+'''
+new = '''        from world import gametime_utils, healing
+        since = self.db.away_since
+        self.db.away_since = None
+        if since is not None and healing.accrue(
+                self, gametime_utils.get_absolute_gametime() - since):
+            self.msg(healing.HEALED)
+        # C.3: the `progress` baseline is taken at every puppet.
+'''
+expect = [
+    "test_a_stored_stamp_is_left_unread",
+    "test_nothing_in_production_names_the_stamp",
+    "test_a_logout_writes_no_stamp",
+]
+
+[[mutant]]
+id = "HLM9"
+# The stamp still written when the statue begins.
+file = "typeclasses/characters.py"
+old = '''        # Note: we deliberately do NOT call super() in at_post_unpuppet.
+'''
+new = '''        from world import gametime_utils
+        self.db.away_since = gametime_utils.get_absolute_gametime()
+        # Note: we deliberately do NOT call super() in at_post_unpuppet.
+'''
+expect = [
+    "test_a_logout_writes_no_stamp",
+    "test_nothing_in_production_names_the_stamp",
+]
+
+[[mutant]]
+id = "HLM10"
+# The login zeroing the healing counter.
+file = "typeclasses/characters.py"
+old = '''        # C.3: the `progress` baseline is taken at every puppet.
+'''
+new = '''        self.db.heal_progress = 0
+        # C.3: the `progress` baseline is taken at every puppet.
+'''
+expect = [
+    "test_ten_days_away_heal_nothing_and_say_nothing",
+    "test_a_stored_stamp_is_left_unread",
+    "test_the_tick_after_login_does_not_heal_the_time_away",
+]

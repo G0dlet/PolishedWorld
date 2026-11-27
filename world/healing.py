@@ -127,8 +127,8 @@ def accrue(char, game_seconds):
 
     The body is reached through the wound module (Wounds WN-T4): the room
     left from `wounds.room_to_heal`, the points through `wounds.heal`, which
-    caps at the room and returns what landed -- the number callers say in a
-    line and S2.2 reports as a login total.
+    caps at the room and returns what landed -- the number the tick says its
+    line for. A statue heals nothing (HL10): the tick is the only caller.
 
     Pushes `char` when a point lands (the door's one caller pushes, W4.2's
     census and WN-T4's).

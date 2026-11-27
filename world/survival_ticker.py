@@ -143,8 +143,8 @@ def _tick_game_seconds(char):
     The stamp lives in ndb, so a reload loses it, and
     `Character.at_post_puppet` clears it (Evennia keeps ndb on a cached
     object through an unpuppet): the first tick after either returns 0.
-    At most one tick's time is lost, never a span gained -- time away is
-    S2.2's, credited at login. A clock that reads earlier than the stamp
+    At most one tick's time is lost, never a span gained -- a statue heals
+    nothing (HL10). A clock that reads earlier than the stamp
     returns 0 rather than a negative span.
 
     Returns:
