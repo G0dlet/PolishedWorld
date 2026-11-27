@@ -20,6 +20,17 @@ dice (hunter, then quarry). The skill-improvement roll after a kill uses
 `world.improvement`'s own `randint` and is not counted.
 
 Each test was red against `main`'s `world/skillcheck.py` (killed, fled, fled).
+
+IN A HAVEN (Haven Decomposition, Task HV-T5; PV3, HV6)
+------------------------------------------------------
+`TestHuntInAHaven`: `hunt` asks `world.haven.attack_refusal` after the target
+is found and before it is claimed, so in a haven the hunter is told the
+haven's line and nothing else, and the refusal costs nothing -- no claim, no
+roll, no cooldown. The cooldown is read first, as before (HV-T5's STOPP 0,
+choice 1): a hunter still out of breath is told so, in a haven too. The last
+test is the whole road of the haven decomposition's P3: a quarry that bolts
+into a haven is refused there. The three tests above are the hunt outside a
+haven, unedited.
 """
 
 from unittest import mock
@@ -102,3 +113,53 @@ class TestHuntUnderTheCorrectedOpposedTest(ActivityLogMixin, _HuntFixture, Evenn
         # The quarry's 85 is a success at 90 and a failure at 70, so the
         # hunter's 50 wins on level. Before SC-T2: the higher 85 won, a flight.
         self.assertKilled(self.hunt(120, 90, [50, 85]))
+
+
+class TestHuntInAHaven(ActivityLogMixin, _HuntFixture, EvenniaCommandTest):
+    """`hunt` is refused in a haven, and the refusal costs nothing (HV6)."""
+
+    def setUp(self):
+        super().setUp()
+        self.quarry = create_object(CREATURE, key=QUARRY, location=self.room1)
+        self.quarry.db.flee_skill = 30
+
+    def test_hunt_in_a_haven_gives_the_havens_line_alone(self):
+        self.room1.db.is_haven = True
+        self.assertEqual(
+            self.call(CmdHunt(), QUARRY, caller=self.char1),
+            "No hand is raised in a haven.",
+        )
+
+    def test_a_refused_hunt_costs_nothing(self):
+        self.room1.db.is_haven = True
+        with mock.patch("commands.hunting_commands.opposed_check") as roll:
+            self.call(CmdHunt(), QUARRY, caller=self.char1)
+        roll.assert_not_called()
+        self.assertTrue(self.quarry.pk)
+        self.assertEqual(self.quarry.location, self.room1)
+        self.assertIsNone(self.quarry.ndb.hunted_by)
+        self.assertTrue(self.char1.cooldowns.ready("hunt"))
+
+    def test_on_cooldown_in_a_haven_the_cooldown_speaks_first(self):
+        # HV-T5's STOPP 0, choice 1: the cooldown is read before the search.
+        self.room1.db.is_haven = True
+        self.char1.cooldowns.add("hunt", 30)
+        self.assertTrue(
+            self.call(CmdHunt(), QUARRY, caller=self.char1).startswith(
+                "You are still recovering from the chase."))
+
+    def test_a_quarry_that_flees_into_a_haven_is_refused_there(self):
+        # P3: the quarry bolts through room1's exit into room2, a haven; the
+        # hunter follows, gets his breath back and is refused.
+        self.quarry.delete()
+        self.room2.db.is_haven = True
+        quarry = self.hunt(30, 30, [90, 10])   # the hunter fails, the quarry succeeds
+        self.assertFled(quarry)
+        self.assertEqual(quarry.location, self.room2)
+        self.char1.move_to(self.room2, quiet=True, move_hooks=False)
+        self.char1.cooldowns.clear()
+        self.assertEqual(
+            self.call(CmdHunt(), QUARRY, caller=self.char1),
+            "No hand is raised in a haven.",
+        )
+        self.assertEqual(quarry.location, self.room2)

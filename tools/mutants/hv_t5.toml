@@ -1,0 +1,165 @@
+# HV-T5 -- hunt asks the guard (Haven decomposition §8; PV3, HV6).
+# Run: python3 tools/mutate.py tools/mutants/hv_t5.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the tests were
+# written, lesson 497; one mutant for each choice taken at STOPP 0 that no
+# listed mutant holds). The cooldown test lives under HVM16-HVM18, since the
+# cooldown speaks before the guard in all three:
+#   HVM16  3 -- the line alone, the refusal that costs nothing, P3's road
+#   HVM17  1 -- the refusal that costs nothing: the claim is left set
+#   HVM18  3 -- the line alone, the refusal that costs nothing, P3's road
+#   HVM18b 1 -- the cooldown read after the guard (HV-T5's STOPP 0, choice 1)
+
+modules = ["tests.test_hunt_resolution"]
+
+[[mutant]]
+id = "HVM16"
+# The call removed: hunt runs in a haven.
+file = "commands/hunting_commands.py"
+old = '''        refusal = haven.attack_refusal(caller, target)
+        if refusal:
+            caller.msg(refusal)
+            return
+'''
+new = '''        refusal = None
+'''
+expect = [
+    "test_hunt_in_a_haven_gives_the_havens_line_alone",
+    "test_a_refused_hunt_costs_nothing",
+    "test_a_quarry_that_flees_into_a_haven_is_refused_there",
+]
+
+[[mutant]]
+id = "HVM17"
+# The guard asked after the claim: the refused hunter leaves hunted_by set.
+file = "commands/hunting_commands.py"
+old = '''        refusal = haven.attack_refusal(caller, target)
+        if refusal:
+            caller.msg(refusal)
+            return
+
+        # 4. Race guard: claim the creature for this hunt. ndb is per-process and
+        #    set+checked synchronously within this single reactor tick, so two
+        #    hunters cannot both pass this gate for the same creature. The
+        #    Creature.at_death() pk-check is a second line of defence.
+        if target.ndb.hunted_by is not None and target.ndb.hunted_by is not caller:
+            caller.msg(
+                f"Someone else is already hunting {target.get_display_name(caller)}."
+            )
+            return
+        target.ndb.hunted_by = caller
+'''
+new = '''        # 4. Race guard: claim the creature for this hunt. ndb is per-process and
+        #    set+checked synchronously within this single reactor tick, so two
+        #    hunters cannot both pass this gate for the same creature. The
+        #    Creature.at_death() pk-check is a second line of defence.
+        if target.ndb.hunted_by is not None and target.ndb.hunted_by is not caller:
+            caller.msg(
+                f"Someone else is already hunting {target.get_display_name(caller)}."
+            )
+            return
+        target.ndb.hunted_by = caller
+        refusal = haven.attack_refusal(caller, target)
+        if refusal:
+            caller.msg(refusal)
+            return
+'''
+expect = ["test_a_refused_hunt_costs_nothing"]
+
+[[mutant]]
+id = "HVM18"
+# The guard's answer sent and the hunt run on.
+file = "commands/hunting_commands.py"
+old = '''        if refusal:
+            caller.msg(refusal)
+            return
+'''
+new = '''        if refusal:
+            caller.msg(refusal)
+'''
+expect = [
+    "test_hunt_in_a_haven_gives_the_havens_line_alone",
+    "test_a_refused_hunt_costs_nothing",
+    "test_a_quarry_that_flees_into_a_haven_is_refused_there",
+]
+
+[[mutant]]
+id = "HVM18b"
+# The cooldown read moved after the guard: in a haven the haven's line comes
+# first (HV-T5's STOPP 0, choice 1).
+file = "commands/hunting_commands.py"
+old = '''        # 1. Per-character real-time rate limit.
+        if not caller.cooldowns.ready("hunt"):
+            left = caller.cooldowns.time_left("hunt", use_int=True)
+            caller.msg(
+                f"You are still recovering from the chase. "
+                f"Wait {left}s before hunting again."
+            )
+            return
+
+        # 2. Need a target name.
+        target_name = self.args.strip()
+        if not target_name:
+            caller.msg("Hunt what?")
+            return
+
+        # 3. Resolve the target among huntable creatures in the room.
+        creatures = [
+            o for o in caller.location.contents
+            if o.is_typeclass("typeclasses.creatures.Creature", exact=False)
+        ]
+        if not creatures:
+            caller.msg("There is nothing here to hunt.")
+            return
+        target = caller.search(target_name, candidates=creatures)
+        if not target:
+            return  # search() already messaged the caller (no-match / multimatch)
+
+        # 3b. The attack guard (Haven HV-T5; PV3, HV6): no hunt in a haven,
+        #     the hunter's room or the quarry's. Asked after the cooldown and
+        #     the search and before the claim, so a refusal costs nothing: no
+        #     claim, no roll, no cooldown.
+        refusal = haven.attack_refusal(caller, target)
+        if refusal:
+            caller.msg(refusal)
+            return
+
+'''
+new = '''        # 2. Need a target name.
+        target_name = self.args.strip()
+        if not target_name:
+            caller.msg("Hunt what?")
+            return
+
+        # 3. Resolve the target among huntable creatures in the room.
+        creatures = [
+            o for o in caller.location.contents
+            if o.is_typeclass("typeclasses.creatures.Creature", exact=False)
+        ]
+        if not creatures:
+            caller.msg("There is nothing here to hunt.")
+            return
+        target = caller.search(target_name, candidates=creatures)
+        if not target:
+            return  # search() already messaged the caller (no-match / multimatch)
+
+        # 3b. The attack guard (Haven HV-T5; PV3, HV6): no hunt in a haven,
+        #     the hunter's room or the quarry's. Asked after the cooldown and
+        #     the search and before the claim, so a refusal costs nothing: no
+        #     claim, no roll, no cooldown.
+        refusal = haven.attack_refusal(caller, target)
+        if refusal:
+            caller.msg(refusal)
+            return
+
+        # 1. Per-character real-time rate limit.
+        if not caller.cooldowns.ready("hunt"):
+            left = caller.cooldowns.time_left("hunt", use_int=True)
+            caller.msg(
+                f"You are still recovering from the chase. "
+                f"Wait {left}s before hunting again."
+            )
+            return
+
+'''
+expect = ["test_on_cooldown_in_a_haven_the_cooldown_speaks_first"]

@@ -22,6 +22,7 @@ from world.skillcheck import (
 )
 from world.harvest_templates import get_template, get_part, compute_yield
 from world import activity_log
+from world import haven
 
 HUNT_COOLDOWN = 30      # real seconds between hunt attempts, per character
 HARVEST_COOLDOWN = 30   # real seconds between harvest attempts, per character
@@ -76,6 +77,15 @@ class CmdHunt(Command):
         target = caller.search(target_name, candidates=creatures)
         if not target:
             return  # search() already messaged the caller (no-match / multimatch)
+
+        # 3b. The attack guard (Haven HV-T5; PV3, HV6): no hunt in a haven,
+        #     the hunter's room or the quarry's. Asked after the cooldown and
+        #     the search and before the claim, so a refusal costs nothing: no
+        #     claim, no roll, no cooldown.
+        refusal = haven.attack_refusal(caller, target)
+        if refusal:
+            caller.msg(refusal)
+            return
 
         # 4. Race guard: claim the creature for this hunt. ndb is per-process and
         #    set+checked synchronously within this single reactor tick, so two
