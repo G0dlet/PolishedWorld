@@ -36,9 +36,9 @@ BODY_LINE = "12 13 7 14 16 8 10"
 COMBAT_SENTENCE = "These three are read in combat, which is not in the game yet."
 
 # Derived by hand from FIXTURE: athletics STR+DEX, perception INT+POW,
-# stealth DEX+INT, craft DEX+INT, hunting INT+CON; and the four combat skills
+# stealth DEX+INT, craft DEX+INT, hunting INT+CON; the four combat skills
 # (BD5, p. 14): brawn STR+SIZ, evade DEX x 2, resilience CON x 2, unarmed
-# STR+DEX.
+# STR+DEX; and first aid INT+DEX (HL2).
 EXPECTED_BASES = {
     "athletics": 16,
     "perception": 29,
@@ -49,6 +49,7 @@ EXPECTED_BASES = {
     "evade": 18,
     "resilience": 28,
     "unarmed": 16,
+    "first_aid": 21,
 }
 # The tanner's +10 craft on top.
 EXPECTED_FINAL = dict(EXPECTED_BASES, craft=31)
@@ -175,10 +176,17 @@ class TestAllocateNode(_MenuFixture):
         # BD5: SIZ has its first reader, and DEX feeds Evade and Unarmed.
         self.assertIn("Feeds brawn, Damage Modifier, Hit Points.", text)
         self.assertIn(
-            "Feeds athletics, stealth, craft, evade, unarmed, "
+            "Feeds athletics, stealth, craft, evade, unarmed, first aid, "
             "Combat Actions, Strike Rank.",
             text,
         )
+        # HL2: INT feeds first aid, and the key's underscore is not shown.
+        self.assertIn(
+            "Feeds perception, stealth, craft, hunting, first aid, "
+            "Combat Actions, Strike Rank.",
+            text,
+        )
+        self.assertNotIn("first_aid", text)
 
     def test_each_derived_value_is_named_by_both_its_characteristics(self):
         # BD9: the choice cannot be redone, so the screen says what it feeds.
@@ -242,6 +250,9 @@ class TestConfirmScreens(_MenuFixture):
         self.assertIn(
             "athletics 16, perception 29, stealth 21, craft 21, hunting 26", text
         )
+        # HL2: the last pair, shown as two words.
+        self.assertIn("unarmed 16, first aid 21", text)
+        self.assertNotIn("first_aid", text)
 
     def test_allocation_confirm_shows_the_three_derived_values(self):
         # The four characteristics that matter are Alaric's (core p. 9):

@@ -530,8 +530,13 @@ class Character(ObjectParent, ClothedCharacter, ContribRPCharacter):
         # is the placeholder characteristics' own sum, as `craft` above, so
         # a fixture's Resilience is CON x 2 and natural healing's numbers do
         # not move; the chargen menu re-derives all four (CC5).
+        # First Aid (Healing HL2; p. 14) is made the same way from its own
+        # table, which `backfill_first_aid` also reads.
         # No max (D.2, P-7) -- see the note on `perception` above.
-        for skill_key, spec in skill_base.COMBAT_SKILL_TRAITS.items():
+        made_at_creation = (
+            skill_base.COMBAT_SKILL_TRAITS | skill_base.FIRST_AID_TRAITS
+        )
+        for skill_key, spec in made_at_creation.items():
             self.skills.add(
                 skill_key, spec["name"],
                 **skill_base.trait_kwargs(self, skill_key),

@@ -136,7 +136,7 @@ COMBAT_SENTENCE = "These three are read in combat, which is not in the game yet.
 def _feeds(stat):
     """What reads this characteristic in the alpha, for the allocate screen."""
     readers = [
-        skill
+        chargen.skill_label(skill)
         for skill, pair in chargen.SKILL_BASE_PAIRS.items()
         if stat in pair
     ]
@@ -464,7 +464,10 @@ def node_confirm_allocation(caller, raw_string, **kwargs):
             _derived_line(draft),
             COMBAT_SENTENCE,
             "Skill bases: "
-            + ", ".join(f"{skill} {base}" for skill, base in bases.items()),
+            + ", ".join(
+                f"{chargen.skill_label(skill)} {base}"
+                for skill, base in bases.items()
+            ),
             "",
             "Keep these and choose a profession?",
         ]

@@ -61,6 +61,7 @@ LADDERS = {
     "resilience": ("frail", "soft", "sound", "hardy", "tough", "unbroken"),
     "stealth": ("clumsy", "obvious", "careful", "sneaky", "stealthy", "invisible"),
     "unarmed": ("harmless", "clumsy", "scrappy", "practised", "hard-fisted", "dangerous"),
+    "first_aid": ("squeamish", "fumbling", "steady", "deft", "sure-handed", "unflinching"),
 }
 FIVE_OLDER = ("athletics", "craft", "hunting", "perception", "stealth")
 
@@ -85,9 +86,10 @@ def _backfill():
 
 
 class TestTheTable(EvenniaTest):
-    def test_nine_skills_with_these_words(self):
+    def test_ten_skills_with_these_words(self):
         # The Combat Styles' rows (BD-T6) share one ladder and are pressed
-        # in tests/test_combat_styles.py; every other row is one of the nine.
+        # in tests/test_combat_styles.py; every other row is one of the ten
+        # (First Aid since HL-T4).
         self.assertEqual(
             {
                 key: tuple(words)
@@ -97,7 +99,7 @@ class TestTheTable(EvenniaTest):
             LADDERS,
         )
         # Seven styles since GR-T1 added Staff (Gear GR15).
-        self.assertEqual(len(skill_base.SKILL_LADDERS), 9 + 7)
+        self.assertEqual(len(skill_base.SKILL_LADDERS), 10 + 7)
 
     def test_a_ladder_is_keyed_by_the_top_of_each_band(self):
         for key, words in LADDERS.items():

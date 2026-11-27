@@ -1,0 +1,62 @@
+# HL-T4 -- first_aid, a Common skill every character has (Healing
+# decomposition §8; HL2).
+# Run: python3 tools/mutate.py tools/mutants/hl_t4.toml --parallel 2
+#
+# Predicted fail counts over the two modules (worked through before the
+# run, lesson 497). The fixture's placeholder characteristics are all 10, so
+# INT + DEX and INT + POW agree on a character made by `create_object`: the
+# pair is seen only where a test sets the characteristics (VALID: INT 12,
+# DEX 9, POW 17 -- 21 against 29; Alaric, p. 14: 29 against 30).
+#   HLM11 11 -- test_first_aid 6 (the allocation, the backfill's own sum,
+#          the next one served after a skip and after a broken character,
+#          a backfilled allocation, value_of); test_chargen 5 (own pair,
+#          Alaric, the derived bases, read back, the derived floor)
+#   HLM12  4 -- test_first_aid: the trained value, the second run, the
+#          summary (char1 and char2 rewritten), and the broken character
+#          (its Mock stats now reach `int()` before `skills.get` is asked)
+#   HLM13 17 -- test_first_aid 10 (both creation tests; every backfill test,
+#          whose fixture removes a trait that is no longer there);
+#          test_chargen 7 (every test that allocates on char1)
+#
+# Run 2026-11-27: all three as predicted. HLM11 ran serially: Alaric's
+# loop is a subTest (Testing Reference §28.1).
+
+modules = ["tests.test_first_aid", "tests.test_chargen"]
+
+[[mutant]]
+id = "HLM11"
+# The pair INT + POW, Perception's.
+file = "world/chargen.py"
+old = '''    "first_aid": ("int", "dex"),  # HL2
+'''
+new = '''    "first_aid": ("int", "pow"),  # HL2
+'''
+expect = [
+    "test_the_allocation_writes_int_plus_dex",
+    "test_the_books_own_adventurer",
+]
+
+[[mutant]]
+id = "HLM12"
+# The backfill writes over a trained value: the guard for a present trait gone.
+file = "world/character_migrations.py"
+old = '''            if char.skills.get(key) is not None:
+                unchanged += 1
+                continue
+            kwargs = skill_base.trait_kwargs(char, key)
+'''
+new = '''            kwargs = skill_base.trait_kwargs(char, key)
+'''
+expect = "test_a_trained_value_is_left_as_it_is"
+
+[[mutant]]
+id = "HLM13"
+# Creation skips the trait: only the combat table is read.
+file = "typeclasses/characters.py"
+old = '''        made_at_creation = (
+            skill_base.COMBAT_SKILL_TRAITS | skill_base.FIRST_AID_TRAITS
+        )
+'''
+new = '''        made_at_creation = skill_base.COMBAT_SKILL_TRAITS
+'''
+expect = "test_a_new_character_has_the_trait_at_int_plus_dex"

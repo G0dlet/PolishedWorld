@@ -235,6 +235,66 @@ def backfill_combat_skills():
 
 
 # ---------------------------------------------------------------------------
+# First Aid (Stage 5, HL-T4): a Common skill every character has
+# ---------------------------------------------------------------------------
+
+
+def backfill_first_aid():
+    """
+    Give every existing character the First Aid trait it lacks.
+
+    Healing decomposition HL-T4 (lock HL2; Legend core p. 14). For each
+    character in `Character.objects.all_family()` without a `first_aid`
+    trait, the trait is added exactly as `Character.at_object_creation` adds
+    it (`skill_base.FIRST_AID_TRAITS`, `skill_base.trait_kwargs`), with
+    `base` and `current` at the character's OWN INT + DEX.
+
+    Why it matters beyond the sheet: `chargen.apply_allocation` refuses a
+    character with a base pair and no trait, and First Aid's pair is in
+    `chargen.SKILL_BASE_PAIRS`. Until it is backfilled, a reader still gets
+    the base through `skill_base.value_of` (BD6's net).
+
+    A trait that is present is left as it is, whatever its value, which is
+    what makes a second run idle (the module docstring on `force=True`). A
+    character whose base cannot be worked out -- it has no INT or no DEX --
+    is skipped and named. Nothing is written to `skill_xp`: an absent entry
+    is derived on read from the skill's `.current` (CC5/CC7).
+
+    Multiplayer: one synchronous call on Twisted's single-threaded reactor;
+    no command runs between two of its writes. A connected character's
+    `skills`, `progress` and `sheet` show the skill on the next read.
+
+    Returns:
+        str: a summary for `@py ...; self.msg(backfill_first_aid())`.
+    """
+    key = "first_aid"
+    name = skill_base.FIRST_AID_TRAITS[key]["name"]
+    changed, unchanged, skipped, errors = [], 0, [], []
+
+    for char in Character.objects.all_family():
+        try:
+            if char.skills.get(key) is not None:
+                unchanged += 1
+                continue
+            kwargs = skill_base.trait_kwargs(char, key)
+            if kwargs is None:
+                skipped.append(f"{char.key} (no base for {key})")
+                continue
+            char.skills.add(key, name, **kwargs)
+            changed.append(char.key)
+        except Exception as err:
+            # One broken character must not abort the whole batch.
+            logger.log_trace(f"backfill_first_aid: {getattr(char, 'key', char)!r}")
+            errors.append(f"{getattr(char, 'key', char)} (ERROR: {err})")
+
+    return (
+        f"backfill_first_aid: changed {len(changed)} {changed}; "
+        f"unchanged {unchanged}; skipped {len(skipped)} {skipped}; "
+        f"errors {len(errors)} {errors}."
+    )
+
+
+# ---------------------------------------------------------------------------
 # The skill ladders (Stage 5, BD-T5b): bands that start where they say
 # ---------------------------------------------------------------------------
 

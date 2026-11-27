@@ -71,6 +71,13 @@ class TestHelpChargen(EvenniaCommandTest):
         self.assertNotIn("CON+CON", text)
         self.assertNotIn("DEX+DEX", text)
 
+    def test_a_key_of_two_words_reads_as_two(self):
+        # HL-T4: the first key with an underscore; capitalize() alone gave
+        # "First_aid".
+        text = chargen.help_text()
+        self.assertIn("First aid (INT+DEX)", text)
+        self.assertNotIn("_aid", text)
+
     def test_registered_once(self):
         from world.help_entries import HELP_ENTRY_DICTS
 

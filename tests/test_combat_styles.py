@@ -48,8 +48,8 @@ BAND_EDGES = (
     (0, 0), (19, 0), (20, 1), (39, 1), (40, 2), (59, 2),
     (60, 3), (79, 3), (80, 4), (94, 4), (95, 5), (100, 5), (200, 5),
 )
-NINE = [
-    "athletics", "brawn", "craft", "evade", "hunting",
+TEN = [
+    "athletics", "brawn", "craft", "evade", "first_aid", "hunting",
     "perception", "resilience", "stealth", "unarmed",
 ]
 
@@ -166,7 +166,7 @@ class TestAStyleNobodyHasUsed(EvenniaTest):
     def test_reading_makes_no_trait(self):
         for key in SEVEN:
             skill_base.value_of(self.char1, key)
-        self.assertEqual(sorted(self.char1.skills.all()), NINE)
+        self.assertEqual(sorted(self.char1.skills.all()), TEN)
 
     def test_an_unknown_style_is_none(self):
         self.assertIsNone(skill_base.value_of(self.char1, "style_juggling"))
@@ -210,7 +210,7 @@ class TestEnsureStyle(EvenniaTest):
     def test_twice_makes_one_trait(self):
         skill_base.ensure_style(self.char1, "style_knife")
         skill_base.ensure_style(self.char1, "style_knife")
-        self.assertEqual(sorted(self.char1.skills.all()), sorted(NINE + ["style_knife"]))
+        self.assertEqual(sorted(self.char1.skills.all()), sorted(TEN + ["style_knife"]))
 
     def test_a_trained_value_is_kept(self):
         skill_base.ensure_style(self.char1, "style_knife").current = 47
@@ -243,7 +243,7 @@ class TestEnsureStyle(EvenniaTest):
     def test_without_a_base_nothing_is_written(self):
         self.char1.stats.remove("dex")
         self.assertIsNone(skill_base.ensure_style(self.char1, "style_knife"))
-        self.assertEqual(sorted(self.char1.skills.all()), NINE)
+        self.assertEqual(sorted(self.char1.skills.all()), TEN)
 
 
 class TestAStyleAmongTheSkills(EvenniaTest):
@@ -257,7 +257,7 @@ class TestAStyleAmongTheSkills(EvenniaTest):
     character_typeclass = "typeclasses.characters.Character"
 
     def test_a_fresh_character_has_no_style(self):
-        self.assertEqual(sorted(self.char1.skills.all()), NINE)
+        self.assertEqual(sorted(self.char1.skills.all()), TEN)
 
     def test_a_used_style_is_listed(self):
         skill_base.ensure_style(self.char1, "style_mace_shield")
@@ -301,7 +301,7 @@ class TestAStyleAmongTheSkills(EvenniaTest):
         from world.character_migrations import backfill_skill_ladders
 
         backfill_skill_ladders()
-        self.assertEqual(sorted(self.char1.skills.all()), NINE)
+        self.assertEqual(sorted(self.char1.skills.all()), TEN)
 
     def test_no_style_is_declared_improvable(self):
         # BD8: styles get their own rule in ML; the fixed set stays as it is.

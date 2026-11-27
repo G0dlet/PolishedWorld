@@ -10,7 +10,8 @@ out. One function answers for every reader:
 
     base_for(char, key)  -> the base from the characteristics, or None
     value_of(char, key)  -> the trait's value if the trait exists, else the base
-    trait_kwargs(char, key) -> how one of COMBAT_SKILL_TRAITS is added
+    trait_kwargs(char, key) -> how one of COMBAT_SKILL_TRAITS or
+                               FIRST_AID_TRAITS is added
     ensure_style(char, key) -> a Combat Style's trait, made if missing
 
 Why a safety net (BD6): a reader that went to the trait directly would get
@@ -49,6 +50,15 @@ others, both through `trait_kwargs`: `Character.at_object_creation` and
 `world.character_migrations.backfill_combat_skills` (BD-T5), so a backfilled
 character cannot differ from a new one.
 
+FIRST_AID_TRAITS is the same shape for First Aid (Healing decomposition
+HL-T4, lock HL2), a Common skill every character has, INT + DEX (p. 14).
+It is a table of its own and not a row of COMBAT_SKILL_TRAITS: that table
+is what combat reads (BD5), and `backfill_combat_skills` keeps meaning the
+four on a database it has already run on. Creation reads both tables;
+`world.character_migrations.backfill_first_aid` reads this one.
+`healing` (INT + POW) is not here: it has no trait until it is learned
+(HL2, HL3).
+
 Combat Styles (BD-T6; BD3, BD4). `base_for` and `value_of` answer for a
 style's key with no trait on the character, and `ensure_style` makes the
 trait at the base the first time a style is used. Every style shares one
@@ -68,7 +78,7 @@ from world.chargen import SKILL_BASE_PAIRS
 LADDER_TOPS = (19, 39, 59, 79, 94, 100)
 
 # Skill -> its six words, in band order (Tone Guide section 5: concrete,
-# nothing epic). One table for the nine skills and, below it, the styles:
+# nothing epic). One table for the ten skills and, below it, the styles:
 # creation, both backfills, `ensure_style` and the ladder migration read it.
 SKILL_LADDERS = {
     "athletics": ("feeble", "weak", "capable", "athletic", "strong", "mighty"),
@@ -87,6 +97,10 @@ SKILL_LADDERS = {
     "resilience": ("frail", "soft", "sound", "hardy", "tough", "unbroken"),
     "unarmed": (
         "harmless", "clumsy", "scrappy", "practised", "hard-fisted", "dangerous",
+    ),
+    # The hands and the stomach, what a tired person notices (HL-T4).
+    "first_aid": (
+        "squeamish", "fumbling", "steady", "deft", "sure-handed", "unflinching",
     ),
 }
 # Every Combat Style reads the same six words (BD-T6).
@@ -118,6 +132,11 @@ COMBAT_SKILL_TRAITS = {
     "evade": {"name": "Evade", "descs": ladder("evade")},
     "resilience": {"name": "Resilience", "descs": ladder("resilience")},
     "unarmed": {"name": "Unarmed", "descs": ladder("unarmed")},
+}
+
+# First Aid (HL2): every character has it, made as the four are.
+FIRST_AID_TRAITS = {
+    "first_aid": {"name": "First Aid", "descs": ladder("first_aid")},
 }
 
 
@@ -170,24 +189,26 @@ def value_of(char, key):
 
 def trait_kwargs(char, key):
     """
-    What `char.skills.add(key, name, **kwargs)` takes for a combat skill.
+    What `char.skills.add(key, name, **kwargs)` takes for a skill every
+    character has from creation: a combat skill, or First Aid.
 
-    The one place the shape of the four traits is written, for creation and
-    for the backfill. No `max`: a CounterTrait with a max clamps inside its
+    The one place the shape of those traits is written, for creation and
+    for the backfills. No `max`: a CounterTrait with a max clamps inside its
     own setter (D.2, P-7).
 
     Args:
         char: a typeclassed object with a `stats` handler.
-        key (str): a key of COMBAT_SKILL_TRAITS.
+        key (str): a key of COMBAT_SKILL_TRAITS or FIRST_AID_TRAITS.
 
     Returns:
         dict or None: the keyword arguments, with `base` and `current` at
             `base_for(char, key)`; None when that base cannot be worked out.
 
     Raises:
-        KeyError: `key` is not one of COMBAT_SKILL_TRAITS.
+        KeyError: `key` is in neither table.
     """
-    COMBAT_SKILL_TRAITS[key]   # KeyError for anything but the four
+    if key not in COMBAT_SKILL_TRAITS and key not in FIRST_AID_TRAITS:
+        raise KeyError(key)
     return _counter_kwargs(char, key)
 
 

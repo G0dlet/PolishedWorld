@@ -147,7 +147,7 @@ class TestProgressCommand(EvenniaCommandTest):
     def test_an_untrainable_skill_says_so_instead_of_showing_a_dead_bar(self):
         """
         Stealth has no call-site, so its bar could never move. An empty bar there
-        reads as broken and a hidden row hides the fact that seven of nine skills
+        reads as broken and a hidden row hides the fact that eight of ten skills
         are untrained content; the caption is the third option.
         """
         out = self._output()

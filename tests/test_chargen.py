@@ -54,6 +54,7 @@ EXPECTED_BASES = {
     "evade": 18,       # DEX 9 x 2
     "resilience": 28,  # CON 14 x 2
     "unarmed": 16,     # STR 7 + DEX 9, Athletics' pair by the book (p. 14)
+    "first_aid": 21,   # INT 12 + DEX 9 (HL2; INT+POW would give 29)
 }
 
 # Alaric the Brave (Legend core p. 9) and the book's own answers for him
@@ -68,6 +69,7 @@ ALARIC_BY_THE_BOOK = {
     "evade": 26,
     "resilience": 14,
     "unarmed": 25,
+    "first_aid": 29,
 }
 
 ALL_TENS_PLUS_TWENTY = {key: 10 for key in STAT_KEYS} | {"cha": 20}

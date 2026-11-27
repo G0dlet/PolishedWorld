@@ -28,6 +28,10 @@ four Common skills combat reads (Body decomposition BD5, p. 14). They are
 traits from creation (BD6); what a character's trait is called and how it
 reads lives in `world.skill_base.COMBAT_SKILL_TRAITS`, the pair lives here.
 
+First Aid INT+DEX is a Common skill every character has (Healing HL2,
+p. 14), made from `world.skill_base.FIRST_AID_TRAITS`. It is the first key
+of two words, so what a player reads goes through `skill_label`.
+
 Derivation reads the allocation's integers, never a trait's `.value`: a
 StaticTrait's value is `(base + mod) * mult` with `mult = 1.0`, i.e. a float.
 
@@ -74,6 +78,7 @@ SKILL_BASE_PAIRS = {
     "evade": ("dex", "dex"),
     "resilience": ("con", "con"),
     "unarmed": ("str", "dex"),
+    "first_aid": ("int", "dex"),  # HL2
 }
 
 # The Attribute SkillXPHandler stores banked XP in (typeclasses/characters.py,
@@ -355,6 +360,11 @@ def start_or_resume_chargen(character):
     )
 
 
+def skill_label(key):
+    """A skill's key as a player reads it: "first_aid" is "first aid"."""
+    return key.replace("_", " ")
+
+
 def pair_text(first, second):
     """A pair as the book prints it: "STR+DEX", or "CON x2" for one twice."""
     if first == second:
@@ -373,7 +383,7 @@ def help_text():
     """
     stats = " ".join(key.upper() for key in STAT_KEYS)
     skills = ", ".join(
-        f"{skill.capitalize()} ({pair_text(first, second)})"
+        f"{skill_label(skill).capitalize()} ({pair_text(first, second)})"
         for skill, (first, second) in SKILL_BASE_PAIRS.items()
     )
     professions = ", ".join(sorted(PROFESSIONS))

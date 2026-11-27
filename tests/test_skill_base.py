@@ -30,8 +30,8 @@ BAND_EDGES = (
     (60, 3), (79, 3), (80, 4), (94, 4), (95, 5), (100, 5), (200, 5),
 )
 
-NINE = [
-    "athletics", "brawn", "craft", "evade", "hunting",
+TEN = [
+    "athletics", "brawn", "craft", "evade", "first_aid", "hunting",
     "perception", "resilience", "stealth", "unarmed",
 ]
 
@@ -148,8 +148,8 @@ class TestTheFourOnACharacter(EvenniaTest):
 
     character_typeclass = "typeclasses.characters.Character"
 
-    def test_a_fresh_character_has_nine_skills(self):
-        self.assertEqual(sorted(self.char1.skills.all()), NINE)
+    def test_a_fresh_character_has_ten_skills(self):
+        self.assertEqual(sorted(self.char1.skills.all()), TEN)
 
     def test_each_starts_at_the_placeholder_sum(self):
         for key in ("brawn", "evade", "resilience", "unarmed"):
