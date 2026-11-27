@@ -42,6 +42,13 @@ bug:
 - TestHelpDeath -- `help death` missing (a failed import silently skips the
   whole help module) or saying different numbers from the death line; or the
   rest line dropped from the help text only (SL-M38).
+- TestDeathMessageInAHaven -- the death line promising 72 hours to a body
+  in a haven (HVM7), or the haven's claim told of a body anywhere (HVM8);
+  today's line held word for word, so the haven's branch cannot reword it.
+- TestHelpDeathInAHaven -- `help death` silent on the haven's rule (HVM9), or
+  still saying that `look` shows how long the claim *has left* (HVM9b).
+- TestTheStoredRefusal -- the refusal promising a day that never comes in a
+  haven (*You can't take from it yet.*, HVM9c).
 - TestLookShowsTheClaim -- the time-left line shown after the grace, or worded
   for the wrong reader.
 - TestFormatGameSpan -- rounding up. Every span is a promise, so it floors.
@@ -75,6 +82,10 @@ NOW = 10_000_000          # absolute game seconds; any value far from 0 works
 HOUR = 3600
 GRACE = PlayerCorpse._PLAYER_GRACE_HOURS
 REFUSAL = "That body's belongings are still its owner's to reclaim."
+# HV-T3: what the death line and `help death` say of a body in a haven,
+# written out by hand so that a change is a decision and not a drift.
+HAVEN_CLAIM = "for as long as it lies there only you may take from it."
+HAVEN_HELP = "In a haven, only you may take from it, for as long as it lies there."
 
 
 @contextmanager
@@ -478,6 +489,83 @@ class TestHelpDeath(EvenniaCommandTest):
         text = [d for d in HELP_ENTRY_DICTS if d["key"] == "death"][0]["text"]
         self.assertIn(REST_SENTENCE, text)
         self.assertLess(text.index(f"|w{DeathWeakness.name}|n"), text.index(REST_SENTENCE))
+
+
+class TestDeathMessageInAHaven(EvenniaTest):
+    """The death line reads the body's room (HV4): room2 is a haven, room1 not."""
+
+    def setUp(self):
+        super().setUp()
+        self.room2.db.is_haven = True
+        self.keep = format_game_span(death_contract.shortest_keep_game_hours())
+        # Receipt: the two spans differ, so the haven's line can lose one and
+        # keep the other.
+        self.assertNotEqual(self.keep, format_game_span(GRACE))
+
+    def test_the_haven_line_says_the_claim_and_no_grace_span(self):
+        line = death_contract.death_message(self.room2)
+        self.assertIn(f"Your body lies at {self.room2.key}.", line)
+        self.assertIn(f"It keeps your belongings for at least {self.keep}, and {HAVEN_CLAIM}", line)
+        self.assertNotIn(format_game_span(GRACE), line)
+        self.assertIn(DeathWeakness.name, line)
+        self.assertIn(REST_SENTENCE, line)
+
+    def test_another_room_is_todays_line_word_for_word(self):
+        expected = (
+            "|RYou have died.|n\n"
+            f"Your body lies at {self.room1.key}. It keeps your belongings for at "
+            f"least {self.keep}, and for the first {format_game_span(GRACE)} only "
+            f"you may take from it. {DeathWeakness.name} will pass. {REST_SENTENCE} "
+            "See |whelp death|n."
+        )
+        self.assertEqual(death_contract.death_message(self.room1), expected)
+
+    def test_no_body_is_todays_line_word_for_word(self):
+        expected = (
+            "|RYou have died.|n\n"
+            "You leave no body behind; what you carried is still with you. "
+            f"{DeathWeakness.name} will pass. {REST_SENTENCE} See |whelp death|n."
+        )
+        self.assertEqual(death_contract.death_message(None), expected)
+
+    def test_a_death_in_a_haven_gets_the_haven_line(self):
+        self.char1.move_to(self.room2, quiet=True, move_hooks=False)
+        with captured_messages(self.char1) as seen:
+            self.char1.at_character_death()
+        lines = [line for line in seen if "You have died." in line]
+        self.assertEqual(len(lines), 1, seen)
+        self.assertIn(HAVEN_CLAIM, lines[0])
+        self.assertEqual(lines[0], death_contract.death_message(self.room2))
+
+
+class TestHelpDeathInAHaven(EvenniaTest):
+    def _text(self):
+        from world.help_entries import HELP_ENTRY_DICTS
+
+        entries = [d for d in HELP_ENTRY_DICTS if d["key"] == "death"]
+        self.assertEqual(len(entries), 1)
+        return entries[0]["text"]
+
+    def test_help_names_the_havens_rule_once(self):
+        text = self._text()
+        # Under *Your claim*, right after the rule it is the exception to.
+        self.assertIn(f"After that, anyone who finds it may. {HAVEN_HELP}", text)
+        self.assertEqual(text.lower().count("haven"), 1)
+
+    def test_help_says_look_shows_how_long_the_claim_lasts(self):
+        # In a haven `look` shows no time left (HV-T2), so "has left" is untrue
+        # there; "lasts" holds in both places.
+        text = self._text()
+        self.assertIn("Looking at the body shows how long your claim lasts.", text)
+        self.assertNotIn("has left", text)
+
+
+class TestTheStoredRefusal(EvenniaTest):
+    def test_the_stored_refusal_is_the_whole_line(self):
+        # The line is stored on each body as it is made and must hold in a
+        # haven too, so it promises no later day.
+        corpse = make_corpse(self.room1, self.char1)
+        self.assertEqual(corpse.db.get_from_err_msg, REFUSAL)
 
 
 class TestLookShowsTheClaim(GraceTestBase):

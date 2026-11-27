@@ -346,11 +346,9 @@ class PlayerCorpse(Corpse):
         self.locks.add("get_from:corpse_grace()")
         # The command prints this on refusal and is the only writer of that line
         # (the lockfunc stays silent). Static on purpose: the time left is shown
-        # by `look`, which can compute it.
-        self.db.get_from_err_msg = (
-            "That body's belongings are still its owner's to reclaim. "
-            "You can't take from it yet."
-        )
+        # by `look`, which can compute it. It promises no later day, since in a
+        # haven none comes (HV-T3); a body made before keeps its old line.
+        self.db.get_from_err_msg = "That body's belongings are still its owner's to reclaim."
 
     @property
     def grace_active(self):
