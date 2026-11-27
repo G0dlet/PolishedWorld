@@ -30,11 +30,11 @@ at a vital Major Wound leaves the same damage as a lost one and only the
 lost one is death (Wounds WN-T8, choice A).
 """
 
-import time
 from collections.abc import Mapping
 from fractions import Fraction
 from random import randint
 
+from evennia.utils import gametime
 from evennia.utils.utils import delay
 
 from world import hero_points, skill_base, timed_actions
@@ -596,13 +596,24 @@ def restore_at_respawn(char):
             char.attributes.remove("wound_states")
 
 
+def _now():
+    """
+    The server's runtime, `gametime.runtime()`: the one reader of *now* for
+    a stored deadline and the end of a wound's unconsciousness (HL11). It
+    stands still while the server is down, so a stop runs no clock; while
+    the server is up it passes as real time does, so `delay` keeps its
+    seconds. Tests patch this function (Healing Decomposition §6, HL-T1).
+    """
+    return gametime.runtime()
+
+
 def knock_out(char, location, minutes):
     """
     A wound knocks the body out for `minutes` real minutes (p. 145; WN3).
 
     The door behind `Character.apply_health_damage`, its one caller in
     production, which pushes. The time it ends is stored in
-    `db.wound_unconscious` -- {"location", "until"}, `until` a `time.time()`
+    `db.wound_unconscious` -- {"location", "until"}, `until` a `_now()`
     -- and that stored time is the truth (§2's second choice): the alarm,
     `delay(..., persistent=True)` to `_wake_due`, only wakes the check. It
     is not `db.collapsed`, whose refusal arms fatigue's recovery (§2's third
@@ -615,7 +626,7 @@ def knock_out(char, location, minutes):
     Returns:
         bool: True when the body was not already out.
     """
-    now = time.time()
+    now = _now()
     until = now + minutes * MINUTE
     current = _unconscious_record(char)
     already = current is not None and current["until"] > now
@@ -658,7 +669,7 @@ def unconscious(char):
     record = _unconscious_record(char)
     if record is None:
         return False
-    now = time.time()
+    now = _now()
     if now < record["until"]:
         return True
     if any(deadline <= now for deadline in clocks_of(char).values()):
@@ -679,8 +690,8 @@ def _wake_due(char, until):
     record = _unconscious_record(char)
     if record is None or record["until"] != until:
         return
-    left = until - time.time()
-    if left > 0:   # the alarm's clock ran a little ahead of time.time()
+    left = until - _now()
+    if left > 0:   # early: the task's wall-clock date came first (HL11)
         delay(left, _wake_due, char, until, persistent=True)
         return
     unconscious(char)
@@ -716,16 +727,16 @@ def holds_body(char):
     if clocks_of(char):
         return True
     record = _unconscious_record(char)
-    return record is not None and time.time() < record["until"]
+    return record is not None and _now() < record["until"]
 
 
 def minutes_until(deadline):
-    """Real minutes from now to `deadline` (a `time.time()`), never below 0."""
-    return max(0.0, (deadline - time.time()) / MINUTE)
+    """Real minutes from now to `deadline` (a `_now()`), never below 0."""
+    return max(0.0, (deadline - _now()) / MINUTE)
 
 
 def clocks_of(char):
-    """The running clocks as a plain dict, location -> deadline (`time.time()`)."""
+    """The running clocks as a plain dict, location -> deadline (`_now()`)."""
     stored = char.attributes.get("wound_clocks") if hasattr(char, "attributes") else None
     if not isinstance(stored, Mapping):
         return {}
@@ -749,7 +760,7 @@ def start_clock(char, location):
     clocks = clocks_of(char)
     if location in clocks:
         return clocks[location]
-    now = time.time()
+    now = _now()
     seconds = clock_seconds(int(char.stats.con.value), int(char.stats.pow.value), location)
     deadline = now + seconds
     clocks[location] = deadline
@@ -770,8 +781,8 @@ def _clock_due(char, location, deadline):
     """
     if clocks_of(char).get(location) != deadline:
         return
-    left = deadline - time.time()
-    if left > 0:   # the alarm's clock ran a little ahead of time.time()
+    left = deadline - _now()
+    if left > 0:   # early: the task's wall-clock date came first (HL11)
         delay(left, _clock_due, char, location, deadline, persistent=True)
         return
     char.msg(CLOCK_OUT)

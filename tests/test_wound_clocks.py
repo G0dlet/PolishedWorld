@@ -6,7 +6,7 @@ a body a wound holds is not a statue. Wounds, Task WN-T10
 WN4, WN9, WN10; *Legend* core pp. 87, 146).
 
 The fixture's char1 is CON 10, POW 11 -- CON + POW 21, the decomposition's
-numbers: a vital clock of 52.5 s, a limb's of 1260 s. `world.wounds.time`
+numbers: a vital clock of 52.5 s, a limb's of 1260 s. `world.wounds._now`
 and `world.wounds.delay` are patched as in tests/test_wound_unconscious.py;
 an alarm is fired by hand. char2 has no session (`has_account` counts
 sessions), so it is the body whose player has gone.
@@ -84,9 +84,9 @@ class _Clock(EvenniaTest):
             # Hero Points decomposition §4, P1, and HE-T5).
             hero_points.set_glancing(char, False)
         describe(self.char1, self.char2)
-        clock = mock.patch("world.wounds.time")
-        self.time = clock.start()
-        self.time.time.return_value = NOW
+        clock = mock.patch("world.wounds._now")
+        self.now = clock.start()
+        self.now.return_value = NOW
         alarm = mock.patch("world.wounds.delay")
         self.alarm = alarm.start()
         slot = mock.patch("world.timed_actions.delay")
@@ -95,7 +95,7 @@ class _Clock(EvenniaTest):
             self.addCleanup(patcher.stop)
 
     def at(self, seconds):
-        self.time.time.return_value = NOW + seconds
+        self.now.return_value = NOW + seconds
 
     def blow(self, amount, location, char=None, roll=WIN):
         """The writer, with the die fixed; returns what the body was told."""

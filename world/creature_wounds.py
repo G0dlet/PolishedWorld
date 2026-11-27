@@ -58,7 +58,7 @@ under a state, nor without CON: the stored figure is the answer.
 
 The state at 0 (CE6) is `hurt_state`, one row holding {"kind", "due"} so
 the two are never read half-changed. The kind names what happens at `due`,
-a `time.time()`: STANDING tests Resilience again, DYING dies, OUT -- knocked
+a `_now()`: STANDING tests Resilience again, DYING dies, OUT -- knocked
 senseless by the table with Hit Points left (CE8) -- wakes. The one
 persistent alarm, `_state_due`, carries the pair it was set for and does
 nothing unless the stored state is still that pair and its time has come,
@@ -77,12 +77,12 @@ it, which `Creature.get_display_desc` adds after the description. An
 unhurt creature, and one without CON, has no line.
 """
 
-import time
 from random import randint
 from typing import NamedTuple
 
 from django.conf import settings
 from evennia.objects.objects import DefaultObject
+from evennia.utils import gametime
 from evennia.utils.utils import delay
 
 from world import body, gametime_utils, healing, wounds
@@ -319,7 +319,7 @@ def hit_points_of(creature):
 def state_of(creature):
     """
     The creature's state as a plain dict, {"kind": STANDING, DYING or OUT,
-    "due": a time.time()}, or None when it has none (CE6, CE8). It writes
+    "due": a _now()}, or None when it has none (CE6, CE8). It writes
     nothing.
     """
     stored = creature.attributes.get(STATE)
@@ -356,9 +356,18 @@ def hurt_of(creature):
     return HURT
 
 
+def _now():
+    """
+    The server's runtime, `gametime.runtime()`, which a state's `due` is
+    counted in: it stands still while the server is down, as the wound
+    clocks' does (HL11; Healing Decomposition OQ-HL5). Tests patch it.
+    """
+    return gametime.runtime()
+
+
 def _set_state(creature, kind, seconds):
     """Store a state due `seconds` from now and set its one alarm."""
-    due = time.time() + seconds
+    due = _now() + seconds
     creature.attributes.add(STATE, {"kind": kind, "due": due})
     delay(seconds, _state_due, creature, kind, due, persistent=True)
 
@@ -455,7 +464,7 @@ def _state_due(creature, kind, due):
     state = state_of(creature)
     if state is None or state["kind"] != kind or state["due"] != due:
         return
-    left = due - time.time()
+    left = due - _now()
     if left > 0:
         delay(left, _state_due, creature, kind, due, persistent=True)
         return

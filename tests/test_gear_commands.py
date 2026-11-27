@@ -13,10 +13,10 @@ short descriptions (tests/names_fixture.py) and no sex, so a stranger reads
 *their*.
 """
 
-import time
 from unittest import mock
 
 from evennia.prototypes.spawner import spawn
+from evennia.utils import gametime
 from evennia.utils.test_resources import EvenniaCommandTest
 
 from commands.default_cmdsets import CharacterCmdSet
@@ -209,6 +209,7 @@ class TestTheBodyFirst(_Commands):
         self.assertEqual(gear.held(self.char1)["right"], self.knife)
 
     def test_an_unconscious_body_cannot_wield(self):
-        self.char1.db.wound_unconscious = {"location": "head", "until": time.time() + 600}
+        self.char1.db.wound_unconscious = {"location": "head",
+                                           "until": gametime.runtime() + 600}
         self.wield("stone knife", wounds.OUT_COLD)
         self.assertEqual(gear.held(self.char1), {"right": None, "left": None})

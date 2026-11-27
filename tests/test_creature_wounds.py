@@ -311,7 +311,7 @@ FALL = "rabbit sags onto its side, breathing fast and shallow."
 
 class _AtZero(EvenniaTest):
     """
-    `world.creature_wounds.time` and `.delay` patched, and the die; every
+    `world.creature_wounds._now` and `.delay` patched, and the die; every
     line to a room recorded as (room, text, from_obj). An alarm is fired by
     calling `cw._state_due` by hand, in the order the test writes.
 
@@ -324,8 +324,8 @@ class _AtZero(EvenniaTest):
 
     def setUp(self):
         super().setUp()
-        self.clock = self._patch(mock.patch("world.creature_wounds.time"))
-        self.clock.time.return_value = NOW
+        self.clock = self._patch(mock.patch("world.creature_wounds._now"))
+        self.clock.return_value = NOW
         self.alarm = self._patch(mock.patch("world.creature_wounds.delay"))
         self.roll = self._patch(mock.patch(ROLL, return_value=WIN))
         self.die = self._patch(mock.patch(DIE, return_value=1))
@@ -341,7 +341,7 @@ class _AtZero(EvenniaTest):
 
     def at(self, seconds):
         """The clock `seconds` after NOW."""
-        self.clock.time.return_value = NOW + seconds
+        self.clock.return_value = NOW + seconds
 
     def game_at(self, seconds):
         """The game clock at `seconds` of game time (CE-T5)."""

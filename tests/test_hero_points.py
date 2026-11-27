@@ -508,12 +508,12 @@ class TestDeathLeavesThem(EvenniaTest):
         super().setUp()
         self.char1.traits.fatigue.current = 100
         self.char1.db.respawn_location = self.room2
-        patchers = [mock.patch("world.wounds.time"), mock.patch("world.wounds.delay"),
+        patchers = [mock.patch("world.wounds._now"), mock.patch("world.wounds.delay"),
                     mock.patch("world.timed_actions.delay"),
                     # The survival tick's clock held still: every span is 0.
                     mock.patch(self.CLOCK, return_value=100_000)]
-        self.time = patchers[0].start()
-        self.time.time.return_value = self.NOW
+        self.now = patchers[0].start()
+        self.now.return_value = self.NOW
         for patcher in patchers[1:]:
             patcher.start()
         for patcher in patchers:
@@ -551,7 +551,7 @@ class TestDeathLeavesThem(EvenniaTest):
         with mock.patch.object(self.char1, "msg"):
             self.char1.apply_health_damage(2 * head, location="head")
             deadline = wounds.clocks_of(self.char1)["head"]
-            self.time.time.return_value = deadline
+            self.now.return_value = deadline
             wounds._clock_due(self.char1, "head", deadline)
         self.died()
         self.assertEqual(self.held(), (3, DAY // 2, True))

@@ -7,7 +7,7 @@ OQ-WN8 answered (a); OQ-WN5's words).
 
 The fixture's char1 is set to CON 10, SIZ 11, POW 11 -- CON + SIZ 21, the
 decomposition's numbers: head 5, chest 7, abdomen 6, arms 4, legs 5, and a
-limb's clock of 1260 s. `world.wounds.time` and `world.wounds.delay` are
+limb's clock of 1260 s. `world.wounds._now` and `world.wounds.delay` are
 patched as in tests/test_wound_clocks.py.
 
 WHAT EACH TEST PUTS PRESSURE ON
@@ -60,9 +60,9 @@ class _Report(EvenniaCommandTest):
         # Hero Points would have each one trimmed to a Serious Wound (HE1;
         # Hero Points decomposition §4, P1, and HE-T5).
         hero_points.set_glancing(self.char1, False)
-        clock = mock.patch("world.wounds.time")
-        self.time = clock.start()
-        self.time.time.return_value = NOW
+        clock = mock.patch("world.wounds._now")
+        self.now = clock.start()
+        self.now.return_value = NOW
         alarm = mock.patch("world.wounds.delay")
         alarm.start()
         slot = mock.patch("world.timed_actions.delay")
@@ -71,7 +71,7 @@ class _Report(EvenniaCommandTest):
             self.addCleanup(patcher.stop)
 
     def at(self, seconds):
-        self.time.time.return_value = NOW + seconds
+        self.now.return_value = NOW + seconds
 
     def blow(self, amount, location, made=MADE, roll=WIN):
         with mock.patch(ROLL, return_value=roll), mock.patch.object(self.char1, "msg"):

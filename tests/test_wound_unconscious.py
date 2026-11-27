@@ -3,7 +3,7 @@ A wound's unconsciousness: its own cause and its own waking. Wounds, Task
 WN-T9 (docs/PolishedWorld_Wounds_Decomposition.md; Combat Design §4.4, WO1,
 WN3, WN11; *Legend* core p. 145).
 
-`world.wounds.time` is patched, so the stored time and every read of it
+`world.wounds._now` is patched, so the stored time and every read of it
 agree on a fixed now, and `world.wounds.delay` is patched, so an alarm is
 seen being set and is fired by hand. `world.timed_actions.delay` is patched
 too: a started action schedules nothing. Nothing in play knocks a body out
@@ -73,9 +73,9 @@ class _Out(EvenniaCommandTest):
         # Hero Points decomposition §4, P1, and HE-T5).
         hero_points.set_glancing(self.char1, False)
         describe(self.char1, self.char2)
-        clock = mock.patch("world.wounds.time")
-        self.time = clock.start()
-        self.time.time.return_value = NOW
+        clock = mock.patch("world.wounds._now")
+        self.now = clock.start()
+        self.now.return_value = NOW
         alarm = mock.patch("world.wounds.delay")
         self.alarm = alarm.start()
         slot = mock.patch("world.timed_actions.delay")
@@ -85,7 +85,7 @@ class _Out(EvenniaCommandTest):
 
     def at(self, seconds):
         """Move the patched clock to NOW + seconds."""
-        self.time.time.return_value = NOW + seconds
+        self.now.return_value = NOW + seconds
 
     def stored(self):
         if not self.char1.attributes.has("wound_unconscious"):

@@ -50,9 +50,9 @@ class _Glancing(EvenniaTest):
         super().setUp()
         self.char1.traits.fatigue.current = 100
         self.char1.db.respawn_location = self.room2
-        clock = mock.patch("world.wounds.time")
-        self.time = clock.start()
-        self.time.time.return_value = NOW
+        clock = mock.patch("world.wounds._now")
+        self.now = clock.start()
+        self.now.return_value = NOW
         alarm = mock.patch("world.wounds.delay")
         alarm.start()
         slot = mock.patch("world.timed_actions.delay")
