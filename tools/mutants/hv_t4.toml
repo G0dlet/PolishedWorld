@@ -1,0 +1,147 @@
+# HV-T4 -- the attack guard, with player against player switched off
+# (Haven decomposition §8; PV1, PV3, TR5, HV1, HV5, HV7).
+# Run: python3 tools/mutate.py tools/mutants/hv_t4.toml --parallel 2
+#
+# Predicted fail counts (worked through the cases before the tests were
+# written, lesson 497; one mutant for each choice taken at STOPP 0 that no
+# listed mutant holds):
+#   HVM10  1 -- the target in a haven, the attacker outside
+#   HVM11  2 -- the attacker in a haven, the target outside; the haven's line
+#              word for word, whose attacker stands in the haven (predicted 1)
+#   HVM12  3 -- character against character in each of the three haven cases
+#   HVM13  2 -- outside, a character against a creature and the sweeper; a
+#              character against Evennia's DefaultCharacter
+#   HVM13b 1 -- Evennia's DefaultCharacter counted as a player
+#   HVM14  4 -- the stranger, the recog and the statue; the switch-off test.
+#              (Predicted 5: the outside case patches the switch to False
+#              itself, so a change to the source cannot reach it.)
+#   HVM14b 1 -- None behaves as False; only `assertIs` sees it
+#   HVM15  4 -- the line holds the key: outside, the stranger, the recog and
+#              the statue
+#   HVM15b 1 -- the guard sends the line itself
+#
+# The guard has no caller before HV-T5, so the spec runs its own module.
+
+modules = ["tests.test_haven"]
+
+[[mutant]]
+id = "HVM10"
+# Only the attacker's room is read: an attack into a haven is let through.
+file = "world/haven.py"
+old = '''    if is_haven(attacker.location) or is_haven(target.location):
+'''
+new = '''    if is_haven(attacker.location):
+'''
+expect = ["test_target_in_a_haven_attacker_outside_is_refused"]
+
+[[mutant]]
+id = "HVM11"
+# Only the target's room is read: an attack out of a haven is let through.
+file = "world/haven.py"
+old = '''    if is_haven(attacker.location) or is_haven(target.location):
+'''
+new = '''    if is_haven(target.location):
+'''
+expect = [
+    "test_attacker_in_a_haven_target_outside_is_refused",
+    "test_the_haven_line_word_for_word",
+]
+
+[[mutant]]
+id = "HVM12"
+# Player against player is asked before the haven: two characters in a haven
+# hear PV1's line.
+file = "world/haven.py"
+old = '''    if is_haven(attacker.location) or is_haven(target.location):
+        return HAVEN_REFUSAL
+    if (not PVP_ENABLED and inherits_from(attacker, _CHARACTER)
+            and inherits_from(target, _CHARACTER)):
+        return PVP_REFUSAL.format(name=target.get_display_name(attacker))
+'''
+new = '''    if (not PVP_ENABLED and inherits_from(attacker, _CHARACTER)
+            and inherits_from(target, _CHARACTER)):
+        return PVP_REFUSAL.format(name=target.get_display_name(attacker))
+    if is_haven(attacker.location) or is_haven(target.location):
+        return HAVEN_REFUSAL
+'''
+expect = [
+    "test_both_in_a_haven_every_pair_is_refused",
+    "test_attacker_in_a_haven_target_outside_is_refused",
+    "test_target_in_a_haven_attacker_outside_is_refused",
+]
+
+[[mutant]]
+id = "HVM13"
+# `or` for `and` between the two classes: a creature is refused as a player is.
+file = "world/haven.py"
+old = '''    if (not PVP_ENABLED and inherits_from(attacker, _CHARACTER)
+            and inherits_from(target, _CHARACTER)):
+'''
+new = '''    if (not PVP_ENABLED and (inherits_from(attacker, _CHARACTER)
+            or inherits_from(target, _CHARACTER))):
+'''
+expect = [
+    "test_outside_only_a_character_against_a_character_is_refused",
+    "test_an_evennia_default_character_is_no_player",
+]
+
+[[mutant]]
+id = "HVM13b"
+# Evennia's class in place of the game's (HV-T4's STOPP 0, choice 1).
+file = "world/haven.py"
+old = '''_CHARACTER = "typeclasses.characters.Character"
+'''
+new = '''_CHARACTER = "evennia.objects.objects.DefaultCharacter"
+'''
+expect = ["test_an_evennia_default_character_is_no_player"]
+
+[[mutant]]
+id = "HVM14"
+# The switch on.
+file = "world/haven.py"
+old = '''PVP_ENABLED = False
+'''
+new = '''PVP_ENABLED = True
+'''
+expect = [
+    "test_a_stranger_is_named_by_short_description",
+    "test_a_recog_names_the_target",
+    "test_a_statue_is_named_as_a_statue",
+    "test_player_against_player_is_switched_off",
+]
+
+[[mutant]]
+id = "HVM14b"
+# None, which the guard reads as False (HV-T4's STOPP 0, choice 3).
+file = "world/haven.py"
+old = '''PVP_ENABLED = False
+'''
+new = '''PVP_ENABLED = None
+'''
+expect = ["test_player_against_player_is_switched_off"]
+
+[[mutant]]
+id = "HVM15"
+# The key in the line, in place of the name the attacker knows (TR5).
+file = "world/haven.py"
+old = '''        return PVP_REFUSAL.format(name=target.get_display_name(attacker))
+'''
+new = '''        return PVP_REFUSAL.format(name=target.key)
+'''
+expect = [
+    "test_outside_only_a_character_against_a_character_is_refused",
+    "test_a_stranger_is_named_by_short_description",
+    "test_a_recog_names_the_target",
+    "test_a_statue_is_named_as_a_statue",
+]
+
+[[mutant]]
+id = "HVM15b"
+# The guard sends the line itself, as refuse_if_collapsed does (HV7).
+file = "world/haven.py"
+old = '''        return HAVEN_REFUSAL
+'''
+new = '''        attacker.msg(HAVEN_REFUSAL)
+        return HAVEN_REFUSAL
+'''
+expect = ["test_the_guard_sends_nothing"]
