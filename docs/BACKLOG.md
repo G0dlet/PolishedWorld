@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 128 · 2026-11-27** — **six entries annotated, two added**, docs only, in the commit that holds Stage 5's slice HL's design session (Combat Design Rev 17, locks HL1–HL13; Combat Decomposition Rev 27, roadmap Rev 95, README Rev 104). The two entries the session answers were read whole before the first lock (lesson 495), and BACKLOG was searched on the names of the slice's data and not only for *heal* (lessons 238, 408): `stop_clock`, `revive`, `maimed`, `wound_states`, `unconscious`, `_credit_time_away`, *First Aid*, `first_aid`, *bandage*, *splint*, *Healing skill* and *healer*; eight entries name one — the two the session answers, two that are DONE, and *Character panel: Legend combat state*, *A collapsed body's instant commands*, *Weight and encumbrance* and *Disassemble yields parts and raw materials*, which HL changes nothing in (the last names rags as *a bandage for two-stage healing*; HL5's bandage is made of `cloth`, and rags are no material yet). **Annotated:** *Two-stage healing — field stabilisation vs. repair* (its four open points are locked; BLOCKED → SCHEDULED, slice HL's decomposition), *Time away heals vs the statue as a snapshot* (the replacement is chosen; SCHEDULED), *Natural healing: the row lost to strenuous activity* (HL set the pace and not the row; ML's alone now), *Others cannot tell a body lies senseless* (more pressing since HL, and a reading that answers part of OQ-WN3), *Free Skill Points* (two more Common-skill readers of the gap, and OQ-HL2) and *Survival loop tuning* (the divisor twelve joins what the alpha's data tunes). **New, both in *Health & Injury*:** ***First Aid for a body felled by fatigue*** (BLOCKED on the Rest note's next slice; core p. 89) and ***What a treatment costs is not in the log*** (BLOCKED on the economy milestone).
 > **Rev 127 · 2026-11-27** — **two entries added, four annotated**, docs only, in the commit that closes Stage 5's slice HV (`docs/PolishedWorld_Haven_Decomposition.md` Rev 9; merged as `0f25d51`, PR #38, tagged `alpha-20261127`). BACKLOG was searched first for the names of the slice's data and not only for *haven* (lessons 238, 408): `is_haven`, `attack_refusal`, `PVP_ENABLED`, `HAVEN_REFUSAL`, `grace_active` and `get_from_err_msg`, then *grace* and *Old Temple*; only `get_from_err_msg` hit, in *Death contract surfaces*, and no entry the other words found says anything HV made untrue. **Annotated:** *Death contract surfaces* — three of its surfaces read the body's room; *Survival loop tuning* and *Persistent alpha instance* with the tag `alpha-20261127` (lesson 490); *When the closed alpha opens* — eight of the fourteen slices merged, HV among them, and the quarry that stays (OQ-HV2) if the alpha opens before DR. **New:** in *Death & Corpses*, ***`typeclasses/objects.py` points at a corpse line that moved*** (OPEN), a comment wrong since before HV; in *UX & Item Identity*, ***A statue's name takes no article in a sentence*** (OPEN), first shown by the guard's line. *`typeclasses/creatures.py` still calls `natural_ap` reserved* is unchanged: HV did not touch the file, so its trigger has not fired.
 > **Rev 126 · 2026-11-26** — **one entry added, four annotated**, docs only, in the commit that closes Stage 5's slice CE (`docs/PolishedWorld_Creatures_Decomposition.md` Rev 9; merged as `02238ac`, PR #37, tagged `alpha-20261126`). BACKLOG was searched first for the names the slice touched (lessons 238, 408): `General Hit Points`, `Critical Wound`, `wounded quarry`, `natural_ap`, `flee_skill`, `Resilience`, `rabbit`, `at_death` and a creature's hurt, damage, wounds, Hit Points and CON; fourteen entries hit, and two bear on what CE built. **Annotated:** *Survival loop tuning* and *Persistent alpha instance* with the tag `alpha-20261126` (lesson 490); *When the closed alpha opens* — seven of the fourteen slices merged, CE among them; *Seasonal supply & population memory* — a creature can now die of its wounds after its hunter has left, with no killer, and a stock written only when the killer is a player misses that death. **New,** in *Health & Injury*: ***`typeclasses/creatures.py` still calls `natural_ap` reserved*** (OPEN) — a docstring line found at CE-T8's STOPP 0.
 > **Rev 125 · 2026-11-25** — **one entry added**, docs only, with `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1, roadmap Rev 92 and README Rev 86. BACKLOG was searched first for `harvest`, `corpse`, `hide`, `tallow`, `bone`, `sinew`, `spoil`, `quality` and `tann`. New, in *Death & Corpses*: ***`harvest_templates.py` credits the book with a rule it does not have*** (OPEN) — a docstring sentence, found while the note checked the retired v1.0 against *Arms of Legend*. No entry is annotated: the note points to *Food spoilage*, *Tanning upgrade*, *Corpse expiry fires only on direct interaction* and *`harvest` treats a player's body as a rabbit* as their owners or their record, and changes none of them.
@@ -1284,6 +1285,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   The wound's Resilience test is in the code (`wounds.resilience_test`,
   WN-T8) and no play reaches it before ML; natural healing is still the one
   reader of Resilience in play. The trigger stands.
+- **Annotation (2026-11-27, Combat Design Rev 17, HL6):** slice HL adds a
+  tenth Common skill, `first_aid`, and an Advanced one, `healing`, and tests
+  both at the book's +0. Without these points an ordinary character treats at
+  about 21 %, where the book's example character reaches 49 % (p. 25). The
+  gap was left to this entry and not closed with a grade of difficulty;
+  Combat Design OQ-HL2 asks whether that is too hard and closes with the
+  alpha's data or with this entry. Unlike the four combat skills, `first_aid`
+  is read in play from HL's merge and improves by use, so points spent on it
+  would not be the blind choice BD9 avoids.
 - **Status:** BLOCKED (the four combat skills read in play / alpha data)
 
 ### Every knowledge-gated recipe has a profession grantor
@@ -1951,7 +1961,27 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   *bleeding out (N min)* and a disabled limb *useless* (WN-T11). Until HL a
   Major Wound a body survives is a death on its clock, and *maimed* has no
   cure; no play can cause either before ML.
-- **Status:** BLOCKED (Stage 5 slice HL's design session; the wound tiers shipped in `c3df740`)
+- **Annotation (2026-11-27, Combat Design Rev 17):** **the design session is
+  held — HL1–HL13 (§4.4).** The four points the Trigger left open:
+  *consumable list* — a `bandage` from `cloth`, or raw `cloth` at −20 %, and
+  a healer's kit worn per operation; splint and sutures are in the kit and
+  are no items of their own, and the first aid kit stays the Foraging note's
+  (HL5, HL9). *Skill thresholds* — none: `first_aid` is every character's and
+  `healing` is learned with the kit's recipe, both tested at +0 and improved
+  by use (HL2, HL3, HL6). *Whether stabilise is self-applicable* — yes, at
+  −10 %, until ML says what a Major Wound forbids (HL8, OQ-HL3). *What a
+  failed surgery does* — it costs the time and a use of the kit and may be
+  tried again; a fumble is one point of damage; nothing is made permanent, so
+  the death-consequence policy is not touched (HL9). Also locked: a treatment
+  under way holds death off and buys no time (HL4); only a won test marks a
+  location as treated, and First Aid gives no Hit Points to a starving or
+  dehydrated body (HL7); the commands are `treat` and `operate` (HL8, HL9).
+  **A correction to the 2026-11-23 annotation:** `stop_clock` *is also what
+  lets the location heal naturally again* is the project's reading (WN10);
+  the book asks for surgery before a Major Wound heals (pp. 60, 87), and with
+  that reading surgery's work is *maimed* alone. The order stands: all of
+  this before ML merges.
+- **Status:** SCHEDULED (Stage 5 slice HL — designed in Combat Design Rev 17, to be decomposed next)
 
 ### Character panel: Legend combat state
 - **What:** The webclient's character panel gains what the style guide §6
@@ -2081,7 +2111,16 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   healing is designed whole there: the natural rate, the service, and this.
 - **Origin:** Wounds design session, 2026-11-23, from Adam's question about
   damage to a statue.
-- **Status:** BLOCKED (Stage 5 slice HL)
+- **Annotation (2026-11-27, Combat Design Rev 17, HL10):** **decided as the
+  direction said.** The table is read twelve times faster for time at the
+  keyboard — a point an hour at Resilience 11–30, five points in a five-hour
+  week — and First Aid's row for an injured location is the service (HL7).
+  `Character._credit_time_away` (`:666` at `c54f12e`) and the stamp
+  `turn_to_stone` writes are removed in slice HL, stored stamps are left
+  unread, and `db.heal_progress` freezes with the body. What a tester meets:
+  wounds carried into the next session. Twelve is a guess for *Survival loop
+  tuning* to test.
+- **Status:** SCHEDULED (Stage 5 slice HL — HL10; removed with the slice's code)
 
 ### Natural healing: the row lost to strenuous activity
 - **What:** *Legend* core p. 87: a body that does *anything strenuous* heals
@@ -2093,7 +2132,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
 - **Trigger:** ML's decomposition (the first thing that is plainly
   strenuous), or slice HL's design session if it sets the table anew.
 - **Origin:** Combat Design WN10, 2026-11-23.
-- **Status:** BLOCKED (Stage 5 slice ML or HL)
+- **Annotation (2026-11-27, Combat Design Rev 17, HL10):** HL's design
+  session set the table's pace — its rows divided by twelve — and not this
+  row. The Trigger's second half is spent: it is ML's.
+- **Status:** BLOCKED (Stage 5 slice ML)
 
 ### Others cannot tell a body lies senseless
 - **What:** A body knocked out by a wound (WN-T9) shows nothing of it to
@@ -2110,7 +2152,47 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   a blow can knock a body out in front of others.
 - **Origin:** OQ-WN5's last word, deferred at WN-T11's STOPP 0 (Adam,
   2026-11-24, as recommended).
+- **Annotation (2026-11-27, Combat Design Rev 17, HL12):** **more pressing
+  since HL.** From slice HL a clock can be stopped and a body woken by
+  whoever stands beside it, and a clock nobody can see is a rescue nobody
+  attempts; until ML the way to find a stranger's wound is to type `treat`.
+  HL did not take this entry: the slice map gives it to ML. **Found for ML:**
+  a reader of the running clock and of the wound's unconsciousness, and never
+  of the bare wound level, tells a blow's wound from starvation's at no cost
+  — starvation sets neither (WN5). That answers the part of OQ-WN3 a rescue
+  needs; a Serious Wound with no state is still unseen. Such a reader must
+  only read (`wounds.holds_body`'s form): `wounds.unconscious` wakes the body
+  it is asked about.
 - **Status:** BLOCKED (Stage 5 slice ML)
+
+### First Aid for a body felled by fatigue
+- **What:** *Legend* core p. 89: a successful First Aid or Healing test
+  raises a body one level of Fatigue, once a day, and not above Winded. Not
+  built: `treat` wakes a body a wound knocked out (`wounds.revive`) and does
+  nothing for `db.collapsed`.
+- **Why deferred:** Slice HL is the wound's healing (Combat Design HL1). The
+  collapse has its own recovery, armed by its own refusal (Survival Loop
+  S3.4), and a second way up the Fatigue ladder belongs with the design that
+  owns the ladder.
+- **Trigger:** The Rest note's next slice
+  (`docs/system_designs/PolishedWorld_Rest_Design.md`), or the first report
+  of a healer who could not help a collapsed friend.
+- **Origin:** HL's design session, 2026-11-27, at HL7.
+- **Status:** BLOCKED (the Rest note's next slice)
+
+### What a treatment costs is not in the log
+- **What:** The activity log will say who treated whom, on which row, with
+  what and how it went (`treat`, Combat Design HL13), and not what the
+  patient paid: `pay` writes no line in the activity log, and nothing ties a
+  payment to the service it paid for. A healer paid in barter leaves a
+  `trade` line with no link either.
+- **Why deferred:** It is not healing's question. Every service between
+  players — a lesson, a repair done for another — has the same gap, and the
+  roadmap holds the measuring of the economy open as a milestone of its own.
+- **Trigger:** The economy milestone (roadmap, *No milestone measures the
+  economy*), or the first service the alpha's report needs a price for.
+- **Origin:** HL's design session, 2026-11-27, at HL13.
+- **Status:** BLOCKED (the economy milestone)
 
 ---
 
@@ -2431,6 +2513,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   `alpha-20261127` (Alpha Runbook Rev 17), which carries WN, HE, GR and CE as
   above and adds HV. HV adds no gauge and no tick and changes no time to death:
   nothing it reads or writes runs on the survival tick.
+- **Annotation (2026-11-27, Combat Design Rev 17, HL10):** one more number
+  for the alpha's data: natural healing's table is divided by twelve from
+  slice HL (a point an hour at Resilience 11–30), and time away is credited
+  to nothing. It was set against starvation's rate (WN6: three points an hour
+  per condition) and against First Aid's 1D3 for a bandage, and it is a
+  guess. The `treat` lines in the activity log (HL13) show how often the
+  service is used in its place.
 - **Status:** OPEN
 
 ### Armour's warmth in the comfort bands
