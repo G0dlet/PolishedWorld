@@ -1,5 +1,6 @@
 # PolishedWorld — Consolidated Backlog
 
+> **Rev 127 · 2026-11-27** — **two entries added, four annotated**, docs only, in the commit that closes Stage 5's slice HV (`docs/PolishedWorld_Haven_Decomposition.md` Rev 9; merged as `0f25d51`, PR #38, tagged `alpha-20261127`). BACKLOG was searched first for the names of the slice's data and not only for *haven* (lessons 238, 408): `is_haven`, `attack_refusal`, `PVP_ENABLED`, `HAVEN_REFUSAL`, `grace_active` and `get_from_err_msg`, then *grace* and *Old Temple*; only `get_from_err_msg` hit, in *Death contract surfaces*, and no entry the other words found says anything HV made untrue. **Annotated:** *Death contract surfaces* — three of its surfaces read the body's room; *Survival loop tuning* and *Persistent alpha instance* with the tag `alpha-20261127` (lesson 490); *When the closed alpha opens* — eight of the fourteen slices merged, HV among them, and the quarry that stays (OQ-HV2) if the alpha opens before DR. **New:** in *Death & Corpses*, ***`typeclasses/objects.py` points at a corpse line that moved*** (OPEN), a comment wrong since before HV; in *UX & Item Identity*, ***A statue's name takes no article in a sentence*** (OPEN), first shown by the guard's line. *`typeclasses/creatures.py` still calls `natural_ap` reserved* is unchanged: HV did not touch the file, so its trigger has not fired.
 > **Rev 126 · 2026-11-26** — **one entry added, four annotated**, docs only, in the commit that closes Stage 5's slice CE (`docs/PolishedWorld_Creatures_Decomposition.md` Rev 9; merged as `02238ac`, PR #37, tagged `alpha-20261126`). BACKLOG was searched first for the names the slice touched (lessons 238, 408): `General Hit Points`, `Critical Wound`, `wounded quarry`, `natural_ap`, `flee_skill`, `Resilience`, `rabbit`, `at_death` and a creature's hurt, damage, wounds, Hit Points and CON; fourteen entries hit, and two bear on what CE built. **Annotated:** *Survival loop tuning* and *Persistent alpha instance* with the tag `alpha-20261126` (lesson 490); *When the closed alpha opens* — seven of the fourteen slices merged, CE among them; *Seasonal supply & population memory* — a creature can now die of its wounds after its hunter has left, with no killer, and a stock written only when the killer is a player misses that death. **New,** in *Health & Injury*: ***`typeclasses/creatures.py` still calls `natural_ap` reserved*** (OPEN) — a docstring line found at CE-T8's STOPP 0.
 > **Rev 125 · 2026-11-25** — **one entry added**, docs only, with `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1, roadmap Rev 92 and README Rev 86. BACKLOG was searched first for `harvest`, `corpse`, `hide`, `tallow`, `bone`, `sinew`, `spoil`, `quality` and `tann`. New, in *Death & Corpses*: ***`harvest_templates.py` credits the book with a rule it does not have*** (OPEN) — a docstring sentence, found while the note checked the retired v1.0 against *Arms of Legend*. No entry is annotated: the note points to *Food spoilage*, *Tanning upgrade*, *Corpse expiry fires only on direct interaction* and *`harvest` treats a player's body as a rabbit* as their owners or their record, and changes none of them.
 > **Rev 124 · 2026-11-25** — **three entries added, eight annotated, one renamed in place**, docs only, in the commit that closes Stage 5's slice GR (`docs/PolishedWorld_Gear_Decomposition.md` Rev 8; merged as `e6c9e2b`, PR #36, tagged `alpha-20261125`). BACKLOG was searched first for the names the slice touched (lessons 238 and 408): `gear`, `weapon`, `armour`, `wield`, `hold`, `hands`, `held`, `Strike Rank`, `clothing`, `is wearing`, `get_display_things`, `Stage 5`, `alpha-20261124-2`, `scrolls`, `Fifteen` and `_apply_garment_quality`; each entry that names one was read against the merge. **Added:** *What a looker reads of a dressed and armed body* (UX & Item Identity), *Armour's warmth in the comfort bands* (Survival) and *When the closed alpha opens — now, or after Stage 5* (Tooling & Process, Adam's question of 2026-11-24). **Annotated:** *Persistent alpha instance* and *Survival loop tuning* (the tag L6.1 deploys is `alpha-20261125`), *Tanning upgrade* (GR11), *Superior-tool longevity* (GR21), *Metal tools + craft-station / forge* (the metal knife's row), *A collapsed body's instant commands* (`wield` and `unwield` refused; `wear`, `remove`, `put`, `drop` and `give` let through), *Article and number in messages built from item keys* (GR's plural keys) and *A screen-reader pass* (GR-T11's red need: colour is enough for the alpha, Adam). **Renamed in place:** *Scribe's band→condition bypasses `quality_band`* names `_apply_quality_condition` and `CONDITION_BY_BAND`. **Read and left:** *Character panel* (it says where HE is, which stays true; nothing GR built is in the `char` snapshot), *World-loot scroll seed* (its *Fifteen rows* is L3.3's and was true; nineteen since GR-T12, Alpha Runbook §4), *Cultural Background* (its *six Combat Styles* is BD-T6's; Staff is the seventh, and nothing uses a style until ML), the death entries (a death empties the hands and a held item goes to the body with everything else; `TestEveryWayOut`) and the DONE entries *Weight and encumbrance* and *Worn clothing leaves without `remove()`*.
@@ -1684,6 +1685,19 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   (§11j), a `reload` in the middle of the grace and the same corpse observed
   opening; the full suite on the branch tip, 578 tests, the two expected treasury
   failures checked by name.
+- **Annotation (2026-11-27, Haven Decomposition Rev 9):** HV4 changes three of
+  these surfaces. The grace is `PlayerCorpse.grace_active`, true for as long as
+  the body lies in a haven and as before otherwise; the lock reads it at access
+  time, so a staff flag on the room closes a body there and taking it off opens
+  one past 72 hours at once (Haven §11, 2), while the weather still never
+  re-locks one. The death line and `help death` say what a haven keeps, and
+  `look` there shows no span, since there is none. The stored refusal is one
+  sentence since `5baa747` (HV-T3), so it promises no later day; a body made
+  before keeps the line it was given, and `CmdContainerGet` asks the lock
+  before it searches (Evennia Reference §27), so even a stranger at an empty
+  body reads it. The nine such bodies in the home database's Old Temple were
+  given today's line before the flag was set (HV-T6; the Alpha Runbook §7 has
+  both lines).
 
 ### ⚠️ `harvest` treats a player's body as a rabbit
 - **What:** `CmdHarvest._find_corpse` (`commands/hunting_commands.py`) accepts
@@ -1852,6 +1866,22 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   600 real seconds and the buff lasts 300, so zero or one tick falls inside
   it, and that tick's 2400 game seconds count as 3000.
 - **Status:** DONE (`91a3401`, merged in `98fa60e`; survival loop S3.5, decomposition Rev 13)
+
+
+### `typeclasses/objects.py` points at a corpse line that moved
+- **What:** The docstring of `ObjectParent.at_pre_put_in`
+  (`typeclasses/objects.py:47`) names a player's corpse as `corpse.py:278`, for
+  the `get_from` lock that lets its owner through. The lock is at
+  `typeclasses/corpse.py:346` at `0f25d51`; it was at `:339` before HV, so the
+  reference was wrong before the slice, and HV-T2 moved it further. `:278` is
+  now the comment on the grace's length. Name the lock by what it is —
+  `PlayerCorpse`'s `get_from:corpse_grace()` — rather than by a line.
+- **Why deferred:** A comment, in code, found in a docs-only session; code does
+  not change in a docs commit on `main`.
+- **Trigger:** The next code commit that touches `typeclasses/objects.py`.
+- **Origin:** Haven Decomposition HV-T7's STOPP 0, choice 8, 2026-11-27 (Rev
+  127).
+- **Status:** OPEN
 
 ---
 
@@ -2397,6 +2427,10 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   Runbook Rev 16), which carries WN, HE and GR as above and adds CE. CE adds
   no gauge and no tick: a creature's healing is counted when its damage is
   read, not by the survival tick, and no time to death changes.
+- **Annotation (2026-11-27, Haven Decomposition Rev 9):** the tag is now
+  `alpha-20261127` (Alpha Runbook Rev 17), which carries WN, HE, GR and CE as
+  above and adds HV. HV adds no gauge and no tick and changes no time to death:
+  nothing it reads or writes runs on the survival tick.
 - **Status:** OPEN
 
 ### Armour's warmth in the comfort bands
@@ -4096,6 +4130,30 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   were written.
 - **Status:** OPEN
 
+### A statue's name takes no article in a sentence
+- **What:** `Character.get_display_name` (`typeclasses/characters.py:903`)
+  gives a statue as *stone statue of* and the name the looker knows, with no
+  article in front, which reads well as a row in a room's list and not inside a
+  sentence. The guard's line under PV1 (`world/haven.py`, `PVP_REFUSAL`) is the
+  first to show it: *You will not raise a hand against stone statue of a lean,
+  weathered man.* (Haven HV-T4's check at home) and *…against stone statue of
+  Test.* (HV-T6's, a statue in Limbo); the tests hold *…against stone statue
+  of a freckled youth.* Any later line that names a statue as its object, ML's
+  among them, reads the same.
+- **Options (undecided):** (A) the article in each message that names a statue
+  — *the stone statue of …* — where the sentence knows it needs one; (B)
+  `get_display_name` gives the article for a statue when asked (a keyword), as
+  Evennia's `get_numbered_name` gives one for an item (*Article and number in
+  messages built from item keys*).
+- **Why deferred:** No play reaches the line before ML: `hunt` targets
+  creatures, and the guard's half about player against player has no caller yet
+  (Haven §11, 1).
+- **Trigger:** ML's decomposition, when a line that names a target is written;
+  or the next code commit that touches the statue's name.
+- **Origin:** Haven Decomposition HV-T7's STOPP 0, choice 8, 2026-11-27 (Rev
+  127).
+- **Status:** OPEN
+
 ## Tooling & Process
 
 ### `PolishedWorld_System_Backlog.md` lives at the wrong altitude for its location
@@ -4436,6 +4494,13 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   alpha's database is made fresh and needs nothing; a database made before
   the tag deletes every living creature once, and the spawn script makes new
   ones (runbook §7, *Creatures on a database made before `alpha-20261126`*).
+- **Annotation (2026-11-27, Haven Decomposition Rev 9):** HV shipped before the
+  alpha opened too: L6.1 deploys **`alpha-20261127`** (annotated, `5d5acb8`, on
+  `0f25d51`, PR #38, tree `42f18b5`), which carries WN, HE, GR, CE and HV;
+  runbook §7, Rev 17. The alpha's database is seeded from nothing, so its Old
+  Temple is a haven from the first day. A database made before the tag runs the
+  bodies' line and then the flag's line (runbook §7, *The haven on a database
+  made before* the tag).
 - **Status:** OPEN — pending L6 (Launch Minimum §10)
 
 ### When the closed alpha opens — now, or after Stage 5
@@ -4462,6 +4527,15 @@ Each entry: **What · Why deferred · Trigger · Origin · Status**
   changes nothing a player meets before ML; on a running alpha its one-off
   step would be the deletion of every living creature (Alpha Runbook §7).
   Still not decided.
+- **Annotation (2026-11-27, Haven Decomposition Rev 9):** eight of the fourteen
+  slices are merged now — NM, SC, BD, WN, HE, GR, CE and HV (`0f25d51`, PR #38,
+  tagged `alpha-20261127`) — and six remain: HL, ML, DL, DR, PJ and CL. HV
+  changes what a player meets: `hunt` is refused in the Old Temple, and a body
+  there stays its owner's for as long as it lies there. On a running alpha its
+  one-off steps would be two lines (Alpha Runbook §7). If the alpha opens
+  before DR, a rabbit that bolts into the temple stays there for good (Haven
+  OQ-HV2), and a staff line in the runbook is the answer if they gather. Still
+  not decided.
 - **Status:** OPEN
 
 ### Two treasury tests assume the developer's settings match the shipped ones

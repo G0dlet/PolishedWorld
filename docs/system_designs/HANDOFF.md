@@ -1,5 +1,6 @@
 # Handoff — PolishedWorld: immersive design notes, one system per session
 
+> **Rev 21 · 2026-11-27** — the catalogue loop and two notes, docs only, in the commit that closes Stage 5's slice HV (`docs/PolishedWorld_Haven_Decomposition.md` Rev 9; merged as `0f25d51`, PR #38, tagged `alpha-20261127`): the loop is 70/0, the seventieth document being the Haven decomposition (`a237045`); *settlements & commons* still listed who sets the haven flag (Comfort EQ12) as open, and the Comfort digest's EP13 still said Stage 5 decides — both are dated as decided, with the words kept. No queue entry or prefix changed, and the tie-in is kept with its note.
 > **Rev 20 · 2026-11-25** — a twenty-second note, docs only, with roadmap Rev 92, BACKLOG Rev 125 and README Rev 86: `docs/system_designs/PolishedWorld_Creature_Harvesting_Design.md` Rev 1, the queue's *butchery & offal\** under a wider name, written at Adam's request beside Stage 5's slice CE from a handoff of its own. It replaces a project-knowledge file of the same name. The queue loses *butchery & offal*; *bone, horn & antler* and *bowyery & fletching* gain a clause on the boundary. Prefix family HT; no departure rows. No other queue entry changes.
 > **Rev 19 · 2026-11-16** — one gotcha **annotated**, docs only, in the commit that closes Names (`docs/PolishedWorld_Combat_Decomposition.md` Rev 12; merged as `c4ac47a`, PR #31, tagged `alpha-20261116`): the `rpg/rpsystem` gotcha says the slice shipped and where its findings are now. No queue entry, prefix or tie-in changed.
 > **Rev 18 · 2026-11-14** — one passage **changed**, docs only, with `docs/PolishedWorld_Combat_Design.md` Rev 1 and roadmap Rev 80: Stage 5's design session is held, and it hands one question to *lodging & safe logout* — whether a creature may attack a statue (PV; not in Stage 5's first slice). No queue entry, prefix or tie-in changed.
@@ -109,7 +110,7 @@ nothing locked. One docs patch for `main` per session.
   `v6.1.0`. Written outside the method's two STOPPs, from its own handoff, one
   choice per reply. Confirm with a fresh clone that Adam pushed it; the tree is
   the receipt.
-- Catalogue loop 69/0 (59/0 at Rev 14; other documents have been added since): bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
+- Catalogue loop 70/0 (59/0 at Rev 14, 69/0 at Rev 20; other documents have been added since): bash -c 'shopt -s globstar; n=0; m=0; for f in docs/**/*.md;
   do n=$((n+1)); b=${f#docs/}; grep -q "$b" docs/README.md || { m=$((m+1)); echo
   MISSING $f; }; done; echo "checked $n, missing $m"'
 - Prefixes taken: FP/FQ, BP/BQ/BG, TP/TQ/TG, CP/CQ/CG, KP/KQ/KG, GP/GQ/GG, WP/WQ/WG,
@@ -199,7 +200,9 @@ From the suggestion files:
 - settlements & commons (land ownership: Farming GQ4, Housing BQ2; common wells,
   Water VQ3; herb stands as commons, Foraging RG1; woodland rights and planting
   new stands, Forest YQ11/YQ12; a shared kiln as a commons or a service, Pottery §13;
-  a public cellar, Storage DQ14; who sets the haven flag, Comfort EQ12)
+  a public cellar, Storage DQ14; who sets the haven flag, Comfort EQ12 — *(Rev 21:
+  decided for Stage 5 by Haven HV3: staff, with `@set`; a staff command of its own
+  can come with this note)*)
 - calendar, festivals & culture (market days, harvest feast, Perform; Cooking CP15;
   autumn's rendering kettles, Rendering §15; firing night, Pottery §15; autumn
   stores, Storage §15)
@@ -982,7 +985,9 @@ system, Rest's ceiling stays Rest's; EP7 a word in `status`. EP9 `is_haven` room
 flag, staff-set, Old Temple first; EP10 guards bodies (no attack, no taking from a
 person, sleeper, statue), never goods set down (BG5/DG4 hold); EP11/X1 a corpse in
 a haven is its owner's until it crumbles; EP12 no havens in the wild, a camp is
-comfort only; EP13 Stage 5 decides. EP14 a line on coming in from rain/snow
+comfort only; EP13 Stage 5 decides *(Rev 21: decided and built — slice HV, merged
+as `0f25d51`; the readers built are the body and the guard, the comfort read is not
+built, and Comfort Rev 2 says so beside these words)*. EP14 a line on coming in from rain/snow
 (`at_post_move`); EP15/X2 indoor characters hear a muted weather line (shipped
 broadcast skips them); EP16 `$state(raining, …)` works indoors today. EP17 echo
 defect (BACKLOG); EP18 echoes quiet and of the place; EP19 havens written warm.

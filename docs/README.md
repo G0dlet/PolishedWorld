@@ -1,5 +1,6 @@
 # PolishedWorld — docs
 
+> **Rev 103 · 2026-11-27** — two rows changed, docs only, in the commit that closes Stage 5's slice HV (`docs/PolishedWorld_Haven_Decomposition.md` Rev 9, HV-T7b; merged as `0f25d51`, PR #38, tagged `alpha-20261127`), with Testing Reference Rev 33, the System Map Rev 10, Evennia Reference Rev 41, BACKLOG Rev 127, roadmap Rev 94, Lessons Rev 18 and `docs/system_designs/HANDOFF.md` Rev 21: the Haven decomposition's row says it is done, and the Lessons register's row reads *1–521*. No document added or removed; the directory-vs-list loop was run (70/0).
 > **Rev 102 · 2026-11-27** — one row changed, docs only, in the first half of the commit pair that closes Stage 5's slice HV (`docs/PolishedWorld_Haven_Decomposition.md` Rev 8, HV-T7a; merged as `0f25d51`, PR #38, tagged `alpha-20261127`), with Combat Design Rev 16, Combat Decomposition Rev 26 and Comfort Design Rev 2: the Haven decomposition's row says it is merged and its close-out half done. No document added or removed; the directory-vs-list loop was run (70/0).
 > **Rev 101 · 2026-11-27** — one row changed, docs only, with Haven Decomposition Rev 7 and the Alpha Runbook Rev 17: `PolishedWorld_Haven_Decomposition.md` is in progress (HV-T1–HV-T6: merged to `main` as `0f25d51`, PR #38, and tagged `alpha-20261127`; HV-T7, the documentation, is next). Catalogue loop 70/0.
 > **Rev 100 · 2026-11-27** — one row changed, docs only, with Haven Decomposition Rev 6: `PolishedWorld_Haven_Decomposition.md` is in progress (components H1–H3, HV-T1–HV-T5, shipped on `feature/haven`).
@@ -154,7 +155,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Testing reference | reference (`@py` idioms & gotchas) | `docs/PolishedWorld_Testing_Reference.md` |
 | Art style guide | reference (pixel art palette & production rules) | `docs/PolishedWorld_Art_Style_Guide.md` |
 | Tone guide (hard roads, warm hearths — writing and review rules) | reference (tone and writing) | `docs/PolishedWorld_Tone_Guide.md` |
-| Lessons register | reference (numbered working lessons, 1–510) | `docs/PolishedWorld_Lessons.md` |
+| Lessons register | reference (numbered working lessons, 1–521) | `docs/PolishedWorld_Lessons.md` |
 | Consolidated backlog | tactical (deferrals — canonical home) | `docs/BACKLOG.md` |
 | Recipe knowledge decomposition | tactical (feature tasks) | `docs/PolishedWorld_Recipe_Knowledge_Decomposition.md` |
 | Hunting decomposition | tactical (feature tasks) | `docs/PolishedWorld_Hunting_Decomposition.md` |
@@ -180,7 +181,7 @@ The same convention is restated for content agents in `AGENTS.md` §9.
 | Hero Points decomposition (Stage 5, slice HE: the points behind one module, a point per game day played up to four, *Glancing Blow* as a trim of a blow's damage, the command `hero`, a row in `sheet` — done, merged as `3dc009d`) | tactical (feature tasks) | `docs/PolishedWorld_Hero_Points_Decomposition.md` |
 | Gear decomposition (Stage 5, slice GR: weapons and armour as a table read by prototype, three armour layers, Armour Points into Strike Rank, two hands and `wield`, a line in `look`, five recipes — done, merged as `e6c9e2b`) | tactical (feature tasks) | `docs/PolishedWorld_Gear_Decomposition.md` |
 | Creatures decomposition (Stage 5, slice CE: a creature's Constitution, General Hit Points and a Critical Wound rating, one door for hurt with the character's call, the book's rules at 0 Hit Points, the Critical Wound table, healing counted at the read, a line in `look` — done, merged as `02238ac` and tagged `alpha-20261126`) | tactical (feature tasks) | `docs/PolishedWorld_Creatures_Decomposition.md` |
-| Haven decomposition (Stage 5, slice HV: the haven flag behind one reader, set by the seed on the Old Temple; a player's body that stays its owner's while it lies in a haven; the attack guard, with player against player switched off behind a constant; `hunt` refused in a haven — in progress: HV-T1–HV-T6 shipped, merged as `0f25d51` and tagged `alpha-20261127`; HV-T7a, the designs, done) | tactical (feature tasks) | `docs/PolishedWorld_Haven_Decomposition.md` |
+| Haven decomposition (Stage 5, slice HV: the haven flag behind one reader, set by the seed on the Old Temple; a player's body that stays its owner's while it lies in a haven; the attack guard, with player against player switched off behind a constant; `hunt` refused in a haven — done, merged as `0f25d51` and tagged `alpha-20261127`) | tactical (feature tasks) | `docs/PolishedWorld_Haven_Decomposition.md` |
 | Alpha runbook (staff lines for the instance, verified live) | operational (admin procedures) | `docs/PolishedWorld_Alpha_Runbook.md` |
 | Crafting decomposition (worked examples) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition.md` |
 | Crafting decomposition — Arms of Legend (complete) | tactical (crafting-tree tasks) | `docs/crafting/PolishedWorld_Crafting_Decomposition_AoL_Complete.md` |
