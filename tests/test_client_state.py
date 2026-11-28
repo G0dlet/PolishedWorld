@@ -1151,6 +1151,15 @@ class TestPushCensus(EvenniaTest):
         ("world/wounds.py", "mend", "char.attributes.remove('wound_tended')"): "HL-T9",
     }
 
+    # Healing HL-T8: the one thing the wound module keeps in `ndb`, the
+    # treatments under way, and its one writer. The note shows nothing in the
+    # snapshot and is no door; this holds that a treatment is noted through
+    # `note_treatment`, which refuses a second healer, and nowhere else
+    # (Healing Decomposition §2, the third choice). That nothing is stored in
+    # `db` is already held: a new `db` name in world/wounds.py fails
+    # test_every_attribute_the_wound_module_writes_is_named.
+    WOUND_NDB_WRITES = {("world/wounds.py", "note_treatment", "char.ndb.wound_treatment")}
+
     # Skill writes: no panel yet (inventory/skills is W7's); chargen's is
     # covered by node_done's push of all four.
     NOT_PANEL = {
@@ -1173,6 +1182,7 @@ class TestPushCensus(EvenniaTest):
         self.locations = set()
         self.pushes = {}
         self.door_calls = {}
+        self.ndb_notes = set()
         for rel, tree in _production_trees():
             imported = {
                 alias.asname or alias.name
@@ -1207,6 +1217,11 @@ class TestPushCensus(EvenniaTest):
                         if isinstance(target, ast.Attribute) and target.attr in (
                                 ("current",) + self.WOUND_ATTRIBUTES):
                             self.writes.add((rel, qual, ast.unparse(target)))
+                        if (isinstance(target, ast.Attribute)
+                                and target.attr == "wound_treatment"
+                                and isinstance(target.value, ast.Attribute)
+                                and target.value.attr == "ndb"):
+                            self.ndb_notes.add((rel, qual, ast.unparse(target)))
                         if isinstance(target, ast.Attribute) and target.attr in (
                                 "location", "db_location"):
                             self.locations.add((rel, qual, ast.unparse(target)))
@@ -1278,6 +1293,12 @@ class TestPushCensus(EvenniaTest):
                 self.assertIn(door, self.DOORS)
                 called = {key: n for key, n in self.door_calls.items() if key[0] == door}
                 self.assertEqual(called, {}, f"{door} has a caller: {task} pays its debt now.")
+
+    def test_the_treatment_note_has_one_writer(self):
+        # Healing HL-T8: every assignment to `<x>.ndb.wound_treatment` in
+        # production is `note_treatment`'s. A treatment noted anywhere else
+        # would skip its refusal of a second healer (HL4).
+        self.assertEqual(self.ndb_notes, self.WOUND_NDB_WRITES)
 
     def test_every_door_has_one_caller_and_it_pushes(self):
         self.assertEqual(

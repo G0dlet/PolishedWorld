@@ -1,0 +1,94 @@
+# HL-T8 -- the alarm asks whether its location is being treated (Healing
+# decomposition §2's third choice, §9; HL4, WN4).
+# Run: python3 tools/mutate.py tools/mutants/hl_t8.toml --parallel 2
+#
+# Predicted fail counts, in tests (Testing Reference §28.1: the harness counts
+# tests, not subTests), worked through before the run (lesson 497):
+#   HLM26 2 -- test_wound_treatment_hold: treating the arm holds the head's
+#          clock; and the patient's own note on the right leg is refused
+#          because the left arm's treatment answers for every location.
+#   HLM27 2 -- test_wound_treatment_hold: the healer busy with another action
+#          is believed (a stale marker); and the healer who logged out is
+#          believed, since the slot is no longer asked and not emptied. The
+#          mutant believes any live action, not "no check at all": with the
+#          slot emptied by an interrupt it still disbelieves, so the tests
+#          that interrupt first do not see it.
+#   HLM28 1 -- test_wound_treatment_hold: the held alarm sets no new alarm.
+#          The death that never comes is not seen by a hand-fired test; the
+#          count of alarms is the receipt.
+#   HLM29 1 -- test_wound_treatment_hold: the second healer accepted.
+#
+# Run 2026-11-28 (sandbox; baseline 242 tests OK, 93 s): all four killed by
+# exactly the predicted tests, in the predicted counts -- 2, 2, 1 and 1 --
+# with --parallel 2. None of them fails a subTest.
+
+modules = [
+    "tests.test_wound_treatment_hold",
+    "tests.test_client_state",
+    "tests.test_wound_clocks",
+    "tests.test_wound_runtime",
+    "tests.test_wound_unconscious",
+    "tests.test_wounds",
+    "tests.test_wound_mend",
+    "tests.test_timed_actions",
+]
+
+[[mutant]]
+id = "HLM26"
+# A treatment of any location holding every clock.
+file = "world/wounds.py"
+old = '''    note = _notes_of(char).get(location)
+    return note is not None and _believed(char, note)
+'''
+new = '''    return any(_believed(char, note) for note in _notes_of(char).values())
+'''
+expect = [
+    "test_treating_the_arm_does_not_hold_the_heads_clock",
+    "test_a_second_healer_is_refused_and_accepted_once_the_first_is_over",
+]
+
+[[mutant]]
+id = "HLM27"
+# A stale marker believed: any live action of the healer's is taken for
+# the treatment.
+file = "world/wounds.py"
+old = '''    if not timed_actions.is_current(healer, marker):
+        return False
+'''
+new = '''    if healer.ndb.timed_action is None:
+        return False
+'''
+expect = [
+    "test_a_stale_marker_is_not_believed",
+    "test_a_healer_who_logs_out_protects_no_longer",
+]
+
+[[mutant]]
+id = "HLM28"
+# The alarm not set again, so the body never dies.
+file = "world/wounds.py"
+old = '''    if being_treated(char, location):   # HL4: it waits and asks again
+        delay(TREATMENT_RECHECK_SECONDS, _clock_due, char, location, deadline,
+              persistent=True)
+        return
+'''
+new = '''    if being_treated(char, location):   # HL4: it waits and asks again
+        return
+'''
+expect = [
+    "test_a_due_clock_whose_location_is_treated_does_not_kill_and_asks_again",
+]
+
+[[mutant]]
+id = "HLM29"
+# The second healer accepted.
+file = "world/wounds.py"
+old = '''    _check_one(location)
+    if being_treated(char, location):
+        return False
+    notes = '''
+new = '''    _check_one(location)
+    notes = '''
+expect = [
+    "test_a_second_healer_is_refused_and_accepted_once_the_first_is_over",
+]

@@ -16,6 +16,9 @@ unconsciousness while it lasts (WN-T9), a fourth, `db.wound_clocks`, a
 Major Wound's deadline per location (WN-T10), and a fifth, `db.wound_tended`,
 the set of locations that have had a won First Aid test, emptied for a
 location when it is whole and for all at respawn (Healing HL-T7; HL7, 2).
+One thing is kept in `ndb` and not in `db`: `ndb.wound_treatment`, the
+treatments under way, which the clock's alarm asks before it kills and
+which dies with the timed-action slot at a reload (Healing HL-T8; HL4).
 Slice HL adds two doors for one location: `mend`, and `restore_use` for
 First Aid's Serious row (HL7, 4). A missing Attribute is an unhurt,
 unmarked, waking body with no clock and no mark. Readers test for a
@@ -101,6 +104,12 @@ MINUTE = 60
 # WN4: the book's five-second round, the wound module's own constant for the
 # vital clock -- for the same reason it is not ROUND_SECONDS.
 VITAL_ROUND_SECONDS = 5
+
+# HL4: how long a due clock's alarm waits before it asks again while its
+# location is being treated -- and so how soon after a treatment lost past
+# the deadline the body dies. The wound module's own constant, for the same
+# reason VITAL_ROUND_SECONDS is: it must not move with the vital clock.
+TREATMENT_RECHECK_SECONDS = 5
 
 # The 1D20 table for a humanoid (p. 145): each row's highest roll and the
 # location it names, lowest first.
@@ -933,20 +942,101 @@ def start_clock(char, location):
     return deadline
 
 
+def _notes_of(char):
+    """The treatments noted on a patient, location -> (healer, marker)."""
+    notes = getattr(getattr(char, "ndb", None), "wound_treatment", None)
+    return dict(notes) if isinstance(notes, Mapping) else {}
+
+
+def _believed(char, note):
+    """
+    A note is believed while its marker is the healer's live action and the
+    healer stands in the patient's room. `is_current` is asked first: it
+    empties the slot of a healer with no player.
+    """
+    healer, marker = note
+    if not timed_actions.is_current(healer, marker):
+        return False
+    return char.location is not None and healer.location == char.location
+
+
+def being_treated(char, location):
+    """
+    True while `location` of `char` is being treated now (HL4; Healing
+    HL-T8): a note for that location whose marker is still the healer's
+    live action (`timed_actions.is_current`, which compares by `is`), with
+    the healer in the patient's room -- a patient who walks away is no
+    longer being treated, though the healer's time has not run out. Another
+    location's note answers nothing here: treating an arm does not hold the
+    head's clock.
+
+    Not quite a pure read. `is_current` empties the slot of a healer with no
+    player, so this may be the first to notice that the healer has gone and
+    write that much (timed_actions.py, *what an unpuppeted character means
+    here*). The note itself is not changed.
+    """
+    note = _notes_of(char).get(location)
+    return note is not None and _believed(char, note)
+
+
+def note_treatment(char, location, healer, marker):
+    """
+    Note on the patient that `healer` is treating `location` now, with the
+    marker `timed_actions.start` gave the healer (HL4; Healing HL-T8, §2's
+    third choice). The treatment's own record is the healer's slot, and the
+    clock's alarm holds the patient, so the task that starts a treatment
+    (HL-T10) writes this note and the alarm reads it through
+    `being_treated`.
+
+    The note is `char.ndb.wound_treatment`, location -> (healer, marker),
+    a fresh dict on every write, and holds the marker object itself, since
+    `is_current` compares by identity. Nothing is stored in `db`: the note
+    dies with the slot at a reload, and the alarm then rings as it would
+    have (HL4). A note no longer believed is dropped when the next is
+    written. The census holds this function as the note's one writer
+    (`TestPushCensus.WOUND_NDB_WRITES`).
+
+    Raises:
+        ValueError: for anything but a key of `body.LOCATIONS`.
+
+    Returns:
+        bool: True when the treatment was noted; False when another is
+            believed for that location -- a second healer on the same
+            location is refused (HL4).
+    """
+    _check_one(location)
+    if being_treated(char, location):
+        return False
+    notes = {key: note for key, note in _notes_of(char).items() if _believed(char, note)}
+    notes[location] = (healer, marker)
+    char.ndb.wound_treatment = notes
+    return True
+
+
 def _clock_due(char, location, deadline):
     """
     The alarm (persistent; module-level). It reads the deadline again and
     does nothing unless that location's stored deadline is still the one it
     was set for and has passed -- a stopped clock, a death or a later clock
-    has made it stale. Then the body is told and dies (WO3); the death's
-    restore removes every clock, so a second alarm finds nothing and the
-    body is not killed again where it came back (WN9).
+    has made it stale. An early alarm sets itself for what is left, so a
+    treatment before the deadline buys no time. Past the deadline it asks
+    whether the location is being treated now (`being_treated`); if it is,
+    it sets itself again `TREATMENT_RECHECK_SECONDS` on, persistent and with
+    the same deadline, and returns (HL4; Healing HL-T8). A reload empties
+    the note and the alarm then kills as it would have. Otherwise the body
+    is told and dies (WO3); the death's restore removes every clock, so a
+    second alarm finds nothing and the body is not killed again where it
+    came back (WN9).
     """
     if clocks_of(char).get(location) != deadline:
         return
     left = deadline - _now()
     if left > 0:   # early: the task's wall-clock date came first (HL11)
         delay(left, _clock_due, char, location, deadline, persistent=True)
+        return
+    if being_treated(char, location):   # HL4: it waits and asks again
+        delay(TREATMENT_RECHECK_SECONDS, _clock_due, char, location, deadline,
+              persistent=True)
         return
     char.msg(CLOCK_OUT)
     if char.location:
