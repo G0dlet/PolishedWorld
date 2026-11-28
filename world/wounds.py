@@ -12,11 +12,16 @@ for every writer -- `damage`, `heal`, `room_to_heal`, `restore_at_respawn`
 the locations that have something: `db.body_damage`, location to a whole
 number (WN-T5), and `db.wound_states`, location to `DISABLED`, `MAIMED` or
 `SEVERED` (WN-T8). A third, `db.wound_unconscious`, holds a wound's
-unconsciousness while it lasts (WN-T9), and a fourth, `db.wound_clocks`, a
-Major Wound's deadline per location (WN-T10). A missing Attribute is an
-unhurt, unmarked, waking body with no clock. Readers
-test for a `Mapping`, never a `dict` (a stored dict comes back as a
-`_SaverDict`); writers assign a fresh dict and never change one in place, and
+unconsciousness while it lasts (WN-T9), a fourth, `db.wound_clocks`, a
+Major Wound's deadline per location (WN-T10), and a fifth, `db.wound_tended`,
+the set of locations that have had a won First Aid test, emptied for a
+location when it is whole and for all at respawn (Healing HL-T7; HL7, 2).
+Slice HL adds two doors for one location: `mend`, and `restore_use` for
+First Aid's Serious row (HL7, 4). A missing Attribute is an unhurt,
+unmarked, waking body with no clock and no mark. Readers test for a
+`Mapping`, never a `dict` (a stored dict comes back as a `_SaverDict`), and
+for a `Set`, never a `set` (a stored set comes back as a `_SaverSet`);
+writers assign a fresh dict or set and never change one in place, and
 remove the Attribute when nothing is left. The `health` trait is not read.
 
 The damage is what is stored (WN1); Hit Points are worked out from it on
@@ -30,7 +35,7 @@ at a vital Major Wound leaves the same damage as a lost one and only the
 lost one is death (Wounds WN-T8, choice A).
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Set
 from fractions import Fraction
 from random import randint
 
@@ -572,7 +577,163 @@ def heal(char, points):
                 char.db.wound_states = kept
             else:
                 char.attributes.remove("wound_states")
+    # A location made whole loses its First Aid mark (HL7, 2; Healing
+    # HL-T7): *until it has fully healed* (p. 50).
+    tended = tended_of(char)
+    if tended - set(left):
+        kept_marks = tended & set(left)
+        if kept_marks:
+            char.db.wound_tended = set(kept_marks)
+        else:
+            char.attributes.remove("wound_tended")
     return landed
+
+
+def _check_one(location):
+    """
+    Refuse anything but one location: the doors for one location take no
+    `ALL` or `RANDOM` (Healing HL-T7).
+
+    Raises:
+        ValueError: unless `location` is a key of `body.LOCATIONS`.
+    """
+    if location not in LOCATIONS:
+        raise ValueError(f"{location!r} is not a key of world.body.LOCATIONS")
+
+
+def tended_of(char):
+    """
+    The locations that have had a won First Aid test, as a frozenset; empty
+    for an unmarked body (HL7, 2; Healing HL-T7).
+
+    A stored set comes back as a `_SaverSet`, which is a `Set` and not a
+    `set`, so the test is for the abstract class, as it is `Mapping` for the
+    dicts. A stored name that is not a location is not returned. The reader
+    does not filter by damage: the writers keep the mark off a whole
+    location, and a test that reads the mark must see it if they do not.
+    """
+    stored = char.attributes.get("wound_tended") if hasattr(char, "attributes") else None
+    if not isinstance(stored, Set):
+        return frozenset()
+    return frozenset(key for key in stored if key in LOCATIONS)
+
+
+def mark_tended(char, location):
+    """
+    Mark a hurt location as having had its First Aid (HL7, 2: a location
+    that has had First Aid *cannot benefit from First Aid again until it has
+    fully healed*, p. 50). Only a won test marks; the caller (Healing HL-T9)
+    decides that, and this writes.
+
+    An unhurt location is refused, so the mark never stands on a whole
+    location -- the rule `heal`, `mend` and `restore_at_respawn` keep by
+    emptying it. A new blow leaves the mark as it is: the location has not
+    fully healed. Nothing in the snapshot shows the mark, so the census
+    keeps the write in NOT_PANEL.
+
+    Raises:
+        ValueError: for anything but a key of `body.LOCATIONS`.
+
+    Returns:
+        bool: True when the location was marked now; False when it was
+            already marked or has no damage.
+    """
+    _check_one(location)
+    tended = tended_of(char)
+    if location in tended or location not in damage_of(char):
+        return False
+    char.db.wound_tended = set(tended | {location})
+    return True
+
+
+def mend(char, location, points):
+    """
+    Mend `points` Hit Points on one location, never past unhurt; returns the
+    points that landed (HL7, 1; Healing HL-T7). First Aid's door: 1D3 on an
+    injured location, 1 on a Serious Wound (Healing HL-T9).
+
+    A location whose clock runs is refused and nothing is written, as `heal`
+    skips it (WN10): the Major row stops the clock and gives no points.
+    *Disabled* goes when the location is above 0 Hit Points, as in `heal`
+    (p. 145); the Serious row's use of a limb at 0 or below is
+    `restore_use`'s and not this door's. *Maimed* and *severed* are never
+    taken. A location made whole loses its mark. Like the other doors it
+    pushes nothing: its caller does (WN-T4).
+
+    Raises:
+        ValueError: for anything but a key of `body.LOCATIONS`.
+
+    Returns:
+        int: points that landed (0 when refused, unhurt, or `points` <= 0).
+    """
+    _check_one(location)
+    maxima = maxima_of(char)
+    if maxima is None or points <= 0 or location in clocks_of(char):
+        return 0
+    damages = damage_of(char)
+    had = damages.get(location, 0)
+    if not had:
+        return 0
+    landed = min(points, had)
+    left = {key: value - landed if key == location else value
+            for key, value in damages.items()
+            if key != location or value > landed}
+    if left:
+        char.db.body_damage = left
+    else:
+        char.attributes.remove("body_damage")
+    states = states_of(char)
+    if (states.get(location) == DISABLED
+            and hit_points(maxima[location], left.get(location, 0)) > 0):
+        kept = {key: state for key, state in states.items() if key != location}
+        if kept:
+            char.db.wound_states = kept
+        else:
+            char.attributes.remove("wound_states")
+    tended = tended_of(char)
+    if location in tended and location not in left:
+        kept_marks = tended - {location}
+        if kept_marks:
+            char.db.wound_tended = set(kept_marks)
+        else:
+            char.attributes.remove("wound_tended")
+    return landed
+
+
+def restore_use(char, location):
+    """
+    Give a limb its use back whatever its Hit Points: *disabled* is taken
+    from the location (HL7, 4; Healing HL-T7). First Aid's Serious row --
+    the limb works again (p. 50) -- with its point or without, since a
+    Starving or Dehydrated body gets none (HL7, 5; Healing HL-T9).
+
+    Two rules meet here. `heal` and `mend` let *disabled* go only above 0
+    Hit Points (p. 145, the wound's own rule); the book's First Aid row
+    gives the use back at 0 or below. This door is that row and nothing
+    else, so its caller is the one place the second rule is applied.
+
+    *Maimed* and *severed* are never taken: a Major Wound is surgery's
+    (HL9). The damage is not touched. Nothing in the snapshot moves (the
+    panel shows health, which is the damage), so the census keeps the
+    writes in NOT_PANEL. `gear.held` reads an arm lazily (GR22): what the
+    hand held when the arm was disabled is held again, if still carried.
+
+    Raises:
+        ValueError: for anything but a key of `body.LOCATIONS`.
+
+    Returns:
+        bool: True when *disabled* was taken.
+    """
+    _check_one(location)
+    states = states_of(char)
+    if states.get(location) != DISABLED:
+        return False
+    kept = {key: state for key, state in states.items() if key != location}
+    if kept:
+        char.db.wound_states = kept
+    else:
+        char.attributes.remove("wound_states")
+    return True
 
 
 def restore_at_respawn(char):
@@ -580,13 +741,15 @@ def restore_at_respawn(char):
     What death gives back of the body (WN9): the damage is emptied,
     *disabled* is cleared, since every location is whole again, and a
     wound's unconsciousness ends without a waking line -- the death says
-    what happened; *maimed* and *severed* stay. Called from the restore
+    what happened; the marks of First Aid go with the damage (HL7, 2;
+    Healing HL-T7); *maimed* and *severed* stay. Called from the restore
     block of `Character.at_character_death`, which knows none of the
     Attributes and whose push_soon of all four domains sends it.
     """
     char.attributes.remove("body_damage")
     char.attributes.remove("wound_unconscious")
     char.attributes.remove("wound_clocks")
+    char.attributes.remove("wound_tended")
     states = states_of(char)
     kept = {key: state for key, state in states.items() if state != DISABLED}
     if kept != states:

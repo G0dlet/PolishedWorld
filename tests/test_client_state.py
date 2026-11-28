@@ -1091,7 +1091,18 @@ class TestPushCensus(EvenniaTest):
     # WN-T10: the clocks. `start_clock` is a door (the writer pushes);
     # `stop_clock` is HL's entry point with no caller in WN, and nothing in
     # the snapshot moves when a clock stops, so its writes are NOT_PANEL.
-    WOUND_ATTRIBUTES = ("body_damage", "wound_states", "wound_unconscious", "wound_clocks")
+    # Healing HL-T7: the mark, `wound_tended`, and two doors for one
+    # location. `heal` and `restore_at_respawn` empty the mark under the
+    # callers they have. `mend` moves `body_damage`, which the panel shows,
+    # so it is a door -- in DOORS from now -- but its caller is HL-T9's:
+    # its writes stand in AWAITING_CALLER, and
+    # test_awaiting_doors_have_no_caller_yet fails the day the caller is
+    # written, when they move to DOOR_WRITES with it (lesson candidate 39).
+    # `restore_use` and `mark_tended` move nothing in the snapshot (the
+    # panel's health is the damage; the hands are not in it), so their
+    # writes are NOT_PANEL, as `stop_clock`'s are.
+    WOUND_ATTRIBUTES = ("body_damage", "wound_states", "wound_unconscious", "wound_clocks",
+                        "wound_tended")
     DOOR_WRITES = {
         ("world/wounds.py", "damage", "char.db.body_damage"):
             ("typeclasses/characters.py", "Character.apply_health_damage", "char"),
@@ -1119,6 +1130,25 @@ class TestPushCensus(EvenniaTest):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
         ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_states')"):
             ("typeclasses/characters.py", "Character.at_character_death", "char"),
+        # Healing HL-T7: the mark, emptied under the doors' own callers.
+        ("world/wounds.py", "heal", "char.db.wound_tended"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "heal", "char.attributes.remove('wound_tended')"):
+            ("world/healing.py", "accrue", "char"),
+        ("world/wounds.py", "restore_at_respawn", "char.attributes.remove('wound_tended')"):
+            ("typeclasses/characters.py", "Character.at_character_death", "char"),
+    }
+
+    # Healing HL-T7: a door's writes before the door has its one caller,
+    # with the task that writes it. Counted as known writes; the twin test
+    # holds each door at no caller, so the debt cannot be paid unseen.
+    AWAITING_CALLER = {
+        ("world/wounds.py", "mend", "char.db.body_damage"): "HL-T9",
+        ("world/wounds.py", "mend", "char.attributes.remove('body_damage')"): "HL-T9",
+        ("world/wounds.py", "mend", "char.db.wound_states"): "HL-T9",
+        ("world/wounds.py", "mend", "char.attributes.remove('wound_states')"): "HL-T9",
+        ("world/wounds.py", "mend", "char.db.wound_tended"): "HL-T9",
+        ("world/wounds.py", "mend", "char.attributes.remove('wound_tended')"): "HL-T9",
     }
 
     # Skill writes: no panel yet (inventory/skills is W7's); chargen's is
@@ -1130,6 +1160,10 @@ class TestPushCensus(EvenniaTest):
         ("world/wounds.py", "_come_to", "char.attributes.remove('wound_unconscious')"),
         ("world/wounds.py", "stop_clock", "char.db.wound_clocks"),
         ("world/wounds.py", "stop_clock", "char.attributes.remove('wound_clocks')"),
+        # Healing HL-T7: a limb's use and the mark show nothing in the snapshot.
+        ("world/wounds.py", "restore_use", "char.db.wound_states"),
+        ("world/wounds.py", "restore_use", "char.attributes.remove('wound_states')"),
+        ("world/wounds.py", "mark_tended", "char.db.wound_tended"),
     }
 
     def setUp(self):
@@ -1177,7 +1211,7 @@ class TestPushCensus(EvenniaTest):
                                 "location", "db_location"):
                             self.locations.add((rel, qual, ast.unparse(target)))
 
-    DOORS = ("damage", "heal", "restore_at_respawn", "knock_out", "start_clock")
+    DOORS = ("damage", "heal", "restore_at_respawn", "knock_out", "start_clock", "mend")
 
     @classmethod
     def _door_called(cls, call, imported):
@@ -1228,7 +1262,22 @@ class TestPushCensus(EvenniaTest):
 
     def test_every_current_write_is_known(self):
         self.assertEqual(
-            self.writes, set(self.GAUGE_WRITES) | self.NOT_PANEL | set(self.DOOR_WRITES))
+            self.writes,
+            set(self.GAUGE_WRITES) | self.NOT_PANEL | set(self.DOOR_WRITES)
+            | set(self.AWAITING_CALLER))
+
+    def test_awaiting_doors_have_no_caller_yet(self):
+        # The twin of AWAITING_CALLER (Healing HL-T7): each door there is
+        # counted by the census (in DOORS) and has no caller in production
+        # yet. When the named task writes the caller this fails, and the
+        # writes move to DOOR_WRITES with the caller, which must push.
+        awaiting = {(door, task) for (_rel, door, _t), task in self.AWAITING_CALLER.items()}
+        self.assertEqual(awaiting, {("mend", "HL-T9")})
+        for door, task in sorted(awaiting):
+            with self.subTest(door=door):
+                self.assertIn(door, self.DOORS)
+                called = {key: n for key, n in self.door_calls.items() if key[0] == door}
+                self.assertEqual(called, {}, f"{door} has a caller: {task} pays its debt now.")
 
     def test_every_door_has_one_caller_and_it_pushes(self):
         self.assertEqual(

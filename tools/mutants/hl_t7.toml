@@ -1,0 +1,106 @@
+# HL-T7 -- a door for one location, and the mark (Healing decomposition §9;
+# HL7, WN1, WN9, WN10).
+# Run: python3 tools/mutate.py tools/mutants/hl_t7.toml --parallel 2
+#
+# Predicted fail counts, in tests (Testing Reference §28.1: the harness counts
+# tests, not subTests), worked through before the run (lesson 497):
+#   HLM21 3 -- test_wound_mend: three points to an arm with two (the head's
+#          one point goes too), another location untouched, and mend taking
+#          the mark (the leg is mended to nothing by the arm's second call,
+#          so the leg's own call lands nothing and its mark stays).
+#   HLM22 2 -- test_wound_mend: the two calls with more points than damage,
+#          three to an arm with two and three to an arm with one.
+#   HLM23 1 -- test_wound_mend: natural healing taking the mark of a
+#          location made whole. `mend`'s own emptying is tested by
+#          test_mend_takes_the_mark_of_a_location_made_whole and not mutated
+#          here: HLM23 is put where play reaches it from the merge.
+#   HLM24 2 -- test_wound_mend: a death empties the marks; test_client_state:
+#          every current write is known (DOOR_WRITES names the removal).
+#   HLM25 1 -- test_wound_mend: maimed and severed are never taken (one test
+#          over two subTests).
+#
+# Run 2026-11-28 (sandbox; baseline 243 tests OK): all five killed by
+# exactly the predicted tests, in the predicted counts -- 3, 2, 1, 2 and 1.
+# HLM21-HLM24 with --parallel 2 (85 s baseline); HLM25 with --parallel 1
+# (171 s), because a failing subTest cannot be sent back from a parallel
+# worker (`MaybeEncodingError`, a WeakKeyDictionary in the traceback) and
+# the run ends without a result.
+
+modules = [
+    "tests.test_wound_mend",
+    "tests.test_client_state",
+    "tests.test_wounds",
+    "tests.test_wound_states",
+    "tests.test_wound_clocks",
+    "tests.test_wound_unconscious",
+    "tests.test_wound_report",
+]
+
+[[mutant]]
+id = "HLM21"
+# The door mending every location.
+file = "world/wounds.py"
+old = '''    left = {key: value - landed if key == location else value
+            for key, value in damages.items()
+            if key != location or value > landed}
+'''
+new = '''    left = {key: value - landed
+            for key, value in damages.items()
+            if value > landed}
+'''
+expect = [
+    "test_three_points_to_an_arm_with_two_land_two",
+    "test_another_location_is_untouched",
+    "test_mend_takes_the_mark_of_a_location_made_whole",
+]
+
+[[mutant]]
+id = "HLM22"
+# A location mended past unhurt.
+file = "world/wounds.py"
+old = '''    landed = min(points, had)
+'''
+new = '''    landed = points
+'''
+expect = [
+    "test_three_points_to_an_arm_with_two_land_two",
+    "test_a_location_is_never_mended_past_unhurt",
+]
+
+[[mutant]]
+id = "HLM23"
+# The mark kept on a whole location (natural healing).
+file = "world/wounds.py"
+old = '''    if tended - set(left):
+'''
+new = '''    if False:
+'''
+expect = [
+    "test_natural_healing_takes_the_mark_of_a_location_made_whole",
+]
+
+[[mutant]]
+id = "HLM24"
+# The mark kept through a death.
+file = "world/wounds.py"
+old = '''    char.attributes.remove("wound_clocks")
+    char.attributes.remove("wound_tended")
+'''
+new = '''    char.attributes.remove("wound_clocks")
+'''
+expect = [
+    "test_a_death_empties_the_marks_and_keeps_maimed",
+    "test_every_current_write_is_known",
+]
+
+[[mutant]]
+id = "HLM25"
+# The Serious door taking *maimed*.
+file = "world/wounds.py"
+old = '''    if states.get(location) != DISABLED:
+'''
+new = '''    if states.get(location) not in (DISABLED, MAIMED):
+'''
+expect = [
+    "test_maimed_and_severed_are_never_taken",
+]
